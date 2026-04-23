@@ -1,7 +1,10 @@
-// src/app/dashboard/page.tsx
 
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { getLevel, getCityTier, xpToNextLevel, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -19,28 +22,115 @@ export default async function DashboardPage() {
 
   if (!profile?.onboarding_complete) redirect('/onboarding')
 
+  const level = getLevel(profile.total_xp)
+  const cityTier = getCityTier(level)
+  const xpNext = xpToNextLevel(profile.total_xp)
+  const progress = getXpProgress(profile.total_xp)
+
+  // Recent entries for quick view
+  const { data: recentEntries } = await supabase
+    .from('journal_entries')
+    .select('*, journal_templates(name, icon)')
+    .eq('user_id', user.id)
+    .eq('is_complete', true)
+    .order('entry_date', { ascending: false })
+    .limit(3)
+
   return (
-    <div className="min-h-svh bg-background p-4 sm:p-8">
+    <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">
-              Welcome back, {profile.username ?? 'Adventurer'} 👋
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              Level {Math.floor(profile.total_xp / 500) + 1} •{' '}
-              {profile.total_xp} XP • 🔥 {profile.current_streak} day streak
-            </p>
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold">
+            Welcome back, {profile.username ?? 'Adventurer'} 👋
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {CITY_TIER_LABELS[cityTier]} • Level {level}
+          </p>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="border-border/50">
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold">🔥 {profile.current_streak}</p>
+              <p className="text-xs text-muted-foreground">Day Streak</p>
+              {profile.current_streak >= profile.best_streak &&
+                profile.current_streak > 0 && (
+                  <p className="text-xs text-primary mt-1">Best ever!</p>
+                )}
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold">⚡ {profile.total_xp}</p>
+              <p className="text-xs text-muted-foreground">Total XP</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold">🏅 {level}</p>
+              <p className="text-xs text-muted-foreground">Level</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* XP Progress Bar */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Level {level}</span>
+            <span>{xpNext} XP to Level {level + 1}</span>
+          </div>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${progress * 100}%` }}
+            />
           </div>
         </div>
 
-        <div className="rounded-lg border border-border/50 bg-card p-6 text-center text-muted-foreground">
-          <p className="text-4xl mb-2">🏕️</p>
-          <p>Your city awaits. Start journaling to build it up!</p>
-          <p className="text-xs mt-2">
-            Dashboard, city view, and insights coming in Weeks 4–6.
-          </p>
-        </div>
+        {/* Quick Action */}
+        <Button asChild size="lg" className="w-full">
+          <Link href="/journal">📝 Start Journaling</Link>
+        </Button>
+
+        {/* Recent Entries */}
+        {recentEntries && recentEntries.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Recent Entries
+            </h2>
+            {recentEntries.map((entry) => {
+              const tmpl = entry.journal_templates as unknown as {
+                name: string
+                icon: string
+              }
+              return (
+                <Link key={entry.id} href={`/journal/${entry.id}`}>
+                  <Card className="border-border/50 transition-all hover:bg-muted/30 mb-2">
+                    <CardContent className="flex items-center gap-3 p-3">
+                      <span className="text-xl">{tmpl?.icon ?? '📓'}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          {tmpl?.name ?? 'Entry'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(entry.entry_date).toLocaleDateString(
+                            'en-US',
+                            { weekday: 'short', month: 'short', day: 'numeric' }
+                          )}
+                        </p>
+                      </div>
+                      <span className="text-xs text-primary">
+                        +{entry.xp_earned} XP
+                      </span>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            })}
+          </section>
+        )}
       </div>
     </div>
   )

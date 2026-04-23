@@ -15,7 +15,7 @@ export async function updateSession(request: NextRequest) {
   // Cookies lesen und (bei Bedarf) setzen kann.
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
         // Liefert alle Cookies aus dem eingehenden Request an Supabase.

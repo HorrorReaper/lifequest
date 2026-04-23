@@ -55,6 +55,7 @@ export function LoginForm() {
   }
 
   async function handleGoogleAuth() {
+    // Redirect to Supabase's hosted OAuth page
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
