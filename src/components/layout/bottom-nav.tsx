@@ -2,11 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { BarChart3 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: '🏠' },
   { href: '/journal', label: 'Journal', icon: '📝' },
   { href: '/journal/templates', label: 'Templates', icon: '🧱' },
+  { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { href: '/city', label: 'City', icon: '🏙️' },
   { href: '/settings', label: 'Settings', icon: '⚙️' },
 ]
@@ -20,6 +22,8 @@ export function BottomNav() {
         {NAV_ITEMS.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + '/')
+          const Icon = item.icon as any;
+
           return (
             <Link
               key={item.href}
@@ -30,7 +34,13 @@ export function BottomNav() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <span className="text-lg">{item.icon}</span>
+              <span className="text-lg">
+                {typeof Icon === 'string' ? (
+                  Icon
+                ) : (
+                  <Icon />
+                )}
+              </span>
               <span>{item.label}</span>
             </Link>
           )

@@ -98,3 +98,45 @@ export interface ChecklistItem {
   label: string
   checked: boolean
 }
+// ============================================
+// CITY BUILDER TYPES
+// ============================================
+
+export type CityTier = 'village' | 'town' | 'city' | 'metropolis' | 'capital';
+export type UnlockType = 'level' | 'streak' | 'entries_count' | 'entry_types';
+
+export interface CityBuilding {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  city_tier: CityTier;
+  unlock_type: UnlockType;
+  unlock_value: number;
+  sort_order: number;
+  image_url: string | null;
+  created_at: string;
+}
+
+export interface UserBuilding {
+  id: string;
+  user_id: string;
+  building_id: string;
+  unlocked_at: string;
+}
+
+export interface CityBuildingWithStatus extends CityBuilding {
+  is_unlocked: boolean;
+  unlocked_at: string | null;
+  is_newly_unlocked?: boolean;
+}
+
+export interface PlayerStats {
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+  currentStreak: number;
+  longestStreak: number;
+  totalEntries: number;
+  uniqueTemplatesUsed: number;
+}

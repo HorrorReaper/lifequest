@@ -1,3 +1,4 @@
+import { CityBuilding, UserBuilding } from "../types"
 
 export type Json =
   | string
@@ -259,7 +260,7 @@ export interface Database {
         }
       }
       city_buildings: {
-        Row: {
+        /*Row: {
           id: string
           name: string
           emoji: string
@@ -269,8 +270,9 @@ export interface Database {
           unlock_value: number
           sort_order: number
           image_url: string | null
-        }
-        Insert: {
+        }*/
+       Row: CityBuilding;
+        /*Insert: {
           id?: string
           name: string
           emoji: string
@@ -280,8 +282,9 @@ export interface Database {
           unlock_value: number
           sort_order?: number
           image_url?: string | null
-        }
-        Update: {
+        }*/
+        Insert: Omit<CityBuilding, "id" | "created_at"> & { id?: string; created_at?: string };
+        /*Update: {
           id?: string
           name?: string
           emoji?: string
@@ -291,10 +294,11 @@ export interface Database {
           unlock_value?: number
           sort_order?: number
           image_url?: string | null
-        }
+        }*/
+        Update: never; //CityBuilding is static data, we won't update it through the app
       }
       user_buildings: {
-        Row: {
+        /*Row: {
           id: string
           user_id: string
           building_id: string
@@ -311,7 +315,12 @@ export interface Database {
           user_id?: string
           building_id?: string
           unlocked_at?: string
-        }
+        }*/
+       user_buildings: {
+          Row: UserBuilding;
+          Insert: Omit<UserBuilding, 'id' | 'unlocked_at'> & { id?: string; unlocked_at?: string };
+          Update: never;
+        };
       }
       streak_history: {
         Row: {

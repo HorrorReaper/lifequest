@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { getLevel, getCityTier, xpToNextLevel, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
+import { StreakBadge } from "@/components/analytics/StreakBadge";
+import { calculateStreaks, getWeeklySummary, JournalEntry } from "@/lib/analytics";
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -35,6 +37,12 @@ export default async function DashboardPage() {
     .eq('is_complete', true)
     .order('entry_date', { ascending: false })
     .limit(3)
+  const { data: allEntries } = await supabase
+    .from('journal_entries')
+    .select('*')
+    .eq('user_id', user.id)
+  const streaks = calculateStreaks(allEntries || [])
+  const weekly = getWeeklySummary(allEntries || [])
 
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
@@ -74,6 +82,30 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+        <div className="flex items-center justify-between">
+  <StreakBadge current={streaks.current} />
+  <Link
+    href="/analytics"
+    className="text-sm text-primary hover:underline"
+  >
+    View Analytics →
+  </Link>
+</div>
+
+<div className="grid grid-cols-3 gap-4 mt-4">
+  <div className="rounded-lg border p-4 text-center">
+    <p className="text-2xl font-bold">{weekly.entryCount}</p>
+    <p className="text-xs text-muted-foreground">This week</p>
+  </div>
+  <div className="rounded-lg border p-4 text-center">
+    <p className="text-2xl font-bold">{weekly.daysActive}/7</p>
+    <p className="text-xs text-muted-foreground">Days active</p>
+  </div>
+  <div className="rounded-lg border p-4 text-center">
+    <p className="text-2xl font-bold">{weekly.avgMood ?? "—"}</p>
+    <p className="text-xs text-muted-foreground">Avg mood</p>
+  </div>
+</div>
 
         {/* XP Progress Bar */}
         <div className="space-y-1">
