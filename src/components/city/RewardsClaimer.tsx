@@ -4,32 +4,73 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Gift, Coins, Sparkles } from "lucide-react";
-import { calculateRewards } from "@/lib/city";
+import { createClient } from "@/lib/supabase/client";
+import {
+  calculateRewards,
+  fetchUnclaimedEntryCount,
+} from "@/lib/city/city";
 import { calculateStreaks, JournalEntry } from "@/lib/analytics";
 
 interface RewardsClaimerProps {
+  userId: string;
   claimedIds: string[];
   onClaim: (newCoins: number, newXp: number, claimedIds: string[]) => void;
 }
 
-export function RewardsClaimer({ claimedIds, onClaim }: RewardsClaimerProps) {
-  const [unclaimed, setUnclaimed] = useState<JournalEntry[]>([]);
+export function RewardsClaimer({ userId, claimedIds, onClaim }: RewardsClaimerProps) {
+  const supabase = createClient();
+  const [unclaimedCount, setUnclaimedCount] = useState(0);
+  const [unclaimedIds, setUnclaimedIds] = useState<string[]>([]);
   const [streakDays, setStreakDays] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("journal-entries");
-    if (!stored) return;
-    try {
-      const entries: JournalEntry[] = JSON.parse(stored);
-      const fresh = entries.filter((e) => !claimedIds.includes(e.id));
-      setUnclaimed(fresh);
-      setStreakDays(calculateStreaks(entries).current);
-    } catch {
-      setUnclaimed([]);
-    }
-  }, [claimedIds]);
+    async function load() {
+      setLoading(true);
 
-  if (unclaimed.length === 0) {
+      // Get unclaimed entries
+      const { count, entryIds } = await fetchUnclaimedEntryCount(
+        supabase,
+        userId,
+        claimedIds
+      );
+      setUnclaimedCount(count);
+      setUnclaimedIds(entryIds);
+
+      // Get streak from journal_entries
+      const { data: entries } = await supabase
+        .from("journal_entries")
+        .select("id, created_at")
+        .eq("user_id", userId);
+
+      if (entries) {
+        const mapped = entries.map((e: any) => ({
+          id: e.id,
+          templateId: "",
+          templateName: "",
+          createdAt: e.created_at,
+          fields: {},
+        }));
+        setStreakDays(calculateStreaks(mapped).current);
+      }
+
+      setLoading(false);
+    }
+    load();
+  }, [userId, claimedIds]);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="pt-6 text-center text-sm text-muted-foreground">
+          Loading rewards...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (unclaimedCount === 0) {
     return (
       <Card>
         <CardContent className="pt-6 text-center text-sm text-muted-foreground">
@@ -40,11 +81,12 @@ export function RewardsClaimer({ claimedIds, onClaim }: RewardsClaimerProps) {
     );
   }
 
-  const rewards = calculateRewards(unclaimed.length, streakDays);
+  const rewards = calculateRewards(unclaimedCount, streakDays);
 
-  const handleClaim = () => {
-    const ids = unclaimed.map((e) => e.id);
-    onClaim(rewards.coins, rewards.xp, ids);
+  const handleClaim = async () => {
+    setClaiming(true);
+    onClaim(rewards.coins, rewards.xp, unclaimedIds);
+    setClaiming(false);
   };
 
   return (
@@ -57,8 +99,8 @@ export function RewardsClaimer({ claimedIds, onClaim }: RewardsClaimerProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          You have <strong>{unclaimed.length}</strong> unclaimed{" "}
-          {unclaimed.length === 1 ? "entry" : "entries"}.
+          You have <strong>{unclaimedCount}</strong> unclaimed{" "}
+          {unclaimedCount === 1 ? "entry" : "entries"}.
           {streakDays > 1 && (
             <span className="text-primary font-medium">
               {" "}🔥 {streakDays}-day streak bonus active!
@@ -77,9 +119,13 @@ export function RewardsClaimer({ claimedIds, onClaim }: RewardsClaimerProps) {
             <span className="text-sm text-muted-foreground">XP</span>
           </div>
         </div>
-        <Button onClick={handleClaim} className="w-full">
-          <Gift className="h-4 w-4 mr-2" />
-          Claim Rewards
+        <Button onClick={handleClaim} className="w-full" disabled={claiming}>
+          {claiming ? "Claiming..." : (
+            <>
+              <Gift className="h-4 w-4 mr-2" />
+              Claim Rewards
+            </>
+          )}
         </Button>
       </CardContent>
     </Card>

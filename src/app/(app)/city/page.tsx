@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   BuildingType,
   CityState,
-  loadCityState,
-  saveCityState,
+  fetchCityState,
+  claimRewards,
+  placeBuilding,
+  getDefaultCityState,
   isCellOccupied,
-  getLevel,
-} from "@/lib/city";
+} from "@/lib/city/city";
 import { CityGrid } from "@/components/city/CityGrid";
 import { BuildingPicker } from "@/components/city/BuildingPicker";
 import { RewardsClaimer } from "@/components/city/RewardsClaimer";
@@ -17,55 +19,78 @@ import { Button } from "@/components/ui/button";
 import { Eye, Hammer } from "lucide-react";
 
 export default function CityPage() {
-  const [city, setCity] = useState<CityState>(loadCityState);
+  const supabase = createClient();
+  const [city, setCity] = useState<CityState>(getDefaultCityState());
+  const [userId, setUserId] = useState<string | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingType | null>(null);
   const [mode, setMode] = useState<"view" | "build">("view");
-  const [justPlaced, setJustPlaced] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [placing, setPlacing] = useState(false);
 
-  const persist = useCallback((next: CityState) => {
-    setCity(next);
-    saveCityState(next);
+  // Load user + city state
+  useEffect(() => {
+    async function init() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserId(user.id);
+
+      try {
+        const state = await fetchCityState(supabase, user.id);
+        setCity(state);
+      } catch (err) {
+        console.error("Failed to load city:", err);
+      }
+      setLoading(false);
+    }
+    init();
   }, []);
 
-  const handleClaim = (newCoins: number, newXp: number, ids: string[]) => {
-    const next: CityState = {
-      ...city,
-      coins: city.coins + newCoins,
-      xp: city.xp + newXp,
-      level: getLevel(city.xp + newXp),
-      lastClaimedEntryIds: [...city.lastClaimedEntryIds, ...ids],
-    };
-    persist(next);
-  };
+  // Claim rewards handler
+  const handleClaim = useCallback(
+    async (newCoins: number, newXp: number, ids: string[]) => {
+      if (!userId) return;
+      try {
+        const updated = await claimRewards(supabase, userId, newCoins, newXp, ids);
+        setCity(updated);
+      } catch (err) {
+        console.error("Claim failed:", err);
+      }
+    },
+    [userId]
+  );
 
-  const handleCellClick = (row: number, col: number) => {
-    if (mode !== "build" || !selectedBuilding) return;
-    if (isCellOccupied(city.buildings, row, col)) return;
-    if (city.coins < selectedBuilding.cost) return;
+  // Place building handler
+  const handleCellClick = useCallback(
+    async (row: number, col: number) => {
+      if (mode !== "build" || !selectedBuilding || !userId || placing) return;
+      if (isCellOccupied(city.buildings, row, col)) return;
+      if (city.coins < selectedBuilding.cost) return;
 
-    const newBuilding = {
-      id: `${selectedBuilding.id}-${Date.now()}`,
-      type: selectedBuilding,
-      row,
-      col,
-      placedAt: new Date().toISOString(),
-    };
+      setPlacing(true);
+      try {
+        const updated = await placeBuilding(supabase, userId, selectedBuilding, row, col);
+        setCity(updated);
+      } catch (err) {
+        console.error("Place failed:", err);
+      }
+      setPlacing(false);
+    },
+    [mode, selectedBuilding, userId, placing, city.buildings, city.coins]
+  );
 
-    const next: CityState = {
-      ...city,
-      coins: city.coins - selectedBuilding.cost,
-      buildings: [...city.buildings, newBuilding],
-    };
-
-    persist(next);
-    setJustPlaced(newBuilding.id);
-    setTimeout(() => setJustPlaced(null), 600);
-  };
-
-  const population = city.buildings.filter(
-    (b) => b.type.category === "residential"
-  ).length * 12 +
+  const population =
+    city.buildings.filter((b) => b.type.category === "residential").length * 12 +
     city.buildings.filter((b) => b.type.category === "commercial").length * 5;
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-6xl text-center">
+        <p className="text-muted-foreground">Loading your city...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl space-y-6">
@@ -117,10 +142,13 @@ export default function CityPage() {
       </div>
 
       {/* Rewards */}
-      <RewardsClaimer
-        claimedIds={city.lastClaimedEntryIds}
-        onClaim={handleClaim}
-      />
+      {userId && (
+        <RewardsClaimer
+          userId={userId}
+          claimedIds={city.claimedEntryIds}
+          onClaim={handleClaim}
+        />
+      )}
 
       {/* Grid + Picker */}
       <div className="grid lg:grid-cols-[auto_1fr] gap-6 items-start">

@@ -1,3 +1,4 @@
+
 export interface Building {
   id: string;
   type: BuildingType;
@@ -124,7 +125,6 @@ export function loadCityState(): CityState {
     return getDefaultCityState();
   }
 }
-
 export function saveCityState(state: CityState) {
   localStorage.setItem(CITY_KEY, JSON.stringify(state));
 }
