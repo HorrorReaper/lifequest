@@ -11,6 +11,8 @@ import { SliderInput } from '@/components/journal/slider-input'
 import { ChecklistInput } from '@/components/journal/checklist-input'
 import { PromptDisplay } from '@/components/journal/prompt-display'
 import { TemplateField, FieldValue, MoodOption, ChecklistItem } from '@/lib/types'
+import { DraftTask, TasksInput } from './TasksInput'
+import { DayPlannerInput } from './DayPlannerInput'
 
 interface FieldRendererProps {
   field: TemplateField
@@ -194,6 +196,23 @@ export function FieldRenderer({
           }
           onChange={(items) => onChange({ ...value, value_json: items })}
           disabled={disabled}
+        />
+      )}
+
+      {/* Tasks */}
+      {field.field_type === 'tasks' && (
+        <TasksInput
+          value={value.value_json as DraftTask[] ?? []}
+          onChange={(tasks) => onChange({ ...value, value_json: tasks })}
+          config={config}
+        />
+      )}
+      {/* Day Planner */}
+      {field.field_type === 'day_planner' && (
+        <DayPlannerInput
+          value={(value.value_json as { plan_date: string; blocks: any[] }) ?? null}
+          onChange={(v) => onChange({ ...value, value_json: v })}
+          config={field.config as { defaultDate?: "tomorrow" | "today"; startHour?: number }}
         />
       )}
     </div>

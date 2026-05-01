@@ -56,6 +56,8 @@ export type FieldType =
   | 'divider'
   | 'heading'
   | 'prompt'
+  | 'tasks'
+  | 'day_planner'
 //Die verschiedenen Arten von Template-Feldern
 export interface FieldValue {
   field_id: string
@@ -140,3 +142,36 @@ export interface PlayerStats {
   totalEntries: number;
   uniqueTemplatesUsed: number;
 }
+
+export interface Task {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  is_completed: boolean;
+  due_date: string | null;
+  priority: "low" | "medium" | "high";
+  created_at: string;
+  completed_at: string | null;
+}
+export interface DayPlanBlock {
+  id: string;
+  start_time: string; // "HH:mm"
+  end_time: string;   // "HH:mm"
+  title: string;
+  category: "deep_work" | "meeting" | "break" | "personal" | "exercise" | "other";
+}
+
+export interface DayPlan {
+  id: string;
+  user_id: string;
+  entry_id: string | null;
+  field_id: string | null;
+  plan_date: string; // YYYY-MM-DD
+  blocks: DayPlanBlock[];
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+

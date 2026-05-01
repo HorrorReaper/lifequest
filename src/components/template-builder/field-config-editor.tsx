@@ -291,6 +291,59 @@ export function FieldConfigEditor({
               </select>
             </div>
           )}
+          {editedField.field_type === "tasks" && (
+  <>
+    <div className="space-y-2">
+      <Label>Default Priority</Label>
+      <select
+        value={(config.defaultPriority as string) ?? "medium"}
+        onChange={(e) => updateConfig("defaultPriority", e.target.value)}
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      >
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </div>
+    <div className="space-y-2">
+      <Label>Max Tasks per Entry</Label>
+      <Input
+        type="number"
+        min={1}
+        max={50}
+        value={(config.maxTasks as number) ?? 10}
+        onChange={(e) => updateConfig("maxTasks", Number(e.target.value))}
+      />
+    </div>
+  </>
+)}
+{editedField.field_type === "day_planner" && (
+  <>
+    <div className="space-y-2">
+      <Label>Default Plan Date</Label>
+      <select
+        value={(config.defaultDate as string) ?? "tomorrow"}
+        onChange={(e) => updateConfig("defaultDate", e.target.value)}
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      >
+        <option value="tomorrow">Tomorrow</option>
+        <option value="today">Today</option>
+      </select>
+    </div>
+    <div className="space-y-2">
+      <Label>Default Start Hour (0–23)</Label>
+      <Input
+        type="number"
+        min={0}
+        max={23}
+        value={(config.startHour as number) ?? 9}
+        onChange={(e) => updateConfig("startHour", Number(e.target.value))}
+      />
+    </div>
+  </>
+)}
+
+
         </div>
 
         <DialogFooter>

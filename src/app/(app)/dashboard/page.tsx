@@ -8,6 +8,8 @@ import { getLevel, getCityTier, xpToNextLevel, getXpProgress, CITY_TIER_LABELS }
 import { StreakBadge } from "@/components/analytics/StreakBadge";
 import { calculateStreaks, getWeeklySummary, JournalEntry } from "@/lib/analytics";
 import { getLevelProgress } from '@/lib/city'
+import { TaskList } from '@/components/tasks/TaskList'
+import { TodayPlanWidget } from '@/components/dashboard/TodayPlanWidget'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -124,7 +126,8 @@ export default async function DashboardPage() {
             />
           </div>
         </div>
-
+        <TaskList userId={user.id} compact limit={5} onlyOpen />
+        <TodayPlanWidget userId={user.id} />
         {/* Quick Action */}
         <Button asChild size="lg" className="w-full">
           <Link href="/journal">📝 Start Journaling</Link>

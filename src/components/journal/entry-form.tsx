@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { useUserStore } from '@/lib/stores/user-store'
 import { FieldRenderer } from '@/components/journal/field-renderer'
+import { upsertDayPlan } from '@/lib/day-plans'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -15,6 +16,7 @@ import {
   FieldValue,
   ChecklistItem,
 } from '@/lib/types'
+import { DraftTask } from './TasksInput'
 
 interface EntryFormProps {
   template: JournalTemplate
@@ -179,6 +181,49 @@ export function EntryForm({
         .insert(responses)
 
       if (responseError) throw responseError
+      // 2) Find tasks fields and persist their tasks
+  const taskInserts: Array<{
+    user_id: string;
+    entry_id: string;
+    field_id: string;
+    title: string;
+    priority: "low" | "medium" | "high";
+    due_date: string | null;
+  }> = [];
+
+  for (const field of fields) {
+    if (field.field_type !== "tasks") continue;
+    const drafts = (values[field.id]?.value_json ?? []) as DraftTask[];
+    for (const t of drafts) {
+      if (!t.title?.trim()) continue;
+      taskInserts.push({
+        user_id: user.id,
+        entry_id: entryId!,
+        field_id: field.id,
+        title: t.title,
+        priority: t.priority,
+        due_date: t.due_date,
+      });
+    }
+  }
+
+  if (taskInserts.length > 0) {
+    const { error: tasksError } = await supabase.from("tasks").insert(taskInserts);
+    if (tasksError) console.error("Failed to insert tasks:", tasksError);
+  }
+      // Persist any Day Planner fields
+      for (const field of fields) {
+        if (field.field_type !== 'day_planner') continue
+        const planValue = (values[field.id]?.value_json as { plan_date: string; blocks: any[] } | null) ?? null
+        if (!planValue || !planValue.plan_date || (planValue.blocks?.length ?? 0) === 0) continue
+
+        await upsertDayPlan(supabase, user.id, {
+          plan_date: planValue.plan_date,
+          blocks: planValue.blocks,
+          entry_id: entryId!,
+          field_id: field.id,
+        })
+      }
 
       // 3. Record XP event
       let totalXpEarned = template.xp_reward
