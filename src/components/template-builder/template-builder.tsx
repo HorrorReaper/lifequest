@@ -114,6 +114,7 @@ export function TemplateBuilder({
       is_required: false,
       sort_order: 0,
       config: { ...definition.defaultConfig },
+      xp_rules: [], // Start with empty XP rules
     }
     setFields((prev) => [...prev, newField])
     // Auto-open editor for non-display fields
@@ -233,6 +234,7 @@ export function TemplateBuilder({
         is_required: field.is_required,
         sort_order: index,
         config: field.config,
+        xp_rules: field.xp_rules ?? [],
       }))
 
       // Debug: log what's being inserted

@@ -13,6 +13,7 @@ import { PromptDisplay } from '@/components/journal/prompt-display'
 import { TemplateField, FieldValue, MoodOption, ChecklistItem } from '@/lib/types'
 import { DraftTask, TasksInput } from './TasksInput'
 import { DayPlannerInput } from './DayPlannerInput'
+import { HabitTrackerInput } from './HabitTrackerInput'
 
 interface FieldRendererProps {
   field: TemplateField
@@ -213,6 +214,14 @@ export function FieldRenderer({
           value={(value.value_json as { plan_date: string; blocks: any[] }) ?? null}
           onChange={(v) => onChange({ ...value, value_json: v })}
           config={field.config as { defaultDate?: "tomorrow" | "today"; startHour?: number }}
+        />
+      )}
+      {/* Habit Tracker */}
+      {field.field_type === 'habit_tracker' && (
+        <HabitTrackerInput
+          value={value.value_json as string[] ?? []}
+          onChange={(ids) => onChange({ ...value, value_json: ids })}
+          config={field.config as { selectedHabitIds?: string[]; showAll?: boolean }}
         />
       )}
     </div>

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { HabitsManager } from './HabitsManager'
 
 const TIMEZONES = [
   'America/New_York',
@@ -112,6 +113,7 @@ export function SettingsForm({
       </Card>
 
       <Separator />
+      <HabitsManager userId={userId} />
 
       <Card className="border-border/50">
         <CardContent className="pt-6">

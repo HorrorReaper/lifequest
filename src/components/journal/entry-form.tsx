@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -10,12 +10,18 @@ import { FieldRenderer } from '@/components/journal/field-renderer'
 import { upsertDayPlan } from '@/lib/day-plans'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { logHabits } from "@/lib/habits";
+import { format } from "date-fns";
 import {
   JournalTemplate,
   TemplateField,
+  XpRule,
   FieldValue,
   ChecklistItem,
 } from '@/lib/types'
+import { calculateEntryBonusXp } from '@/lib/gamification'
+import { getLevel } from '@/lib/city'
+import { Sparkles } from 'lucide-react'
 import { DraftTask } from './TasksInput'
 
 interface EntryFormProps {
@@ -73,6 +79,22 @@ export function EntryForm({
   function updateValue(fieldId: string, value: FieldValue) {
     setValues((prev) => ({ ...prev, [fieldId]: value }))
   }
+
+  const previewBonusXp = useMemo(() => {
+    try {
+      return calculateEntryBonusXp(
+        fields.map((f) => ({
+          id: f.id,
+          field_type: f.field_type,
+          xp_rules: (f.xp_rules as XpRule[]) ?? [],
+        })),
+        values
+      )
+    } catch (e) {
+      console.error('Failed to calculate preview bonus XP', e)
+      return 0
+    }
+  }, [fields, values])
 
   function validate(): boolean {
     for (const field of fields) {
@@ -181,6 +203,40 @@ export function EntryForm({
         .insert(responses)
 
       if (responseError) throw responseError
+      // 2a) Calculate and apply any rule-based bonus XP to the city state
+      try {
+        const bonusXp = calculateEntryBonusXp(
+          fields.map((f) => ({
+            id: f.id,
+            field_type: f.field_type,
+            xp_rules: (f.xp_rules as XpRule[]) ?? [],
+          })),
+          values
+        )
+
+        if (bonusXp > 0) {
+          const { data: cityRow } = await supabase
+            .from('city_states')
+            .select('xp')
+            .eq('user_id', user.id)
+            .single()
+
+          if (cityRow) {
+            const newXp = (cityRow.xp ?? 0) + bonusXp
+            await supabase
+              .from('city_states')
+              .update({
+                xp: newXp,
+                level: getLevel(newXp),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('user_id', user.id)
+          }
+        }
+      } catch (e) {
+        // Non-fatal: don't block entry save for XP calculation failures
+        console.error('Failed to apply bonus XP:', e)
+      }
       // 2) Find tasks fields and persist their tasks
   const taskInserts: Array<{
     user_id: string;
@@ -192,18 +248,36 @@ export function EntryForm({
   }> = [];
 
   for (const field of fields) {
-    if (field.field_type !== "tasks") continue;
-    const drafts = (values[field.id]?.value_json ?? []) as DraftTask[];
-    for (const t of drafts) {
-      if (!t.title?.trim()) continue;
-      taskInserts.push({
-        user_id: user.id,
-        entry_id: entryId!,
-        field_id: field.id,
-        title: t.title,
-        priority: t.priority,
-        due_date: t.due_date,
-      });
+    if (field.field_type !== "tasks" && field.field_type !== "habit_tracker") continue
+
+    if (field.field_type === "habit_tracker") {
+      const completedIds = (values[field.id]?.value_json ?? []) as string[]
+      if (completedIds.length === 0) continue
+
+      await logHabits(
+        supabase,
+        user.id,
+        entryId!,
+        format(new Date(), "yyyy-MM-dd"),
+        completedIds
+      )
+
+      continue
+    }
+
+    if (field.field_type === "tasks") {
+      const drafts = (values[field.id]?.value_json ?? []) as DraftTask[];
+      for (const t of drafts) {
+        if (!t.title?.trim()) continue;
+        taskInserts.push({
+          user_id: user.id,
+          entry_id: entryId!,
+          field_id: field.id,
+          title: t.title,
+          priority: t.priority,
+          due_date: t.due_date,
+        });
+      }
     }
   }
 
@@ -456,6 +530,15 @@ export function EntryForm({
           )}
         </CardContent>
       </Card>
+
+      {previewBonusXp > 0 && (
+        <div className="mt-4 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950/30 p-3 text-sm flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-purple-500" />
+          <span className="text-purple-700 dark:text-purple-300 font-medium">
+            You'll earn +{previewBonusXp} bonus XP based on your answers!
+          </span>
+        </div>
+      )}
 
       <div className="mt-6 flex gap-3">
         <Button

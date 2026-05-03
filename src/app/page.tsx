@@ -21,7 +21,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-6xl">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg">
             <span className="text-2xl">🏙️</span>
-            Young Founders Network
+            LifeQuest
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm">
             <a href="#features" className="text-muted-foreground hover:text-foreground">Features</a>
@@ -280,7 +280,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-8 max-w-6xl flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <span>🏙️</span>
-            <span>© 2026 Young Founders Network</span>
+            <span>© 2026 LifeQuest</span>
           </div>
           <div className="flex gap-6">
             <a href="#" className="hover:text-foreground">Privacy</a>

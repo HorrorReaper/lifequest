@@ -151,6 +151,19 @@ export const FIELD_REGISTRY: FieldTypeDefinition[] = [ //welche verschiedenen Ar
   },
   isDisplayOnly: false,
 },
+{
+  type: 'habit_tracker',
+  label: 'Habit Tracker',
+  icon: '🎯',
+  description: 'Check off habits from your settings',
+  hasConfig: true,
+  defaultConfig: {
+    selectedHabitIds: [],
+    showAll: false,
+  },
+  isDisplayOnly: false,
+},
+
 
 ]
 

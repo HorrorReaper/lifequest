@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Task } from "@/lib/types";
 import { fetchTasks, toggleTask, deleteTask, createTask } from "@/lib/tasks";
+import { getLevel } from '@/lib/city'
+import { useUserStore } from '@/lib/stores/user-store'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +35,8 @@ const priorityStyles: Record<Task["priority"], string> = {
 
 export function TaskList({ userId, compact = false, limit, onlyOpen = false }: TaskListProps) {
   const supabase = createClient();
+  const router = useRouter();
+  const { addXp } = useUserStore()
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -62,6 +67,63 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false }: T
     );
     try {
       await toggleTask(supabase, task.id, !task.is_completed);
+      // If we just completed the task, award XP
+      const completedNow = !task.is_completed === true
+      if (completedNow) {
+        const award = 5
+        try {
+          const { data: auth } = await supabase.auth.getUser()
+          const user = auth?.user
+          if (user) {
+            // record xp event
+            await supabase.from('xp_events').insert({
+              user_id: user.id,
+              source_type: 'task',
+              source_id: task.id,
+              xp_amount: award,
+              description: `Completed task: ${task.title}`,
+            })
+
+            // update profiles total_xp
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('total_xp')
+              .eq('id', user.id)
+              .single()
+
+            if (profile) {
+              const newTotal = (profile.total_xp ?? 0) + award
+              await supabase.from('profiles').update({ total_xp: newTotal }).eq('id', user.id)
+            }
+
+            // update city_states xp and level if present
+            const { data: cityRow } = await supabase
+              .from('city_states')
+              .select('xp')
+              .eq('user_id', user.id)
+              .single()
+
+            if (cityRow) {
+              const newXp = (cityRow.xp ?? 0) + award
+              await supabase
+                .from('city_states')
+                .update({ xp: newXp, level: getLevel(newXp), updated_at: new Date().toISOString() })
+                .eq('user_id', user.id)
+            }
+
+            // update local store for immediate UI
+            addXp(award)
+          }
+        } catch (e) {
+          console.error('Failed to award task XP', e)
+        }
+        // Refresh server components (dashboard) to reflect new totals
+        try {
+          router.refresh()
+        } catch (e) {
+          // ignore
+        }
+      }
       // reload to re-sort
       load();
     } catch (err) {
