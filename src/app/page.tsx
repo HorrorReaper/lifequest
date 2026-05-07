@@ -185,13 +185,13 @@ export default function LandingPage() {
         <div className="rounded-2xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-purple-500/5 p-10 md:p-16 text-center">
           <p className="text-2xl md:text-3xl font-medium leading-relaxed">
             "I've tried every journaling app out there. This is the first one I've actually opened
-            for 30 days straight. The city builder is genius — I literally <em>want</em> to journal now."
+            for 30 days straight. The city builder is genius — I literally <em>want</em> to journal now. I love to gamify my life"
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-purple-500" />
             <div className="text-left">
-              <p className="font-semibold text-sm">Sarah Chen</p>
-              <p className="text-xs text-muted-foreground">Founder, Stealth Startup</p>
+              <p className="font-semibold text-sm">Patrick Eger</p>
+              <p className="text-xs text-muted-foreground">Founder, LifeQuest</p>
             </div>
           </div>
         </div>
