@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   BookOpen,
@@ -20,8 +21,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-6xl">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-            <span className="text-2xl">🏙️</span>
-            LifeQuest
+            <Image src="/images/logo2.png" alt="LifeQuest logo" width={170} height={170} className="rounded-sm" />
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm">
             <a href="#features" className="text-muted-foreground hover:text-foreground">Features</a>
@@ -46,7 +46,7 @@ export default function LandingPage() {
           The self-improvement app that plays like a game. Journal, earn rewards, and build your dream life one day at a time.
         </div>
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
-          Your life is the game.<br />
+          Your life is a game.<br />
           <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
             Time to start playing.
           </span>
@@ -263,7 +263,9 @@ export default function LandingPage() {
       <footer className="border-t">
         <div className="container mx-auto px-4 py-8 max-w-6xl flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <span>🏙️</span>
+            <Link href="/" className="flex  gap-2 font-bold ">
+            <Image src="/images/logo2.png" alt="LifeQuest logo" width={170} height={80} className="rounded-sm" />
+          </Link>
             <span>© 2026 LifeQuest</span>
           </div>
           <div className="flex gap-6">
