@@ -43,22 +43,21 @@ export default function LandingPage() {
       <section className="container mx-auto px-4 pt-20 pb-24 max-w-6xl text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
           <Sparkles className="h-4 w-4" />
-          Built for the next generation of founders
+          The self-improvement app that plays like a game. Journal, earn rewards, and build your dream life one day at a time.
         </div>
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
-          Journal today,<br />
+          Your life is the game.<br />
           <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
-            build tomorrow.
+            Time to start playing.
           </span>
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto">
-          The journaling app that turns reflection into momentum. Plan your day,
-          track your mood, and watch your virtual city grow with every entry.
+          Earn XP and coins for every journal entry, task, and habit. Spend them building a city that grows as you grow. Journaling has never been this addictive.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
           <Button size="lg" asChild className="w-full sm:w-auto">
             <Link href="/login">
-              Start free <ArrowRight className="ml-2 h-4 w-4" />
+              Start your quest <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
           <Button size="lg" variant="outline" asChild className="w-full sm:w-auto">
@@ -66,7 +65,7 @@ export default function LandingPage() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-4">
-          Free forever • No credit card required • 30-second signup
+          Free forever • No credit card required • Build your first building in 60 seconds
         </p>
 
         {/* Hero visual */}
@@ -103,28 +102,13 @@ export default function LandingPage() {
       </section>
 
       {/* SOCIAL PROOF */}
-      <section className="container mx-auto px-4 pb-16 max-w-4xl text-center">
-        <p className="text-xs text-muted-foreground uppercase tracking-widest mb-4">
-          Trusted by founders building the future
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 opacity-60 text-sm font-semibold">
-          <span>Y Combinator</span>
-          <span>•</span>
-          <span>Indie Hackers</span>
-          <span>•</span>
-          <span>On Deck</span>
-          <span>•</span>
-          <span>BuildSpace</span>
-          <span>•</span>
-          <span>Pioneer</span>
-        </div>
-      </section>
+      
 
       {/* FEATURES */}
       <section id="features" className="container mx-auto px-4 py-24 max-w-6xl">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Everything you need to build a habit
+            Every feature is designed to make you come back tomorrow
           </h2>
           <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
             Most journaling apps die in the drawer of forgotten tools. Ours rewards you for showing up.
@@ -133,12 +117,12 @@ export default function LandingPage() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
-            { icon: BookOpen, title: "Custom Templates", desc: "Build your own journal templates with 14+ field types — mood, sliders, ratings, prompts, and more.", color: "text-blue-500" },
-            { icon: Hammer, title: "City Builder", desc: "Every entry earns coins & XP. Build a virtual city that grows alongside your habit.", color: "text-purple-500" },
-            { icon: Flame, title: "Streaks That Stick", desc: "Streak bonuses multiply your rewards. Miss a day and your streak resets — a gentle nudge to show up.", color: "text-orange-500" },
-            { icon: Calendar, title: "Day Planner", desc: "Plan tomorrow tonight. Time-block your day during your evening journal and wake up focused.", color: "text-green-500" },
-            { icon: ListTodo, title: "Tasks That Matter", desc: "Capture tasks during journaling. They flow straight to your dashboard — no app switching.", color: "text-pink-500" },
-            { icon: BarChart3, title: "Analytics & Insights", desc: "Mood trends, activity heatmaps, and template usage. Spot the patterns shaping your life.", color: "text-yellow-500" },
+            { icon: BookOpen, title: "Build Your Own Quests", desc: "Design journal templates with 14+ field types — moods, sliders, ratings, prompts. Make journaling yours.", color: "text-blue-500" },
+            { icon: Hammer, title: "Your City, Your Progress", desc: "Every entry drops coins and XP. Spend them on houses, parks, stadiums — and watch your skyline rise as you do.", color: "text-purple-500" },
+            { icon: Flame, title: "Streaks That Hit Different", desc: "Streak multipliers stack your rewards. Miss a day and you reset — because consistency is the whole game.", color: "text-orange-500" },
+            { icon: Calendar, title: "Plan Tomorrow Tonight", desc: "Time-block your next day during your evening journal. Wake up knowing exactly what to crush.", color: "text-green-500" },
+            { icon: ListTodo, title: "Tasks Without the App-Switching", desc: "Capture to-dos mid-journal. They land on your dashboard automatically. No Notion, no Todoist, no chaos.", color: "text-pink-500" },
+            { icon: BarChart3, title: "See Your Patterns", desc: "Mood trends, activity heatmaps, habit streaks. Find out what actually makes you feel alive.", color: "text-yellow-500" },
           ].map((f, i) => (
             <div key={i} className="rounded-xl border p-6 hover:border-primary/50 hover:shadow-md transition-all">
               <f.icon className={`h-8 w-8 ${f.color} mb-3`} />
@@ -181,7 +165,7 @@ export default function LandingPage() {
       </section>
 
       {/* TESTIMONIAL */}
-      <section className="container mx-auto px-4 py-24 max-w-4xl">
+      {/*<section className="container mx-auto px-4 py-24 max-w-4xl">
         <div className="rounded-2xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-purple-500/5 p-10 md:p-16 text-center">
           <p className="text-2xl md:text-3xl font-medium leading-relaxed">
             "I've tried every journaling app out there. This is the first one I've actually opened
@@ -195,7 +179,7 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-      </section>
+      </section>*/}
 
       {/* PRICING */}
       <section id="pricing" className="container mx-auto px-4 py-24 max-w-4xl">
@@ -211,7 +195,7 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="rounded-2xl border p-8">
             <h3 className="text-xl font-bold">Free</h3>
-            <p className="text-muted-foreground text-sm mt-1">For getting started.</p>
+            <p className="text-muted-foreground text-sm mt-1">For everyone</p>
             <p className="text-4xl font-bold mt-6">$0<span className="text-base font-normal text-muted-foreground">/forever</span></p>
             <ul className="space-y-3 mt-6 text-sm">
               {[
@@ -227,7 +211,7 @@ export default function LandingPage() {
               ))}
             </ul>
             <Button className="w-full mt-8" asChild>
-              <Link href="/login">Get started free</Link>
+              <Link href="/login">Get started for free</Link>
             </Button>
           </div>
 
@@ -236,7 +220,7 @@ export default function LandingPage() {
               COMING SOON
             </div>
             <h3 className="text-xl font-bold">Pro</h3>
-            <p className="text-muted-foreground text-sm mt-1">For power users.</p>
+            <p className="text-muted-foreground text-sm mt-1">For the real ones.</p>
             <p className="text-4xl font-bold mt-6">$5<span className="text-base font-normal text-muted-foreground">/month</span></p>
             <ul className="space-y-3 mt-6 text-sm">
               {[
@@ -265,7 +249,7 @@ export default function LandingPage() {
             Your future self is waiting.
           </h2>
           <p className="text-lg opacity-90 mt-4 max-w-xl mx-auto">
-            Join thousands of founders who've turned journaling into a daily habit they actually love.
+            Join the players turning daily journaling into the most addictive habit they've ever had.
           </p>
           <Button size="lg" variant="secondary" asChild className="mt-8">
             <Link href="/login">
