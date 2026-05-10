@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { getLevel, getCityTier, xpToNextLevel, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import { StreakBadge } from "@/components/analytics/StreakBadge";
 import { calculateStreaks, getWeeklySummary, JournalEntry } from "@/lib/analytics";
+import { getLevelProgress } from '@/lib/city'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -26,8 +27,9 @@ export default async function DashboardPage() {
 
   const level = getLevel(profile.total_xp)
   const cityTier = getCityTier(level)
-  const xpNext = xpToNextLevel(profile.total_xp)
+  const xpNext = xpToNextLevel(level)
   const progress = getXpProgress(profile.total_xp)
+  const progress2 = getLevelProgress(profile.total_xp)
 
   // Recent entries for quick view
   const { data: recentEntries } = await supabase
@@ -82,7 +84,9 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+        {/*
         <div className="flex items-center justify-between">
+          
   <StreakBadge current={streaks.current} />
   <Link
     href="/analytics"
@@ -105,18 +109,18 @@ export default async function DashboardPage() {
     <p className="text-2xl font-bold">{weekly.avgMood ?? "—"}</p>
     <p className="text-xs text-muted-foreground">Avg mood</p>
   </div>
-</div>
+</div>*/}
 
         {/* XP Progress Bar */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Level {level}</span>
-            <span>{xpNext} XP to Level {level + 1}</span>
+            <span>{progress2.next - profile.total_xp} XP to Level {level + 1}</span>
           </div>
           <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${progress * 100}%` }}
+              style={{ width: `${progress.pct}%` }}
             />
           </div>
         </div>
