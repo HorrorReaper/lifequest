@@ -6,6 +6,18 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Middleware-Funktion, die die Supabase-Session synchronisiert und
 // basierend auf Authentifizierung / Onboarding-Status weiterleitet.
 export async function updateSession(request: NextRequest) {
+  // Schnell prüfen, ob die Route öffentlich ist – wenn ja, kurzschließen
+  // ohne Supabase-Client/Netzwerkaufrufe. Das vermeidet Latenz und verhindert
+  // unerwünschte Redirects für die Marketing-Seite.
+  const publicRoutes = ['/', '/login', '/auth/callback', '/api/waitlist']
+  const isPublicRoute = publicRoutes.some(
+    (route) => request.nextUrl.pathname === route
+  )
+
+  if (isPublicRoute) {
+    return NextResponse.next()
+  }
+
   // Initialisiere die Standard-Response, die am Ende zurückgegeben wird.
   // `NextResponse.next()` bedeutet: Anfrage normal weiterverarbeiten.
   let supabaseResponse = NextResponse.next({ request })
