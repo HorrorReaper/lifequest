@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUserStore } from '@/lib/stores/user-store'
 import { format, isPast, isToday } from "date-fns";
 
 interface TaskListProps {
@@ -61,7 +62,41 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false }: T
       prev.map((t) => (t.id === task.id ? { ...t, is_completed: !t.is_completed } : t))
     );
     try {
-      await toggleTask(supabase, task.id, !task.is_completed);
+      const updated = await toggleTask(supabase, task.id, !task.is_completed);
+      // If the task was just completed, award XP
+      if (!task.is_completed && updated.is_completed) {
+        try {
+          // Insert xp event
+          await supabase.from('xp_events').insert({
+            user_id: userId,
+            source_type: 'task',
+            source_id: task.id,
+            xp_amount: 5,
+            description: `Completed task: ${task.title}`,
+            created_at: new Date().toISOString(),
+          })
+
+          // Update profile total_xp
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('total_xp')
+            .eq('id', userId)
+            .single()
+
+          const newTotal = ((profileData?.total_xp as number) ?? 0) + 5
+          await supabase.from('profiles').update({ total_xp: newTotal }).eq('id', userId)
+
+          // Update local store
+          try {
+            useUserStore.getState().addXp(5)
+          } catch (e) {
+            // ignore
+          }
+        } catch (e) {
+          console.error('Failed to award XP for completed task', e)
+        }
+      }
+
       // reload to re-sort
       load();
     } catch (err) {
