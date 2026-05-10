@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import WaitlistForm from "@/components/waitlist/WaitlistForm";
 import {
   BookOpen,
   Building2,
@@ -16,6 +17,7 @@ import {
   ArrowRight,
   Check,
 } from "lucide-react";
+import WaitlistModal from "@/components/waitlist/WaitlistModal";
 
 function TypewriterText({ text, speed = 35, className = "", start = true, onComplete, hideCursorAfter = 5000 }) {
   const [pos, setPos] = useState(0);
@@ -42,7 +44,7 @@ function TypewriterText({ text, speed = 35, className = "", start = true, onComp
   return (
     <span className={className}>
       {text.slice(0, pos)}
-      {showCursor && <span className="ml-1 opacity-80 inline-block">|</span>}
+      {showCursor && <span className="ml-1 opacity-80 inline-block"></span>}
     </span>
   );
 }
@@ -52,15 +54,19 @@ function HeroTitle() {
   return (
     <>
       <TypewriterText text={"Your life is a game."} className="block" onComplete={() => setFirstDone(true)} />
-      <br />
-      <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
-        <TypewriterText text={"Time to start playing."} className="block" start={firstDone} />
-      </span>
+      <TypewriterText
+        text={"Time to start playing."}
+        className="block bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent"
+        start={firstDone}
+      />
     </>
   );
 }
 
 export default function LandingPage() {
+  const is_MVP = process.env.NEXT_PUBLIC_IS_MVP === "true";
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+
   return (
     <div className="min-h-svh bg-gradient-to-b from-background via-background to-primary/5">
       {/* NAV */}
@@ -74,14 +80,25 @@ export default function LandingPage() {
             <a href="#how-it-works" className="text-muted-foreground hover:text-foreground">How it works</a>
             <a href="#pricing" className="text-muted-foreground hover:text-foreground">Pricing</a>
           </nav>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/login">Log in</Link>
-            </Button>
-            <Button size="sm" asChild>
-              <Link href="/login">Get started</Link>
-            </Button>
-          </div>
+          {is_MVP ? (
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/login">Log in</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/login">Get started</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center">
+              <Button size="sm" variant="outline"
+                onClick={() => setWaitlistOpen(true)}
+                className="px-5 py-3 rounded-lg bg-black text-white"
+              >
+                Join the waitlist
+              </Button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -97,24 +114,35 @@ export default function LandingPage() {
         <p className="text-lg md:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto">
           Earn XP and coins for every journal entry, task, and habit. Spend them building a city that grows as you grow. Journaling has never been this addictive.
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
-            <Button size="lg" asChild className="w-full sm:w-auto">
-              <Link href="/login">
-                Start your quest <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </motion.div>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
-            <Button size="lg" variant="outline" asChild className="w-full sm:w-auto">
-              <a href="#how-it-works">See how it works</a>
-            </Button>
-          </motion.div>
-        </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
+              <Button size="lg" asChild className="w-full sm:w-auto">
+                {is_MVP ? (<Link href="/login">
+                  Start your quest <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>) : (
+                  <Button size="sm" variant="outline" 
+                    onClick={() => setWaitlistOpen(true)}
+                    className="px-5 py-3 rounded-lg bg-black text-white cursor-pointer"
+                  >
+                    Join the waitlist
+                  </Button>
+                )}
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" asChild className="w-full sm:w-auto">
+                <a href="#how-it-works">See how it works</a>
+              </Button>
+            </motion.div>
+          </div>
         <p className="text-xs text-muted-foreground mt-4">
           Free forever • No credit card required • Build your first building in 60 seconds
         </p>
-
+        <WaitlistModal
+  open={waitlistOpen}
+  onClose={() => setWaitlistOpen(false)}
+  source="hero"
+/>
         {/* Hero visual */}
         <div className="mt-16 relative">
           <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent z-10 h-1/3 bottom-0 top-auto" />
@@ -257,9 +285,14 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
+            {is_MVP ? (
             <Button className="w-full mt-8" asChild>
               <Link href="/login">Get started for free</Link>
-            </Button>
+            </Button>):(
+              <Button variant="outline" className="w-full mt-8" onClick={() => setWaitlistOpen(true)}>
+                Join the waitlist
+              </Button>
+            )}
           </div>
 
           <div className="rounded-2xl border-2 border-primary p-8 relative bg-primary/5">

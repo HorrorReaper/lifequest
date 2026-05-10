@@ -6,6 +6,18 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Middleware-Funktion, die die Supabase-Session synchronisiert und
 // basierend auf Authentifizierung / Onboarding-Status weiterleitet.
 export async function updateSession(request: NextRequest) {
+  // Schnell prüfen, ob die Route öffentlich ist – wenn ja, kurzschließen
+  // ohne Supabase-Client/Netzwerkaufrufe. Das vermeidet Latenz für die
+  // Marketing-Seite und andere öffentliche Routen.
+  const publicRoutes = ['/', '/login', '/auth/callback', '/api/waitlist']
+  const isPublicRoute = publicRoutes.some(
+    (route) => request.nextUrl.pathname === route
+  )
+
+  if (isPublicRoute) {
+    return NextResponse.next()
+  }
+
   // Initialisiere die Standard-Response, die am Ende zurückgegeben wird.
   // `NextResponse.next()` bedeutet: Anfrage normal weiterverarbeiten.
   let supabaseResponse = NextResponse.next({ request })
@@ -24,7 +36,7 @@ export async function updateSession(request: NextRequest) {
         },
         // Wenn Supabase Cookies setzen möchte, werden diese hier verarbeitet.
         // Wir setzen sie zuerst im Request (für nachfolgende Middleware/Logik)
-        // und dann in der Response, damit sie an den Client geschickt werden.
+        // und dann in der Response, damit sie an den Client geschickt wird.
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) =>
             request.cookies.set(name, value)
@@ -44,12 +56,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  // Liste mit öffentlichen Routen, für die keine Authentifizierung nötig ist.
-  const publicRoutes = ['/', '/login', '/auth/callback']
-  const isPublicRoute = publicRoutes.some(
-    (route) => request.nextUrl.pathname === route
-  )
 
   // Falls kein Nutzer angemeldet ist und die Route nicht öffentlich ist,
   // leiten wir den Request zur Login-Seite weiter.
