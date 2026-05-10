@@ -1,3 +1,6 @@
+"use client";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -13,6 +16,49 @@ import {
   ArrowRight,
   Check,
 } from "lucide-react";
+
+function TypewriterText({ text, speed = 35, className = "", start = true, onComplete, hideCursorAfter = 5000 }) {
+  const [pos, setPos] = useState(0);
+  const [showCursor, setShowCursor] = useState(true);
+
+  useEffect(() => {
+    if (!start) return;
+    if (pos >= text.length) {
+      // when complete, schedule cursor hide
+      const h = setTimeout(() => setShowCursor(false), hideCursorAfter);
+      if (onComplete) onComplete();
+      return () => clearTimeout(h);
+    }
+    const t = setTimeout(() => setPos((p) => p + 1), speed);
+    return () => clearTimeout(t);
+  }, [pos, text, speed, start, hideCursorAfter, onComplete]);
+
+  useEffect(() => {
+    // reset if text or start changes
+    setPos(0);
+    setShowCursor(true);
+  }, [text, start]);
+
+  return (
+    <span className={className}>
+      {text.slice(0, pos)}
+      {showCursor && <span className="ml-1 opacity-80 inline-block">|</span>}
+    </span>
+  );
+}
+
+function HeroTitle() {
+  const [firstDone, setFirstDone] = useState(false);
+  return (
+    <>
+      <TypewriterText text={"Your life is a game."} className="block" onComplete={() => setFirstDone(true)} />
+      <br />
+      <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+        <TypewriterText text={"Time to start playing."} className="block" start={firstDone} />
+      </span>
+    </>
+  );
+}
 
 export default function LandingPage() {
   return (
@@ -40,29 +86,30 @@ export default function LandingPage() {
       </header>
 
       {/* HERO */}
-      <section className="container mx-auto px-4 pt-20 pb-24 max-w-6xl text-center">
+      <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="container mx-auto px-4 pt-20 pb-24 max-w-6xl text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
           <Sparkles className="h-4 w-4" />
           The self-improvement app that plays like a game. Journal, earn rewards, and build your dream life one day at a time.
         </div>
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
-          Your life is a game.<br />
-          <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
-            Time to start playing.
-          </span>
+          <HeroTitle />
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto">
           Earn XP and coins for every journal entry, task, and habit. Spend them building a city that grows as you grow. Journaling has never been this addictive.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
-          <Button size="lg" asChild className="w-full sm:w-auto">
-            <Link href="/login">
-              Start your quest <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-          <Button size="lg" variant="outline" asChild className="w-full sm:w-auto">
-            <a href="#how-it-works">See how it works</a>
-          </Button>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
+            <Button size="lg" asChild className="w-full sm:w-auto">
+              <Link href="/login">
+                Start your quest <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
+            <Button size="lg" variant="outline" asChild className="w-full sm:w-auto">
+              <a href="#how-it-works">See how it works</a>
+            </Button>
+          </motion.div>
         </div>
         <p className="text-xs text-muted-foreground mt-4">
           Free forever • No credit card required • Build your first building in 60 seconds
@@ -99,7 +146,7 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* SOCIAL PROOF */}
       
