@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
+import { supabaseInsert, supabaseFrom, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { useUserStore } from '@/lib/stores/user-store'
 import { FieldRenderer } from '@/components/journal/field-renderer'
 import { upsertDayPlan } from '@/lib/day-plans'
@@ -155,17 +156,13 @@ export function EntryForm({
       let entryId = existingEntryId
 
       if (entryId) {
-        await supabase
-          .from('journal_entries')
-          .update({
-            is_complete: true,
-            xp_earned: template.xp_reward,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', entryId)
+        await supabaseUpdateWhere(supabase, 'journal_entries', {
+          is_complete: true,
+          xp_earned: template.xp_reward,
+          updated_at: new Date().toISOString(),
+        }, 'id', entryId)
       } else {
-        const { data: entry, error: entryError } = await supabase
-          .from('journal_entries')
+        const { data: entry, error: entryError } = await supabaseFrom(supabase, 'journal_entries')
           .insert({
             user_id: user.id,
             template_id: template.id,
@@ -177,7 +174,7 @@ export function EntryForm({
           .single()
 
         if (entryError) throw entryError
-        entryId = entry.id
+        entryId = (entry as any).id
       }
 
       // 2. Upsert responses
@@ -198,11 +195,10 @@ export function EntryForm({
           .eq('entry_id', entryId!)
       }
 
-      const { error: responseError } = await supabase
-        .from('journal_responses')
-        .insert(responses)
+      const { error: responseError } = await supabaseInsert(supabase, 'journal_responses', responses as any)
 
       if (responseError) throw responseError
+
       // 2a) Calculate and apply any rule-based bonus XP to the city state
       try {
         const bonusXp = calculateEntryBonusXp(
@@ -215,76 +211,77 @@ export function EntryForm({
         )
 
         if (bonusXp > 0) {
-          const { data: cityRow } = await supabase
+          const { data: cityRowData } = await supabase
             .from('city_states')
             .select('xp')
             .eq('user_id', user.id)
             .single()
 
+          const cityRow = cityRowData as any
+
           if (cityRow) {
             const newXp = (cityRow.xp ?? 0) + bonusXp
-            await supabase
-              .from('city_states')
-              .update({
-                xp: newXp,
-                level: getLevel(newXp),
-                updated_at: new Date().toISOString(),
-              })
-              .eq('user_id', user.id)
+            await supabaseUpdateWhere(supabase, 'city_states', {
+              xp: newXp,
+              level: getLevel(newXp),
+              updated_at: new Date().toISOString(),
+            }, 'user_id', user.id)
           }
         }
       } catch (e) {
         // Non-fatal: don't block entry save for XP calculation failures
         console.error('Failed to apply bonus XP:', e)
       }
+
       // 2) Find tasks fields and persist their tasks
-  const taskInserts: Array<{
-    user_id: string;
-    entry_id: string;
-    field_id: string;
-    title: string;
-    priority: "low" | "medium" | "high";
-    due_date: string | null;
-  }> = [];
+      const taskInserts: Array<{
+        user_id: string
+        entry_id: string
+        field_id: string
+        title: string
+        priority: 'low' | 'medium' | 'high'
+        due_date: string | null
+      }> = []
 
-  for (const field of fields) {
-    if (field.field_type !== "tasks" && field.field_type !== "habit_tracker") continue
+      for (const field of fields) {
+        if (field.field_type !== 'tasks' && field.field_type !== 'habit_tracker') continue
 
-    if (field.field_type === "habit_tracker") {
-      const completedIds = (values[field.id]?.value_json ?? []) as string[]
-      if (completedIds.length === 0) continue
+        if (field.field_type === 'habit_tracker') {
+          const completedIds = (values[field.id]?.value_json ?? []) as string[]
+          if (completedIds.length === 0) continue
 
-      await logHabits(
-        supabase,
-        user.id,
-        entryId!,
-        format(new Date(), "yyyy-MM-dd"),
-        completedIds
-      )
+          await logHabits(
+            supabase,
+            user.id,
+            entryId!,
+            format(new Date(), 'yyyy-MM-dd'),
+            completedIds
+          )
 
-      continue
-    }
+          continue
+        }
 
-    if (field.field_type === "tasks") {
-      const drafts = (values[field.id]?.value_json ?? []) as DraftTask[];
-      for (const t of drafts) {
-        if (!t.title?.trim()) continue;
-        taskInserts.push({
-          user_id: user.id,
-          entry_id: entryId!,
-          field_id: field.id,
-          title: t.title,
-          priority: t.priority,
-          due_date: t.due_date,
-        });
+        if (field.field_type === 'tasks') {
+          const drafts = (values[field.id]?.value_json ?? []) as DraftTask[]
+          for (const t of drafts) {
+            if (!t.title?.trim()) continue
+            taskInserts.push({
+              user_id: user.id,
+              entry_id: entryId!,
+              field_id: field.id,
+              title: t.title,
+              priority: t.priority,
+              due_date: t.due_date,
+            })
+          }
+        }
       }
-    }
-  }
 
-  if (taskInserts.length > 0) {
-    const { error: tasksError } = await supabase.from("tasks").insert(taskInserts);
-    if (tasksError) console.error("Failed to insert tasks:", tasksError);
-  }
+      if (taskInserts.length > 0) {
+        const { error: tasksError } = await supabaseInsert(supabase, 'tasks' as any, taskInserts)
+        if (tasksError) console.error('Failed to insert tasks:', tasksError)
+      }
+
       // Persist any Day Planner fields
       for (const field of fields) {
         if (field.field_type !== 'day_planner') continue
@@ -304,30 +301,26 @@ export function EntryForm({
 
       // Check for morning+evening same-day bonus
       const today = new Date().toISOString().split('T')[0]
-      const { data: todayEntries } = await supabase
+      const { data: todayEntriesData } = await supabase
         .from('journal_entries')
         .select('id, template_id, journal_templates!inner(entry_type)')
         .eq('user_id', user.id)
         .eq('entry_date', today)
         .eq('is_complete', true)
 
-      if (todayEntries) {
-        const entryTypes = todayEntries.map(
-          (e) => (e.journal_templates as unknown as { entry_type: string }).entry_type
-        )
+      const todayEntries = (todayEntriesData as any[]) ?? []
+
+      if (todayEntries.length > 0) {
+        const entryTypes = todayEntries.map((e) => (e.journal_templates as unknown as { entry_type: string }).entry_type)
         const hasMorning = entryTypes.includes('morning')
         const hasEvening = entryTypes.includes('evening')
 
-        if (
-          hasMorning &&
-          hasEvening &&
-          (template.entry_type === 'morning' || template.entry_type === 'evening')
-        ) {
+        if (hasMorning && hasEvening && (template.entry_type === 'morning' || template.entry_type === 'evening')) {
           totalXpEarned += 5
         }
       }
 
-      await supabase.from('xp_events').insert({
+      await supabaseInsert(supabase, 'xp_events', {
         user_id: user.id,
         source_type: 'journal',
         source_id: entryId!,
@@ -336,11 +329,13 @@ export function EntryForm({
       })
 
       // 4. Update profile XP
-      const { data: profile } = await supabase
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('total_xp, current_streak, best_streak, last_journal_date, streak_freezes')
         .eq('id', user.id)
         .single()
+
+      const profile = profileData as any
 
       if (profile) {
         const newTotalXp = profile.total_xp + totalXpEarned
@@ -361,29 +356,18 @@ export function EntryForm({
           newStreak = 1
         } else {
           // Missed day(s) — check freeze
-          const daysBetween = Math.floor(
-            (new Date(today).getTime() - new Date(lastDate).getTime()) /
-              (1000 * 60 * 60 * 24)
-          )
+          const daysBetween = Math.floor((new Date(today).getTime() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24))
           if (daysBetween === 2 && profile.streak_freezes > 0) {
             // Use a freeze
             newStreak += 1
-            await supabase
-              .from('profiles')
-              .update({ streak_freezes: profile.streak_freezes - 1 })
-              .eq('id', user.id)
+            await supabaseUpdateWhere(supabase, 'profiles', { streak_freezes: profile.streak_freezes - 1 }, 'id', user.id)
           } else {
             // Streak reset
             if (profile.current_streak > 0) {
-              await supabase.from('streak_history').insert({
+              await supabaseInsert(supabase, 'streak_history', {
                 user_id: user.id,
                 streak_length: profile.current_streak,
-                started_on: new Date(
-                  new Date(lastDate).getTime() -
-                    (profile.current_streak - 1) * 86400000
-                )
-                  .toISOString()
-                  .split('T')[0],
+                started_on: new Date(new Date(lastDate).getTime() - (profile.current_streak - 1) * 86400000).toISOString().split('T')[0],
                 ended_on: lastDate,
                 used_freeze: false,
               })
@@ -403,7 +387,7 @@ export function EntryForm({
         for (const m of milestones) {
           if (newStreak === m.days) {
             streakBonus = m.bonus
-            await supabase.from('xp_events').insert({
+            await supabaseInsert(supabase, 'xp_events', {
               user_id: user.id,
               source_type: 'streak_bonus',
               source_id: entryId!,
@@ -415,16 +399,13 @@ export function EntryForm({
 
         const finalXp = newTotalXp + streakBonus
 
-        await supabase
-          .from('profiles')
-          .update({
-            total_xp: finalXp,
-            current_streak: newStreak,
-            best_streak: Math.max(profile.best_streak, newStreak),
-            last_journal_date: today,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id)
+        await supabaseUpdateWhere(supabase, 'profiles', {
+          total_xp: finalXp,
+          current_streak: newStreak,
+          best_streak: Math.max(profile.best_streak, newStreak),
+          last_journal_date: today,
+          updated_at: new Date().toISOString(),
+        }, 'id', user.id)
 
         // Update Zustand store
         addXp(totalXpEarned + streakBonus)

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SettingsForm } from '@/components/settings/settings-form'
+import type { Database } from '@/lib/supabase/database.types'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -10,11 +11,12 @@ export default async function SettingsPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
+  const profile = data as Database['public']['Tables']['profiles']['Row'] | null
 
   return (
     <div className="min-h-svh bg-background p-4 sm:p-8">

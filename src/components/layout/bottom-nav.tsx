@@ -35,11 +35,13 @@ export function BottomNav() {
         const user = (userData as any)?.user
         if (!user) return
 
-        const { data: cityRow } = await supabase
+        const { data: cityRowData } = await supabase
           .from('city_states')
           .select('coins')
           .eq('user_id', user.id)
           .single()
+
+        const cityRow = cityRowData as any
 
         if (cityRow && typeof cityRow.coins === 'number') {
           setCoins(cityRow.coins)

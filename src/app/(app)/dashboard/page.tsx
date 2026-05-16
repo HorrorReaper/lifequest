@@ -8,6 +8,7 @@ import { getLevel, getCityTier, xpToNextLevel, getXpProgress, CITY_TIER_LABELS }
 import { StreakBadge } from "@/components/analytics/StreakBadge";
 import { calculateStreaks, getWeeklySummary, JournalEntry } from "@/lib/analytics";
 import { getLevelProgress } from '@/lib/city'
+import type { Database } from '@/lib/supabase/database.types'
 import { TaskList } from '@/components/tasks/TaskList'
 import { TodayPlanWidget } from '@/components/dashboard/TodayPlanWidget'
 
@@ -19,11 +20,13 @@ export default async function DashboardPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
+
+  const profile = data as Database['public']['Tables']['profiles']['Row'] | null
 
   if (!profile?.onboarding_complete) redirect('/onboarding')
 
@@ -34,19 +37,34 @@ export default async function DashboardPage() {
   const progress2 = getLevelProgress(profile.total_xp)
 
   // Recent entries for quick view
-  const { data: recentEntries } = await supabase
+  const { data: recentEntriesData } = await supabase
     .from('journal_entries')
     .select('*, journal_templates(name, icon)')
     .eq('user_id', user.id)
     .eq('is_complete', true)
     .order('entry_date', { ascending: false })
     .limit(3)
-  const { data: allEntries } = await supabase
+  const recentEntries =
+    recentEntriesData as
+      | (Database['public']['Tables']['journal_entries']['Row'] & {
+          journal_templates?: { name: string; icon: string } | null
+        })[]
+      | null
+
+  const { data: allEntriesData } = await supabase
     .from('journal_entries')
     .select('*')
     .eq('user_id', user.id)
-  const streaks = calculateStreaks(allEntries || [])
-  const weekly = getWeeklySummary(allEntries || [])
+  const allEntries = allEntriesData as Database['public']['Tables']['journal_entries']['Row'][] | null
+  const journalEntries: JournalEntry[] = (allEntries || []).map((e) => ({
+    id: e.id,
+    templateId: e.template_id,
+    templateName: e.template_id,
+    createdAt: e.entry_date,
+    fields: {},
+  }))
+  const streaks = calculateStreaks(journalEntries)
+  const weekly = getWeeklySummary(journalEntries)
 
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">

@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import WaitlistForm from "@/components/waitlist/WaitlistForm";
 import {
   BookOpen,
   Building2,
@@ -19,7 +18,21 @@ import {
 } from "lucide-react";
 import WaitlistModal from "@/components/waitlist/WaitlistModal";
 
-function TypewriterText({ text, speed = 35, className = "", start = true, onComplete, hideCursorAfter = 5000 }) {
+function TypewriterText({
+  text = "",
+  speed = 35,
+  className = "",
+  start = true,
+  onComplete,
+  hideCursorAfter = 5000,
+}: {
+  text?: string
+  speed?: number
+  className?: string
+  start?: boolean
+  onComplete?: () => void
+  hideCursorAfter?: number
+}) {
   const [pos, setPos] = useState(0);
   const [showCursor, setShowCursor] = useState(true);
 
@@ -104,10 +117,10 @@ export default function LandingPage() {
 
       {/* HERO */}
       <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="container mx-auto px-4 pt-20 pb-24 max-w-6xl text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
+        {/*<div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
           <Sparkles className="h-4 w-4" />
           The self-improvement app that plays like a game. Journal, earn rewards, and build your dream life one day at a time.
-        </div>
+        </div>*/}
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
           <HeroTitle />
         </h1>
@@ -226,9 +239,12 @@ export default function LandingPage() {
               { step: "2", title: "Journal for 2 minutes", desc: "Open the app, fill in your fields, hit save. That's it. Earn coins, XP, and grow your streak.", emoji: "✍️" },
               { step: "3", title: "Watch your city grow", desc: "Spend coins on buildings. Unlock new ones at higher levels. Your discipline becomes a skyline.", emoji: "🏙️" },
             ].map((s, i) => (
-              <div key={i} className="text-center">
-                <div className="text-6xl mb-4">{s.emoji}</div>
-                <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground font-bold text-sm mb-3">
+              <div
+                key={i}
+                className="rounded-2xl border p-6 bg-card group transform-gpu hover:scale-105 hover:-translate-y-1 hover:shadow-xl transition-transform transition-shadow duration-200 ease-out text-center flex flex-col items-center justify-start"
+              >
+                <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 text-3xl mb-4 transform transition-transform duration-200 ease-out group-hover:scale-110">{s.emoji}</div>
+                <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground font-bold text-sm mb-3 transform transition-transform duration-200 ease-out group-hover:scale-105">
                   {s.step}
                 </div>
                 <h3 className="font-semibold text-lg mb-2">{s.title}</h3>
@@ -324,18 +340,20 @@ export default function LandingPage() {
 
       {/* FINAL CTA */}
       <section className="container mx-auto px-4 py-24 max-w-4xl text-center">
-        <div className="rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white p-12 md:p-20">
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+        <div className="rounded-2xl border p-8 bg-card group transform-gpu hover:scale-103 hover:-translate-y-1 hover:shadow-xl transition-all duration-200 ease-out mx-auto max-w-3xl">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
             Your future self is waiting.
           </h2>
-          <p className="text-lg opacity-90 mt-4 max-w-xl mx-auto">
+          <p className="text-base text-muted-foreground mt-2 max-w-xl mx-auto">
             Join the players turning daily journaling into the most addictive habit they've ever had.
           </p>
-          <Button size="lg" variant="secondary" asChild className="mt-8">
-            <Link href="/login">
-              Start your city today <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="mt-6">
+            <Button size="lg" variant="default" asChild className="mt-4 group-hover:scale-102 transform transition-transform duration-150">
+              <Link href="/login" className="inline-flex items-center">
+                Join the waitlist now <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
 

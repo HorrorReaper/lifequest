@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,14 +54,11 @@ export function SettingsForm({
     setSaving(true)
     setSaved(false)
 
-    await supabase
-      .from('profiles')
-      .update({
-        username: username.trim(),
-        timezone,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
+    await supabaseUpdateWhere(supabase, 'profiles', {
+      username: username.trim(),
+      timezone,
+      updated_at: new Date().toISOString(),
+    }, 'id', userId)
 
     setSaving(false)
     setSaved(true)

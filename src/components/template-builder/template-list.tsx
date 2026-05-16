@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
+import type { Database } from '@/lib/supabase/database.types'
+import { supabaseFrom, supabaseInsert } from '@/lib/supabase/helpers'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,8 +46,7 @@ export function TemplateList({
         .order('sort_order')
 
       // Create new template
-      const { data: newTemplate, error: templateError } = await supabase
-        .from('journal_templates')
+      const { data: newTemplate, error: templateError } = await supabaseFrom(supabase, 'journal_templates')
         .insert({
           user_id: userId,
           name: `${template.name} (Copy)`,
@@ -63,7 +64,7 @@ export function TemplateList({
 
       // Copy fields
       if (fields && fields.length > 0) {
-        const fieldCopies = fields.map((field) => ({
+        const fieldCopies = (fields as Database['public']['Tables']['template_fields']['Row'][]).map((field: any) => ({
           template_id: newTemplate.id,
           field_type: field.field_type,
           label: field.label,
@@ -73,8 +74,7 @@ export function TemplateList({
           sort_order: field.sort_order,
           config: field.config,
         }))
-
-        await supabase.from('template_fields').insert(fieldCopies)
+        await supabaseInsert(supabase, 'template_fields', fieldCopies)
       }
 
       router.refresh()
@@ -89,8 +89,7 @@ export function TemplateList({
     if (!deleteTarget) return
 
     try {
-      await supabase
-        .from('journal_templates')
+      await supabaseFrom(supabase, 'journal_templates')
         .update({ is_active: false })
         .eq('id', deleteTarget.id)
         .eq('user_id', userId)

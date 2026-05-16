@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
+import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -196,15 +197,12 @@ export function OnboardingFlow({
     if (!selectedTemplate) return
     setLoading(true)
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        username: name.trim(),
-        timezone,
-        onboarding_complete: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
+    const { error } = await supabaseUpdateWhere(supabase, 'profiles', {
+      username: name.trim(),
+      timezone,
+      onboarding_complete: true,
+      updated_at: new Date().toISOString(),
+    }, 'id', userId)
 
     if (error) {
       console.error('Onboarding error:', error)

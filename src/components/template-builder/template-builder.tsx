@@ -19,6 +19,8 @@ import {
 } from '@dnd-kit/sortable'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
+import type { Database } from '@/lib/supabase/database.types'
+import { supabaseInsert, supabaseFrom } from '@/lib/supabase/helpers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -159,8 +161,7 @@ export function TemplateBuilder({
 
       if (savedTemplateId && !isSystem) {
         // Update existing template
-        const { error: updateError } = await supabase
-          .from('journal_templates')
+        const { error: updateError } = await supabaseFrom(supabase, 'journal_templates')
           .update({
             name: name.trim(),
             description: description.trim() || null,
@@ -202,11 +203,11 @@ export function TemplateBuilder({
         if (deleteError) throw deleteError
         // Debug: log deletion count
         // eslint-disable-next-line no-console
-        console.log('Deleted template_fields for', savedTemplateId, deletedFields?.length)
+        const deleted = deletedFields as any
+        console.log('Deleted template_fields for', savedTemplateId, deleted?.length)
       } else {
         // Create new template
-        const { data: newTemplate, error: insertError } = await supabase
-          .from('journal_templates')
+        const { data: newTemplate, error: insertError } = await supabaseFrom(supabase, 'journal_templates')
           .insert({
             user_id: user.id,
             name: name.trim(),
@@ -241,9 +242,7 @@ export function TemplateBuilder({
       // eslint-disable-next-line no-console
       console.log('Inserting template fields for', savedTemplateId, fieldInserts)
 
-      const { error: fieldsError } = await supabase
-        .from('template_fields')
-        .insert(fieldInserts)
+      const { error: fieldsError } = await supabaseInsert(supabase, 'template_fields', fieldInserts as any)
 
       if (fieldsError) throw fieldsError
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { Database } from '@/lib/supabase/database.types'
+import { supabaseInsert, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { Task } from "@/lib/types";
 import { fetchTasks, toggleTask, deleteTask, createTask } from "@/lib/tasks";
 import { getLevel } from '@/lib/city'
@@ -74,26 +76,28 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false }: T
         try {
           const { data: auth } = await supabase.auth.getUser()
           const user = auth?.user
-          if (user) {
+            if (user) {
             // record xp event
-            await supabase.from('xp_events').insert({
-              user_id: user.id,
-              source_type: 'task',
-              source_id: task.id,
-              xp_amount: award,
-              description: `Completed task: ${task.title}`,
-            })
+            await supabaseInsert(supabase, 'xp_events', {
+                user_id: user.id,
+                source_type: 'task',
+                source_id: task.id,
+                xp_amount: award,
+                description: `Completed task: ${task.title}`,
+              })
 
             // update profiles total_xp
-            const { data: profile } = await supabase
+            const { data: profileData } = await supabase
               .from('profiles')
               .select('total_xp')
               .eq('id', user.id)
               .single()
 
+            const profile = profileData as Database['public']['Tables']['profiles']['Row'] | null
+
             if (profile) {
               const newTotal = (profile.total_xp ?? 0) + award
-              await supabase.from('profiles').update({ total_xp: newTotal }).eq('id', user.id)
+              await supabaseUpdateWhere(supabase, 'profiles', { total_xp: newTotal }, 'id', user.id)
             }
 
             // update city_states xp and level if present
@@ -103,12 +107,11 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false }: T
               .eq('user_id', user.id)
               .single()
 
-            if (cityRow) {
-              const newXp = (cityRow.xp ?? 0) + award
-              await supabase
-                .from('city_states')
-                .update({ xp: newXp, level: getLevel(newXp), updated_at: new Date().toISOString() })
-                .eq('user_id', user.id)
+            const city = cityRow as Database['public']['Tables']['city_states']['Row'] | null
+
+            if (city) {
+              const newXp = (city.xp ?? 0) + award
+              await supabaseUpdateWhere(supabase, 'city_states', { xp: newXp, level: getLevel(newXp), updated_at: new Date().toISOString() }, 'user_id', user.id)
             }
 
             // update local store for immediate UI

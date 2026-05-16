@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client"; // adjust path
-
-const supabase = createClient();
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, X, ArrowRight, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client"; // adjust if your path differs
+import type { Database } from '@/lib/supabase/database.types'
+import { supabaseInsert } from '@/lib/supabase/helpers'
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  source?: string; // optional, to track where the signup came from
+  source?: string;
 };
 
 export default function WaitlistModal({ open, onClose, source = "marketing" }: Props) {
@@ -18,8 +21,8 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState<number | null>(null);
+  const supabase = createClient();
 
-  // Load current waitlist count when opened
   useEffect(() => {
     if (!open) return;
     setSuccess(false);
@@ -29,15 +32,12 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
     });
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
-
-  if (!open) return null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,19 +50,19 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
     }
 
     setSubmitting(true);
-    const { error } = await supabase.from("waitlist_signups").insert({
+    const { error } = await supabaseInsert(supabase, 'waitlist_signups', {
       email: trimmed,
       name: name.trim() || null,
       source,
-    });
+    })
     setSubmitting(false);
 
     if (error) {
-      if (error.code === "23505") {
-        setError("You're already on the waitlist 🎉");
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+      setError(
+        error.code === "23505"
+          ? "You're already on the waitlist 🎉"
+          : "Something went wrong. Please try again."
+      );
       return;
     }
 
@@ -73,74 +73,126 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/70 backdrop-blur-md"
           onClick={onClose}
-          aria-label="Close"
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-xl"
         >
-          ×
-        </button>
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-md rounded-2xl border-2 border-primary/20 bg-card shadow-2xl overflow-hidden"
+          >
+            {/* Decorative gradient halo — matches hero gradient */}
+            <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-gradient-to-br from-primary/30 to-purple-500/30 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-gradient-to-tr from-purple-500/20 to-primary/20 blur-3xl pointer-events-none" />
 
-        {success ? (
-          <div className="text-center space-y-3 py-4">
-            <div className="text-4xl">🎉</div>
-            <h2 className="text-xl font-semibold">You're on the list!</h2>
-            <p className="text-gray-600 text-sm">
-              We'll email you as soon as we launch.
-            </p>
             <button
               onClick={onClose}
-              className="mt-2 px-4 py-2 rounded bg-black text-white"
+              aria-label="Close"
+              className="absolute top-4 right-4 z-10 text-muted-foreground hover:text-foreground transition-colors"
             >
-              Close
+              <X className="h-5 w-5" />
             </button>
-          </div>
-        ) : (
-          <>
-            <h2 className="text-xl font-semibold mb-1">Join the waitlist</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Be the first to know when we launch.
-              {count != null && (
-                <> {" "}<span className="font-medium">{count}</span> people already joined.</>
-              )}
-            </p>
 
-            <form onSubmit={submit} className="space-y-3">
-              <input
-                className="border rounded-lg px-3 py-2 w-full"
-                placeholder="Name (optional)"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <input
-                className="border rounded-lg px-3 py-2 w-full"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-              />
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full px-4 py-2 rounded-lg bg-black text-white disabled:opacity-50"
-              >
-                {submitting ? "Joining…" : "Join waitlist"}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
+            <div className="relative p-8">
+              {success ? (
+                <div className="text-center space-y-4 py-4">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-500 text-primary-foreground">
+                    <Check className="h-7 w-7" />
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+                    You're on the list!
+                  </h2>
+                  <p className="text-muted-foreground">
+                    We'll email you the moment LifeQuest launches.
+                  </p>
+                  <Button onClick={onClose} className="mt-2" size="lg">
+                    Close
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Early access
+                  </div>
+
+                  <h2 className="text-2xl md:text-3xl font-bold tracking-tight leading-tight">
+                    Join the{" "}
+                    <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+                      waitlist
+                    </span>
+                  </h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Be the first to start your quest.
+                    {count != null && (
+                      <>
+                        {" "}
+                        <span className="font-semibold text-foreground">{count}</span>{" "}
+                        {count === 1 ? "player" : "players"} already joined.
+                      </>
+                    )}
+                  </p>
+
+                  <form onSubmit={submit} className="mt-6 space-y-3">
+                    <input
+                      className="w-full rounded-lg border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition"
+                      placeholder="Your name (optional)"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                    <input
+                      className="w-full rounded-lg border bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                    {error && (
+                      <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                        {error}
+                      </p>
+                    )}
+
+                    <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                      <Button
+                        type="submit"
+                        size="lg"
+                        disabled={submitting}
+                        className="w-full group"
+                      >
+                        {submitting ? (
+                          "Joining…"
+                        ) : (
+                          <>
+                            Join the waitlist
+                            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                          </>
+                        )}
+                      </Button>
+                    </motion.div>
+
+                    <p className="text-xs text-center text-muted-foreground pt-1">
+                      Free forever • No spam • Unsubscribe anytime
+                    </p>
+                  </form>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

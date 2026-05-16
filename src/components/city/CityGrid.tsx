@@ -39,7 +39,7 @@ export function CityGrid({ buildings, selectedBuilding, onCellClick, mode }: Cit
 
           return (
             <Tooltip key={idx}>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <button
                   onClick={() => onCellClick(row, col)}
                   disabled={mode === "view" && !occupied}
