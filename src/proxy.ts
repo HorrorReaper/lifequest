@@ -1,13 +1,12 @@
-
 import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   return await updateSession(request)
 }
 
 export const config = {
-  // Only run middleware for routes that need auth/session checks.
+  // Only run proxy for routes that need auth/session checks.
   matcher: [
     '/dashboard/:path*',
     '/journal/:path*',
