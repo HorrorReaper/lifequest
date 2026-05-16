@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/database.types'
 import { EntryForm } from '@/components/journal/entry-form'
 import { JournalTemplate, TemplateField, FieldValue } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -22,12 +23,18 @@ export default async function ViewEntryPage({ params }: PageProps) {
   if (!user) redirect('/login')
 
   // Fetch entry with template
-  const { data: entry } = await supabase
+  const { data } = await supabase
     .from('journal_entries')
     .select('*, journal_templates(*)')
     .eq('id', entryId)
     .eq('user_id', user.id)
     .single()
+
+  const entry = data as
+    | (Database['public']['Tables']['journal_entries']['Row'] & {
+        journal_templates?: Database['public']['Tables']['journal_templates']['Row'] | null
+      })
+    | null
 
   if (!entry) redirect('/journal')
 
@@ -41,10 +48,11 @@ export default async function ViewEntryPage({ params }: PageProps) {
     .order('sort_order')
 
   // Fetch responses
-  const { data: responses } = await supabase
+  const { data: responsesData } = await supabase
     .from('journal_responses')
     .select('*')
     .eq('entry_id', entryId)
+  const responses = responsesData as Database['public']['Tables']['journal_responses']['Row'][] | null
 
   // Map responses to field values
   const existingResponses: Record<string, FieldValue> = {}

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { EntryForm } from '@/components/journal/entry-form'
 import { JournalTemplate, TemplateField } from '@/lib/types'
+import type { Database } from '@/lib/supabase/database.types'
 
 interface PageProps {
   params: Promise<{ templateId: string }>
@@ -20,11 +21,12 @@ export default async function NewEntryPage({ params }: PageProps) {
   if (!user) redirect('/login')
 
   // Fetch template
-  const { data: template } = await supabase
+  const { data } = await supabase
     .from('journal_templates')
     .select('*')
     .eq('id', templateId)
     .single()
+  const template = data as Database['public']['Tables']['journal_templates']['Row'] | null
 
   if (!template) redirect('/journal')
 

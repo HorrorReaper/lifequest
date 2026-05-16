@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import { supabaseInsert } from '@/lib/supabase/helpers'
 import type {
   CityBuilding,
   CityBuildingWithStatus,
@@ -116,13 +117,15 @@ export async function checkAndUnlockBuildings(
   }
 
   const unlockedMap = new Map(
-    (userBuildings ?? []).map((ub) => [ub.building_id, ub.unlocked_at])
+    ((userBuildings ?? []) as any[]).map((ub: any) => [ub.building_id, ub.unlocked_at])
   );
 
   // 3. Determine which buildings are newly unlockable
   const newlyUnlockable: CityBuilding[] = [];
 
-  for (const building of buildings) {
+  const buildingList = (buildings ?? []) as any[]
+
+  for (const building of buildingList) {
     const alreadyUnlocked = unlockedMap.has(building.id);
     if (!alreadyUnlocked && isBuildingUnlockable(building, stats)) {
       newlyUnlockable.push(building);
@@ -136,9 +139,7 @@ export async function checkAndUnlockBuildings(
       building_id: b.id,
     }));
 
-    const { error: insertError } = await supabase
-      .from('user_buildings')
-      .insert(inserts);
+    const { error: insertError } = await supabaseInsert(supabase, 'user_buildings', inserts)
 
     if (insertError) {
       console.error('Failed to insert new unlocks:', insertError);
@@ -150,7 +151,7 @@ export async function checkAndUnlockBuildings(
   }
 
   // 5. Build the full status list
-  const allBuildings: CityBuildingWithStatus[] = buildings.map((b) => ({
+  const allBuildings: CityBuildingWithStatus[] = buildingList.map((b: any) => ({
     ...b,
     is_unlocked: unlockedMap.has(b.id),
     unlocked_at: unlockedMap.get(b.id) ?? null,

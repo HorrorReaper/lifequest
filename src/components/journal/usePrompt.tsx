@@ -22,14 +22,15 @@ export function usePrompt(category?: string) {
       }
 
       const { data, error } = await query
+      const prompts = data as { prompt_text: string }[] | null
 
       if (error) {
         console.error('Failed to fetch prompts', error)
         return
       }
 
-      if (mounted && data && data.length > 0) {
-        const random = data[Math.floor(Math.random() * data.length)]
+      if (mounted && prompts && prompts.length > 0) {
+        const random = prompts[Math.floor(Math.random() * prompts.length)]
         setPrompt(random.prompt_text)
       }
     }

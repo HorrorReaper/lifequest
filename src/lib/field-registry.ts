@@ -127,6 +127,44 @@ export const FIELD_REGISTRY: FieldTypeDefinition[] = [ //welche verschiedenen Ar
     defaultConfig: { category: 'self_discovery' },
     isDisplayOnly: true,
   },
+  {
+  type: 'tasks',
+  label: 'Task List',
+  icon: '✅',
+  description: 'Create tasks shown on the dashboard',
+  hasConfig: true,
+  defaultConfig: {
+    defaultPriority: 'medium',
+    maxTasks: 10,
+  },
+  isDisplayOnly: false,
+},
+{
+  type: 'day_planner',
+  label: 'Day Planner',
+  icon: '📅',
+  description: 'Plan your next day in time blocks',
+  hasConfig: true,
+  defaultConfig: {
+    defaultDate: 'tomorrow',
+    startHour: 9,
+  },
+  isDisplayOnly: false,
+},
+{
+  type: 'habit_tracker',
+  label: 'Habit Tracker',
+  icon: '🎯',
+  description: 'Check off habits from your settings',
+  hasConfig: true,
+  defaultConfig: {
+    selectedHabitIds: [],
+    showAll: false,
+  },
+  isDisplayOnly: false,
+},
+
+
 ]
 
 export function getFieldDefinition(type: FieldType): FieldTypeDefinition {

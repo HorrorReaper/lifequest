@@ -41,6 +41,7 @@ export interface TemplateField {
   sort_order: number
   config: Record<string, unknown>
   created_at: string
+  xp_rules?: XpRule[]; // Optionales Feld für XP-Regeln, die mit diesem Feld verbunden sind
 } //Template Feld
 
 export type FieldType =
@@ -56,6 +57,9 @@ export type FieldType =
   | 'divider'
   | 'heading'
   | 'prompt'
+  | 'tasks'
+  | 'day_planner'
+  | 'habit_tracker'
 //Die verschiedenen Arten von Template-Feldern
 export interface FieldValue {
   field_id: string
@@ -139,4 +143,79 @@ export interface PlayerStats {
   longestStreak: number;
   totalEntries: number;
   uniqueTemplatesUsed: number;
+}
+
+export interface Task {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  is_completed: boolean;
+  due_date: string | null;
+  priority: "low" | "medium" | "high";
+  created_at: string;
+  completed_at: string | null;
+}
+export interface DayPlanBlock {
+  id: string;
+  start_time: string; // "HH:mm"
+  end_time: string;   // "HH:mm"
+  title: string;
+  category: "deep_work" | "meeting" | "break" | "personal" | "exercise" | "other";
+}
+
+export interface DayPlan {
+  id: string;
+  user_id: string;
+  entry_id: string | null;
+  field_id: string | null;
+  plan_date: string; // YYYY-MM-DD
+  blocks: DayPlanBlock[];
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+
+// ============================================
+// Habits
+// ============================================
+export interface Habit {
+  id: string;
+  user_id: string;
+  name: string;
+  emoji: string;
+  color: string;
+  is_archived: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface HabitLog {
+  id: string;
+  user_id: string;
+  habit_id: string;
+  entry_id: string | null;
+  log_date: string;
+  completed: boolean;
+  created_at: string;
+}
+
+// ============================================
+// XP Rules
+// ============================================
+export type XpRuleOperator =
+  | "equals"
+  | "not_equals"
+  | "greater_than"
+  | "less_than"
+  | "contains"
+  | "is_checked"
+  | "is_not_checked";
+
+export interface XpRule {
+  id: string;
+  operator: XpRuleOperator;
+  value?: string | number;
+  xp: number;
 }

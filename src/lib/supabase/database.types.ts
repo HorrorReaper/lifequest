@@ -298,30 +298,91 @@ export interface Database {
         Update: never; //CityBuilding is static data, we won't update it through the app
       }
       user_buildings: {
-        /*Row: {
+        Row: UserBuilding;
+        Insert: Omit<UserBuilding, 'id' | 'unlocked_at'> & { id?: string; unlocked_at?: string };
+        Update: never;
+      },
+      waitlist_signups: {
+        Row: {
+          id: string
+          email: string
+          name: string | null
+          source: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          name?: string | null
+          source?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          name?: string | null
+          source?: string
+          created_at?: string
+        }
+      },
+      city_states: {
+        Row: {
           id: string
           user_id: string
-          building_id: string
-          unlocked_at: string
+          coins: number
+          xp: number
+          level: number
+          claimed_entry_ids: string[] | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          building_id: string
-          unlocked_at?: string
+          coins?: number
+          xp?: number
+          level?: number
+          claimed_entry_ids?: string[] | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          building_id?: string
-          unlocked_at?: string
-        }*/
-       user_buildings: {
-          Row: UserBuilding;
-          Insert: Omit<UserBuilding, 'id' | 'unlocked_at'> & { id?: string; unlocked_at?: string };
-          Update: never;
-        };
-      }
+          coins?: number
+          xp?: number
+          level?: number
+          claimed_entry_ids?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+      },
+      city_buildings_placing: {
+        Row: {
+          id: string
+          user_id: string
+          building_type: string
+          row: number
+          col: number
+          placed_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          building_type: string
+          row?: number
+          col?: number
+          placed_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          building_type?: string
+          row?: number
+          col?: number
+          placed_at?: string
+        }
+      },
       streak_history: {
         Row: {
           id: string

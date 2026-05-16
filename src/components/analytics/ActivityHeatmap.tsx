@@ -34,7 +34,7 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
           <div className="flex flex-wrap gap-1">
             {data.map((day) => (
               <Tooltip key={day.date}>
-                <TooltipTrigger asChild>
+                <TooltipTrigger>
                   <div
                     className={cn(
                       "h-3.5 w-3.5 rounded-sm transition-colors",

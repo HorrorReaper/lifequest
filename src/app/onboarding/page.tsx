@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { OnboardingFlow } from '@/components/onboarding/onboarding-flow'
+import type { Database } from '@/lib/supabase/database.types'
 
 export default async function OnboardingPage() {
   const supabase = await createClient()
@@ -12,11 +13,12 @@ export default async function OnboardingPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
+  const profile = data as Database['public']['Tables']['profiles']['Row'] | null
 
   if (profile?.onboarding_complete) redirect('/dashboard')
 

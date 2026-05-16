@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { HabitsManager } from './HabitsManager'
 
 const TIMEZONES = [
   'America/New_York',
@@ -52,14 +54,11 @@ export function SettingsForm({
     setSaving(true)
     setSaved(false)
 
-    await supabase
-      .from('profiles')
-      .update({
-        username: username.trim(),
-        timezone,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
+    await supabaseUpdateWhere(supabase, 'profiles', {
+      username: username.trim(),
+      timezone,
+      updated_at: new Date().toISOString(),
+    }, 'id', userId)
 
     setSaving(false)
     setSaved(true)
@@ -112,6 +111,7 @@ export function SettingsForm({
       </Card>
 
       <Separator />
+      <HabitsManager userId={userId} />
 
       <Card className="border-border/50">
         <CardContent className="pt-6">

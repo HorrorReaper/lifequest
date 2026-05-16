@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { getFieldDefinition } from '@/lib/field-registry'
-import { FieldType } from '@/lib/types'
+import { FieldType, XpRule } from '@/lib/types'
 // Diese Komponente repräsentiert ein einzelnes Feld in der Template Builder UI, das sortierbar ist. Sie zeigt die Feldinformationen an und bietet Aktionen zum Bearbeiten und Löschen des Feldes.
 
 export interface BuilderField {
@@ -17,6 +17,7 @@ export interface BuilderField {
   is_required: boolean
   sort_order: number
   config: Record<string, unknown>
+  xp_rules?: XpRule[];
 }
 
 interface SortableFieldItemProps {

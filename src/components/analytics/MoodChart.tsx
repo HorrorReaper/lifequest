@@ -48,9 +48,10 @@ export function MoodChart({ data }: MoodChartProps) {
               />
               <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 12 }} />
               <Tooltip
-                formatter={(value: number) =>
-                  `${value} ${moodEmojis[Math.round(value)] ?? ""}`
-                }
+                formatter={(value: any) => {
+                  const v = typeof value === 'number' ? value : 0
+                  return `${v} ${moodEmojis[Math.round(v)] ?? ""}`
+                }}
               />
               <Line
                 type="monotone"

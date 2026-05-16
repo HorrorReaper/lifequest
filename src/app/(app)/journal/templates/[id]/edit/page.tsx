@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/database.types'
 import { TemplateBuilder } from '@/components/template-builder/template-builder'
 import { BuilderField } from '@/components/template-builder/sortable-field-item'
 import { FieldType } from '@/lib/types'
@@ -19,11 +20,12 @@ export default async function EditTemplatePage({ params }: PageProps) {
   if (!user) redirect('/login')
 
   // Fetch template
-  const { data: template } = await supabase
+  const { data } = await supabase
     .from('journal_templates')
     .select('*')
     .eq('id', id)
     .single()
+  const template = data as Database['public']['Tables']['journal_templates']['Row'] | null
 
   if (!template) redirect('/journal/templates')
 
@@ -32,11 +34,12 @@ export default async function EditTemplatePage({ params }: PageProps) {
   if (!isSystem && template.user_id !== user.id) redirect('/journal/templates')
 
   // Fetch fields
-  const { data: fields } = await supabase
+  const { data: fieldsData } = await supabase
     .from('template_fields')
     .select('*')
     .eq('template_id', id)
     .order('sort_order')
+  const fields = fieldsData as Database['public']['Tables']['template_fields']['Row'][] | null
 
   const builderFields: BuilderField[] = (fields ?? []).map((f) => ({
     id: f.id,
