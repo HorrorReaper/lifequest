@@ -69,7 +69,7 @@ function HeroTitle() {
       <TypewriterText text={"Your life is a game."} className="block" onComplete={() => setFirstDone(true)} />
       <TypewriterText
         text={"Time to start playing."}
-        className="block bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent"
+        className="block bg-gradient-to-r from-primary to-green-500 bg-clip-text text-transparent"
         start={firstDone}
       />
     </>
@@ -125,7 +125,7 @@ export default function LandingPage() {
           <HeroTitle />
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto">
-          Earn XP and coins for every journal entry, task, and habit. Spend them building a city that grows as you grow. Journaling has never been this addictive.
+          Earn XP and coins for every journal entry, task, and habit you complete. Spend them building a city that grows as you grow. Journaling has never been this addictive.
         </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
@@ -148,9 +148,6 @@ export default function LandingPage() {
               </Button>
             </motion.div>
           </div>
-        <p className="text-xs text-muted-foreground mt-4">
-          Free forever • No credit card required • Build your first building in 60 seconds
-        </p>
         <WaitlistModal
   open={waitlistOpen}
   onClose={() => setWaitlistOpen(false)}
@@ -205,12 +202,12 @@ export default function LandingPage() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
-            { icon: BookOpen, title: "Build Your Own Quests", desc: "Design journal templates with 14+ field types — moods, sliders, ratings, prompts. Make journaling yours.", color: "text-blue-500" },
-            { icon: Hammer, title: "Your City, Your Progress", desc: "Every entry drops coins and XP. Spend them on houses, parks, stadiums — and watch your skyline rise as you do.", color: "text-purple-500" },
-            { icon: Flame, title: "Streaks That Hit Different", desc: "Streak multipliers stack your rewards. Miss a day and you reset — because consistency is the whole game.", color: "text-orange-500" },
-            { icon: Calendar, title: "Plan Tomorrow Tonight", desc: "Time-block your next day during your evening journal. Wake up knowing exactly what to crush.", color: "text-green-500" },
-            { icon: ListTodo, title: "Tasks Without the App-Switching", desc: "Capture to-dos mid-journal. They land on your dashboard automatically. No Notion, no Todoist, no chaos.", color: "text-pink-500" },
-            { icon: BarChart3, title: "See Your Patterns", desc: "Mood trends, activity heatmaps, habit streaks. Find out what actually makes you feel alive.", color: "text-yellow-500" },
+            { icon: BookOpen, title: "Build Your Own Quests", desc: "Design your ownjournal templates with 14+ field types like moods, sliders, ratings, prompts and many more. Make journaling yours.", color: "text-blue-500" },
+            { icon: Hammer, title: "Your City, Your Progress", desc: "Every entry earns you coins and XP. Spend them on houses, parks, stadiums and watch your city grow as you do.", color: "text-purple-500" },
+            { icon: Flame, title: "Streaks That Hit Different", desc: "Streak multipliers stack your rewards. Miss a day and you reset, because consistency is the whole game.", color: "text-orange-500" },
+            { icon: Calendar, title: "Plan Tomorrow Tonight", desc: "Time-block your next day during your evening journal. Wake up knowing exactly what to do.", color: "text-green-500" },
+            { icon: ListTodo, title: "Tasks Without the App-Switching", desc: "Capture to-dos in your journal. They land on your dashboard automatically. No Notion, no Todoist, no chaos.", color: "text-pink-500" },
+            { icon: BarChart3, title: "See Your Patterns", desc: "Mood trends, activity heatmaps, habit streaks. Find out what actually makes you feel good.", color: "text-yellow-500" },
           ].map((f, i) => (
             <div key={i} className="rounded-xl border p-6 hover:border-primary/50 hover:shadow-md transition-all">
               <f.icon className={`h-8 w-8 ${f.color} mb-3`} />
@@ -228,27 +225,29 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
               How it works
             </h2>
-            <p className="text-lg text-muted-foreground mt-4">
-              Three steps to a journaling habit that actually sticks.
-            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="space-y-12">
             {[
-              { step: "1", title: "Pick or build a template", desc: "Start with our morning, evening, or weekly review templates — or build your own with drag-and-drop.", emoji: "🎨" },
-              { step: "2", title: "Journal for 2 minutes", desc: "Open the app, fill in your fields, hit save. That's it. Earn coins, XP, and grow your streak.", emoji: "✍️" },
-              { step: "3", title: "Watch your city grow", desc: "Spend coins on buildings. Unlock new ones at higher levels. Your discipline becomes a skyline.", emoji: "🏙️" },
+              { step: "1", title: "Pick or build a template", desc: "Start with our morning, evening, or weekly review templates — or build your own with drag-and-drop.", emoji: "🎨", image:"/images/Step1.png" },
+              { step: "2", title: "Journal for 2 minutes", desc: "Open the app, fill in your fields, hit save. That's it. Earn coins, XP, and grow your streak.", emoji: "✍️", image:"/images/Step2.png" },
+              { step: "3", title: "Watch your city grow", desc: "Spend coins on buildings. Unlock new ones at higher levels. Your discipline becomes a skyline.", emoji: "🏙️", image:"/images/Step3.png" },
             ].map((s, i) => (
               <div
                 key={i}
-                className="rounded-2xl border p-6 bg-card group transform-gpu hover:scale-105 hover:-translate-y-1 hover:shadow-xl transition-transform transition-shadow duration-200 ease-out text-center flex flex-col items-center justify-start"
+                className={`flex flex-col md:flex-row items-center gap-8 ${i % 2 === 1 ? "md:flex-row-reverse" : ""}`}
               >
-                <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 text-3xl mb-4 transform transition-transform duration-200 ease-out group-hover:scale-110">{s.emoji}</div>
-                <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground font-bold text-sm mb-3 transform transition-transform duration-200 ease-out group-hover:scale-105">
-                  {s.step}
+                <div className="w-full md:w-1/2 mt-10">
+                  <Image src={s.image} alt={s.title} width={900} height={506} className="object-cover rounded-2xl border shadow-md" />
                 </div>
-                <h3 className="font-semibold text-lg mb-2">{s.title}</h3>
-                <p className="text-sm text-muted-foreground">{s.desc}</p>
+
+                <div className="w-full md:w-1/2 text-left">
+                  <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground font-bold text-sm mb-4">
+                    {s.step}
+                  </div>
+                  <h3 className="font-semibold text-2xl mb-3">{s.title}</h3>
+                  <p className="text-sm text-muted-foreground">{s.desc}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -352,7 +351,7 @@ export default function LandingPage() {
               size="lg"
               variant="default"
               onClick={() => setWaitlistOpen(true)}
-              className="mt-4 group-hover:scale-102 transform transition-transform duration-150 inline-flex items-center justify-center"
+              className="mt-4 group-hover:scale-102 transform transition-transform duration-150 inline-flex items-center justify-center hover:cursor-pointer"
             >
               Join the waitlist now <ArrowRight className="ml-2 h-4 w-4" />
             </Button>

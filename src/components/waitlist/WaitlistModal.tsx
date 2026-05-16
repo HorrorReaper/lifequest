@@ -121,10 +121,6 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                 </div>
               ) : (
                 <>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Early access
-                  </div>
 
                   <h2 className="text-2xl md:text-3xl font-bold tracking-tight leading-tight">
                     Join the{" "}
@@ -182,10 +178,6 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                         )}
                       </Button>
                     </motion.div>
-
-                    <p className="text-xs text-center text-muted-foreground pt-1">
-                      Free forever • No spam • Unsubscribe anytime
-                    </p>
                   </form>
                 </>
               )}
