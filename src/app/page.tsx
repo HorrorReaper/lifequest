@@ -317,7 +317,13 @@ export default function LandingPage() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="rounded-2xl border p-8">
+          <motion.div
+            initial={{ x: -100, opacity: 0 }}
+            whileInView={{ x: 0, opacity: 1 }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="rounded-2xl border p-8"
+          >
             <h3 className="text-xl font-bold">Free</h3>
             <p className="text-muted-foreground text-sm mt-1">For everyone</p>
             <p className="text-4xl font-bold mt-6">$0<span className="text-base font-normal text-muted-foreground">/forever</span></p>
@@ -342,9 +348,15 @@ export default function LandingPage() {
                 Join the waitlist
               </Button>
             )}
-          </div>
+          </motion.div>
 
-          <div className="rounded-2xl border-2 border-primary p-8 relative bg-primary/5">
+          <motion.div
+            initial={{ x: 100, opacity: 0 }}
+            whileInView={{ x: 0, opacity: 1 }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="rounded-2xl border-2 border-primary p-8 relative bg-primary/5"
+          >
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
               COMING SOON
             </div>
@@ -367,13 +379,19 @@ export default function LandingPage() {
             <Button variant="outline" className="w-full mt-8" disabled>
               Join the waitlist
             </Button>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* FINAL CTA */}
       <section className="container mx-auto px-4 py-24 max-w-4xl text-center">
-        <div className="rounded-2xl border p-8 bg-card group transform-gpu hover:scale-103 hover:-translate-y-1 hover:shadow-xl transition-all duration-200 ease-out mx-auto max-w-3xl">
+        <motion.div
+          initial={{ y: 40, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="rounded-2xl border p-8 bg-card group transform-gpu hover:scale-103 hover:-translate-y-1 hover:shadow-xl transition-all duration-200 ease-out mx-auto max-w-3xl"
+        >
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
             Your future self is waiting.
           </h2>
@@ -390,7 +408,7 @@ export default function LandingPage() {
               Join the waitlist now <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* FOOTER */}
