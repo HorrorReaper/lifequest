@@ -17,6 +17,7 @@ import {
   Check,
 } from "lucide-react";
 import WaitlistModal from "@/components/waitlist/WaitlistModal";
+import Roadmap from "@/components/marketing/Roadmap";
 
 function TypewriterText({
   text = "",
@@ -69,7 +70,7 @@ function HeroTitle() {
       <TypewriterText text={"Your life is a game."} className="block" onComplete={() => setFirstDone(true)} />
       <TypewriterText
         text={"Time to start playing."}
-        className="block bg-gradient-to-r from-primary to-green-500 bg-clip-text text-transparent"
+        className="block bg-linear-to-r from-primary to-green-500 bg-clip-text text-transparent"
         start={firstDone}
       />
     </>
@@ -81,7 +82,7 @@ export default function LandingPage() {
   const [waitlistOpen, setWaitlistOpen] = useState(false);
 
   return (
-    <div className="min-h-svh bg-gradient-to-b from-background via-background to-primary/5">
+    <div className="min-h-svh bg-linear-to-b from-background via-background to-primary/5">
       {/* NAV */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-6xl">
@@ -125,7 +126,7 @@ export default function LandingPage() {
           <HeroTitle />
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto">
-          Earn XP and coins for every journal entry, task, and habit you complete. Spend them building a city that grows as you grow. Journaling has never been this addictive.
+          Earn XP and coins for every journal entry, task and habit you complete. Spend them building a city that grows as you grow. Journaling has never been this addictive.
         </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
@@ -155,20 +156,20 @@ export default function LandingPage() {
 />
         {/* Hero visual */}
         <div className="mt-16 relative">
-          <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent z-10 h-1/3 bottom-0 top-auto" />
+          <div className="absolute inset-0 bg-linear-to-t from-background to-transparent z-10 h-1/3 bottom-0 top-auto" />
           <div className="rounded-2xl border-2 border-primary/20 shadow-2xl bg-card p-6 max-w-4xl mx-auto">
             <div className="grid md:grid-cols-3 gap-4 text-left">
-              <div className="rounded-lg border p-4 bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-950/30 dark:to-yellow-950/30">
+              <div className="rounded-lg border p-4 bg-linear-to-br from-orange-50 to-yellow-50 dark:from-orange-950/30 dark:to-yellow-950/30">
                 <Flame className="h-6 w-6 text-orange-500 mb-2" />
                 <p className="text-2xl font-bold">12 days</p>
                 <p className="text-xs text-muted-foreground">Current streak</p>
               </div>
-              <div className="rounded-lg border p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">
+              <div className="rounded-lg border p-4 bg-linear-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">
                 <Sparkles className="h-6 w-6 text-purple-500 mb-2" />
                 <p className="text-2xl font-bold">Level 4</p>
                 <p className="text-xs text-muted-foreground">325 / 500 XP</p>
               </div>
-              <div className="rounded-lg border p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30">
+              <div className="rounded-lg border p-4 bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30">
                 <Building2 className="h-6 w-6 text-green-500 mb-2" />
                 <p className="text-2xl font-bold">23 buildings</p>
                 <p className="text-xs text-muted-foreground">Population: 184</p>
@@ -196,7 +197,7 @@ export default function LandingPage() {
             Every feature is designed to make you come back tomorrow
           </h2>
           <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
-            Most journaling apps die in the drawer of forgotten tools. Ours rewards you for showing up.
+            Most journaling apps die in the drawer of forgotten tools. Ours rewards you for showing up every single day.
           </p>
         </div>
 
@@ -209,11 +210,18 @@ export default function LandingPage() {
             { icon: ListTodo, title: "Tasks Without the App-Switching", desc: "Capture to-dos in your journal. They land on your dashboard automatically. No Notion, no Todoist, no chaos.", color: "text-pink-500" },
             { icon: BarChart3, title: "See Your Patterns", desc: "Mood trends, activity heatmaps, habit streaks. Find out what actually makes you feel good.", color: "text-yellow-500" },
           ].map((f, i) => (
-            <div key={i} className="rounded-xl border p-6 hover:border-primary/50 hover:shadow-md transition-all">
+            <motion.div
+              key={i}
+              initial={{ y: 16, opacity: 0 }}
+              whileInView={{ y: 0, opacity: 1 }}
+              viewport={{ once: true, amount: 0.25 }}
+              transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
+              className="rounded-xl border p-6 hover:border-primary/50 hover:shadow-md transition-all"
+            >
               <f.icon className={`h-8 w-8 ${f.color} mb-3`} />
               <h3 className="font-semibold text-lg mb-2">{f.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </section>
@@ -232,26 +240,55 @@ export default function LandingPage() {
               { step: "1", title: "Pick or build a template", desc: "Start with our morning, evening, or weekly review templates — or build your own with drag-and-drop.", emoji: "🎨", image:"/images/Step1.png" },
               { step: "2", title: "Journal for 2 minutes", desc: "Open the app, fill in your fields, hit save. That's it. Earn coins, XP, and grow your streak.", emoji: "✍️", image:"/images/Step2.png" },
               { step: "3", title: "Watch your city grow", desc: "Spend coins on buildings. Unlock new ones at higher levels. Your discipline becomes a skyline.", emoji: "🏙️", image:"/images/Step3.png" },
-            ].map((s, i) => (
+            ].map((s, i) => {
+              const isReversed = i % 2 === 1;
+              return (
               <div
                 key={i}
-                className={`flex flex-col md:flex-row items-center gap-8 ${i % 2 === 1 ? "md:flex-row-reverse" : ""}`}
+                className={`flex flex-col md:flex-row items-center gap-8 ${isReversed ? "md:flex-row-reverse" : ""}`}
               >
-                <div className="w-full md:w-1/2 mt-10">
+                <motion.div
+                  initial={{ x: isReversed ? 100 : -100, opacity: 0 }}
+                  whileInView={{ x: 0, opacity: 1 }}
+                  viewport={{ once: true, amount: 0.35 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="w-full md:w-1/2 mt-10"
+                >
                   <Image src={s.image} alt={s.title} width={900} height={506} className="object-cover rounded-2xl border shadow-md" />
-                </div>
+                </motion.div>
 
-                <div className="w-full md:w-1/2 text-left">
+                <motion.div
+                  initial={{ x: isReversed ? -100 : 100, opacity: 0 }}
+                  whileInView={{ x: 0, opacity: 1 }}
+                  viewport={{ once: true, amount: 0.35 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="w-full md:w-1/2 text-left"
+                >
                   <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground font-bold text-sm mb-4">
                     {s.step}
                   </div>
                   <h3 className="font-semibold text-2xl mb-3">{s.title}</h3>
                   <p className="text-sm text-muted-foreground">{s.desc}</p>
-                </div>
+                </motion.div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
+      </section>
+      
+
+      {/* Our Mission */}
+      <section className="container mx-auto px-4 py-24 max-w-4xl text-center">
+        <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+          Our mission is to make self-improvement addictive.
+        </h2>
+        <h3 className="text-2xl text-muted-foreground mt-4">
+          Journaling
+        </h3>
+        <p className="text-lg text-muted-foreground mt-4">
+          We believe that journaling and self-reflection are the most powerful tools for personal growth, but they only work if you actually do them. So we made a game out of it.
+        </p>
+        <Roadmap />
       </section>
 
       {/* TESTIMONIAL */}
