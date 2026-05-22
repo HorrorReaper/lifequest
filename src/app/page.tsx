@@ -191,10 +191,10 @@ export default function LandingPage() {
       
 
       {/* FEATURES */}
-      <section id="features" className="container mx-auto px-4 py-24 max-w-6xl">
+      {/*<section id="features" className="container mx-auto px-4 py-24 max-w-6xl">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Every feature is designed to make you come back tomorrow
+            Game mechanics
           </h2>
           <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
             Most journaling apps die in the drawer of forgotten tools. Ours rewards you for showing up every single day.
@@ -203,7 +203,7 @@ export default function LandingPage() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
-            { icon: BookOpen, title: "Build Your Own Quests", desc: "Design your ownjournal templates with 14+ field types like moods, sliders, ratings, prompts and many more. Make journaling yours.", color: "text-blue-500" },
+            { icon: BookOpen, title: "Build Your Own Templates", desc: "Design your own journal templates with 14+ field types like moods, sliders, ratings, prompts and many more. Make journaling yours.", color: "text-blue-500" },
             { icon: Hammer, title: "Your City, Your Progress", desc: "Every entry earns you coins and XP. Spend them on houses, parks, stadiums and watch your city grow as you do.", color: "text-purple-500" },
             { icon: Flame, title: "Streaks That Hit Different", desc: "Streak multipliers stack your rewards. Miss a day and you reset, because consistency is the whole game.", color: "text-orange-500" },
             { icon: Calendar, title: "Plan Tomorrow Tonight", desc: "Time-block your next day during your evening journal. Wake up knowing exactly what to do.", color: "text-green-500" },
@@ -224,7 +224,150 @@ export default function LandingPage() {
             </motion.div>
           ))}
         </div>
-      </section>
+      </section>*/}
+      <section id="features" className="container mx-auto px-4 py-24 max-w-6xl">
+  <div className="text-left md:text-center mb-14">
+
+    <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+      A journal that gives something back
+    </h2>
+    <p className="text-lg text-muted-foreground mt-4 max-w-2xl md:mx-auto">
+      LifeQuest turns small daily check-ins into visible progress with XP, streaks,
+      coins, and a city that grows with you.
+    </p>
+  </div>
+
+  <div className="grid md:grid-cols-6 gap-6">
+    {[
+      {
+        tile: "🏙️",
+        title: "Every entry adds to your city",
+        desc: "Complete a journal entry, earn coins, place buildings, and watch your map fill up one day at a time.",
+        className: "md:col-span-4",
+        preview: "city",
+      },
+      {
+        tile: "🔥",
+        title: "Protect your streak",
+        desc: "Show up daily to keep your streak alive. Miss a day and your multiplier resets.",
+        className: "md:col-span-2",
+        preview: "streak",
+      },
+      {
+        tile: "📓",
+        title: "Turn any journal into a quest",
+        desc: "Build templates for morning check-ins, evening reviews, habits, workouts, or whatever you want to track.",
+        className: "md:col-span-2",
+        preview: "xp",
+      },
+      {
+        tile: "🌙",
+        title: "Plan tomorrow before bed",
+        desc: "Use your evening review to set priorities and time-block tomorrow before the day begins.",
+        className: "md:col-span-2",
+        preview: "plan",
+      },
+      {
+        tile: "📊",
+        title: "Spot what improves your days",
+        desc: "Track mood, energy, habits, and activity over time so your patterns become obvious.",
+        className: "md:col-span-2",
+        preview: "analytics",
+      },
+    ].map((f) => (
+      <div
+        key={f.title}
+        className={`
+          group relative overflow-hidden rounded-2xl border border-white/10 bg-card/70 p-6
+          transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-card
+          ${f.className}
+        `}
+      >
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+
+        <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border bg-background/70 text-2xl shadow-inner">
+          {f.tile}
+        </div>
+
+        <h3 className="font-semibold text-xl mb-2">{f.title}</h3>
+        <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
+          {f.desc}
+        </p>
+
+        {f.preview === "city" && (
+          <div className="mt-6 grid grid-cols-10 gap-1 max-w-sm">
+            {["", "", "🏠", "🌳", "", "🏪", "", "🌳", "", "🏫",
+              "", "🌷", "", "", "☕", "", "🏢", "", "", ""].map((tile, i) => (
+              <div
+                key={i}
+                className="aspect-square rounded bg-muted/40 border border-white/5 flex items-center justify-center text-sm"
+              >
+                {tile}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {f.preview === "streak" && (
+          <div className="mt-6 flex gap-1.5">
+            {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+              <div
+                key={`${d}-${i}`}
+                className={`flex h-8 w-8 items-center justify-center rounded-md text-xs font-semibold ${
+                  i < 5
+                    ? "bg-orange-500/15 text-orange-400 border border-orange-500/20"
+                    : "bg-muted/40 text-muted-foreground border border-white/5"
+                }`}
+              >
+                {d}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {f.preview === "xp" && (
+          <div className="mt-6 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+              +25 XP
+            </span>
+            <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2.5 py-1 text-yellow-400">
+              +10 coins
+            </span>
+            <span className="rounded-full border border-purple-500/20 bg-purple-500/10 px-2.5 py-1 text-purple-400">
+              Level progress
+            </span>
+          </div>
+        )}
+
+        {f.preview === "plan" && (
+          <div className="mt-6 space-y-2 text-xs">
+            {["07:30 Morning review", "18:00 Gym", "21:30 Evening quest"].map((item) => (
+              <div
+                key={item}
+                className="rounded-lg border border-white/5 bg-muted/30 px-3 py-2 text-muted-foreground"
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {f.preview === "analytics" && (
+          <div className="mt-6 flex items-end gap-1.5 h-16">
+            {[35, 52, 44, 70, 58, 82, 64].map((h, i) => (
+              <div
+                key={i}
+                className="w-6 rounded-t bg-primary/30 border border-primary/20"
+                style={{ height: `${h}%` }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+</section>
+
 
       {/* HOW IT WORKS */}
       <section id="how-it-works" className="bg-muted/30 py-24">
@@ -280,10 +423,10 @@ export default function LandingPage() {
       {/* Our Mission */}
       <section className="container mx-auto px-4 py-24 max-w-4xl text-center">
         <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-          Our mission is to make self-improvement addictive.
+          My mission.
         </h2>
         <p className="text-lg text-muted-foreground mt-4">
-          We believe that journaling and self-reflection are the most powerful tools for personal growth, but they only work if you actually do them. So we made a game out of it.
+          I believe that journaling and self-reflection are the most powerful tools for personal growth, but they only work if you actually do them. So I made a game out of it.
         </p>
         <Roadmap />
       </section>

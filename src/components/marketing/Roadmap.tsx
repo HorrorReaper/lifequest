@@ -22,7 +22,7 @@ export default function Roadmap() {
     <section id="roadmap" className="container mx-auto px-4 py-24 max-w-6xl">
       <div className="text-center mb-12">
         <h2 className="text-4xl md:text-5xl font-bold tracking-tight">Roadmap</h2>
-        <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">Here is what we will build next:</p>
+        <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">Here is what I will build next:</p>
       </div>
 
       <div className="space-y-8">
