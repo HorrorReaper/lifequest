@@ -282,9 +282,6 @@ export default function LandingPage() {
         <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
           Our mission is to make self-improvement addictive.
         </h2>
-        <h3 className="text-2xl text-muted-foreground mt-4">
-          Journaling
-        </h3>
         <p className="text-lg text-muted-foreground mt-4">
           We believe that journaling and self-reflection are the most powerful tools for personal growth, but they only work if you actually do them. So we made a game out of it.
         </p>
