@@ -84,10 +84,6 @@ export default function LandingPage() {
 
       {/* HERO */}
       <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="container mx-auto px-4 pt-20 pb-24 max-w-6xl text-center">
-        {/*<div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
-          <Sparkles className="h-4 w-4" />
-          The self-improvement app that plays like a game. Journal, earn rewards, and build your dream life one day at a time.
-        </div>*/}
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
           <HeroTitle />
         </h1>

@@ -2,13 +2,18 @@
 {
   "name": "LifeQuest",
   "short_name": "LifeQuest",
-  "description": "Gamified journaling — earn XP, maintain streaks, build your city.",
+  "description": "Gamified journaling: earn XP, maintain streaks and build your own virtual city.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
   "orientation": "portrait",
   "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
