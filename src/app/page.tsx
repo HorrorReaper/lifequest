@@ -5,19 +5,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
-  BookOpen,
   Building2,
   Sparkles,
   Flame,
-  ListTodo,
-  Calendar,
-  BarChart3,
-  Hammer,
   ArrowRight,
   Check,
 } from "lucide-react";
 import WaitlistModal from "@/components/waitlist/WaitlistModal";
 import Roadmap from "@/components/marketing/Roadmap";
+import Navbar from "@/components/layout/Navbar";
 
 function TypewriterText({
   text = "",
@@ -84,37 +80,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-svh bg-linear-to-b from-background via-background to-primary/5">
       {/* NAV */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-6xl">
-          <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-            <Image src="/images/logo2.png" alt="LifeQuest logo" width={170} height={170} className="rounded-sm" />
-          </Link>
-          <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#features" className="text-muted-foreground hover:text-foreground">Features</a>
-            <a href="#how-it-works" className="text-muted-foreground hover:text-foreground">How it works</a>
-            <a href="#pricing" className="text-muted-foreground hover:text-foreground">Pricing</a>
-          </nav>
-          {is_MVP ? (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Log in</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link href="/login">Get started</Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center">
-              <Button size="sm" variant="outline"
-                onClick={() => setWaitlistOpen(true)}
-                className="px-5 py-3 rounded-lg bg-black text-white"
-              >
-                Join the waitlist
-              </Button>
-            </div>
-          )}
-        </div>
-      </header>
+      <Navbar is_MVP={is_MVP} setWaitlistOpen={setWaitlistOpen} />
 
       {/* HERO */}
       <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="container mx-auto px-4 pt-20 pb-24 max-w-6xl text-center">
@@ -381,7 +347,7 @@ export default function LandingPage() {
           <div className="space-y-12">
             {[
               { step: "1", title: "Pick or build a template", desc: "Start with our morning, evening, or weekly review templates — or build your own with drag-and-drop.", emoji: "🎨", image:"/images/Step1.png" },
-              { step: "2", title: "Journal for 2 minutes", desc: "Open the app, fill in your fields, hit save. That's it. Earn coins, XP, and grow your streak.", emoji: "✍️", image:"/images/Step2.png" },
+              { step: "2", title: "Journal for 2 minutes", desc: "Open the app, fill in your fields, hit submit. That's it. Earn coins, XP, and grow your streak.", emoji: "✍️", image:"/images/Step2.png" },
               { step: "3", title: "Watch your city grow", desc: "Spend coins on buildings. Unlock new ones at higher levels. Your discipline becomes a skyline.", emoji: "🏙️", image:"/images/Step3.png" },
             ].map((s, i) => {
               const isReversed = i % 2 === 1;
@@ -426,7 +392,10 @@ export default function LandingPage() {
           My mission.
         </h2>
         <p className="text-lg text-muted-foreground mt-4">
-          I believe that journaling and self-reflection are the most powerful tools for personal growth, but they only work if you actually do them. So I made a game out of it.
+          I believe that journaling and self-reflection are the most powerful tools for personal growth, but they only work if you actually do them. So I made a game out of it that holds you accountable and makes it fun to show up every day. My mission is to help millions of people turn journaling into the most addictive, rewarding habit they've ever had, and in doing so, become the best versions of themselves.
+        </p>
+        <p className="text-sm text-muted-foreground mt-6">
+          - Patrick Eger, Founder of LifeQuest
         </p>
         <Roadmap />
       </section>
