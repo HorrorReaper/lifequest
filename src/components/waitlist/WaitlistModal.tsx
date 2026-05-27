@@ -155,6 +155,17 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                       required
                       autoFocus
                     />
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="terms"
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                        required
+                      />
+                      <label htmlFor="terms" className="text-sm text-muted-foreground">
+                        I would also be interested in the ProVersion with advanced features and early access.
+                      </label>
+                    </div>
                     {error && (
                       <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                         {error}

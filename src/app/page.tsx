@@ -195,7 +195,7 @@ export default function LandingPage() {
     </h2>
     <p className="text-lg text-muted-foreground mt-4 max-w-2xl md:mx-auto">
       LifeQuest turns small daily check-ins into visible progress with XP, streaks,
-      coins, and a city that grows with you.
+      coins, and your virtual city that grows with you.
     </p>
   </div>
 
@@ -204,7 +204,7 @@ export default function LandingPage() {
       {
         tile: "🏙️",
         title: "Every entry adds to your city",
-        desc: "Complete a journal entry, earn coins, place buildings, and watch your map fill up one day at a time.",
+        desc: "Complete a journal entry, earn coins, place buildings, and watch your map fill up with amazing buildings.",
         className: "md:col-span-4",
         preview: "city",
       },
@@ -225,7 +225,7 @@ export default function LandingPage() {
       {
         tile: "🌙",
         title: "Plan tomorrow before bed",
-        desc: "Use your evening review to set priorities and time-block tomorrow before the day begins.",
+        desc: "Use your evening review to set priorities and time-block tomorrow before the next day begins.",
         className: "md:col-span-2",
         preview: "plan",
       },
