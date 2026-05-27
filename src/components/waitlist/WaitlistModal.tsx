@@ -21,6 +21,9 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState<number | null>(null);
+  const [interestedPro, setInterestedPro] = useState(false);
+  const [earlyAccess, setEarlyAccess] = useState(false);
+  const [newsletter, setNewsletter] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -54,7 +57,10 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
       email: trimmed,
       name: name.trim() || null,
       source,
-    })
+      interested_pro: interestedPro,
+      early_access: earlyAccess,
+      newsletter: newsletter,
+    } as any)
     setSubmitting(false);
 
     if (error) {
@@ -69,6 +75,9 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
     setSuccess(true);
     setEmail("");
     setName("");
+    setInterestedPro(false);
+    setEarlyAccess(false);
+    setNewsletter(false);
     setCount((c) => (c == null ? c : c + 1));
   }
 
@@ -80,7 +89,7 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/70 backdrop-blur-md"
+          className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-background/70 backdrop-blur-md"
           onClick={onClose}
         >
           <motion.div
@@ -92,8 +101,8 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
             className="relative w-full max-w-md rounded-2xl border-2 border-primary/20 bg-card shadow-2xl overflow-hidden"
           >
             {/* Decorative gradient halo — matches hero gradient */}
-            <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-gradient-to-br from-primary/30 to-purple-500/30 blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-gradient-to-tr from-purple-500/20 to-primary/20 blur-3xl pointer-events-none" />
+            <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-linear-to-br from-primary/30 to-purple-500/30 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-linear-to-tr from-purple-500/20 to-primary/20 blur-3xl pointer-events-none" />
 
             <button
               onClick={onClose}
@@ -106,7 +115,7 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
             <div className="relative p-8">
               {success ? (
                 <div className="text-center space-y-4 py-4">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-500 text-primary-foreground">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-linear-to-br from-primary to-purple-500 text-primary-foreground">
                     <Check className="h-7 w-7" />
                   </div>
                   <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
@@ -124,7 +133,7 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
 
                   <h2 className="text-2xl md:text-3xl font-bold tracking-tight leading-tight">
                     Join the{" "}
-                    <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+                    <span className="bg-linear-to-r from-primary to-purple-500 bg-clip-text text-transparent">
                       waitlist
                     </span>
                   </h2>
@@ -158,12 +167,37 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                     <div className="flex items-center space-x-2">
                       <input
                         type="checkbox"
-                        id="terms"
+                        id="interested_pro"
                         className="rounded border-gray-300 text-primary focus:ring-primary"
-                        required
+                        checked={interestedPro}
+                        onChange={(e) => setInterestedPro(e.target.checked)}
                       />
-                      <label htmlFor="terms" className="text-sm text-muted-foreground">
-                        I would also be interested in the ProVersion with advanced features and early access.
+                      <label htmlFor="interested_pro" className="text-sm text-muted-foreground">
+                        I'm interested in the Pro version (advanced features).
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="early_access"
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                        checked={earlyAccess}
+                        onChange={(e) => setEarlyAccess(e.target.checked)}
+                      />
+                      <label htmlFor="early_access" className="text-sm text-muted-foreground">
+                        I'd like to receive early access / beta invites.
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="newsletter"
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                        checked={newsletter}
+                        onChange={(e) => setNewsletter(e.target.checked)}
+                      />
+                      <label htmlFor="newsletter" className="text-sm text-muted-foreground">
+                        Sign me up for the newsletter.
                       </label>
                     </div>
                     {error && (
