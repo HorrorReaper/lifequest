@@ -1,5 +1,3 @@
-// src/app/layout.tsx
-
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
@@ -8,9 +6,12 @@ import { ThemeProvider } from '@/components/providers/theme-provider'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'LifeQuest — Gamified Journaling',
+  title: 'LifeQuest: Gamified Journaling',
+  icons: {
+    icon: '/logo.svg',
+  },
   description:
-    'Build self-awareness through daily journaling. Earn XP, maintain streaks, and grow your virtual city.',
+    'Build self-awareness through daily journaling. Earn XP, maintain streaks, and build up your virtual city.',
   manifest: '/manifest.json',
 }
 

@@ -308,6 +308,9 @@ export interface Database {
           email: string
           name: string | null
           source: string
+          interested_pro: boolean
+          early_access: boolean
+          newsletter: boolean
           created_at: string
         }
         Insert: {
@@ -315,6 +318,9 @@ export interface Database {
           email: string
           name?: string | null
           source?: string
+          interested_pro?: boolean
+          early_access?: boolean
+          newsletter?: boolean
           created_at?: string
         }
         Update: {
@@ -322,6 +328,9 @@ export interface Database {
           email?: string
           name?: string | null
           source?: string
+          interested_pro?: boolean
+          early_access?: boolean
+          newsletter?: boolean
           created_at?: string
         }
       },
