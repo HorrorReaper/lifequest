@@ -11,6 +11,7 @@ import { getLevelProgress } from '@/lib/city'
 import type { Database } from '@/lib/supabase/database.types'
 import { TaskList } from '@/components/tasks/TaskList'
 import { TodayPlanWidget } from '@/components/dashboard/TodayPlanWidget'
+import { DashboardSwitchLink } from '@/components/dashboard/DashboardSwitchLink'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -70,13 +71,16 @@ export default async function DashboardPage() {
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold">
-            Welcome back, {profile.username ?? 'Adventurer'} 👋
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {CITY_TIER_LABELS[cityTier]} • Level {level}
-          </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-bold">
+              Welcome back, {profile.username ?? 'Adventurer'} 👋
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {CITY_TIER_LABELS[cityTier]} • Level {level}
+            </p>
+          </div>
+          <DashboardSwitchLink target="/dashboard2" label="✨ New dashboard" />
         </div>
 
         {/* Stats Row */}
