@@ -5,7 +5,15 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Loader2Icon } from 'lucide-react'
+import {
+  ArrowLeftIcon,
+  Building2Icon,
+  CastleIcon,
+  Loader2Icon,
+  NotebookPenIcon,
+  RocketIcon,
+  ZapIcon,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { fetchCityState, BUILDING_CATALOG } from '@/lib/city/city'
@@ -48,7 +56,6 @@ const TIMEZONES = [
   'UTC',
 ]
 
-const STARTER_BUILDING_EMOJIS = BUILDING_CATALOG.filter((b) => b.xpRequired === 0).map((b) => b.emoji)
 
 export function OnboardingFlow({
   userId,
@@ -60,6 +67,7 @@ export function OnboardingFlow({
   const reduceMotion = useReducedMotion()
 
   const [step, setStep] = useState(0)
+  const [direction, setDirection] = useState(0)
   const [name, setName] = useState(currentName)
   const [timezone, setTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -68,77 +76,91 @@ export function OnboardingFlow({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  function goToStep(next: number) {
+    setDirection(next > step ? 1 : -1)
+    setStep(next)
+  }
+
   const stepVariants = reduceMotion
-    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
-    : { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } }
+    ? {
+        enter: { opacity: 0 },
+        center: { opacity: 1 },
+        exit: { opacity: 0 },
+      }
+    : {
+        enter: (dir: number) => ({ opacity: 0, x: dir >= 0 ? 32 : -32 }),
+        center: { opacity: 1, x: 0 },
+        exit: (dir: number) => ({ opacity: 0, x: dir >= 0 ? -32 : 32 }),
+      }
+
+  const stepLabels = ['Welcome', 'How it works', 'About you', 'First journal']
 
   const steps = [
     // Step 0: Welcome
-    <motion.div key="welcome" {...stepVariants} className="space-y-6 text-center">
-      <div className="text-6xl">🏰</div>
+    <div key="welcome" className="space-y-6 text-center">
+      <CastleIcon className="mx-auto h-14 w-14 text-primary" />
       <h1 className="text-3xl font-bold">Welcome to LifeQuest</h1>
       <p className="text-muted-foreground max-w-md mx-auto">
         You&apos;re about to start a journaling journey. Write daily, earn XP,
         maintain streaks, and watch your virtual city grow from a campfire to a
         capital.
       </p>
-      <Button size="lg" onClick={() => setStep(1)}>
-        Let&apos;s Begin →
+      <Button size="lg" onClick={() => goToStep(1)}>
+        Let&apos;s Begin
       </Button>
-    </motion.div>,
+    </div>,
 
     // Step 1: How LifeQuest Works
-    <motion.div key="how-it-works" {...stepVariants} className="space-y-6 text-center">
+    <div key="how-it-works" className="space-y-6 text-center">
       <h2 className="text-2xl font-bold">How LifeQuest Works</h2>
 
       <div className="space-y-4 text-left">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">📝</span>
+          <NotebookPenIcon className="size-6 shrink-0 text-primary" />
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Write journal entries</span> to earn XP
             for every reflection.
           </p>
         </div>
         <div className="flex items-start gap-3">
-          <span className="text-2xl">⚡</span>
+          <ZapIcon className="size-6 shrink-0 text-primary" />
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Level up</span> as your XP grows and
             unlock new milestones.
           </p>
         </div>
         <div className="flex items-start gap-3">
-          <span className="text-2xl">🏙️</span>
+          <Building2Icon className="size-6 shrink-0 text-primary" />
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Build your city</span> — spend XP on
-            buildings like {STARTER_BUILDING_EMOJIS.join(' ')} and grow from a village to a
+            buildings and grow from a village to a
             capital.
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      {/*<div className="flex flex-wrap items-center justify-center gap-2">
         {Object.values(CITY_TIER_LABELS).map((label) => (
           <span
             key={label}
             className="rounded-full border border-border/50 px-3 py-1 text-xs text-muted-foreground"
           >
-            {label}
+            {label.split(' ').slice(1).join(' ')}
           </span>
         ))}
-      </div>
+      </div>*/}
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={() => setStep(0)}>
-          ←
+        <Button variant="outline" onClick={() => goToStep(0)}>Back
         </Button>
-        <Button className="flex-1" onClick={() => setStep(2)}>
-          Continue →
+        <Button className="flex-1" onClick={() => goToStep(2)}>
+          Continue
         </Button>
       </div>
-    </motion.div>,
+    </div>,
 
     // Step 2: Name & Timezone
-    <motion.div key="profile" {...stepVariants} className="space-y-6">
+    <div key="profile" className="space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">About You</h2>
         <p className="text-muted-foreground text-sm">
@@ -177,17 +199,16 @@ export function OnboardingFlow({
       </div>
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={() => setStep(1)}>
-          ←
+        <Button variant="outline" onClick={() => goToStep(1)}>Back
         </Button>
-        <Button className="flex-1" onClick={() => setStep(3)} disabled={!name.trim()}>
-          Continue →
+        <Button className="flex-1" onClick={() => goToStep(3)} disabled={!name.trim()}>
+          Continue
         </Button>
       </div>
-    </motion.div>,
+    </div>,
 
     // Step 3: Pick First Template
-    <motion.div key="template" {...stepVariants} className="space-y-6">
+    <div key="template" className="space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Pick Your First Journal</h2>
         <p className="text-muted-foreground text-sm">
@@ -195,7 +216,7 @@ export function OnboardingFlow({
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {templates.map((template) => (
           <Card
             key={template.id}
@@ -223,8 +244,7 @@ export function OnboardingFlow({
       </div>
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={() => setStep(2)}>
-          ←
+        <Button variant="outline" onClick={() => goToStep(2)}>Back
         </Button>
         <Button
           className="flex-1"
@@ -232,18 +252,21 @@ export function OnboardingFlow({
           disabled={!selectedTemplate || loading}
         >
           {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <Loader2Icon className="h-4 w-4 animate-spin" />
+            <>
+              <Loader2Icon data-icon="inline-start" className="animate-spin" />
               Setting up...
-            </span>
+            </>
           ) : (
-            'Start My Journey 🚀'
+            <>
+              Start My Journey
+              <RocketIcon data-icon="inline-end" />
+            </>
           )}
         </Button>
       </div>
 
       {error && <p className="text-sm text-destructive text-center">{error}</p>}
-    </motion.div>,
+    </div>,
   ]
 
   async function handleComplete() {
@@ -276,23 +299,42 @@ export function OnboardingFlow({
 
   return (
     <div className="flex w-full flex-col items-center">
-      {/* Progress dots */}
-      <div className="flex gap-2 mb-8">
-        {steps.map((_, i) => (
-          <div
-            key={i}
-            className={`h-2 w-2 rounded-full transition-colors ${
-              i <= step ? 'bg-primary' : 'bg-muted'
-            }`}
-          />
-        ))}
-      </div>
-
-      <Card className="w-full max-w-md sm:max-w-lg">
-        <CardContent className="p-6 sm:p-8">
-          <AnimatePresence mode="wait">{steps[step]}</AnimatePresence>
+      <Card className="w-full max-w-2xl lg:max-w-3xl">
+        <CardContent className="overflow-hidden p-6 sm:p-10 lg:p-12">
+          <AnimatePresence mode="wait" custom={direction} initial={false}>
+            <motion.div
+              key={step}
+              custom={direction}
+              variants={stepVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+              layout
+            >
+              {steps[step]}
+            </motion.div>
+          </AnimatePresence>
         </CardContent>
       </Card>
+
+      {/* Progress bar */}
+      <div className="mt-8 w-full max-w-2xl lg:max-w-3xl">
+        <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{stepLabels[step]}</span>
+          <span>
+            {step + 1} / {steps.length}
+          </span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <motion.div
+            className="h-full rounded-full bg-primary"
+            initial={false}
+            animate={{ width: `${((step + 1) / steps.length) * 100}%` }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+          />
+        </div>
+      </div>
     </div>
   )
 }

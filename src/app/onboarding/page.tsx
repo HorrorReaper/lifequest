@@ -33,7 +33,7 @@ export default async function OnboardingPage() {
     .order('sort_order')
 
   return (
-    <div className="flex min-h-svh items-start justify-center bg-background px-4 py-8 pt-12 sm:items-center sm:pt-8">
+    <div className="flex min-h-svh items-start justify-center bg-background px-4 py-8 pt-12 sm:items-center sm:px-6 sm:pt-8 lg:px-8">
       <OnboardingFlow
         userId={user.id}
         currentName={profile?.username ?? user.user_metadata?.full_name ?? ''}
