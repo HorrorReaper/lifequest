@@ -20,7 +20,9 @@ export default async function OnboardingPage() {
     .single()
   const profile = data as Database['public']['Tables']['profiles']['Row'] | null
 
-  if (profile?.onboarding_complete) redirect('/dashboard')
+  const isMvp = process.env.IS_MVP === 'true'
+
+  if (profile?.onboarding_complete && !isMvp) redirect('/dashboard')
 
   // Fetch system templates for the "pick your first template" step
   const { data: templates } = await supabase
@@ -31,7 +33,7 @@ export default async function OnboardingPage() {
     .order('sort_order')
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-4 py-8">
+    <div className="flex min-h-svh items-start justify-center bg-background px-4 py-8 pt-12 sm:items-center sm:pt-8">
       <OnboardingFlow
         userId={user.id}
         currentName={profile?.username ?? user.user_metadata?.full_name ?? ''}

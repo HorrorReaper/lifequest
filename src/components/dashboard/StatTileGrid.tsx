@@ -41,16 +41,10 @@ export function StatTileGrid({ streak, bestStreak, totalXp, coins, level }: Stat
       value: coins,
       iconBgClass: "bg-yellow-500/15 text-yellow-500",
     },
-    {
-      icon: Trophy,
-      label: "Level",
-      value: level,
-      iconBgClass: "bg-purple-500/15 text-purple-500",
-    },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {tiles.map((tile, index) => (
         <motion.div
           key={tile.label}

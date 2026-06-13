@@ -4,9 +4,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { Loader2Icon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
+import { fetchCityState, BUILDING_CATALOG } from '@/lib/city/city'
+import { CITY_TIER_LABELS } from '@/lib/gamification'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,6 +48,8 @@ const TIMEZONES = [
   'UTC',
 ]
 
+const STARTER_BUILDING_EMOJIS = BUILDING_CATALOG.filter((b) => b.xpRequired === 0).map((b) => b.emoji)
+
 export function OnboardingFlow({
   userId,
   currentName,
@@ -52,6 +57,7 @@ export function OnboardingFlow({
 }: OnboardingFlowProps) {
   const router = useRouter()
   const supabase = createClient()
+  const reduceMotion = useReducedMotion()
 
   const [step, setStep] = useState(0)
   const [name, setName] = useState(currentName)
@@ -60,16 +66,15 @@ export function OnboardingFlow({
   )
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const stepVariants = reduceMotion
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 } }
 
   const steps = [
     // Step 0: Welcome
-    <motion.div
-      key="welcome"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="space-y-6 text-center"
-    >
+    <motion.div key="welcome" {...stepVariants} className="space-y-6 text-center">
       <div className="text-6xl">🏰</div>
       <h1 className="text-3xl font-bold">Welcome to LifeQuest</h1>
       <p className="text-muted-foreground max-w-md mx-auto">
@@ -82,14 +87,58 @@ export function OnboardingFlow({
       </Button>
     </motion.div>,
 
-    // Step 1: Name & Timezone
-    <motion.div
-      key="profile"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="space-y-6 w-full max-w-sm"
-    >
+    // Step 1: How LifeQuest Works
+    <motion.div key="how-it-works" {...stepVariants} className="space-y-6 text-center">
+      <h2 className="text-2xl font-bold">How LifeQuest Works</h2>
+
+      <div className="space-y-4 text-left">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">📝</span>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Write journal entries</span> to earn XP
+            for every reflection.
+          </p>
+        </div>
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">⚡</span>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Level up</span> as your XP grows and
+            unlock new milestones.
+          </p>
+        </div>
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">🏙️</span>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Build your city</span> — spend XP on
+            buildings like {STARTER_BUILDING_EMOJIS.join(' ')} and grow from a village to a
+            capital.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {Object.values(CITY_TIER_LABELS).map((label) => (
+          <span
+            key={label}
+            className="rounded-full border border-border/50 px-3 py-1 text-xs text-muted-foreground"
+          >
+            {label}
+          </span>
+        ))}
+      </div>
+
+      <div className="flex gap-3">
+        <Button variant="outline" onClick={() => setStep(0)}>
+          ←
+        </Button>
+        <Button className="flex-1" onClick={() => setStep(2)}>
+          Continue →
+        </Button>
+      </div>
+    </motion.div>,
+
+    // Step 2: Name & Timezone
+    <motion.div key="profile" {...stepVariants} className="space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">About You</h2>
         <p className="text-muted-foreground text-sm">
@@ -105,6 +154,7 @@ export function OnboardingFlow({
             placeholder="Alex"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            maxLength={50}
             autoFocus
           />
         </div>
@@ -127,23 +177,17 @@ export function OnboardingFlow({
       </div>
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={() => setStep(0)}>
+        <Button variant="outline" onClick={() => setStep(1)}>
           ←
         </Button>
-        <Button className="flex-1" onClick={() => setStep(2)} disabled={!name.trim()}>
+        <Button className="flex-1" onClick={() => setStep(3)} disabled={!name.trim()}>
           Continue →
         </Button>
       </div>
     </motion.div>,
 
-    // Step 2: Pick First Template
-    <motion.div
-      key="template"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="space-y-6 w-full max-w-md"
-    >
+    // Step 3: Pick First Template
+    <motion.div key="template" {...stepVariants} className="space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Pick Your First Journal</h2>
         <p className="text-muted-foreground text-sm">
@@ -151,7 +195,7 @@ export function OnboardingFlow({
         </p>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         {templates.map((template) => (
           <Card
             key={template.id}
@@ -179,7 +223,7 @@ export function OnboardingFlow({
       </div>
 
       <div className="flex gap-3">
-        <Button variant="outline" onClick={() => setStep(1)}>
+        <Button variant="outline" onClick={() => setStep(2)}>
           ←
         </Button>
         <Button
@@ -187,38 +231,54 @@ export function OnboardingFlow({
           onClick={handleComplete}
           disabled={!selectedTemplate || loading}
         >
-          {loading ? 'Setting up...' : 'Start My Journey 🚀'}
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2Icon className="h-4 w-4 animate-spin" />
+              Setting up...
+            </span>
+          ) : (
+            'Start My Journey 🚀'
+          )}
         </Button>
       </div>
+
+      {error && <p className="text-sm text-destructive text-center">{error}</p>}
     </motion.div>,
   ]
 
   async function handleComplete() {
     if (!selectedTemplate) return
     setLoading(true)
+    setError(null)
 
-    const { error } = await supabaseUpdateWhere(supabase, 'profiles', {
-      username: name.trim(),
-      timezone,
-      onboarding_complete: true,
-      updated_at: new Date().toISOString(),
-    }, 'id', userId)
+    try {
+      const { error: updateError } = await supabaseUpdateWhere(supabase, 'profiles', {
+        username: name.trim(),
+        timezone,
+        onboarding_complete: true,
+        updated_at: new Date().toISOString(),
+      }, 'id', userId)
 
-    if (error) {
-      console.error('Onboarding error:', error)
+      if (updateError) throw updateError
+
+      // Make sure the user has a city_states row before they reach the dashboard
+      await fetchCityState(supabase, userId)
+
+      // Navigate to first journal entry
+      router.push(`/journal/new/${selectedTemplate}`)
+    } catch (err) {
+      console.error('Onboarding error:', err)
+      setError('Something went wrong. Please try again.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    // Navigate to first journal entry
-    router.push(`/journal/new/${selectedTemplate}`)
   }
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex w-full flex-col items-center">
       {/* Progress dots */}
       <div className="flex gap-2 mb-8">
-        {[0, 1, 2].map((i) => (
+        {steps.map((_, i) => (
           <div
             key={i}
             className={`h-2 w-2 rounded-full transition-colors ${
@@ -228,7 +288,11 @@ export function OnboardingFlow({
         ))}
       </div>
 
-      <AnimatePresence mode="wait">{steps[step]}</AnimatePresence>
+      <Card className="w-full max-w-md sm:max-w-lg">
+        <CardContent className="p-6 sm:p-8">
+          <AnimatePresence mode="wait">{steps[step]}</AnimatePresence>
+        </CardContent>
+      </Card>
     </div>
   )
 }

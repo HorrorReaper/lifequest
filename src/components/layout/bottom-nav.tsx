@@ -2,30 +2,32 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Coins } from "lucide-react";
+import { BarChart3, Coins, Home, NotebookPen, LayoutTemplate, Building2, Settings } from "lucide-react";
 import { useEffect, useState } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { loadCityState } from '@/lib/city'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Home', icon: '🏠' },
-  { href: '/journal', label: 'Journal', icon: '📝' },
-  { href: '/journal/templates', label: 'Templates', icon: '🧱' },
+  { href: '/dashboard', label: 'Home', icon: Home },
+  { href: '/journal', label: 'Journal', icon: NotebookPen },
+  { href: '/journal/templates', label: 'Templates', icon: LayoutTemplate },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
-  { href: '/city', label: 'City', icon: '🏙️' },
-  { href: '/settings', label: 'Settings', icon: '⚙️' },
+  { href: '/city', label: 'City', icon: Building2 },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function BottomNav() {
   const pathname = usePathname()
   const level = useUserStore((s) => s.level)
+  const setProfile = useUserStore((s) => s.setProfile)
   const [coins, setCoins] = useState(0)
 
   useEffect(() => {
 
-    // Start with local cached coins for instant UI
+    // Start with local cached coins/xp for instant UI
     setCoins(loadCityState().coins ?? 0)
+    setProfile({ totalXp: loadCityState().xp ?? 0 })
 
     // Attempt to fetch authoritative coins from the server for the logged-in user
     ;(async () => {
@@ -50,6 +52,26 @@ export function BottomNav() {
             const cached = loadCityState()
             if (cached.coins !== cityRow.coins) {
               cached.coins = cityRow.coins
+              localStorage.setItem('city-state', JSON.stringify(cached))
+            }
+          } catch {}
+        }
+
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('total_xp')
+          .eq('id', user.id)
+          .single()
+
+        const profile = profileData as any
+
+        if (profile && typeof profile.total_xp === 'number') {
+          setProfile({ totalXp: profile.total_xp })
+          // keep local cache in sync
+          try {
+            const cached = loadCityState()
+            if (cached.xp !== profile.total_xp) {
+              cached.xp = profile.total_xp
               localStorage.setItem('city-state', JSON.stringify(cached))
             }
           } catch {}
@@ -83,7 +105,7 @@ export function BottomNav() {
           {NAV_ITEMS.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + '/')
-          const Icon = item.icon as any;
+          const Icon = item.icon
 
           return (
             <Link
@@ -95,13 +117,7 @@ export function BottomNav() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <span className="text-lg">
-                {typeof Icon === 'string' ? (
-                  Icon
-                ) : (
-                  <Icon />
-                )}
-              </span>
+              <Icon className="h-5 w-5" />
               <span>{item.label}</span>
             </Link>
           )
