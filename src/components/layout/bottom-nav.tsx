@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Coins, Home, NotebookPen, LayoutTemplate, Building2, Settings } from "lucide-react";
+import { Coins, Home, NotebookPen, LayoutTemplate, Building2, Settings } from "lucide-react";
 import { useEffect, useState } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { loadCityState } from '@/lib/city'
@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/journal', label: 'Journal', icon: NotebookPen },
   { href: '/journal/templates', label: 'Templates', icon: LayoutTemplate },
-  { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  // { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { href: '/city', label: 'City', icon: Building2 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
