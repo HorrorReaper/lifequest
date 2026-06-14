@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/providers/theme-provider'
+import { CursorSparkle } from '@/components/ui/cursor-sparkle'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
@@ -39,6 +40,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <CursorSparkle />
           {children}
         </ThemeProvider>
       </body>

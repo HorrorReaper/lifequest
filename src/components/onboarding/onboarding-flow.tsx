@@ -4,7 +4,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import {
+  motion,
+  AnimatePresence,
+  useReducedMotion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from 'framer-motion'
 import {
   ArrowLeftIcon,
   Building2Icon,
@@ -56,6 +63,37 @@ const TIMEZONES = [
   'UTC',
 ]
 
+function TiltCard({ children }: { children: React.ReactNode }) {
+  const x = useMotionValue(0)
+  const y = useMotionValue(0)
+  const rawRotateX = useTransform(y, [-0.5, 0.5], [8, -8])
+  const rawRotateY = useTransform(x, [-0.5, 0.5], [-8, 8])
+  const rotateX = useSpring(rawRotateX, { stiffness: 400, damping: 30 })
+  const rotateY = useSpring(rawRotateY, { stiffness: 400, damping: 30 })
+  const reduceMotion = useReducedMotion()
+
+  if (reduceMotion) return <>{children}</>
+
+  return (
+    <div style={{ perspective: '600px' }}>
+      <motion.div
+        style={{ rotateX, rotateY }}
+        whileHover={{ scale: 1.02 }}
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          x.set((e.clientX - rect.left) / rect.width - 0.5)
+          y.set((e.clientY - rect.top) / rect.height - 0.5)
+        }}
+        onMouseLeave={() => {
+          x.set(0)
+          y.set(0)
+        }}
+      >
+        {children}
+      </motion.div>
+    </div>
+  )
+}
 
 export function OnboardingFlow({
   userId,
@@ -218,28 +256,29 @@ export function OnboardingFlow({
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {templates.map((template) => (
-          <Card
-            key={template.id}
-            className={`cursor-pointer transition-all hover:border-primary/50 ${
-              selectedTemplate === template.id
-                ? 'border-primary ring-2 ring-primary/20'
-                : 'border-border/50'
-            }`}
-            onClick={() => setSelectedTemplate(template.id)}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <span className="text-3xl">{template.icon}</span>
-              <div className="flex-1">
-                <h3 className="font-semibold">{template.name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {template.description}
-                </p>
-              </div>
-              <span className="text-xs font-medium text-primary">
-                +{template.xp_reward} XP
-              </span>
-            </CardContent>
-          </Card>
+          <TiltCard key={template.id}>
+            <Card
+              className={`cursor-pointer transition-all hover:border-primary/50 ${
+                selectedTemplate === template.id
+                  ? 'border-primary ring-2 ring-primary/20'
+                  : 'border-border/50'
+              }`}
+              onClick={() => setSelectedTemplate(template.id)}
+            >
+              <CardContent className="flex items-center gap-4 p-4">
+                <span className="text-3xl">{template.icon}</span>
+                <div className="flex-1">
+                  <h3 className="font-semibold">{template.name}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {template.description}
+                  </p>
+                </div>
+                <span className="text-xs font-medium text-primary">
+                  +{template.xp_reward} XP
+                </span>
+              </CardContent>
+            </Card>
+          </TiltCard>
         ))}
       </div>
 
