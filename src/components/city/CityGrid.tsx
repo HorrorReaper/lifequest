@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Building, GRID_SIZE, isCellOccupied, BuildingType } from "@/lib/city";
 import { cn } from "@/lib/utils";
 import {
@@ -17,6 +18,8 @@ interface CityGridProps {
 }
 
 export function CityGrid({ buildings, selectedBuilding, onCellClick, mode }: CityGridProps) {
+  const [hoveredCell, setHoveredCell] = useState<number | null>(null)
+
   const grid = Array.from({ length: GRID_SIZE }, (_, row) =>
     Array.from({ length: GRID_SIZE }, (_, col) => {
       return buildings.find((b) => b.row === row && b.col === col) ?? null;
@@ -39,23 +42,23 @@ export function CityGrid({ buildings, selectedBuilding, onCellClick, mode }: Cit
 
           return (
             <Tooltip key={idx}>
-              <TooltipTrigger>
-                <button
-                  onClick={() => onCellClick(row, col)}
-                  disabled={mode === "view" && !occupied}
-                  className={cn(
-                    "h-10 w-10 sm:h-12 sm:w-12 rounded-md text-xl flex items-center justify-center transition-all duration-150",
-                    occupied
-                      ? "bg-white dark:bg-gray-800 shadow-sm"
-                      : "bg-green-100/60 dark:bg-green-900/20",
-                    canPlace &&
-                      "cursor-pointer ring-2 ring-primary/40 hover:ring-primary hover:bg-primary/10",
-                    mode === "build" && !canPlace && !occupied && "cursor-not-allowed opacity-50",
-                    mode === "view" && !occupied && "cursor-default"
-                  )}
-                >
-                  {building ? building.type.emoji : ""}
-                </button>
+              <TooltipTrigger
+                onClick={() => onCellClick(row, col)}
+                disabled={mode === "view" && !occupied}
+                onMouseEnter={() => canPlace && setHoveredCell(idx)}
+                onMouseLeave={() => setHoveredCell(null)}
+                className={cn(
+                  "h-10 w-10 sm:h-12 sm:w-12 rounded-md text-xl flex items-center justify-center transition-all duration-150",
+                  occupied
+                    ? "bg-white dark:bg-gray-800 shadow-sm"
+                    : "bg-green-100/60 dark:bg-green-900/20",
+                  canPlace &&
+                    "cursor-pointer ring-2 ring-primary/40 hover:ring-primary hover:bg-primary/10",
+                  mode === "build" && !canPlace && !occupied && "cursor-not-allowed opacity-50",
+                  mode === "view" && !occupied && "cursor-default"
+                )}
+              >
+                {building ? building.type.emoji : ""}
               </TooltipTrigger>
               {occupied && building && (
                 <TooltipContent>
@@ -65,7 +68,7 @@ export function CityGrid({ buildings, selectedBuilding, onCellClick, mode }: Cit
                   </p>
                 </TooltipContent>
               )}
-              {canPlace && (
+              {canPlace && hoveredCell === idx && (
                 <TooltipContent>
                   <p className="text-xs">Click to place {selectedBuilding?.name}</p>
                 </TooltipContent>

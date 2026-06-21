@@ -20,10 +20,14 @@ interface UserState {
   cityTier: string
   xpToNext: number
 
+  // Coins (shared across nav, city page, dashboard)
+  coins: number
+
   // Actions
   setProfile: (profile: Partial<UserState>) => void
   addXp: (amount: number) => void
   updateStreak: (streak: number) => void
+  setCoins: (coins: number) => void
 }
 
 export const useUserStore = create<UserState>((set) => ({
@@ -40,6 +44,8 @@ export const useUserStore = create<UserState>((set) => ({
   level: 1,
   cityTier: 'village',
   xpToNext: 500,
+
+  coins: 0,
 
   setProfile: (profile) =>
     set((state) => {
@@ -69,4 +75,6 @@ export const useUserStore = create<UserState>((set) => ({
       currentStreak: streak,
       bestStreak: Math.max(state.bestStreak, streak),
     })),
+
+  setCoins: (coins) => set({ coins }),
 }))

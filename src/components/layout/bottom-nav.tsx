@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Coins, Home, NotebookPen, LayoutTemplate, Building2, Settings } from "lucide-react";
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { loadCityState } from '@/lib/city'
 import { createClient } from '@/lib/supabase/client'
@@ -20,16 +20,16 @@ const NAV_ITEMS = [
 export function BottomNav() {
   const pathname = usePathname()
   const level = useUserStore((s) => s.level)
+  const coins = useUserStore((s) => s.coins)
   const setProfile = useUserStore((s) => s.setProfile)
-  const [coins, setCoins] = useState(0)
+  const setCoins = useUserStore((s) => s.setCoins)
 
   useEffect(() => {
-
-    // Start with local cached coins/xp for instant UI
+    // Seed store with localStorage cache for instant display
     setCoins(loadCityState().coins ?? 0)
     setProfile({ totalXp: loadCityState().xp ?? 0 })
 
-    // Attempt to fetch authoritative coins from the server for the logged-in user
+    // Fetch authoritative values from Supabase
     ;(async () => {
       try {
         const supabase = createClient()
@@ -47,7 +47,6 @@ export function BottomNav() {
 
         if (cityRow && typeof cityRow.coins === 'number') {
           setCoins(cityRow.coins)
-          // keep local cache in sync
           try {
             const cached = loadCityState()
             if (cached.coins !== cityRow.coins) {
@@ -67,7 +66,6 @@ export function BottomNav() {
 
         if (profile && typeof profile.total_xp === 'number') {
           setProfile({ totalXp: profile.total_xp })
-          // keep local cache in sync
           try {
             const cached = loadCityState()
             if (cached.xp !== profile.total_xp) {
@@ -76,22 +74,10 @@ export function BottomNav() {
             }
           } catch {}
         }
-      } catch (e) {
-        // ignore fetch errors; continue using cached coins
+      } catch {
+        // ignore fetch errors; continue using cached value
       }
     })()
-
-    // Update when other tabs write to localStorage
-    function onStorage(e: StorageEvent) {
-      if (e.key === null || e.key === undefined) return
-      if (e.key === 'city-state') {
-        const updated = loadCityState()
-        setCoins(updated.coins ?? 0)
-      }
-    }
-
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
   }, [])
 
   return (

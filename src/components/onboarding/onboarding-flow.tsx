@@ -139,7 +139,7 @@ export function OnboardingFlow({
       <CastleIcon className="mx-auto h-14 w-14 text-primary" />
       <h1 className="text-3xl font-bold">Welcome to LifeQuest</h1>
       <p className="text-muted-foreground max-w-md mx-auto">
-        You&apos;re about to start a journaling journey. Write daily, earn XP,
+        You&apos;re about to start your journaling journey. Write daily, earn XP,
         maintain streaks, and watch your virtual city grow from a campfire to a
         capital.
       </p>
@@ -157,14 +157,14 @@ export function OnboardingFlow({
           <NotebookPenIcon className="size-6 shrink-0 text-primary" />
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Write journal entries</span> to earn XP
-            for every reflection.
+            for every entry.
           </p>
         </div>
         <div className="flex items-start gap-3">
           <ZapIcon className="size-6 shrink-0 text-primary" />
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Level up</span> as your XP grows and
-            unlock new milestones.
+            unlock new buildings for your city.
           </p>
         </div>
         <div className="flex items-start gap-3">
@@ -176,17 +176,6 @@ export function OnboardingFlow({
           </p>
         </div>
       </div>
-
-      {/*<div className="flex flex-wrap items-center justify-center gap-2">
-        {Object.values(CITY_TIER_LABELS).map((label) => (
-          <span
-            key={label}
-            className="rounded-full border border-border/50 px-3 py-1 text-xs text-muted-foreground"
-          >
-            {label.split(' ').slice(1).join(' ')}
-          </span>
-        ))}
-      </div>*/}
 
       <div className="flex gap-3">
         <Button variant="outline" onClick={() => goToStep(0)}>Back
@@ -297,7 +286,7 @@ export function OnboardingFlow({
             </>
           ) : (
             <>
-              Start My Journey
+              Start Your Journey
               <RocketIcon data-icon="inline-end" />
             </>
           )}

@@ -17,6 +17,7 @@ import { RewardsClaimer } from "@/components/city/RewardsClaimer";
 import { LevelProgress } from "@/components/city/LevelProgress";
 import { Button } from "@/components/ui/button";
 import { Eye, Hammer } from "lucide-react";
+import { useUserStore } from "@/lib/stores/user-store";
 
 export default function CityPage() {
   const supabase = createClient();
@@ -26,6 +27,12 @@ export default function CityPage() {
   const [mode, setMode] = useState<"view" | "build">("view");
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
+  const setStoreCoins = useUserStore((s) => s.setCoins);
+
+  function syncCity(state: CityState) {
+    setCity(state);
+    setStoreCoins(state.coins);
+  }
 
   // Load user + city state
   useEffect(() => {
@@ -38,7 +45,7 @@ export default function CityPage() {
 
       try {
         const state = await fetchCityState(supabase, user.id);
-        setCity(state);
+        syncCity(state);
       } catch (err) {
         console.error("Failed to load city:", err);
       }
@@ -53,7 +60,7 @@ export default function CityPage() {
       if (!userId) return;
       try {
         const updated = await claimRewards(supabase, userId, newCoins, newXp, ids);
-        setCity(updated);
+        syncCity(updated);
       } catch (err) {
         console.error("Claim failed:", err);
       }
@@ -71,7 +78,7 @@ export default function CityPage() {
       setPlacing(true);
       try {
         const updated = await placeBuilding(supabase, userId, selectedBuilding, row, col);
-        setCity(updated);
+        syncCity(updated);
       } catch (err) {
         console.error("Place failed:", err);
       }
