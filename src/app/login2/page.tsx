@@ -4,7 +4,7 @@ import { LoginFormAlt } from "@/components/auth/login-form-alt"
 export default function LoginPage() {
   return (
     <div
-      className="flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10"
+      className="relative flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10"
       style={{
         backgroundImage: "url('/images/login-bg.jpg')",
         backgroundSize: 'cover',
@@ -20,4 +20,3 @@ export default function LoginPage() {
     </div>
   )
 }
-

@@ -23,11 +23,15 @@ interface UserState {
   // Coins (shared across nav, city page, dashboard)
   coins: number
 
+  // Level-up notification
+  pendingLevelUp: number | null
+
   // Actions
   setProfile: (profile: Partial<UserState>) => void
   addXp: (amount: number) => void
   updateStreak: (streak: number) => void
   setCoins: (coins: number) => void
+  clearLevelUp: () => void
 }
 
 export const useUserStore = create<UserState>((set) => ({
@@ -46,6 +50,7 @@ export const useUserStore = create<UserState>((set) => ({
   xpToNext: 500,
 
   coins: 0,
+  pendingLevelUp: null,
 
   setProfile: (profile) =>
     set((state) => {
@@ -62,11 +67,13 @@ export const useUserStore = create<UserState>((set) => ({
   addXp: (amount) =>
     set((state) => {
       const newXp = state.totalXp + amount
+      const newLevel = getLevel(newXp)
       return {
         totalXp: newXp,
-        level: getLevel(newXp),
-        cityTier: getCityTier(getLevel(newXp)),
+        level: newLevel,
+        cityTier: getCityTier(newLevel),
         xpToNext: xpToNextLevel(newXp),
+        pendingLevelUp: newLevel > state.level ? newLevel : state.pendingLevelUp,
       }
     }),
 
@@ -77,4 +84,5 @@ export const useUserStore = create<UserState>((set) => ({
     })),
 
   setCoins: (coins) => set({ coins }),
+  clearLevelUp: () => set({ pendingLevelUp: null }),
 }))

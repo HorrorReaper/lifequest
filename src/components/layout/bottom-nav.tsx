@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Coins, Home, NotebookPen, LayoutTemplate, Building2, Settings } from "lucide-react";
+import { Coins, Home, NotebookPen, Trophy, Building2, Settings, BookOpen } from "lucide-react";
 import { useEffect } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { loadCityState } from '@/lib/city'
@@ -11,7 +11,8 @@ import { createClient } from '@/lib/supabase/client'
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/journal', label: 'Journal', icon: NotebookPen },
-  { href: '/journal/templates', label: 'Templates', icon: LayoutTemplate },
+  { href: '/quests', label: 'Quests', icon: Trophy },
+  { href: '/learn', label: 'Learn', icon: BookOpen },
   // { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { href: '/city', label: 'City', icon: Building2 },
   { href: '/settings', label: 'Settings', icon: Settings },

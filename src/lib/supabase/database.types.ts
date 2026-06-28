@@ -421,6 +421,96 @@ export interface Database {
           created_at?: string
         }
       }
+      quests: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          description: string | null
+          xp_reward: number
+          coin_reward: number
+          is_completed: boolean
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          description?: string | null
+          xp_reward?: number
+          coin_reward?: number
+          is_completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          description?: string | null
+          xp_reward?: number
+          coin_reward?: number
+          is_completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      quest_completions: {
+        Row: {
+          id: string
+          user_id: string
+          quest_key: string
+          completed_at: string
+          xp_awarded: number
+          coins_awarded: number
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          quest_key: string
+          completed_at?: string
+          xp_awarded: number
+          coins_awarded: number
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          quest_key?: string
+          completed_at?: string
+          xp_awarded?: number
+          coins_awarded?: number
+        }
+      }
+      lesson_completions: {
+        Row: {
+          id: string
+          user_id: string
+          lesson_id: string
+          completed_at: string
+          xp_awarded: number
+          coins_awarded: number
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          lesson_id: string
+          completed_at?: string
+          xp_awarded: number
+          coins_awarded: number
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          lesson_id?: string
+          completed_at?: string
+          xp_awarded?: number
+          coins_awarded?: number
+        }
+      }
     }
     Functions: {
       get_level: {
