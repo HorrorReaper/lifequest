@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Trophy, ScrollText, CheckCircle } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Coins, Plus, Sparkles, Trophy, ScrollText, CheckCircle, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,10 +19,41 @@ import { SystemQuestCard, CustomQuestCard } from '@/components/quests/QuestCard'
 
 type Tab = 'achievements' | 'my-quests' | 'completed'
 
+interface QuestCompletionReward {
+  title: string
+  xp: number
+  coins: number
+}
+
+interface QuestDeleteQuery {
+  eq(column: string, value: string): PromiseLike<{ error: unknown }>
+}
+
+interface QuestDeleteBuilder {
+  delete(): QuestDeleteQuery
+}
+
+interface QuestDeleteClient {
+  from(table: 'quests'): QuestDeleteBuilder
+}
+
 interface QuestPageClientProps {
   userId: string
   defaultQuests: DefaultQuestWithStatus[]
   initialCustomQuests: CustomQuest[]
+}
+
+function questDeleteClient(supabase: ReturnType<typeof createClient>): QuestDeleteClient {
+  return supabase as unknown as QuestDeleteClient
+}
+
+function getDeleteErrorMessage(error: unknown): string {
+  if (!error) return 'Could not delete this quest.'
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return 'Could not delete this quest.'
 }
 
 export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: QuestPageClientProps) {
@@ -38,6 +70,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
   const [formXp, setFormXp] = useState(50)
   const [formCoins, setFormCoins] = useState(20)
   const [creating, setCreating] = useState(false)
+  const [completionReward, setCompletionReward] = useState<QuestCompletionReward | null>(null)
 
   const claimable = systemQuests.filter((q) => q.status === 'claimable')
   const locked = systemQuests.filter((q) => q.status === 'locked')
@@ -50,28 +83,41 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
       setCoins,
       addXp,
     })
+    const completedAt = new Date().toISOString()
     setSystemQuests((prev) =>
       prev.map((q) =>
         q.key === quest.key
-          ? { ...q, status: 'claimed', completedAt: new Date().toISOString() }
+          ? { ...q, status: 'claimed', completedAt }
           : q
       )
     )
+    setCompletionReward({
+      title: quest.title,
+      xp: quest.xp,
+      coins: quest.coins,
+    })
   }
 
   async function handleCompleteCustom(quest: CustomQuest) {
     await completeCustomQuest(supabase, quest, { setCoins, addXp })
+    const completedAt = new Date().toISOString()
     setCustomQuests((prev) =>
       prev.map((q) =>
         q.id === quest.id
-          ? { ...q, is_completed: true, completed_at: new Date().toISOString() }
+          ? { ...q, is_completed: true, completed_at: completedAt }
           : q
       )
     )
+    setCompletionReward({
+      title: quest.title,
+      xp: quest.xp_reward,
+      coins: quest.coin_reward,
+    })
   }
 
   async function handleDeleteCustom(id: string) {
-    await (supabase as any).from('quests').delete().eq('id', id)
+    const { error } = await questDeleteClient(supabase).from('quests').delete().eq('id', id)
+    if (error) throw new Error(getDeleteErrorMessage(error))
     setCustomQuests((prev) => prev.filter((q) => q.id !== id))
   }
 
@@ -105,6 +151,15 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
 
   return (
     <div className="space-y-5">
+      <QuestCompletionAnimation
+        reward={completionReward}
+        onClose={() => setCompletionReward(null)}
+        onViewCompleted={() => {
+          setCompletionReward(null)
+          setTab('completed')
+        }}
+      />
+
       {/* Tab bar */}
       <div className="flex gap-1 rounded-xl bg-muted p-1">
         {tabs.map((t) => (
@@ -291,6 +346,129 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+interface QuestCompletionAnimationProps {
+  reward: QuestCompletionReward | null
+  onClose: () => void
+  onViewCompleted: () => void
+}
+
+function QuestCompletionAnimation({
+  reward,
+  onClose,
+  onViewCompleted,
+}: QuestCompletionAnimationProps) {
+  return (
+    <AnimatePresence>
+      {reward && (
+        <motion.div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-background/70 px-4 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={onClose}
+        >
+          <RewardParticles />
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -10 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+            className="relative w-full max-w-sm rounded-2xl border border-primary/20 bg-card px-6 py-8 text-center shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.08 }}
+              className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary"
+            >
+              <Trophy className="size-8" />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+              className="mt-5 space-y-2"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                Quest Complete
+              </p>
+              <h2 className="text-2xl font-bold tracking-tight">{reward.title}</h2>
+              <p className="text-sm text-muted-foreground">
+                Your progress has been rewarded.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mt-6 grid grid-cols-2 gap-3"
+            >
+              <div className="rounded-xl bg-blue-500/10 px-4 py-3 text-blue-600 dark:text-blue-400">
+                <div className="flex items-center justify-center gap-1 text-xs font-medium">
+                  <Zap className="size-3.5" />
+                  XP
+                </div>
+                <p className="mt-1 text-xl font-black tabular-nums">+{reward.xp}</p>
+              </div>
+              <div className="rounded-xl bg-yellow-500/10 px-4 py-3 text-yellow-600 dark:text-yellow-400">
+                <div className="flex items-center justify-center gap-1 text-xs font-medium">
+                  <Coins className="size-3.5" />
+                  Coins
+                </div>
+                <p className="mt-1 text-xl font-black tabular-nums">+{reward.coins}</p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.42 }}
+              className="mt-6 flex gap-2"
+            >
+              <Button variant="outline" className="flex-1" onClick={onClose}>
+                Continue
+              </Button>
+              <Button className="flex-1" onClick={onViewCompleted}>
+                View Completed
+              </Button>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+function RewardParticles() {
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
+      {Array.from({ length: 14 }).map((_, index) => {
+        const angle = (index / 14) * Math.PI * 2
+        const distance = 118 + (index % 4) * 18
+        const x = Math.cos(angle) * distance
+        const y = Math.sin(angle) * distance
+
+        return (
+          <motion.div
+            key={index}
+            className="absolute flex size-7 items-center justify-center rounded-full bg-primary/10 text-primary"
+            initial={{ opacity: 0, scale: 0.4, x: 0, y: 0 }}
+            animate={{ opacity: [0, 1, 0], scale: [0.4, 1, 0.7], x, y }}
+            transition={{ duration: 0.9, ease: 'easeOut', delay: 0.08 + index * 0.025 }}
+          >
+            <Sparkles className="size-3.5" />
+          </motion.div>
+        )
+      })}
     </div>
   )
 }

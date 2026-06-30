@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { Coins, Zap, CheckCircle, Lock, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { DefaultQuestWithStatus, CustomQuest, QuestDifficulty } from '@/lib/quests'
 
@@ -26,11 +25,15 @@ interface SystemQuestCardProps {
 
 export function SystemQuestCard({ quest, onClaim }: SystemQuestCardProps) {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleClaim() {
     setLoading(true)
+    setError(null)
     try {
       await onClaim(quest)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not claim this reward.')
     } finally {
       setLoading(false)
     }
@@ -96,8 +99,14 @@ export function SystemQuestCard({ quest, onClaim }: SystemQuestCardProps) {
 
       {claimable && (
         <Button size="sm" className="w-full" onClick={handleClaim} disabled={loading}>
-          {loading ? 'Claiming…' : 'Claim Reward'}
+          {loading ? 'Claiming...' : 'Claim Reward'}
         </Button>
+      )}
+
+      {error && (
+        <p className="text-xs text-destructive">
+          {error}
+        </p>
       )}
 
       {claimed && (
@@ -118,11 +127,15 @@ interface CustomQuestCardProps {
 export function CustomQuestCard({ quest, onComplete, onDelete }: CustomQuestCardProps) {
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleComplete() {
     setLoading(true)
+    setError(null)
     try {
       await onComplete(quest)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not complete this quest.')
     } finally {
       setLoading(false)
     }
@@ -130,8 +143,11 @@ export function CustomQuestCard({ quest, onComplete, onDelete }: CustomQuestCard
 
   async function handleDelete() {
     setDeleting(true)
+    setError(null)
     try {
       await onDelete(quest.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete this quest.')
     } finally {
       setDeleting(false)
     }
@@ -171,12 +187,18 @@ export function CustomQuestCard({ quest, onComplete, onDelete }: CustomQuestCard
       {!quest.is_completed && (
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="flex-1" onClick={handleComplete} disabled={loading}>
-            {loading ? 'Completing…' : 'Mark Complete'}
+            {loading ? 'Completing...' : 'Mark Complete'}
           </Button>
           <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={handleDelete} disabled={deleting}>
-            {deleting ? '…' : 'Delete'}
+            {deleting ? '...' : 'Delete'}
           </Button>
         </div>
+      )}
+
+      {error && (
+        <p className="text-xs text-destructive">
+          {error}
+        </p>
       )}
 
       {quest.is_completed && quest.completed_at && (

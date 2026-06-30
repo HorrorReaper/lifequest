@@ -1,6 +1,35 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getLevel } from '@/lib/gamification'
 
+interface SupabaseResult<T> {
+  data: T | null
+  error: unknown
+}
+
+interface QueryBuilder<T> extends PromiseLike<SupabaseResult<T>> {
+  select(columns?: string): QueryBuilder<T>
+  insert(values: Record<string, unknown>): QueryBuilder<T>
+  eq(column: string, value: unknown): QueryBuilder<T>
+  order(column: string, options?: Record<string, unknown>): QueryBuilder<T>
+  single(): QueryBuilder<T>
+}
+
+interface QuestSupabaseClient {
+  rpc(
+    fn: 'claim_system_quest_reward',
+    args: { p_quest_key: string }
+  ): PromiseLike<SupabaseResult<{ total_xp: number; coins: number }[]>>
+  rpc(
+    fn: 'complete_custom_quest_reward',
+    args: { p_quest_id: string }
+  ): PromiseLike<SupabaseResult<{ total_xp: number; coins: number }[]>>
+  from(table: string): QueryBuilder<unknown>
+}
+
+function questClient(supabase: SupabaseClient): QuestSupabaseClient {
+  return supabase as unknown as QuestSupabaseClient
+}
+
 export interface QuestStats {
   totalEntries: number
   bestStreak: number
@@ -22,7 +51,7 @@ export interface DefaultQuest {
 
 export type QuestStatus = 'claimable' | 'locked' | 'claimed'
 
-// Serializable — no function fields, safe to pass to Client Components
+// Serializable: no function fields, safe to pass to Client Components.
 export interface DefaultQuestWithStatus {
   key: string
   title: string
@@ -45,6 +74,16 @@ export interface CustomQuest {
   completed_at: string | null
   created_at: string
   updated_at: string
+}
+
+interface QuestProfileStatsRow {
+  total_xp: number | null
+  best_streak: number | null
+}
+
+interface QuestCompletionRow {
+  quest_key: string
+  completed_at: string
 }
 
 export const DEFAULT_QUESTS: DefaultQuest[] = [
@@ -144,17 +183,39 @@ export function annotateDefaultQuests(
   })
 }
 
+function getQuestErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  if (error && typeof error === 'object') {
+    const value = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown }
+    const parts = [value.message, value.details, value.hint]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+
+    if (parts.length > 0) return parts.join(' ')
+    if (typeof value.code === 'string') return `${fallback} (${value.code})`
+  }
+
+  return fallback
+}
+
 export async function claimSystemQuest(
   supabase: SupabaseClient,
   quest: DefaultQuestWithStatus,
   callbacks: { setCoins: (c: number) => void; addXp: (x: number) => void }
 ) {
-  const { data, error } = await (supabase as any)
+  const client = questClient(supabase)
+  const { data, error } = await client
     .rpc('claim_system_quest_reward', { p_quest_key: quest.key })
 
-  if (error) throw error
+  if (error) {
+    throw new Error(getQuestErrorMessage(error, 'Could not claim this quest reward.'))
+  }
 
   const rewardState = Array.isArray(data) ? data[0] : data
+
+  if (!rewardState || typeof rewardState.coins !== 'number') {
+    throw new Error('Quest reward was claimed, but the reward state was invalid.')
+  }
 
   callbacks.addXp(quest.xp)
   callbacks.setCoins(rewardState.coins)
@@ -165,12 +226,19 @@ export async function completeCustomQuest(
   quest: CustomQuest,
   callbacks: { setCoins: (c: number) => void; addXp: (x: number) => void }
 ) {
-  const { data, error } = await (supabase as any)
+  const client = questClient(supabase)
+  const { data, error } = await client
     .rpc('complete_custom_quest_reward', { p_quest_id: quest.id })
 
-  if (error) throw error
+  if (error) {
+    throw new Error(getQuestErrorMessage(error, 'Could not complete this quest.'))
+  }
 
   const rewardState = Array.isArray(data) ? data[0] : data
+
+  if (!rewardState || typeof rewardState.coins !== 'number') {
+    throw new Error('Quest was completed, but the reward state was invalid.')
+  }
 
   callbacks.addXp(quest.xp_reward)
   callbacks.setCoins(rewardState.coins)
@@ -181,43 +249,43 @@ export async function createCustomQuest(
   userId: string,
   data: { title: string; description: string; xp_reward: number; coin_reward: number }
 ): Promise<CustomQuest> {
-  const { data: quest, error } = await (supabase as any).from('quests').insert({
+  const client = questClient(supabase)
+  const { data: quest, error } = await client.from('quests').insert({
     user_id: userId,
     ...data,
   }).select().single()
 
-  if (error) throw error
+  if (error) throw new Error(getQuestErrorMessage(error, 'Could not create this quest.'))
   return quest as CustomQuest
 }
 
 export async function fetchQuestPageData(supabase: SupabaseClient, userId: string) {
-  const db = supabase as any
-
+  const client = questClient(supabase)
   const [profileRes, entriesRes, buildingsRes, completionsRes, customQuestsRes] =
     await Promise.all([
-      db.from('profiles').select('total_xp, best_streak').eq('id', userId).single(),
-      db.from('journal_entries').select('id').eq('user_id', userId).eq('is_complete', true),
-      db.from('city_buildings_placing').select('id').eq('user_id', userId),
-      db.from('quest_completions').select('quest_key, completed_at').eq('user_id', userId),
-      db.from('quests').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+      client.from('profiles').select('total_xp, best_streak').eq('id', userId).single(),
+      client.from('journal_entries').select('id').eq('user_id', userId).eq('is_complete', true),
+      client.from('city_buildings_placing').select('id').eq('user_id', userId),
+      client.from('quest_completions').select('quest_key, completed_at').eq('user_id', userId),
+      client.from('quests').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
     ])
 
-  const profile = profileRes.data ?? { total_xp: 0, best_streak: 0 }
+  const profile = (profileRes.data as QuestProfileStatsRow | null) ?? { total_xp: 0, best_streak: 0 }
   const stats: QuestStats = {
-    totalEntries: (entriesRes.data ?? []).length,
+    totalEntries: ((entriesRes.data as unknown[] | null) ?? []).length,
     bestStreak: profile.best_streak ?? 0,
-    totalBuildings: (buildingsRes.data ?? []).length,
+    totalBuildings: ((buildingsRes.data as unknown[] | null) ?? []).length,
     level: getLevel(profile.total_xp ?? 0),
   }
 
-  const completions: { quest_key: string; completed_at: string }[] = completionsRes.data ?? []
+  const completions = ((completionsRes.data as QuestCompletionRow[] | null) ?? [])
   const claimedKeys = completions.map((c) => c.quest_key)
   const completionTimes: Record<string, string> = Object.fromEntries(
     completions.map((c) => [c.quest_key, c.completed_at])
   )
 
   const annotated = annotateDefaultQuests(stats, claimedKeys, completionTimes)
-  const customQuests: CustomQuest[] = customQuestsRes.data ?? []
+  const customQuests = ((customQuestsRes.data as CustomQuest[] | null) ?? [])
 
   return { stats, annotated, customQuests }
 }

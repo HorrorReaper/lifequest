@@ -459,6 +459,47 @@ export interface Database {
           updated_at?: string
         }
       }
+      goals: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          why: string | null
+          category: 'personal' | 'health' | 'career' | 'relationships' | 'learning' | 'finance' | 'other'
+          target_date: string | null
+          status: 'active' | 'completed' | 'archived'
+          sort_order: number
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          why?: string | null
+          category?: 'personal' | 'health' | 'career' | 'relationships' | 'learning' | 'finance' | 'other'
+          target_date?: string | null
+          status?: 'active' | 'completed' | 'archived'
+          sort_order?: number
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          why?: string | null
+          category?: 'personal' | 'health' | 'career' | 'relationships' | 'learning' | 'finance' | 'other'
+          target_date?: string | null
+          status?: 'active' | 'completed' | 'archived'
+          sort_order?: number
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       quest_completions: {
         Row: {
           id: string
@@ -513,6 +554,18 @@ export interface Database {
       }
     }
     Functions: {
+      claim_system_quest_reward: {
+        Args: { p_quest_key: string }
+        Returns: { total_xp: number; coins: number }[]
+      }
+      complete_custom_quest_reward: {
+        Args: { p_quest_id: string }
+        Returns: { total_xp: number; coins: number }[]
+      }
+      complete_lesson_reward: {
+        Args: { p_lesson_id: string }
+        Returns: { total_xp: number; coins: number }[]
+      }
       get_level: {
         Args: { xp: number }
         Returns: number

@@ -156,6 +156,32 @@ export interface Task {
   created_at: string;
   completed_at: string | null;
 }
+
+export type GoalCategory =
+  | "personal"
+  | "health"
+  | "career"
+  | "relationships"
+  | "learning"
+  | "finance"
+  | "other";
+
+export type GoalStatus = "active" | "completed" | "archived";
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  title: string;
+  why: string | null;
+  category: GoalCategory;
+  target_date: string | null;
+  status: GoalStatus;
+  sort_order: number;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DayPlanBlock {
   id: string;
   start_time: string; // "HH:mm"

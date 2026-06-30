@@ -100,7 +100,7 @@ export function LoginFormAlt({
 
   return (
     <div className={cn('flex flex-col gap-6', className)} {...props}>
-      <Card>
+      <Card className="border-white/15 bg-background/92 shadow-2xl backdrop-blur-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">
             {isSignUp ? 'Create your LifeQuest account' : 'Welcome back'}
@@ -201,7 +201,7 @@ export function LoginFormAlt({
         </CardContent>
       </Card>
 
-      <FieldDescription className="px-6 text-center">
+      <FieldDescription className="px-6 text-center text-white/70 [&_a]:text-white">
         By continuing, you agree to our{' '}
         <Link href="/terms" className="underline underline-offset-4">
           Terms of Service

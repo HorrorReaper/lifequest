@@ -11,6 +11,18 @@ export interface QuizQuestion {
   correctIndex: number
 }
 
+export interface SuggestedHabit {
+  name: string
+  emoji?: string
+  color?: string
+}
+
+export interface SuggestedTask {
+  title: string
+  description?: string
+  priority?: 'low' | 'medium' | 'high'
+}
+
 export interface Lesson {
   id: string
   title: string
@@ -22,6 +34,8 @@ export interface Lesson {
   coin_reward: number
   difficulty: 'easy' | 'medium' | 'hard'
   estimatedMinutes: number
+  suggestedHabits: SuggestedHabit[]
+  suggestedTasks: SuggestedTask[]
   steps: LessonStep[]
   quiz: QuizQuestion[]
 }
@@ -38,8 +52,40 @@ export interface LessonWithStatus {
   coin_reward: number
   difficulty: 'easy' | 'medium' | 'hard'
   estimatedMinutes: number
+  suggestedHabits: SuggestedHabit[]
+  suggestedTasks: SuggestedTask[]
   status: 'not-started' | 'completed'
   completedAt?: string
+}
+
+interface LessonRewardState {
+  total_xp: number
+  coins: number
+}
+
+interface LessonRewardResult {
+  data: LessonRewardState[] | LessonRewardState | null
+  error: unknown
+}
+
+interface LessonRewardClient {
+  rpc(
+    fn: 'complete_lesson_reward',
+    args: { p_lesson_id: string }
+  ): PromiseLike<LessonRewardResult>
+}
+
+function lessonRewardClient(supabase: SupabaseClient): LessonRewardClient {
+  return supabase as unknown as LessonRewardClient
+}
+
+function getLessonRewardErrorMessage(error: unknown): string {
+  if (!error) return 'Could not complete this lesson.'
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return 'Could not complete this lesson.'
 }
 
 export const LESSONS: Lesson[] = [
@@ -54,6 +100,22 @@ export const LESSONS: Lesson[] = [
     coin_reward: 30,
     difficulty: 'easy',
     estimatedMinutes: 5,
+    suggestedHabits: [
+      { name: 'Write one journal sentence', emoji: '📓', color: 'blue' },
+      { name: 'Evening reflection', emoji: '🌙', color: 'purple' },
+    ],
+    suggestedTasks: [
+      {
+        title: 'Choose a daily journaling time',
+        description: 'Pick the anchor moment when journaling will happen each day.',
+        priority: 'medium',
+      },
+      {
+        title: 'Create your first one-sentence entry',
+        description: 'Start tiny so the habit is easy to repeat tomorrow.',
+        priority: 'low',
+      },
+    ],
     steps: [
       {
         title: 'Why Journaling Works',
@@ -174,6 +236,22 @@ It sounds trivial, but your only goal in week one is to *not break the chain*. O
     coin_reward: 30,
     difficulty: 'easy',
     estimatedMinutes: 5,
+    suggestedHabits: [
+      { name: 'Protect my streak', emoji: '🔥', color: 'orange' },
+      { name: 'Never miss twice check-in', emoji: '🛡️', color: 'green' },
+    ],
+    suggestedTasks: [
+      {
+        title: 'Pick one habit anchor',
+        description: 'Write down the existing routine that will trigger your new habit.',
+        priority: 'medium',
+      },
+      {
+        title: 'Define your streak safety plan',
+        description: 'Decide what your minimum action is on low-energy days.',
+        priority: 'medium',
+      },
+    ],
     steps: [
       {
         title: 'The Habit Loop',
@@ -302,6 +380,22 @@ Within 30 days, you won't need the anchor anymore — the journaling itself will
     coin_reward: 40,
     difficulty: 'easy',
     estimatedMinutes: 6,
+    suggestedHabits: [
+      { name: 'Morning intention', emoji: '🌅', color: 'yellow' },
+      { name: 'Evening closure', emoji: '🌙', color: 'purple' },
+    ],
+    suggestedTasks: [
+      {
+        title: 'Test morning journaling for one week',
+        description: 'Notice whether it improves clarity, planning, or creative energy.',
+        priority: 'low',
+      },
+      {
+        title: 'Test evening journaling for one week',
+        description: 'Notice whether it improves reflection, gratitude, or sleep.',
+        priority: 'low',
+      },
+    ],
     steps: [
       {
         title: 'The Case for Morning Journaling',
@@ -426,6 +520,22 @@ You start the day with *purpose* and end it with *peace*.
     coin_reward: 40,
     difficulty: 'medium',
     estimatedMinutes: 7,
+    suggestedHabits: [
+      { name: 'Weekly goal review', emoji: '🎯', color: 'green' },
+      { name: 'One next step check-in', emoji: '✅', color: 'blue' },
+    ],
+    suggestedTasks: [
+      {
+        title: 'Write one values-based goal',
+        description: 'Define the goal, the value behind it, the system, and the likely obstacle.',
+        priority: 'high',
+      },
+      {
+        title: 'Schedule a 10-minute weekly review',
+        description: 'Pick a recurring time to review progress, obstacles, and next actions.',
+        priority: 'medium',
+      },
+    ],
     steps: [
       {
         title: 'Why Most Goals Fail',
@@ -598,6 +708,22 @@ People who anticipate obstacles and plan for them in advance are *dramatically* 
     coin_reward: 50,
     difficulty: 'medium',
     estimatedMinutes: 6,
+    suggestedHabits: [
+      { name: 'Minimum viable entry', emoji: '✍️', color: 'blue' },
+      { name: 'Five-minute freewrite', emoji: '📝', color: 'purple' },
+    ],
+    suggestedTasks: [
+      {
+        title: 'Save three fallback prompts',
+        description: 'Choose prompts you can use whenever the blank page feels heavy.',
+        priority: 'medium',
+      },
+      {
+        title: 'Write one imperfect entry',
+        description: 'Practice writing without editing, polishing, or judging the result.',
+        priority: 'low',
+      },
+    ],
     steps: [
       {
         title: 'What Actually Causes Writer\'s Block',
@@ -726,10 +852,21 @@ export function annotateLessons(
   completedIds: string[],
   completionTimes: Record<string, string>
 ): LessonWithStatus[] {
-  return LESSONS.map(({ steps: _s, quiz: _q, ...rest }) => ({
-    ...rest,
-    status: completedIds.includes(rest.id) ? 'completed' : 'not-started',
-    completedAt: completionTimes[rest.id],
+  return LESSONS.map((lesson) => ({
+    id: lesson.id,
+    title: lesson.title,
+    description: lesson.description,
+    icon: lesson.icon,
+    image: lesson.image,
+    topics: lesson.topics,
+    xp_reward: lesson.xp_reward,
+    coin_reward: lesson.coin_reward,
+    difficulty: lesson.difficulty,
+    estimatedMinutes: lesson.estimatedMinutes,
+    suggestedHabits: lesson.suggestedHabits,
+    suggestedTasks: lesson.suggestedTasks,
+    status: completedIds.includes(lesson.id) ? 'completed' : 'not-started',
+    completedAt: completionTimes[lesson.id],
   }))
 }
 
@@ -738,12 +875,13 @@ export async function completeLessonQuiz(
   lesson: Pick<Lesson, 'id' | 'title' | 'xp_reward' | 'coin_reward'>,
   callbacks: { addXp: (x: number) => void; setCoins: (c: number) => void }
 ) {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await lessonRewardClient(supabase)
     .rpc('complete_lesson_reward', { p_lesson_id: lesson.id })
 
-  if (error) throw error
+  if (error) throw new Error(getLessonRewardErrorMessage(error))
 
   const rewardState = Array.isArray(data) ? data[0] : data
+  if (!rewardState) throw new Error('Lesson reward was not returned.')
 
   callbacks.addXp(lesson.xp_reward)
   callbacks.setCoins(rewardState.coins)

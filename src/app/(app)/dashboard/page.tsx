@@ -17,6 +17,8 @@ import { HabitDashboardWidget } from '@/components/dashboard/HabitDashboardWidge
 import { TaskList } from '@/components/tasks/TaskList'
 import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
 import type { DayPlanBlock } from '@/lib/types'
+import { fetchGoals } from '@/lib/goals'
+import { GoalsDashboardWidget } from '@/components/dashboard/GoalsDashboardWidget'
 
 function dateInTimezone(timezone: string) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -91,6 +93,7 @@ export default async function DashboardPage() {
   const { annotated, customQuests } = await fetchQuestPageData(supabase, user.id)
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
+  const activeGoals = await fetchGoals(supabase, user.id, { status: 'active' })
   const today = dateInTimezone(profile.timezone ?? 'UTC')
 
   const [
@@ -259,7 +262,11 @@ export default async function DashboardPage() {
 
         <NextRewardCard building={nextBuilding} currentXp={profile.total_xp} />
 
+        <GoalsDashboardWidget userId={user.id} initialGoals={activeGoals} />
+
         <DailyBriefingWidget
+          userId={user.id}
+          todayDate={today}
           todayLabel={dayLabel(profile.timezone ?? 'UTC')}
           habits={briefingHabits}
           tasks={briefingTasks}

@@ -1,7 +1,15 @@
+'use client'
+
+import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
-import { BookOpen, CalendarClock, CheckCircle2, Circle, Flame, ListTodo, Sparkles } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { BookOpen, CalendarClock, CheckCircle2, Circle, Flame, ListTodo, Minus, Plus, Sparkles } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { upsertDayPlan } from '@/lib/day-plans'
+import type { DayPlanBlock } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 interface BriefingHabit {
@@ -37,6 +45,8 @@ interface BriefingPlanBlock {
 }
 
 interface DailyBriefingWidgetProps {
+  userId: string
+  todayDate: string
   todayLabel: string
   habits: BriefingHabit[]
   tasks: BriefingTask[]
@@ -51,7 +61,18 @@ const priorityStyles = {
   low: 'text-blue-600 dark:text-blue-400',
 }
 
+const categoryLabels: Record<DayPlanBlock['category'], string> = {
+  deep_work: 'Deep Work',
+  meeting: 'Meeting',
+  break: 'Break',
+  personal: 'Personal',
+  exercise: 'Exercise',
+  other: 'Other',
+}
+
 export function DailyBriefingWidget({
+  userId,
+  todayDate,
   todayLabel,
   habits,
   tasks,
@@ -59,12 +80,72 @@ export function DailyBriefingWidget({
   planBlocks,
   completedJournalCount,
 }: DailyBriefingWidgetProps) {
+  const supabase = createClient()
+  const router = useRouter()
+  const [blocks, setBlocks] = useState(planBlocks)
+  const [showAddPlan, setShowAddPlan] = useState(false)
+  const [planTitle, setPlanTitle] = useState('')
+  const [startTime, setStartTime] = useState('09:00')
+  const [endTime, setEndTime] = useState('10:00')
+  const [category, setCategory] = useState<DayPlanBlock['category']>('deep_work')
+  const [savingPlan, setSavingPlan] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
+
   const completedHabits = habits.filter((habit) => habit.completed).length
   const openTasks = tasks.length
-  const activePlanBlocks = planBlocks.filter((block) => !block.isPast).length
+  const activePlanBlocks = blocks.filter((block) => !block.isPast).length
   const totalItems = habits.length + openTasks + activePlanBlocks + Math.max(journals.length > 0 ? 1 : 0, 0)
-  const doneItems = completedHabits + completedJournalCount + planBlocks.filter((block) => block.isPast).length
+  const doneItems = completedHabits + completedJournalCount + blocks.filter((block) => block.isPast).length
   const allClear = totalItems > 0 && doneItems >= totalItems
+  const canSavePlan = planTitle.trim().length > 0 && startTime < endTime
+
+  function toPersistedBlock(block: BriefingPlanBlock): DayPlanBlock {
+    return {
+      id: block.id,
+      start_time: block.startTime,
+      end_time: block.endTime,
+      title: block.title,
+      category: block.category as DayPlanBlock['category'],
+    }
+  }
+
+  async function handleAddPlanBlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!canSavePlan) return
+
+    setSavingPlan(true)
+    setPlanError(null)
+
+    const nextBlock: BriefingPlanBlock = {
+      id: crypto.randomUUID(),
+      startTime,
+      endTime,
+      title: planTitle.trim(),
+      category,
+      isCurrent: false,
+      isPast: false,
+    }
+    const nextBlocks = [...blocks, nextBlock].sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+    try {
+      await upsertDayPlan(supabase, userId, {
+        plan_date: todayDate,
+        blocks: nextBlocks.map(toPersistedBlock),
+      })
+      setBlocks(nextBlocks)
+      setPlanTitle('')
+      setStartTime(endTime)
+      const [endHour] = endTime.split(':').map(Number)
+      setEndTime(`${String(Math.min(endHour + 1, 23)).padStart(2, '0')}:00`)
+      setShowAddPlan(false)
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to save daily plan:', error)
+      setPlanError('Could not save this plan block. Please try again.')
+    } finally {
+      setSavingPlan(false)
+    }
+  }
 
   return (
     <Card className="border-primary/20 bg-primary/5">
@@ -133,14 +214,83 @@ export function DailyBriefingWidget({
                 <CalendarClock className="size-4 text-purple-500" />
                 <h3 className="text-sm font-semibold">Daily Plan</h3>
               </div>
-              <span className="text-xs text-muted-foreground">
-                {planBlocks.length > 0 ? `${activePlanBlocks} left` : 'No plan'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {blocks.length > 0 ? `${activePlanBlocks} left` : 'No plan'}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={showAddPlan ? 'outline' : 'default'}
+                  onClick={() => setShowAddPlan((open) => !open)}
+                  className="h-7 px-2 text-xs"
+                >
+                  {showAddPlan ? (
+                    <Minus className="mr-1 size-3.5" />
+                  ) : (
+                    <Plus className="mr-1 size-3.5" />
+                  )}
+                  {showAddPlan ? 'Close' : 'Add'}
+                </Button>
+              </div>
             </div>
 
-            {planBlocks.length > 0 ? (
+            {showAddPlan && (
+              <form onSubmit={handleAddPlanBlock} className="mb-3 space-y-2 rounded-lg border bg-muted/30 p-3">
+                <Input
+                  placeholder="What will you do?"
+                  value={planTitle}
+                  onChange={(event) => setPlanTitle(event.target.value)}
+                  disabled={savingPlan}
+                  autoFocus
+                />
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(event) => setStartTime(event.target.value)}
+                    disabled={savingPlan}
+                    aria-label="Start time"
+                  />
+                  <Input
+                    type="time"
+                    value={endTime}
+                    onChange={(event) => setEndTime(event.target.value)}
+                    disabled={savingPlan}
+                    aria-label="End time"
+                  />
+                  <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value as DayPlanBlock['category'])}
+                    disabled={savingPlan}
+                    className="col-span-2 flex h-8 rounded-lg border border-input bg-background px-2 text-xs sm:col-span-1"
+                    aria-label="Plan category"
+                  >
+                    {Object.entries(categoryLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={savingPlan || !canSavePlan}
+                    className="col-span-2 h-8 sm:col-span-1"
+                  >
+                    {savingPlan ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+                {startTime >= endTime && (
+                  <p className="text-xs text-destructive">End time must be after start time.</p>
+                )}
+                {planError && <p className="text-xs text-destructive">{planError}</p>}
+              </form>
+            )}
+
+            {blocks.length > 0 ? (
               <ul className="space-y-1.5">
-                {planBlocks.slice(0, 4).map((block) => (
+                {blocks.slice(0, 4).map((block) => (
                   <li key={block.id} className="flex items-center gap-2 text-xs">
                     {block.isPast ? (
                       <CheckCircle2 className="size-3.5 text-green-500" />
@@ -167,7 +317,7 @@ export function DailyBriefingWidget({
               </ul>
             ) : (
               <p className="text-xs text-muted-foreground">
-                No plan for today. Use the Day Planner field in a journal entry to map your day.
+                No plan for today. Add a time block to give the day a clear shape.
               </p>
             )}
           </section>

@@ -6,13 +6,15 @@ import Image from 'next/image'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Zap, Coins, CheckCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Zap, Coins, CheckCircle, ListChecks, Plus, Repeat } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { completeLessonQuiz } from '@/lib/lessons'
+import { createHabit } from '@/lib/habits'
+import { createTask } from '@/lib/tasks'
 import { useUserStore } from '@/lib/stores/user-store'
-import type { Lesson } from '@/lib/lessons'
+import type { Lesson, SuggestedHabit, SuggestedTask } from '@/lib/lessons'
 
 interface LessonReaderProps {
   lesson: Lesson
@@ -36,6 +38,9 @@ export function LessonReader({ lesson, alreadyCompleted }: LessonReaderProps) {
   const [passed, setPassed] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [done, setDone] = useState(alreadyCompleted)
+  const [addedSuggestions, setAddedSuggestions] = useState<string[]>([])
+  const [addingSuggestion, setAddingSuggestion] = useState<string | null>(null)
+  const [suggestionError, setSuggestionError] = useState<string | null>(null)
 
   const isQuizStep = step === totalSteps
   const progress = (step / (totalSteps + 1)) * 100
@@ -90,6 +95,51 @@ export function LessonReader({ lesson, alreadyCompleted }: LessonReaderProps) {
     setAnswers(new Array(lesson.quiz.length).fill(null))
     setSubmitted(false)
     setPassed(false)
+  }
+
+  async function getCurrentUserId() {
+    const { data } = await supabase.auth.getUser()
+    const userId = data?.user?.id
+    if (!userId) throw new Error('You need to be signed in to add this.')
+    return userId
+  }
+
+  async function handleAddHabit(habit: SuggestedHabit) {
+    const key = `habit:${habit.name}`
+    setAddingSuggestion(key)
+    setSuggestionError(null)
+    try {
+      const userId = await getCurrentUserId()
+      await createHabit(supabase, userId, {
+        name: habit.name,
+        emoji: habit.emoji,
+        color: habit.color,
+      })
+      setAddedSuggestions((prev) => [...prev, key])
+    } catch (err) {
+      setSuggestionError(err instanceof Error ? err.message : 'Could not add this habit.')
+    } finally {
+      setAddingSuggestion(null)
+    }
+  }
+
+  async function handleAddTask(task: SuggestedTask) {
+    const key = `task:${task.title}`
+    setAddingSuggestion(key)
+    setSuggestionError(null)
+    try {
+      const userId = await getCurrentUserId()
+      await createTask(supabase, userId, {
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+      })
+      setAddedSuggestions((prev) => [...prev, key])
+    } catch (err) {
+      setSuggestionError(err instanceof Error ? err.message : 'Could not add this task.')
+    } finally {
+      setAddingSuggestion(null)
+    }
   }
 
   const allAnswered = answers.every((a) => a !== null)
@@ -206,6 +256,17 @@ export function LessonReader({ lesson, alreadyCompleted }: LessonReaderProps) {
                       {lesson.steps[step].content}
                     </ReactMarkdown>
                   </div>
+                  {step === totalSteps - 1 && (
+                    <PracticeSuggestions
+                      habits={lesson.suggestedHabits}
+                      tasks={lesson.suggestedTasks}
+                      addedSuggestions={addedSuggestions}
+                      addingSuggestion={addingSuggestion}
+                      error={suggestionError}
+                      onAddHabit={handleAddHabit}
+                      onAddTask={handleAddTask}
+                    />
+                  )}
                 </div>
               ) : (
                 /* Quiz step */
@@ -307,6 +368,146 @@ export function LessonReader({ lesson, alreadyCompleted }: LessonReaderProps) {
           </Button>
         )}
       </div>
+    </div>
+  )
+}
+
+interface PracticeSuggestionsProps {
+  habits: SuggestedHabit[]
+  tasks: SuggestedTask[]
+  addedSuggestions: string[]
+  addingSuggestion: string | null
+  error: string | null
+  onAddHabit: (habit: SuggestedHabit) => Promise<void>
+  onAddTask: (task: SuggestedTask) => Promise<void>
+}
+
+function PracticeSuggestions({
+  habits,
+  tasks,
+  addedSuggestions,
+  addingSuggestion,
+  error,
+  onAddHabit,
+  onAddTask,
+}: PracticeSuggestionsProps) {
+  if (habits.length === 0 && tasks.length === 0) return null
+
+  return (
+    <div className="rounded-2xl border bg-card p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <ListChecks className="size-4" />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <h3 className="text-sm font-semibold">Turn this lesson into action</h3>
+          <p className="text-xs text-muted-foreground">
+            Add the practices you want to keep using. They will appear in your dashboard.
+          </p>
+        </div>
+      </div>
+
+      {habits.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Habits
+          </p>
+          <div className="space-y-2">
+            {habits.map((habit) => {
+              const key = `habit:${habit.name}`
+              return (
+                <SuggestedActionRow
+                  key={key}
+                  title={habit.name}
+                  description="Repeat this practice regularly."
+                  icon={<Repeat className="size-4" />}
+                  added={addedSuggestions.includes(key)}
+                  loading={addingSuggestion === key}
+                  onAdd={() => onAddHabit(habit)}
+                />
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {tasks.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Tasks
+          </p>
+          <div className="space-y-2">
+            {tasks.map((task) => {
+              const key = `task:${task.title}`
+              return (
+                <SuggestedActionRow
+                  key={key}
+                  title={task.title}
+                  description={task.description ?? 'Complete this once to apply the lesson.'}
+                  icon={<CheckCircle className="size-4" />}
+                  added={addedSuggestions.includes(key)}
+                  loading={addingSuggestion === key}
+                  onAdd={() => onAddTask(task)}
+                />
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-3 text-xs text-destructive">{error}</p>
+      )}
+    </div>
+  )
+}
+
+interface SuggestedActionRowProps {
+  title: string
+  description: string
+  icon: React.ReactNode
+  added: boolean
+  loading: boolean
+  onAdd: () => void
+}
+
+function SuggestedActionRow({
+  title,
+  description,
+  icon,
+  added,
+  loading,
+  onAdd,
+}: SuggestedActionRowProps) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border px-3 py-2.5">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{title}</p>
+        <p className="line-clamp-2 text-xs text-muted-foreground">{description}</p>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant={added ? 'secondary' : 'outline'}
+        className="shrink-0"
+        onClick={onAdd}
+        disabled={added || loading}
+      >
+        {added ? (
+          <>
+            <CheckCircle className="size-3.5" />
+            Added
+          </>
+        ) : (
+          <>
+            <Plus className="size-3.5" />
+            {loading ? 'Adding' : 'Add'}
+          </>
+        )}
+      </Button>
     </div>
   )
 }
