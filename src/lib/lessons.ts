@@ -873,7 +873,7 @@ export function annotateLessons(
 export async function completeLessonQuiz(
   supabase: SupabaseClient,
   lesson: Pick<Lesson, 'id' | 'title' | 'xp_reward' | 'coin_reward'>,
-  callbacks: { addXp: (x: number) => void; setCoins: (c: number) => void }
+  callbacks: { addXp: (x: number, previousTotalXp?: number) => void; setCoins: (c: number) => void }
 ) {
   const { data, error } = await lessonRewardClient(supabase)
     .rpc('complete_lesson_reward', { p_lesson_id: lesson.id })
@@ -883,6 +883,6 @@ export async function completeLessonQuiz(
   const rewardState = Array.isArray(data) ? data[0] : data
   if (!rewardState) throw new Error('Lesson reward was not returned.')
 
-  callbacks.addXp(lesson.xp_reward)
+  callbacks.addXp(lesson.xp_reward, rewardState.total_xp - lesson.xp_reward)
   callbacks.setCoins(rewardState.coins)
 }

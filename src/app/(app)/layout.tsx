@@ -19,7 +19,7 @@ export default async function AppLayout({
   if (!user) redirect('/login')
 
   return (
-    <div className="min-h-svh pb-16">
+    <div className="min-h-svh pb-20">
       {children}
       <BottomNav />
       <LevelUpOverlay />

@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from '@/lib/supabase/database.types'
 import { supabaseInsert, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { Task } from "@/lib/types";
 import { fetchTasks, toggleTask, deleteTask, createTask } from "@/lib/tasks";
-import { getLevel } from '@/lib/city'
 import { useUserStore } from '@/lib/stores/user-store'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +26,8 @@ interface TaskListProps {
   limit?: number;
   /** Show only open (incomplete) tasks */
   onlyOpen?: boolean;
+  /** Open the add-task form when the widget mounts */
+  initiallyOpen?: boolean;
 }
 
 const priorityStyles: Record<Task["priority"], string> = {
@@ -35,23 +36,19 @@ const priorityStyles: Record<Task["priority"], string> = {
   low: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
 };
 
-export function TaskList({ userId, compact = false, limit, onlyOpen = false }: TaskListProps) {
-  const supabase = createClient();
+export function TaskList({ userId, compact = false, limit, onlyOpen = false, initiallyOpen = false }: TaskListProps) {
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const { addXp } = useUserStore()
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(initiallyOpen);
   const [newTitle, setNewTitle] = useState("");
   const [newPriority, setNewPriority] = useState<"low" | "medium" | "high">("medium");
   const [newDueDate, setNewDueDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    load();
-  }, [userId]);
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchTasks(supabase, userId, { onlyOpen, limit });
@@ -60,7 +57,22 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false }: T
       console.error("Failed to load tasks:", err);
     }
     setLoading(false);
-  }
+  }, [limit, onlyOpen, supabase, userId]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void load();
+    });
+  }, [load]);
+
+  useEffect(() => {
+    function handleDataUpdated() {
+      load();
+    }
+
+    window.addEventListener('lifequest-data-updated', handleDataUpdated);
+    return () => window.removeEventListener('lifequest-data-updated', handleDataUpdated);
+  }, [load]);
 
   async function handleToggle(task: Task) {
     // optimistic update
@@ -100,22 +112,8 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false }: T
               await supabaseUpdateWhere(supabase, 'profiles', { total_xp: newTotal }, 'id', user.id)
             }
 
-            // update city_states xp and level if present
-            const { data: cityRow } = await supabase
-              .from('city_states')
-              .select('xp')
-              .eq('user_id', user.id)
-              .single()
-
-            const city = cityRow as Database['public']['Tables']['city_states']['Row'] | null
-
-            if (city) {
-              const newXp = (city.xp ?? 0) + award
-              await supabaseUpdateWhere(supabase, 'city_states', { xp: newXp, level: getLevel(newXp), updated_at: new Date().toISOString() }, 'user_id', user.id)
-            }
-
             // update local store for immediate UI
-            addXp(award)
+            addXp(award, profile?.total_xp ?? 0)
           }
         } catch (e) {
           console.error('Failed to award task XP', e)
@@ -123,7 +121,7 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false }: T
         // Refresh server components (dashboard) to reflect new totals
         try {
           router.refresh()
-        } catch (e) {
+        } catch {
           // ignore
         }
       }

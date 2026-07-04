@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { createHabit, fetchHabits } from '@/lib/habits'
 import type { Habit } from '@/lib/types'
@@ -12,28 +12,44 @@ import { format } from 'date-fns'
 
 interface HabitDashboardWidgetProps {
   userId: string
+  initiallyOpen?: boolean
+}
+
+interface HabitLogUpsertClient {
+  from(table: 'habit_logs'): {
+    upsert(
+      value: {
+        user_id: string
+        habit_id: string
+        log_date: string
+        completed: boolean
+        entry_id: string | null
+      },
+      options: { onConflict: string }
+    ): PromiseLike<{ error: unknown }>
+  }
 }
 
 const EMOJI_OPTIONS = ['✅', '💪', '🧘', '💧', '📖', '🏃', '🥗', '😴', '🎯', '🧠', '🙏', '🚭', '☕', '💻', '🎵']
 
-export function HabitDashboardWidget({ userId }: HabitDashboardWidgetProps) {
-  const supabase = createClient()
+function habitLogUpsertClient(supabase: ReturnType<typeof createClient>): HabitLogUpsertClient {
+  return supabase as unknown as HabitLogUpsertClient
+}
+
+export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDashboardWidgetProps) {
+  const supabase = useMemo(() => createClient(), [])
   const today = format(new Date(), 'yyyy-MM-dd')
 
   const [habits, setHabits] = useState<Habit[]>([])
   const [loggedIds, setLoggedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<Set<string>>(new Set())
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(initiallyOpen)
   const [newName, setNewName] = useState('')
   const [newEmoji, setNewEmoji] = useState('✅')
   const [creating, setCreating] = useState(false)
 
-  useEffect(() => {
-    load()
-  }, [userId])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const [habitData, logData] = await Promise.all([
@@ -52,7 +68,22 @@ export function HabitDashboardWidget({ userId }: HabitDashboardWidgetProps) {
       console.error(e)
     }
     setLoading(false)
-  }
+  }, [supabase, today, userId])
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void load()
+    })
+  }, [load])
+
+  useEffect(() => {
+    function handleDataUpdated() {
+      load()
+    }
+
+    window.addEventListener('lifequest-data-updated', handleDataUpdated)
+    return () => window.removeEventListener('lifequest-data-updated', handleDataUpdated)
+  }, [load])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -80,7 +111,11 @@ export function HabitDashboardWidget({ userId }: HabitDashboardWidgetProps) {
     // Optimistic update
     setLoggedIds((prev) => {
       const next = new Set(prev)
-      wasChecked ? next.delete(habit.id) : next.add(habit.id)
+      if (wasChecked) {
+        next.delete(habit.id)
+      } else {
+        next.add(habit.id)
+      }
       return next
     })
 
@@ -93,17 +128,22 @@ export function HabitDashboardWidget({ userId }: HabitDashboardWidgetProps) {
           .eq('habit_id', habit.id)
           .eq('log_date', today)
       } else {
-        await (supabase as any).from('habit_logs').upsert(
+        const { error } = await habitLogUpsertClient(supabase).from('habit_logs').upsert(
           { user_id: userId, habit_id: habit.id, log_date: today, completed: true, entry_id: null },
           { onConflict: 'user_id,habit_id,log_date' }
         )
+        if (error) throw error
       }
     } catch (e) {
       console.error(e)
       // revert
       setLoggedIds((prev) => {
         const next = new Set(prev)
-        wasChecked ? next.add(habit.id) : next.delete(habit.id)
+        if (wasChecked) {
+          next.add(habit.id)
+        } else {
+          next.delete(habit.id)
+        }
         return next
       })
     } finally {

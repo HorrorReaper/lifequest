@@ -4,11 +4,15 @@ import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUserStore } from '@/lib/stores/user-store'
 import { CITY_TIER_LABELS } from '@/lib/gamification'
+import { useTheme } from '@/components/providers/theme-provider'
+import { cn } from '@/lib/utils'
 
 export function LevelUpOverlay() {
   const pendingLevelUp = useUserStore((s) => s.pendingLevelUp)
   const cityTier = useUserStore((s) => s.cityTier)
   const clearLevelUp = useUserStore((s) => s.clearLevelUp)
+  const { theme } = useTheme()
+  const isWhiteMode = theme === 'white'
 
   useEffect(() => {
     if (!pendingLevelUp) return
@@ -25,21 +29,26 @@ export function LevelUpOverlay() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm cursor-pointer"
+          className={cn(
+            "fixed inset-0 z-[9999] flex cursor-pointer items-center justify-center backdrop-blur-sm",
+            isWhiteMode ? "bg-stone-100/75" : "bg-black/60"
+          )}
           onClick={clearLevelUp}
         >
           {/* Radial glow */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 2.5, opacity: 0.15 }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="size-96 rounded-full bg-primary"
-            />
-          </div>
+          {!isWhiteMode && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 2.5, opacity: 0.15 }}
+                transition={{ duration: 0.8, ease: 'easeOut' }}
+                className="size-96 rounded-full bg-primary"
+              />
+            </div>
+          )}
 
           {/* Particles */}
-          <Particles />
+          {!isWhiteMode && <Particles />}
 
           {/* Card */}
           <motion.div
@@ -47,7 +56,12 @@ export function LevelUpOverlay() {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.8, opacity: 0, y: -16 }}
             transition={{ type: 'spring', stiffness: 320, damping: 22, delay: 0.05 }}
-            className="relative flex flex-col items-center gap-4 rounded-2xl border border-primary/30 bg-background/95 px-12 py-10 shadow-2xl text-center"
+            className={cn(
+              "relative flex flex-col items-center gap-4 rounded-2xl border px-12 py-10 text-center",
+              isWhiteMode
+                ? "border-stone-200 bg-white/95 shadow-[0_24px_80px_rgba(68,64,60,0.12)]"
+                : "border-primary/30 bg-background/95 shadow-2xl"
+            )}
             onClick={(e) => e.stopPropagation()}
           >
             <motion.p
@@ -63,7 +77,10 @@ export function LevelUpOverlay() {
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.25 }}
-              className="relative flex size-28 items-center justify-center rounded-full border-4 border-primary bg-primary/10"
+              className={cn(
+                "relative flex size-28 items-center justify-center rounded-full border bg-primary/10",
+                isWhiteMode ? "border-2 border-primary/30" : "border-4 border-primary"
+              )}
             >
               <motion.span
                 initial={{ scale: 1.4 }}
@@ -76,10 +93,17 @@ export function LevelUpOverlay() {
 
               {/* Ring pulse */}
               <motion.div
-                className="absolute inset-0 rounded-full border-4 border-primary"
+                className={cn(
+                  "absolute inset-0 rounded-full border-primary",
+                  isWhiteMode ? "border-2" : "border-4"
+                )}
                 initial={{ scale: 1, opacity: 0.8 }}
-                animate={{ scale: 1.6, opacity: 0 }}
-                transition={{ duration: 1, ease: 'easeOut', delay: 0.3, repeat: Infinity, repeatDelay: 0.8 }}
+                animate={{ scale: isWhiteMode ? 1.18 : 1.6, opacity: 0 }}
+                transition={
+                  isWhiteMode
+                    ? { duration: 1.2, ease: 'easeOut', delay: 0.3 }
+                    : { duration: 1, ease: 'easeOut', delay: 0.3, repeat: Infinity, repeatDelay: 0.8 }
+                }
               />
             </motion.div>
 
@@ -116,9 +140,9 @@ function Particles() {
     <>
       {Array.from({ length: count }).map((_, i) => {
         const angle = (i / count) * 360
-        const distance = 140 + Math.random() * 80
-        const size = 4 + Math.random() * 6
-        const delay = 0.1 + Math.random() * 0.3
+        const distance = 140 + seededUnit(i + 1) * 80
+        const size = 4 + seededUnit(i + 17) * 6
+        const delay = 0.1 + seededUnit(i + 33) * 0.3
         const rad = (angle * Math.PI) / 180
         const tx = Math.cos(rad) * distance
         const ty = Math.sin(rad) * distance
@@ -136,4 +160,9 @@ function Particles() {
       })}
     </>
   )
+}
+
+function seededUnit(seed: number) {
+  const x = Math.sin(seed * 999) * 10000
+  return x - Math.floor(x)
 }

@@ -1,6 +1,7 @@
 // src/lib/city.ts
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
 
 // ---------- Types ----------
 
@@ -29,6 +30,9 @@ export interface BuildingType {
   description: string;
   category: "residential" | "commercial" | "nature" | "civic" | "landmark";
 }
+
+type CityBuildingPlacementRow = Database["public"]["Tables"]["city_buildings_placing"]["Row"];
+type JournalEntryIdRow = Pick<Database["public"]["Tables"]["journal_entries"]["Row"], "id">;
 
 // ---------- Building Catalog ----------
 
@@ -61,6 +65,21 @@ export const BUILDING_CATALOG: BuildingType[] = [
   { id: "stadium", name: "Stadium", emoji: "🏟️", cost: 100, xpRequired: 1000, description: "Home of champions.", category: "landmark" },
   { id: "skyscraper", name: "Skyscraper", emoji: "🏙️", cost: 120, xpRequired: 1000, description: "Reaching for the sky.", category: "landmark" },
   { id: "castle", name: "Castle", emoji: "🏰", cost: 150, xpRequired: 1000, description: "The crown jewel of your city.", category: "landmark" },
+
+  // Level 10
+  { id: "research-lab", name: "Research Lab", emoji: "🧪", cost: 180, xpRequired: 2750, description: "Where experiments become breakthroughs.", category: "civic" },
+  { id: "transit-hub", name: "Transit Hub", emoji: "🚉", cost: 200, xpRequired: 2750, description: "Connects every district in your growing city.", category: "civic" },
+  { id: "botanical-dome", name: "Botanical Dome", emoji: "🌐", cost: 170, xpRequired: 2750, description: "A glass garden for calm, focus, and recovery.", category: "nature" },
+
+  // Level 20
+  { id: "spaceport", name: "Spaceport", emoji: "🚀", cost: 460, xpRequired: 10500, description: "Launches your ambitions beyond the skyline.", category: "landmark" },
+  { id: "innovation-district", name: "Innovation District", emoji: "🧬", cost: 520, xpRequired: 10500, description: "A dense hub of builders, operators, and ideas.", category: "commercial" },
+  { id: "grand-observatory", name: "Grand Observatory", emoji: "🔭", cost: 430, xpRequired: 10500, description: "A place to study patterns and plan the next move.", category: "civic" },
+
+  // Level 50
+  { id: "orbital-elevator", name: "Orbital Elevator", emoji: "🛰️", cost: 1250, xpRequired: 63750, description: "A monument to compounding progress.", category: "landmark" },
+  { id: "quantum-archive", name: "Quantum Archive", emoji: "🧠", cost: 1350, xpRequired: 63750, description: "Stores the lessons of a fully evolved city.", category: "civic" },
+  { id: "sky-citadel", name: "Sky Citadel", emoji: "🏯", cost: 1500, xpRequired: 63750, description: "The final crown for a city built through discipline.", category: "landmark" },
 ];
 
 // ---------- XP / Level ----------
@@ -145,7 +164,7 @@ export async function fetchCityState(
     .select("*")
     .eq("user_id", userId);
 
-  const buildings: Building[] = (buildingRows ?? []).map((b: any) => ({
+  const buildings: Building[] = ((buildingRows ?? []) as CityBuildingPlacementRow[]).map((b) => ({
     id: b.id,
     type: catalogLookup(b.building_type),
     row: b.row,
@@ -284,7 +303,7 @@ export async function fetchUnclaimedEntryCount(
     .select("id")
     .eq("user_id", userId);
 
-  const allIds = (entries ?? []).map((e: any) => e.id);
+  const allIds = ((entries ?? []) as JournalEntryIdRow[]).map((e) => e.id);
   const unclaimed = allIds.filter((id: string) => !claimedIds.includes(id));
 
   return { count: unclaimed.length, entryIds: unclaimed };

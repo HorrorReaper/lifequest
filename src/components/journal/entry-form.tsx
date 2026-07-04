@@ -21,7 +21,6 @@ import {
   ChecklistItem,
 } from '@/lib/types'
 import { calculateEntryBonusXp } from '@/lib/gamification'
-import { getLevel } from '@/lib/city'
 import { Sparkles } from 'lucide-react'
 import { DraftTask } from './TasksInput'
 
@@ -152,13 +151,23 @@ export function EntryForm({
 
       if (!user) throw new Error('Not authenticated')
 
+      const bonusXp = calculateEntryBonusXp(
+        fields.map((f) => ({
+          id: f.id,
+          field_type: f.field_type,
+          xp_rules: (f.xp_rules as XpRule[]) ?? [],
+        })),
+        values
+      )
+      const entryXp = template.xp_reward + bonusXp
+
       // 1. Create or update journal entry
       let entryId = existingEntryId
 
       if (entryId) {
         await supabaseUpdateWhere(supabase, 'journal_entries', {
           is_complete: true,
-          xp_earned: template.xp_reward,
+          xp_earned: entryXp,
           updated_at: new Date().toISOString(),
         }, 'id', entryId)
       } else {
@@ -168,7 +177,7 @@ export function EntryForm({
             template_id: template.id,
             entry_date: new Date().toISOString().split('T')[0],
             is_complete: true,
-            xp_earned: template.xp_reward,
+            xp_earned: entryXp,
           })
           .select('id')
           .single()
@@ -198,40 +207,6 @@ export function EntryForm({
       const { error: responseError } = await supabaseInsert(supabase, 'journal_responses', responses as any)
 
       if (responseError) throw responseError
-
-      // 2a) Calculate and apply any rule-based bonus XP to the city state
-      try {
-        const bonusXp = calculateEntryBonusXp(
-          fields.map((f) => ({
-            id: f.id,
-            field_type: f.field_type,
-            xp_rules: (f.xp_rules as XpRule[]) ?? [],
-          })),
-          values
-        )
-
-        if (bonusXp > 0) {
-          const { data: cityRowData } = await supabase
-            .from('city_states')
-            .select('xp')
-            .eq('user_id', user.id)
-            .single()
-
-          const cityRow = cityRowData as any
-
-          if (cityRow) {
-            const newXp = (cityRow.xp ?? 0) + bonusXp
-            await supabaseUpdateWhere(supabase, 'city_states', {
-              xp: newXp,
-              level: getLevel(newXp),
-              updated_at: new Date().toISOString(),
-            }, 'user_id', user.id)
-          }
-        }
-      } catch (e) {
-        // Non-fatal: don't block entry save for XP calculation failures
-        console.error('Failed to apply bonus XP:', e)
-      }
 
       // 2) Find tasks fields and persist their tasks
       const taskInserts: Array<{
@@ -297,7 +272,7 @@ export function EntryForm({
       }
 
       // 3. Record XP event
-      let totalXpEarned = template.xp_reward
+      let totalXpEarned = entryXp
 
       // Check for morning+evening same-day bonus
       const today = new Date().toISOString().split('T')[0]
@@ -408,7 +383,7 @@ export function EntryForm({
         }, 'id', user.id)
 
         // Update Zustand store
-        addXp(totalXpEarned + streakBonus)
+        addXp(totalXpEarned + streakBonus, profile.total_xp)
         updateStreak(newStreak)
         setXpEarned(totalXpEarned + streakBonus)
       }

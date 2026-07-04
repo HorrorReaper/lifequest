@@ -5,20 +5,32 @@ import { Button } from '@/components/ui/button'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import { getLockedBuildings } from '@/lib/city'
 import type { Database } from '@/lib/supabase/database.types'
-import { TodayPlanWidget } from '@/components/dashboard/TodayPlanWidget'
 import { DashboardHero } from '@/components/dashboard/DashboardHero'
 import { StatTileGrid } from '@/components/dashboard/StatTileGrid'
 import { NextRewardCard } from '@/components/dashboard/NextRewardCard'
-import { RecentEntriesList } from '@/components/dashboard/RecentEntriesList'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
 import { LevelUpTestButton } from '@/components/dev/LevelUpTestButton'
-import { HabitDashboardWidget } from '@/components/dashboard/HabitDashboardWidget'
-import { TaskList } from '@/components/tasks/TaskList'
 import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
 import type { DayPlanBlock } from '@/lib/types'
 import { fetchGoals } from '@/lib/goals'
 import { GoalsDashboardWidget } from '@/components/dashboard/GoalsDashboardWidget'
+
+type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal'
+
+interface DashboardPageProps {
+  searchParams?: Promise<{
+    quick?: string | string[]
+  }>
+}
+
+function parseQuickAction(value: string | string[] | undefined): QuickActionTarget | null {
+  const quick = Array.isArray(value) ? value[0] : value
+  if (quick === 'task' || quick === 'plan' || quick === 'habit' || quick === 'goal') {
+    return quick
+  }
+  return null
+}
 
 function dateInTimezone(timezone: string) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -56,7 +68,9 @@ function currentMinutesInTimezone(timezone: string) {
   return hours * 60 + minutes
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const params = searchParams ? await searchParams : {}
+  const quickAction = parseQuickAction(params.quick)
   const supabase = await createClient()
   const {
     data: { user },
@@ -203,32 +217,6 @@ export default async function DashboardPage() {
       }
     }))
 
-  // Recent entries for quick view
-  const { data: recentEntriesData } = await supabase
-    .from('journal_entries')
-    .select('*, journal_templates(name, icon)')
-    .eq('user_id', user.id)
-    .eq('is_complete', true)
-    .order('entry_date', { ascending: false })
-    .limit(3)
-  const recentEntries =
-    recentEntriesData as
-      | (Database['public']['Tables']['journal_entries']['Row'] & {
-          journal_templates?: { name: string; icon: string } | null
-        })[]
-      | null
-
-  const recentEntryItems = (recentEntries ?? []).map((entry) => {
-    const tmpl = entry.journal_templates as unknown as { name: string; icon: string } | null
-    return {
-      id: entry.id,
-      templateName: tmpl?.name ?? 'Entry',
-      templateIcon: tmpl?.icon ?? '📓',
-      entryDate: entry.entry_date,
-      xpEarned: entry.xp_earned,
-    }
-  })
-
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="max-w-2xl mx-auto space-y-5">
@@ -260,11 +248,8 @@ export default async function DashboardPage() {
           level={level}
         />
 
-        <NextRewardCard building={nextBuilding} currentXp={profile.total_xp} />
-
-        <GoalsDashboardWidget userId={user.id} initialGoals={activeGoals} />
-
         <DailyBriefingWidget
+          key={`briefing-${quickAction ?? 'default'}`}
           userId={user.id}
           todayDate={today}
           todayLabel={dayLabel(profile.timezone ?? 'UTC')}
@@ -273,24 +258,26 @@ export default async function DashboardPage() {
           journals={briefingJournals}
           planBlocks={planBlocks}
           completedJournalCount={(todayEntriesRes.data ?? []).length}
+          initialOpenPanel={
+            quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit'
+              ? quickAction
+              : null
+          }
+        />
+
+        <NextRewardCard building={nextBuilding} currentXp={profile.total_xp} />
+
+        <GoalsDashboardWidget
+          key={`goals-${quickAction === 'goal' ? 'open' : 'closed'}`}
+          userId={user.id}
+          initialGoals={activeGoals}
+          initiallyOpen={quickAction === 'goal'}
         />
 
         <QuestDashboardWidget
           claimable={claimableQuests}
           activeCustom={activeCustomQuests}
         />
-
-        <HabitDashboardWidget userId={user.id} />
-
-        <TaskList userId={user.id} compact limit={5} onlyOpen />
-
-        <TodayPlanWidget userId={user.id} />
-
-        <Button asChild size="lg" className="w-full">
-          <Link href="/journal">📝 Start Journaling</Link>
-        </Button>
-
-        <RecentEntriesList entries={recentEntryItems} />
       </div>
     </div>
   )

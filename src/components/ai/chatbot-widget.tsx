@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { BotMessageSquare, Loader2, MessageCircle, Send, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,10 @@ interface ChatMessage {
 interface ChatResponse {
   reply?: string
   error?: string
+  action?: {
+    type: string
+    status: 'completed' | 'none'
+  }
 }
 
 const INITIAL_MESSAGE: ChatMessage = {
@@ -34,6 +39,7 @@ function createMessage(role: ChatRole, content: string): ChatMessage {
 }
 
 export function ChatbotWidget() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE])
   const [input, setInput] = useState('')
@@ -78,6 +84,11 @@ export function ChatbotWidget() {
       }
 
       setMessages((prev) => [...prev, createMessage('assistant', data.reply as string)])
+
+      if (data.action?.status === 'completed') {
+        window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
+        router.refresh()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The assistant could not reply right now.')
     } finally {
@@ -86,7 +97,7 @@ export function ChatbotWidget() {
   }
 
   return (
-    <div className="fixed bottom-20 right-4 z-[70] sm:bottom-6">
+    <div className="fixed bottom-32 right-4 z-[70] sm:bottom-6">
       <AnimatePresence>
         {open && (
           <motion.div
@@ -95,7 +106,7 @@ export function ChatbotWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.97 }}
             transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-            className="mb-3 flex h-[min(540px,calc(100svh-8rem))] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl"
+            className="mb-3 flex h-[min(540px,calc(100svh-11rem))] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl sm:h-[min(540px,calc(100svh-8rem))]"
           >
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div className="flex items-center gap-2">

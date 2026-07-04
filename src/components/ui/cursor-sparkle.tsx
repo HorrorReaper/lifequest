@@ -1,9 +1,13 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useTheme } from '@/components/providers/theme-provider'
 
 export function CursorSparkle() {
+  const { theme } = useTheme()
+
   useEffect(() => {
+    if (theme === 'white') return
     if (!window.matchMedia('(pointer: fine)').matches) return
 
     let lastTime = 0
@@ -35,7 +39,7 @@ export function CursorSparkle() {
 
     window.addEventListener('mousemove', onMouseMove, { passive: true })
     return () => window.removeEventListener('mousemove', onMouseMove)
-  }, [])
+  }, [theme])
 
   return null
 }

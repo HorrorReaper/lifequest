@@ -201,7 +201,7 @@ function getQuestErrorMessage(error: unknown, fallback: string) {
 export async function claimSystemQuest(
   supabase: SupabaseClient,
   quest: DefaultQuestWithStatus,
-  callbacks: { setCoins: (c: number) => void; addXp: (x: number) => void }
+  callbacks: { setCoins: (c: number) => void; addXp: (x: number, previousTotalXp?: number) => void }
 ) {
   const client = questClient(supabase)
   const { data, error } = await client
@@ -217,14 +217,14 @@ export async function claimSystemQuest(
     throw new Error('Quest reward was claimed, but the reward state was invalid.')
   }
 
-  callbacks.addXp(quest.xp)
+  callbacks.addXp(quest.xp, rewardState.total_xp - quest.xp)
   callbacks.setCoins(rewardState.coins)
 }
 
 export async function completeCustomQuest(
   supabase: SupabaseClient,
   quest: CustomQuest,
-  callbacks: { setCoins: (c: number) => void; addXp: (x: number) => void }
+  callbacks: { setCoins: (c: number) => void; addXp: (x: number, previousTotalXp?: number) => void }
 ) {
   const client = questClient(supabase)
   const { data, error } = await client
@@ -240,7 +240,7 @@ export async function completeCustomQuest(
     throw new Error('Quest was completed, but the reward state was invalid.')
   }
 
-  callbacks.addXp(quest.xp_reward)
+  callbacks.addXp(quest.xp_reward, rewardState.total_xp - quest.xp_reward)
   callbacks.setCoins(rewardState.coins)
 }
 

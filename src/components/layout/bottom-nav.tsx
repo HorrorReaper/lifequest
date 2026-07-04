@@ -3,10 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Coins, Home, NotebookPen, Trophy, Building2, Settings, BookOpen } from "lucide-react";
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
-import { loadCityState } from '@/lib/city'
 import { createClient } from '@/lib/supabase/client'
+import { getLevel } from '@/lib/gamification'
+import { QuickActionButton } from '@/components/layout/quick-action-button'
+import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: Home },
@@ -18,24 +20,30 @@ const NAV_ITEMS = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
+const LEFT_NAV_ITEMS = NAV_ITEMS.slice(0, 3)
+const RIGHT_NAV_ITEMS = NAV_ITEMS.slice(3)
+
 export function BottomNav() {
   const pathname = usePathname()
   const level = useUserStore((s) => s.level)
   const coins = useUserStore((s) => s.coins)
+  const totalXp = useUserStore((s) => s.totalXp)
   const setProfile = useUserStore((s) => s.setProfile)
   const setCoins = useUserStore((s) => s.setCoins)
+  const notifyLevelUp = useUserStore((s) => s.notifyLevelUp)
+  const totalXpRef = useRef(totalXp)
 
   useEffect(() => {
-    // Seed store with localStorage cache for instant display
-    setCoins(loadCityState().coins ?? 0)
-    setProfile({ totalXp: loadCityState().xp ?? 0 })
+    totalXpRef.current = totalXp
+  }, [totalXp])
 
+  useEffect(() => {
     // Fetch authoritative values from Supabase
     ;(async () => {
       try {
         const supabase = createClient()
         const { data: userData } = await supabase.auth.getUser()
-        const user = (userData as any)?.user
+        const user = userData.user
         if (!user) return
 
         const { data: cityRowData } = await supabase
@@ -44,17 +52,10 @@ export function BottomNav() {
           .eq('user_id', user.id)
           .single()
 
-        const cityRow = cityRowData as any
+        const cityRow = cityRowData as unknown as { coins: number } | null
 
         if (cityRow && typeof cityRow.coins === 'number') {
           setCoins(cityRow.coins)
-          try {
-            const cached = loadCityState()
-            if (cached.coins !== cityRow.coins) {
-              cached.coins = cityRow.coins
-              localStorage.setItem('city-state', JSON.stringify(cached))
-            }
-          } catch {}
         }
 
         const { data: profileData } = await supabase
@@ -63,57 +64,68 @@ export function BottomNav() {
           .eq('id', user.id)
           .single()
 
-        const profile = profileData as any
+        const profile = profileData as unknown as { total_xp: number } | null
 
         if (profile && typeof profile.total_xp === 'number') {
+          const previousTotalXp = totalXpRef.current
+          const previousLevel = getLevel(previousTotalXp)
+          const profileLevel = getLevel(profile.total_xp)
+
+          if (previousTotalXp > 0 && profileLevel > previousLevel) {
+            notifyLevelUp(profileLevel)
+          }
+
           setProfile({ totalXp: profile.total_xp })
-          try {
-            const cached = loadCityState()
-            if (cached.xp !== profile.total_xp) {
-              cached.xp = profile.total_xp
-              localStorage.setItem('city-state', JSON.stringify(cached))
-            }
-          } catch {}
         }
       } catch {
-        // ignore fetch errors; continue using cached value
+        // ignore fetch errors; keep the current in-memory values
       }
     })()
-  }, [])
+  }, [notifyLevelUp, setCoins, setProfile])
+
+  function renderNavItem(item: (typeof NAV_ITEMS)[number]) {
+    const isActive =
+      pathname === item.href || pathname.startsWith(item.href + '/')
+    const Icon = item.icon
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          'flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] transition-colors sm:text-xs',
+          isActive
+            ? 'text-primary'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        <Icon className="size-5" />
+        <span className="max-w-full truncate">{item.label}</span>
+      </Link>
+    )
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex max-w-2xl items-center justify-between px-2 py-2">
-        <div className="flex items-center gap-3 px-2">
-          <span className="text-sm text-muted-foreground flex gap-1"><Coins className="h-4 w-4 text-yellow-500" /> {coins}</span>
+      <div className="relative mx-auto max-w-2xl px-2 pb-2 pt-2">
+        <div className="pointer-events-none absolute -top-6 left-3 flex items-center gap-1 rounded-full border border-border/70 bg-background/95 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+          <Coins className="size-3.5 text-yellow-500" />
+          {coins}
         </div>
 
-        <div className="flex items-center justify-center gap-2">
-          {NAV_ITEMS.map((item) => {
-          const isActive =
-            pathname === item.href || pathname.startsWith(item.href + '/')
-          const Icon = item.icon
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-xs transition-colors ${
-                isActive
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
-            </Link>
-          )
-          })}
+        <div className="pointer-events-none absolute -top-7 right-3 flex size-9 items-center justify-center rounded-full border border-border/70 bg-background/95 text-sm font-bold text-primary shadow-sm backdrop-blur">
+          {level}
         </div>
 
-        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-lg">
-              {level}
-            </div>
+        <div className="grid grid-cols-[1fr_4.5rem_1fr] items-end gap-1">
+          <div className="grid grid-cols-3 items-end gap-1">
+            {LEFT_NAV_ITEMS.map(renderNavItem)}
+          </div>
+          <QuickActionButton />
+          <div className="grid grid-cols-3 items-end gap-1">
+            {RIGHT_NAV_ITEMS.map(renderNavItem)}
+          </div>
+        </div>
       </div>
     </nav>
   )

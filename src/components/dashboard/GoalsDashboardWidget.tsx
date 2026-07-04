@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 interface GoalsDashboardWidgetProps {
   userId: string
   initialGoals: Goal[]
+  initiallyOpen?: boolean
 }
 
 interface QuestSuggestion {
@@ -41,12 +42,12 @@ function formatTargetDate(date: string | null) {
   }).format(new Date(`${date}T00:00:00`))
 }
 
-export function GoalsDashboardWidget({ userId, initialGoals }: GoalsDashboardWidgetProps) {
+export function GoalsDashboardWidget({ userId, initialGoals, initiallyOpen = false }: GoalsDashboardWidgetProps) {
   const supabase = createClient()
   const router = useRouter()
 
   const [goals, setGoals] = useState(initialGoals)
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(initiallyOpen)
   const [title, setTitle] = useState('')
   const [why, setWhy] = useState('')
   const [category, setCategory] = useState<GoalCategory>('personal')
