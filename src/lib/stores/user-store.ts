@@ -20,10 +20,19 @@ interface UserState {
   cityTier: string
   xpToNext: number
 
+  // Coins (shared across nav, city page, dashboard)
+  coins: number
+
+  // Level-up notification
+  pendingLevelUp: number | null
+
   // Actions
   setProfile: (profile: Partial<UserState>) => void
-  addXp: (amount: number) => void
+  addXp: (amount: number, previousTotalXp?: number) => void
+  notifyLevelUp: (level: number) => void
   updateStreak: (streak: number) => void
+  setCoins: (coins: number) => void
+  clearLevelUp: () => void
 }
 
 export const useUserStore = create<UserState>((set) => ({
@@ -41,6 +50,9 @@ export const useUserStore = create<UserState>((set) => ({
   cityTier: 'village',
   xpToNext: 500,
 
+  coins: 0,
+  pendingLevelUp: null,
+
   setProfile: (profile) =>
     set((state) => {
       const totalXp = profile.totalXp ?? state.totalXp
@@ -53,14 +65,18 @@ export const useUserStore = create<UserState>((set) => ({
       }
     }),
 
-  addXp: (amount) =>
+  addXp: (amount, previousTotalXp) =>
     set((state) => {
-      const newXp = state.totalXp + amount
+      const baseXp = typeof previousTotalXp === 'number' ? previousTotalXp : state.totalXp
+      const previousLevel = getLevel(baseXp)
+      const newXp = baseXp + amount
+      const newLevel = getLevel(newXp)
       return {
         totalXp: newXp,
-        level: getLevel(newXp),
-        cityTier: getCityTier(getLevel(newXp)),
+        level: newLevel,
+        cityTier: getCityTier(newLevel),
         xpToNext: xpToNextLevel(newXp),
+        pendingLevelUp: newLevel > previousLevel ? newLevel : state.pendingLevelUp,
       }
     }),
 
@@ -69,4 +85,8 @@ export const useUserStore = create<UserState>((set) => ({
       currentStreak: streak,
       bestStreak: Math.max(state.bestStreak, streak),
     })),
+
+  notifyLevelUp: (level) => set({ pendingLevelUp: level }),
+  setCoins: (coins) => set({ coins }),
+  clearLevelUp: () => set({ pendingLevelUp: null }),
 }))

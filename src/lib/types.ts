@@ -60,6 +60,7 @@ export type FieldType =
   | 'tasks'
   | 'day_planner'
   | 'habit_tracker'
+  | 'learning'
 //Die verschiedenen Arten von Template-Feldern
 export interface FieldValue {
   field_id: string
@@ -92,6 +93,21 @@ export interface JournalResponse {
   value_json: unknown | null
   template_fields?: TemplateField
 } //Antwort auf ein Journal
+
+export interface JournalLearning {
+  id: string
+  user_id: string
+  entry_id: string
+  field_id: string | null
+  title: string
+  note: string
+  tags: string[]
+  source_response_ids: string[]
+  action_text: string | null
+  is_favorite: boolean
+  created_at: string
+  updated_at: string
+}
 
 export interface MoodOption {
   value: string
@@ -156,6 +172,32 @@ export interface Task {
   created_at: string;
   completed_at: string | null;
 }
+
+export type GoalCategory =
+  | "personal"
+  | "health"
+  | "career"
+  | "relationships"
+  | "learning"
+  | "finance"
+  | "other";
+
+export type GoalStatus = "active" | "completed" | "archived";
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  title: string;
+  why: string | null;
+  category: GoalCategory;
+  target_date: string | null;
+  status: GoalStatus;
+  sort_order: number;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DayPlanBlock {
   id: string;
   start_time: string; // "HH:mm"

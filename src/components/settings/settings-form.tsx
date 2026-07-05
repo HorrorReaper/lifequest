@@ -7,9 +7,9 @@ import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { HabitsManager } from './HabitsManager'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useTheme, type Theme } from '@/components/providers/theme-provider'
+import { cn } from '@/lib/utils'
 
 const TIMEZONES = [
   'America/New_York',
@@ -29,6 +29,24 @@ const TIMEZONES = [
   'UTC',
 ]
 
+const APPEARANCE_OPTIONS: { value: Theme; title: string; description: string }[] = [
+  {
+    value: 'white',
+    title: 'White Mode',
+    description: 'Calm, bright, and lower intensity.',
+  },
+  {
+    value: 'system',
+    title: 'System',
+    description: 'Follow your device appearance.',
+  },
+  {
+    value: 'dark',
+    title: 'Dark',
+    description: 'The classic LifeQuest look.',
+  },
+]
+
 interface SettingsFormProps {
   userId: string
   email: string
@@ -44,6 +62,7 @@ export function SettingsForm({
 }: SettingsFormProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { theme, setTheme } = useTheme()
 
   const [username, setUsername] = useState(initialUsername)
   const [timezone, setTimezone] = useState(initialTimezone)
@@ -72,6 +91,42 @@ export function SettingsForm({
 
   return (
     <div className="space-y-6">
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>
+            Choose how LifeQuest should feel on this device.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {APPEARANCE_OPTIONS.map((option) => {
+              const selected = theme === option.value
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setTheme(option.value)}
+                  className={cn(
+                    "rounded-xl border p-3 text-left transition-all hover:border-foreground/30 hover:bg-muted/60",
+                    selected
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/15"
+                      : "border-border/60 bg-background"
+                  )}
+                  aria-pressed={selected}
+                >
+                  <span className="block text-sm font-semibold">{option.title}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                    {option.description}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="border-border/50">
         <CardContent className="space-y-4 pt-6">
           <div className="space-y-2">
@@ -109,9 +164,6 @@ export function SettingsForm({
           </Button>
         </CardContent>
       </Card>
-
-      <Separator />
-      <HabitsManager userId={userId} />
 
       <Card className="border-border/50">
         <CardContent className="pt-6">

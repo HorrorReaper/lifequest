@@ -3,6 +3,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { BottomNav } from '@/components/layout/bottom-nav'
+import { LevelUpOverlay } from '@/components/ui/level-up-overlay'
+import { ChatbotWidget } from '@/components/ai/chatbot-widget'
 
 export default async function AppLayout({
   children,
@@ -17,9 +19,11 @@ export default async function AppLayout({
   if (!user) redirect('/login')
 
   return (
-    <div className="min-h-svh pb-16">
+    <div className="min-h-svh pb-20">
       {children}
       <BottomNav />
+      <LevelUpOverlay />
+      <ChatbotWidget />
     </div>
   )
 }

@@ -4,6 +4,7 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant white-mode (&:is(.white-mode *));
 
 :root {
   --background: hsl(0 0% 100%);
@@ -62,6 +63,35 @@
   --chart-5: hsl(340 75% 55%);
 }
 
+.white-mode {
+  color-scheme: light;
+  --background: hsl(45 38% 98%);
+  --foreground: hsl(30 12% 16%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(30 12% 16%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(30 12% 16%);
+  --primary: hsl(168 18% 32%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(42 30% 94%);
+  --secondary-foreground: hsl(30 12% 22%);
+  --muted: hsl(42 28% 94%);
+  --muted-foreground: hsl(30 8% 43%);
+  --accent: hsl(156 22% 92%);
+  --accent-foreground: hsl(168 18% 26%);
+  --destructive: hsl(4 62% 48%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(38 20% 86%);
+  --input: hsl(38 20% 88%);
+  --ring: hsl(168 18% 40%);
+
+  --chart-1: hsl(168 24% 42%);
+  --chart-2: hsl(36 45% 55%);
+  --chart-3: hsl(204 25% 48%);
+  --chart-4: hsl(84 24% 48%);
+  --chart-5: hsl(12 35% 54%);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -106,8 +136,64 @@
   }
 }
 
+.disable-transitions,
+.disable-transitions * {
+  transition: none !important;
+}
+
+.white-mode body {
+  background:
+    radial-gradient(circle at top left, hsl(42 45% 94% / 0.8), transparent 34rem),
+    linear-gradient(180deg, hsl(0 0% 100%), hsl(45 38% 98%));
+}
+
+.white-mode .sparkle-particle {
+  display: none;
+}
+
+.white-mode [class*="shadow-2xl"],
+.white-mode [class*="shadow-xl"] {
+  box-shadow: 0 20px 70px hsl(30 12% 16% / 0.1) !important;
+}
+
+.white-mode [class*="shadow-lg"] {
+  box-shadow: 0 14px 45px hsl(30 12% 16% / 0.08) !important;
+}
+
+.white-mode [class*="from-primary"] {
+  --tw-gradient-from: hsl(168 18% 72%) var(--tw-gradient-from-position) !important;
+}
+
+.white-mode [class*="to-purple"],
+.white-mode [class*="to-chart"],
+.white-mode [class*="to-amber"],
+.white-mode [class*="to-yellow"] {
+  --tw-gradient-to: hsl(42 36% 92%) var(--tw-gradient-to-position) !important;
+}
+
 /* Custom scrollbar for dark mode */
 @utility scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: var(--muted) transparent;
+}
+
+/* Cursor sparkle trail particles */
+.sparkle-particle {
+  position: fixed;
+  border-radius: 50%;
+  background-color: var(--primary);
+  pointer-events: none;
+  z-index: 9999;
+  animation: sparkle-fade 0.6s ease-out forwards;
+}
+
+@keyframes sparkle-fade {
+  0% {
+    opacity: 0.65;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, 0px))) scale(0);
+  }
 }

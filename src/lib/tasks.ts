@@ -68,6 +68,26 @@ export async function toggleTask(
   return data as Task;
 }
 
+export async function updateTask(
+  supabase: SupabaseClient,
+  taskId: string,
+  patch: Partial<Pick<Task, "title" | "description" | "due_date" | "priority" | "is_completed">>
+): Promise<Task> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({
+      ...patch,
+      title: patch.title?.trim(),
+      description: patch.description?.trim() || patch.description,
+    })
+    .eq("id", taskId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data as Task;
+}
+
 export async function deleteTask(supabase: SupabaseClient, taskId: string) {
   const { error } = await supabase.from("tasks").delete().eq("id", taskId);
   if (error) throw error;

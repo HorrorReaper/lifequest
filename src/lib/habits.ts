@@ -25,11 +25,23 @@ export async function createHabit(
   userId: string,
   input: { name: string; emoji?: string; color?: string }
 ): Promise<Habit> {
+  const name = input.name.trim();
+  const { data: existing, error: existingError } = await supabase
+    .from("habits")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_archived", false)
+    .ilike("name", name)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+  if (existing) return existing as Habit;
+
   const { data, error } = await supabase
     .from("habits")
     .insert({
       user_id: userId,
-      name: input.name.trim(),
+      name,
       emoji: input.emoji ?? "✅",
       color: input.color ?? "blue",
     })

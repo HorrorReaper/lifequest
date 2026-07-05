@@ -438,6 +438,36 @@ export function FieldConfigEditor({
     )}
   </>
 )}
+{editedField.field_type === "learning" && (
+  <>
+    <div className="space-y-2">
+      <Label>Default Tags</Label>
+      <Input
+        value={((config.defaultTags as string[]) ?? []).join(", ")}
+        onChange={(e) =>
+          updateConfig(
+            "defaultTags",
+            e.target.value
+              .split(",")
+              .map((tag) => tag.trim().toLowerCase())
+              .filter(Boolean)
+          )
+        }
+        placeholder="focus, fitness, startup"
+      />
+      <p className="text-xs text-muted-foreground">
+        These tags are prefilled when journaling and saved to the Learning Library.
+      </p>
+    </div>
+    <div className="flex items-center justify-between">
+      <Label>Show next action input</Label>
+      <Switch
+        checked={(config.showAction as boolean | undefined) ?? true}
+        onCheckedChange={(v) => updateConfig("showAction", v)}
+      />
+    </div>
+  </>
+)}
 {SUPPORTS_RULES.includes(editedField.field_type) && (
   <div className="space-y-2 pt-2 border-t">
     <div className="flex items-center justify-between">
@@ -469,7 +499,7 @@ export function FieldConfigEditor({
     </div>
 
     <p className="text-xs text-muted-foreground">
-      Award bonus XP when the user's answer matches a condition.
+      Award bonus XP when the user&apos;s answer matches a condition.
     </p>
 
     {(editedField.xp_rules ?? []).length === 0 ? (

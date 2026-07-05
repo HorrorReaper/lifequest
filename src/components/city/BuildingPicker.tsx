@@ -3,7 +3,7 @@
 import { BuildingType, getUnlockedBuildings, getLockedBuildings } from "@/lib/city";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lock } from "lucide-react";
+import { Coins, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BuildingPickerProps {
@@ -53,7 +53,7 @@ export function BuildingPicker({ xp, coins, selected, onSelect }: BuildingPicker
                       onClick={() => onSelect(b)}
                       disabled={!affordable}
                       className={cn(
-                        "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-all",
+                        "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-all hover:cursor-pointer",
                         isSelected
                           ? "border-primary bg-primary/10 ring-2 ring-primary"
                           : "hover:border-primary/50",
@@ -63,7 +63,7 @@ export function BuildingPicker({ xp, coins, selected, onSelect }: BuildingPicker
                       <span className="text-lg">{b.emoji}</span>
                       <span>{b.name}</span>
                       <Badge variant="secondary" className="ml-1 text-xs">
-                        {b.cost}🪙
+                        <Coins className="h-3.5 w-3.5 text-yellow-500" /> {b.cost} 
                       </Badge>
                     </button>
                   );

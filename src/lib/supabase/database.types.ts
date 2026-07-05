@@ -172,6 +172,50 @@ export interface Database {
           updated_at?: string
         }
       }
+      journal_learnings: {
+        Row: {
+          id: string
+          user_id: string
+          entry_id: string
+          field_id: string | null
+          title: string
+          note: string
+          tags: string[]
+          source_response_ids: string[]
+          action_text: string | null
+          is_favorite: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          entry_id: string
+          field_id?: string | null
+          title: string
+          note: string
+          tags?: string[]
+          source_response_ids?: string[]
+          action_text?: string | null
+          is_favorite?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          entry_id?: string
+          field_id?: string | null
+          title?: string
+          note?: string
+          tags?: string[]
+          source_response_ids?: string[]
+          action_text?: string | null
+          is_favorite?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       journal_responses: {
         Row: {
           id: string
@@ -421,8 +465,151 @@ export interface Database {
           created_at?: string
         }
       }
+      quests: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          description: string | null
+          xp_reward: number
+          coin_reward: number
+          is_completed: boolean
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          description?: string | null
+          xp_reward?: number
+          coin_reward?: number
+          is_completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          description?: string | null
+          xp_reward?: number
+          coin_reward?: number
+          is_completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      goals: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          why: string | null
+          category: 'personal' | 'health' | 'career' | 'relationships' | 'learning' | 'finance' | 'other'
+          target_date: string | null
+          status: 'active' | 'completed' | 'archived'
+          sort_order: number
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          why?: string | null
+          category?: 'personal' | 'health' | 'career' | 'relationships' | 'learning' | 'finance' | 'other'
+          target_date?: string | null
+          status?: 'active' | 'completed' | 'archived'
+          sort_order?: number
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          why?: string | null
+          category?: 'personal' | 'health' | 'career' | 'relationships' | 'learning' | 'finance' | 'other'
+          target_date?: string | null
+          status?: 'active' | 'completed' | 'archived'
+          sort_order?: number
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      quest_completions: {
+        Row: {
+          id: string
+          user_id: string
+          quest_key: string
+          completed_at: string
+          xp_awarded: number
+          coins_awarded: number
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          quest_key: string
+          completed_at?: string
+          xp_awarded: number
+          coins_awarded: number
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          quest_key?: string
+          completed_at?: string
+          xp_awarded?: number
+          coins_awarded?: number
+        }
+      }
+      lesson_completions: {
+        Row: {
+          id: string
+          user_id: string
+          lesson_id: string
+          completed_at: string
+          xp_awarded: number
+          coins_awarded: number
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          lesson_id: string
+          completed_at?: string
+          xp_awarded: number
+          coins_awarded: number
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          lesson_id?: string
+          completed_at?: string
+          xp_awarded?: number
+          coins_awarded?: number
+        }
+      }
     }
     Functions: {
+      claim_system_quest_reward: {
+        Args: { p_quest_key: string }
+        Returns: { total_xp: number; coins: number }[]
+      }
+      complete_custom_quest_reward: {
+        Args: { p_quest_id: string }
+        Returns: { total_xp: number; coins: number }[]
+      }
+      complete_lesson_reward: {
+        Args: { p_lesson_id: string }
+        Returns: { total_xp: number; coins: number }[]
+      }
       get_level: {
         Args: { xp: number }
         Returns: number

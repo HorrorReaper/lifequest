@@ -19,6 +19,9 @@ import { createClient } from "@/lib/supabase/client";
 import { redirect } from "next/dist/client/components/navigation";
 
 export default function AnalyticsPage() {
+  // Analytics page is disabled for now
+  redirect('/dashboard')
+
   const [entries, setEntries] = useState<JournalEntry[]>([]);
 
   /*useEffect(() => {

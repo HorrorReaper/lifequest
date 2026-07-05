@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 
-type Theme = 'light' | 'dark' | 'system'
+const THEMES = ['light', 'dark', 'system', 'white'] as const
+export type Theme = (typeof THEMES)[number]
 
 interface ThemeProviderProps {
   children: React.ReactNode
@@ -17,6 +18,16 @@ const ThemeContext = React.createContext<{
   setTheme: (t: Theme) => void
 } | null>(null)
 
+function isTheme(value: string | null): value is Theme {
+  return THEMES.includes(value as Theme)
+}
+
+function getStoredTheme() {
+  if (typeof window === 'undefined') return null
+  const stored = localStorage.getItem('theme')
+  return isTheme(stored) ? stored : null
+}
+
 export function ThemeProvider({
   children,
   attribute = 'class',
@@ -27,10 +38,15 @@ export function ThemeProvider({
   const [theme, setThemeState] = React.useState<Theme>('system')
 
   React.useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null
     const applyTheme = (t: Theme) => {
       const el = document.documentElement
-      const isDark = t === 'dark' || (t === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      const isWhite = t === 'white'
+      const isDark =
+        !isWhite &&
+        (t === 'dark' ||
+          (t === 'system' &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches))
 
       if (disableTransitionOnChange) {
         el.classList.add('disable-transitions')
@@ -38,6 +54,8 @@ export function ThemeProvider({
         void el.offsetWidth
         setTimeout(() => el.classList.remove('disable-transitions'), 0)
       }
+
+      el.classList.toggle('white-mode', isWhite)
 
       if (attribute === 'class') {
         if (isDark) el.classList.add('dark')
@@ -48,6 +66,7 @@ export function ThemeProvider({
     }
 
     const resolveInitial = () => {
+      const stored = getStoredTheme()
       if (stored) return (stored as Theme)
       if (enableSystem) return 'system'
       return defaultTheme
@@ -59,20 +78,22 @@ export function ThemeProvider({
 
     let mq: MediaQueryList | null = null
     const handleChange = () => {
-      // if using system and no stored override, re-apply
-      const currentStored = localStorage.getItem('theme')
-      if (!currentStored && enableSystem) {
+      const stored = getStoredTheme()
+      if (stored === 'system' || (!stored && enableSystem)) {
         applyTheme('system')
       }
     }
 
     if (enableSystem && window.matchMedia) {
       mq = window.matchMedia('(prefers-color-scheme: dark)')
-      mq.addEventListener ? mq.addEventListener('change', handleChange) : mq.addListener(handleChange as any)
+      if (mq.addEventListener) mq.addEventListener('change', handleChange)
+      else mq.addListener(handleChange)
     }
 
     return () => {
-      if (mq) mq.removeEventListener ? mq.removeEventListener('change', handleChange) : mq.removeListener(handleChange as any)
+      if (!mq) return
+      if (mq.removeEventListener) mq.removeEventListener('change', handleChange)
+      else mq.removeListener(handleChange)
     }
   }, [attribute, defaultTheme, enableSystem, disableTransitionOnChange])
 
@@ -82,7 +103,14 @@ export function ThemeProvider({
     } catch {}
     // apply immediately
     const el = document.documentElement
-    const isDark = t === 'dark' || (t === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    const isWhite = t === 'white'
+    const isDark =
+      !isWhite &&
+      (t === 'dark' ||
+        (t === 'system' &&
+          window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches))
+    el.classList.toggle('white-mode', isWhite)
     if (attribute === 'class') {
       if (isDark) el.classList.add('dark')
       else el.classList.remove('dark')
@@ -101,6 +129,6 @@ export function ThemeProvider({
 
 export function useTheme() {
   const ctx = React.useContext(ThemeContext)
-  if (!ctx) return { theme: 'system' as Theme, setTheme: (_: Theme) => {} }
+  if (!ctx) return { theme: 'system' as Theme, setTheme: () => {} }
   return ctx
 }
