@@ -43,8 +43,8 @@ export default async function NewEntryPage({ params }: PageProps) {
     .order('sort_order')
 
   return (
-    <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-svh bg-background px-4 pb-24 pt-5 sm:px-8 sm:pt-8">
+      <div className="mx-auto max-w-3xl">
         <EntryForm
           template={template as JournalTemplate}
           fields={(fields as TemplateField[]) ?? []}

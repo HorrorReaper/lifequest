@@ -25,7 +25,7 @@ export function SliderInput({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 rounded-xl border bg-background/70 p-3">
         <Slider
           min={min}
           max={max}

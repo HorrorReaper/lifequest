@@ -79,18 +79,18 @@ export function DayPlannerInput({ value, onChange, config }: DayPlannerInputProp
   return (
     <div className="space-y-3">
       {/* Date selector */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <label className="text-sm text-muted-foreground">Planning for:</label>
         <Input
           type="date"
           value={planDate}
           onChange={(e) => changeDate(e.target.value)}
-          className="w-auto"
+          className="h-10 w-auto rounded-xl bg-background/80"
         />
       </div>
 
       {/* Add block form */}
-      <div className="rounded-lg border p-3 bg-muted/30 space-y-2">
+      <div className="space-y-2 rounded-2xl border bg-background/70 p-3">
         <Input
           placeholder="What will you do?"
           value={title}
@@ -101,25 +101,26 @@ export function DayPlannerInput({ value, onChange, config }: DayPlannerInputProp
               addBlock();
             }
           }}
+          className="h-11 rounded-xl bg-background/80"
         />
-        <div className="flex gap-2 flex-wrap">
+        <div className="grid gap-2 sm:grid-cols-[6.5rem_auto_6.5rem_1fr_auto]">
           <Input
             type="time"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            className="w-28"
+            className="h-10 rounded-xl bg-background/80"
           />
-          <span className="self-center text-muted-foreground">→</span>
+          <span className="hidden self-center text-muted-foreground sm:block">→</span>
           <Input
             type="time"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
-            className="w-28"
+            className="h-10 rounded-xl bg-background/80"
           />
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as DayPlanBlock["category"])}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+            className="flex h-10 rounded-xl border border-input bg-background px-3 text-sm"
           >
             {Object.entries(CATEGORY_META).map(([key, meta]) => (
               <option key={key} value={key}>
@@ -132,6 +133,7 @@ export function DayPlannerInput({ value, onChange, config }: DayPlannerInputProp
             size="sm"
             onClick={addBlock}
             disabled={!title.trim() || start >= end}
+            className="h-10"
           >
             <Plus className="h-4 w-4 mr-1" /> Add
           </Button>
@@ -150,16 +152,16 @@ export function DayPlannerInput({ value, onChange, config }: DayPlannerInputProp
             return (
               <li
                 key={b.id}
-                className="group flex items-center gap-3 rounded-md border p-2.5"
+                className="group flex flex-col gap-2 rounded-xl border bg-background/70 p-3 sm:flex-row sm:items-center"
               >
-                <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono w-28">
+                <div className="flex w-full items-center gap-1 font-mono text-xs text-muted-foreground sm:w-28">
                   <Clock className="h-3 w-3" />
                   {b.start_time} – {b.end_time}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm truncate">{b.title}</p>
                 </div>
-                <Badge variant="outline" className={cn("text-xs h-5", meta.style)}>
+                <Badge variant="outline" className={cn("h-5 w-fit text-xs", meta.style)}>
                   {meta.emoji} {meta.label}
                 </Badge>
                 <Button
@@ -167,7 +169,7 @@ export function DayPlannerInput({ value, onChange, config }: DayPlannerInputProp
                   size="sm"
                   variant="ghost"
                   onClick={() => removeBlock(b.id)}
-                  className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0"
+                  className="h-7 w-7 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>

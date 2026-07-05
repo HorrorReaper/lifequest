@@ -67,24 +67,25 @@ export function TasksInput({ value, onChange, config }: TasksInputProps) {
   return (
     <div className="space-y-3">
       {/* Input row */}
-      <div className="rounded-lg border p-3 bg-muted/30 space-y-2">
+      <div className="space-y-2 rounded-2xl border bg-background/70 p-3">
         <Input
           placeholder="Add a task..."
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={handleKeyDown}
+          className="h-11 rounded-xl bg-background/80"
         />
-        <div className="flex gap-2">
+        <div className="grid gap-2 sm:grid-cols-[120px_1fr_auto]">
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high")}
-            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+            className="flex h-10 rounded-xl border border-input bg-background px-3 text-sm"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
           </select>
-          <div className="flex-1">
+          <div className="min-w-0">
             <DatePicker
               value={dueDate || null}
               onChange={(d) => setDueDate(d ?? '')}
@@ -95,6 +96,7 @@ export function TasksInput({ value, onChange, config }: TasksInputProps) {
             size="sm"
             onClick={addTask}
             disabled={!title.trim() || value.length >= maxTasks}
+            className="h-10"
           >
             <Plus className="h-4 w-4 mr-1" />
             Add
@@ -113,7 +115,7 @@ export function TasksInput({ value, onChange, config }: TasksInputProps) {
           {value.map((task) => (
             <li
               key={task.tempId}
-              className="group flex items-center gap-3 rounded-md border p-2.5"
+              className="group flex items-center gap-3 rounded-xl border bg-background/70 p-3"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm">{task.title}</p>
@@ -136,7 +138,7 @@ export function TasksInput({ value, onChange, config }: TasksInputProps) {
                 size="sm"
                 variant="ghost"
                 onClick={() => removeTask(task.tempId)}
-                className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0"
+                className="h-7 w-7 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
               >
                 <X className="h-3.5 w-3.5" />
               </Button>

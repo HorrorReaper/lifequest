@@ -35,10 +35,17 @@ export function LearningInput({
   const showAction = config?.showAction ?? true
 
   return (
-    <div className="space-y-3 rounded-xl border border-primary/15 bg-primary/5 p-3">
-      <div className="flex items-center gap-2 text-sm font-medium text-primary">
-        <BookOpenCheck className="size-4" />
-        Capture a reusable lesson from today
+    <div className="space-y-3 rounded-2xl border border-primary/15 bg-primary/5 p-4">
+      <div className="flex items-start gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <BookOpenCheck className="size-4" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-primary">Save a reusable learning</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Capture the lesson future-you should not have to relearn.
+          </p>
+        </div>
       </div>
 
       <Input
@@ -47,6 +54,7 @@ export function LearningInput({
         placeholder="Learning title, e.g. Planning protects my focus"
         maxLength={120}
         disabled={disabled}
+        className="h-11 rounded-xl bg-background/80"
       />
 
       <Textarea
@@ -54,9 +62,9 @@ export function LearningInput({
         onChange={(event) => onChange({ ...current, note: event.target.value })}
         placeholder="What did you learn, and when should future-you remember this?"
         maxLength={1200}
-        rows={4}
+        rows={5}
         disabled={disabled}
-        className="resize-none"
+        className="min-h-32 resize-none rounded-xl bg-background/80 leading-6"
       />
 
       <Input
@@ -66,6 +74,7 @@ export function LearningInput({
         }
         placeholder="Tags: focus, fitness, startup"
         disabled={disabled}
+        className="h-11 rounded-xl bg-background/80"
       />
 
       {showAction && (
@@ -77,6 +86,7 @@ export function LearningInput({
           placeholder="Optional next action"
           maxLength={500}
           disabled={disabled}
+          className="h-11 rounded-xl bg-background/80"
         />
       )}
     </div>

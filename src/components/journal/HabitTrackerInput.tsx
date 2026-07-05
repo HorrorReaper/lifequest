@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Habit } from "@/lib/types";
 import { fetchHabits } from "@/lib/habits";
@@ -18,7 +18,7 @@ interface HabitTrackerInputProps {
 }
 
 export function HabitTrackerInput({ value, onChange, config }: HabitTrackerInputProps) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const completed = new Set(value ?? []);
@@ -35,7 +35,7 @@ export function HabitTrackerInput({ value, onChange, config }: HabitTrackerInput
       setLoading(false);
     }
     load();
-  }, []);
+  }, [config?.selectedHabitIds, config?.showAll, supabase]);
 
   function toggle(id: string) {
     const next = new Set(completed);
@@ -48,7 +48,7 @@ export function HabitTrackerInput({ value, onChange, config }: HabitTrackerInput
 
   if (habits.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground text-center">
+      <div className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">
         No habits configured.{" "}
         <Link href="/settings" className="text-primary hover:underline">
           Add some in Settings →
@@ -67,8 +67,8 @@ export function HabitTrackerInput({ value, onChange, config }: HabitTrackerInput
             type="button"
             onClick={() => toggle(h.id)}
             className={cn(
-              "w-full flex items-center gap-3 rounded-md border p-2.5 text-left transition-colors",
-              done ? "bg-primary/10 border-primary/40" : "hover:bg-muted/50"
+              "w-full flex items-center gap-3 rounded-xl border bg-background/70 p-3 text-left transition-colors",
+              done ? "border-primary/35 bg-primary/10" : "border-border/60 hover:bg-muted/50"
             )}
           >
             <Checkbox checked={done} onCheckedChange={() => toggle(h.id)} />

@@ -11,7 +11,6 @@ import { useUserStore } from '@/lib/stores/user-store'
 import { FieldRenderer } from '@/components/journal/field-renderer'
 import { upsertDayPlan } from '@/lib/day-plans'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { logHabits } from "@/lib/habits";
 import { format } from "date-fns";
 import {
@@ -24,7 +23,7 @@ import {
 } from '@/lib/types'
 import { cleanLearningDraft, type LearningFieldValue } from '@/lib/learnings'
 import { calculateEntryBonusXp } from '@/lib/gamification'
-import { Sparkles } from 'lucide-react'
+import { BookOpenCheck, CheckCircle2, Sparkles } from 'lucide-react'
 import { DraftTask } from './TasksInput'
 
 interface EntryFormProps {
@@ -79,6 +78,45 @@ function learningValueFromField(value: FieldValue | undefined): LearningFieldVal
       ? candidate.tags.filter((tag): tag is string => typeof tag === 'string')
       : [],
     action_text: typeof candidate.action_text === 'string' ? candidate.action_text : null,
+  }
+}
+
+function isFieldComplete(field: TemplateField, value: FieldValue | undefined) {
+  if (DISPLAY_ONLY_TYPES.includes(field.field_type)) return true
+  if (!value) return false
+
+  switch (field.field_type) {
+    case 'text':
+    case 'textarea':
+    case 'select':
+    case 'mood':
+      return Boolean(value.value_text?.trim())
+    case 'number':
+    case 'slider':
+    case 'rating':
+      return value.value_number !== null && value.value_number !== undefined
+    case 'checkbox':
+      return Boolean(value.value_boolean)
+    case 'checklist':
+      return Boolean(
+        value.value_json &&
+          (value.value_json as ChecklistItem[]).some((item) => item.checked)
+      )
+    case 'tasks':
+      return ((value.value_json as DraftTask[] | null) ?? []).some((task) => task.title.trim())
+    case 'day_planner':
+      return Boolean(
+        value.value_json &&
+          ((value.value_json as { blocks?: DayPlanBlock[] }).blocks?.length ?? 0) > 0
+      )
+    case 'habit_tracker':
+      return ((value.value_json as string[] | null) ?? []).length > 0
+    case 'learning': {
+      const learning = learningValueFromField(value)
+      return Boolean(learning?.title.trim() && learning.note.trim())
+    }
+    default:
+      return false
   }
 }
 
@@ -152,45 +190,21 @@ export function EntryForm({
     }
   }, [fields, values])
 
+  const requiredFields = useMemo(
+    () => fields.filter((field) => field.is_required && !DISPLAY_ONLY_TYPES.includes(field.field_type)),
+    [fields]
+  )
+  const completedRequiredFields = requiredFields.filter((field) => isFieldComplete(field, values[field.id])).length
+  const progressPercent =
+    requiredFields.length > 0
+      ? Math.round((completedRequiredFields / requiredFields.length) * 100)
+      : 100
+
   function validate(): boolean {
     for (const field of fields) {
       if (!field.is_required) continue
       if (DISPLAY_ONLY_TYPES.includes(field.field_type)) continue
-
-      const val = values[field.id]
-      if (!val) return false
-
-      switch (field.field_type) {
-        case 'text':
-        case 'textarea':
-        case 'select':
-        case 'mood':
-          if (!val.value_text?.trim()) return false
-          break
-        case 'number':
-        case 'slider':
-        case 'rating':
-          if (val.value_number === null || val.value_number === undefined)
-            return false
-          break
-        case 'checkbox':
-          // Checkbox required means it must be checked
-          if (!val.value_boolean) return false
-          break
-        case 'checklist':
-          // At least one item checked
-          if (
-            !val.value_json ||
-            !(val.value_json as ChecklistItem[]).some((i) => i.checked)
-          )
-            return false
-          break
-        case 'learning': {
-          const learning = learningValueFromField(val)
-          if (!learning?.title.trim() || !learning.note.trim()) return false
-          break
-        }
-      }
+      if (!isFieldComplete(field, values[field.id])) return false
     }
     return true
   }
@@ -508,30 +522,35 @@ export function EntryForm({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex flex-col items-center gap-6 py-12 text-center"
+        className="mx-auto flex max-w-xl flex-col items-center gap-6 rounded-[2rem] border bg-card p-8 text-center shadow-sm sm:p-10"
       >
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', delay: 0.2 }}
-          className="text-6xl"
+          initial={{ scale: 0.92, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', delay: 0.15 }}
+          className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary"
         >
-          🎉
+          <CheckCircle2 className="size-8" />
         </motion.div>
-        <h2 className="text-2xl font-bold">Entry Complete!</h2>
+        <div>
+          <h2 className="font-heading text-2xl font-semibold tracking-tight">Reflection saved</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Your journal entry is stored. Take the next useful action when you&apos;re ready.
+          </p>
+        </div>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="rounded-xl bg-primary/10 px-6 py-3"
+          className="rounded-full border bg-background px-4 py-2"
         >
-          <span className="text-lg font-bold text-primary">
+          <span className="text-sm font-semibold text-primary">
             +{xpEarned} XP
           </span>
         </motion.div>
-        <div className="flex gap-3 pt-4">
+        <div className="flex w-full flex-col gap-3 pt-2 sm:flex-row">
           <Button variant="outline" onClick={() => router.push('/journal')}>
-            View Journal
+            Back to Journal
           </Button>
           <Button onClick={() => router.push('/dashboard')}>
             Dashboard
@@ -542,77 +561,109 @@ export function EntryForm({
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <Card className="border-border/50">
-        <CardContent className="space-y-6 pt-6">
-          {/* Template header */}
-          <div className="flex items-center gap-3 pb-2">
-            <span className="text-3xl">{template.icon}</span>
-            <div>
-              <h1 className="text-xl font-bold">{template.name}</h1>
-              {template.description && (
-                <p className="text-sm text-muted-foreground">
-                  {template.description}
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <section className="overflow-hidden rounded-[2rem] border bg-card shadow-sm">
+        <div className="relative p-5 sm:p-7">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-primary/8 to-transparent" />
+          <div className="relative space-y-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-3xl">
+                {template.icon}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Reflection ritual
                 </p>
-              )}
+                <h1 className="mt-1 font-heading text-2xl font-semibold tracking-tight">
+                  {template.name}
+                </h1>
+                {template.description && (
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                    {template.description}
+                  </p>
+                )}
+              </div>
+              <span className="w-fit rounded-full border bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
+                +{template.xp_reward} XP
+              </span>
             </div>
-            <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-              +{template.xp_reward} XP
-            </span>
+
+            <div className="rounded-2xl border bg-background/70 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+                <span className="font-medium text-muted-foreground">
+                  {requiredFields.length > 0
+                    ? `${completedRequiredFields}/${requiredFields.length} required fields`
+                    : 'Optional reflection'}
+                </span>
+                <span className="font-semibold text-primary">{progressPercent}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
 
-          {/* Fields */}
-          {fields.map((field, index) => (
-            <motion.div
-              key={field.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <FieldRenderer
-                field={field}
-                value={
-                  values[field.id] ?? {
-                    field_id: field.id,
-                    value_text: null,
-                    value_number: null,
-                    value_boolean: null,
-                    value_json: null,
-                  }
+      <div className="space-y-4">
+        {fields.map((field, index) => (
+          <motion.div
+            key={field.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.04 }}
+          >
+            <FieldRenderer
+              field={field}
+              value={
+                values[field.id] ?? {
+                  field_id: field.id,
+                  value_text: null,
+                  value_number: null,
+                  value_boolean: null,
+                  value_json: null,
                 }
-                onChange={(val) => updateValue(field.id, val)}
-                disabled={!!existingEntryId && false}
-              />
-            </motion.div>
-          ))}
+              }
+              onChange={(val) => updateValue(field.id, val)}
+              disabled={!!existingEntryId && false}
+            />
+          </motion.div>
+        ))}
+      </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
-        </CardContent>
-      </Card>
+      {error && (
+        <p className="rounded-2xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
       {previewBonusXp > 0 && (
-        <div className="mt-4 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950/30 p-3 text-sm flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-purple-500" />
-          <span className="text-purple-700 dark:text-purple-300 font-medium">
-            You&apos;ll earn +{previewBonusXp} bonus XP based on your answers!
+        <div className="flex items-center gap-2 rounded-2xl border bg-primary/5 p-3 text-sm">
+          <Sparkles className="size-4 text-primary" />
+          <span className="font-medium text-primary">
+            +{previewBonusXp} bonus XP is ready when you save this reflection.
           </span>
         </div>
       )}
 
-      <div className="mt-6 flex gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.back()}
-          className="flex-1"
-        >
-          Cancel
-        </Button>
-        <Button type="submit" className="flex-1" disabled={submitting}>
-          {submitting ? 'Saving...' : `Submit Entry (+${template.xp_reward} XP)`}
-        </Button>
+      <div className="sticky bottom-20 z-10 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:bottom-6">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
+            className="h-10 flex-1"
+          >
+            Cancel
+          </Button>
+          <Button type="submit" className="h-10 flex-1" disabled={submitting}>
+            <BookOpenCheck className="mr-1.5 size-4" />
+            {submitting ? 'Saving...' : 'Save Reflection'}
+          </Button>
+        </div>
       </div>
     </form>
   )
