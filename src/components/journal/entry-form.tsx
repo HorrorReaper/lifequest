@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { supabaseInsert, supabaseFrom, supabaseUpdateWhere } from '@/lib/supabase/helpers'
+import type { Database, Json } from '@/lib/supabase/database.types'
 import { useUserStore } from '@/lib/stores/user-store'
 import { FieldRenderer } from '@/components/journal/field-renderer'
 import { upsertDayPlan } from '@/lib/day-plans'
@@ -19,7 +20,9 @@ import {
   XpRule,
   FieldValue,
   ChecklistItem,
+  DayPlanBlock,
 } from '@/lib/types'
+import { cleanLearningDraft, type LearningFieldValue } from '@/lib/learnings'
 import { calculateEntryBonusXp } from '@/lib/gamification'
 import { Sparkles } from 'lucide-react'
 import { DraftTask } from './TasksInput'
@@ -32,6 +35,52 @@ interface EntryFormProps {
 }
 
 const DISPLAY_ONLY_TYPES = ['divider', 'heading', 'prompt']
+
+type JournalResponseInsert = Database['public']['Tables']['journal_responses']['Insert']
+
+interface TodayEntryWithTemplate {
+  id: string
+  template_id: string
+  journal_templates: { entry_type: string } | { entry_type: string }[] | null
+}
+
+interface ProfileSnapshot {
+  total_xp: number
+  current_streak: number
+  best_streak: number
+  last_journal_date: string | null
+  streak_freezes: number
+}
+
+interface TaskInsertClient {
+  from(table: 'tasks'): {
+    insert(payload: Array<{
+      user_id: string
+      entry_id: string
+      field_id: string
+      title: string
+      priority: 'low' | 'medium' | 'high'
+      due_date: string | null
+    }>): PromiseLike<{ error: unknown }>
+  }
+}
+
+function learningValueFromField(value: FieldValue | undefined): LearningFieldValue | null {
+  if (!value?.value_json || typeof value.value_json !== 'object' || Array.isArray(value.value_json)) {
+    return null
+  }
+
+  const candidate = value.value_json as Partial<LearningFieldValue>
+
+  return {
+    title: typeof candidate.title === 'string' ? candidate.title : '',
+    note: typeof candidate.note === 'string' ? candidate.note : '',
+    tags: Array.isArray(candidate.tags)
+      ? candidate.tags.filter((tag): tag is string => typeof tag === 'string')
+      : [],
+    action_text: typeof candidate.action_text === 'string' ? candidate.action_text : null,
+  }
+}
 
 export function EntryForm({
   template,
@@ -65,6 +114,13 @@ export function EntryForm({
             ? ((config?.items as string[]) ?? []).map(
                 (label: string) => ({ label, checked: false } as ChecklistItem)
               )
+            : field.field_type === 'learning'
+              ? {
+                  title: '',
+                  note: '',
+                  tags: (config?.defaultTags as string[]) ?? [],
+                  action_text: null,
+                }
             : null,
       }
     }
@@ -129,6 +185,11 @@ export function EntryForm({
           )
             return false
           break
+        case 'learning': {
+          const learning = learningValueFromField(val)
+          if (!learning?.title.trim() || !learning.note.trim()) return false
+          break
+        }
       }
     }
     return true
@@ -183,17 +244,17 @@ export function EntryForm({
           .single()
 
         if (entryError) throw entryError
-        entryId = (entry as any).id
+        entryId = (entry as { id: string }).id
       }
 
       // 2. Upsert responses
-      const responses = Object.entries(values).map(([fieldId, val]) => ({
+      const responses: JournalResponseInsert[] = Object.entries(values).map(([fieldId, val]) => ({
         entry_id: entryId!,
         field_id: fieldId,
         value_text: val.value_text ?? null,
         value_number: val.value_number ?? null,
         value_boolean: val.value_boolean ?? null,
-        value_json: val.value_json ?? null,
+        value_json: (val.value_json ?? null) as Json | null,
       }))
 
       // Delete existing responses if editing
@@ -204,9 +265,42 @@ export function EntryForm({
           .eq('entry_id', entryId!)
       }
 
-      const { error: responseError } = await supabaseInsert(supabase, 'journal_responses', responses as any)
+      const { error: responseError } = await supabaseInsert(supabase, 'journal_responses', responses)
 
       if (responseError) throw responseError
+
+      // Sync Learning fields into the Learning Library.
+      for (const field of fields) {
+        if (field.field_type !== 'learning') continue
+
+        const { error: deleteLearningError } = await supabaseFrom(supabase, 'journal_learnings')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('entry_id', entryId!)
+          .eq('field_id', field.id)
+
+        if (deleteLearningError) throw deleteLearningError
+
+        const learningValue = learningValueFromField(values[field.id])
+        if (!learningValue) continue
+
+        const cleaned = cleanLearningDraft(learningValue)
+        if (!cleaned.title || !cleaned.note) continue
+
+        const { error: learningError } = await supabaseFrom(supabase, 'journal_learnings')
+          .insert({
+            user_id: user.id,
+            entry_id: entryId!,
+            field_id: field.id,
+            title: cleaned.title,
+            note: cleaned.note,
+            tags: cleaned.tags,
+            source_response_ids: [],
+            action_text: cleaned.action_text,
+          })
+
+        if (learningError) throw learningError
+      }
 
       // 2) Find tasks fields and persist their tasks
       const taskInserts: Array<{
@@ -253,14 +347,17 @@ export function EntryForm({
       }
 
       if (taskInserts.length > 0) {
-        const { error: tasksError } = await supabaseInsert(supabase, 'tasks' as any, taskInserts)
+        const taskClient = supabase as unknown as TaskInsertClient
+        const { error: tasksError } = await taskClient.from('tasks').insert(taskInserts)
         if (tasksError) console.error('Failed to insert tasks:', tasksError)
       }
 
       // Persist any Day Planner fields
       for (const field of fields) {
         if (field.field_type !== 'day_planner') continue
-        const planValue = (values[field.id]?.value_json as { plan_date: string; blocks: any[] } | null) ?? null
+        const planValue =
+          (values[field.id]?.value_json as { plan_date: string; blocks: DayPlanBlock[] } | null) ??
+          null
         if (!planValue || !planValue.plan_date || (planValue.blocks?.length ?? 0) === 0) continue
 
         await upsertDayPlan(supabase, user.id, {
@@ -283,10 +380,18 @@ export function EntryForm({
         .eq('entry_date', today)
         .eq('is_complete', true)
 
-      const todayEntries = (todayEntriesData as any[]) ?? []
+      const todayEntries = (todayEntriesData as unknown as TodayEntryWithTemplate[] | null) ?? []
 
       if (todayEntries.length > 0) {
-        const entryTypes = todayEntries.map((e) => (e.journal_templates as unknown as { entry_type: string }).entry_type)
+        const entryTypes = todayEntries
+          .map((entry) => {
+            const templateForEntry = Array.isArray(entry.journal_templates)
+              ? entry.journal_templates[0]
+              : entry.journal_templates
+
+            return templateForEntry?.entry_type
+          })
+          .filter((entryType): entryType is string => Boolean(entryType))
         const hasMorning = entryTypes.includes('morning')
         const hasEvening = entryTypes.includes('evening')
 
@@ -310,7 +415,7 @@ export function EntryForm({
         .eq('id', user.id)
         .single()
 
-      const profile = profileData as any
+      const profile = profileData as ProfileSnapshot | null
 
       if (profile) {
         const newTotalXp = profile.total_xp + totalXpEarned
@@ -491,7 +596,7 @@ export function EntryForm({
         <div className="mt-4 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950/30 p-3 text-sm flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-purple-500" />
           <span className="text-purple-700 dark:text-purple-300 font-medium">
-            You'll earn +{previewBonusXp} bonus XP based on your answers!
+            You&apos;ll earn +{previewBonusXp} bonus XP based on your answers!
           </span>
         </div>
       )}

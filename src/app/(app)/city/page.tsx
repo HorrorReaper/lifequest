@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   BuildingType,
@@ -14,13 +14,12 @@ import {
 import { CityGrid } from "@/components/city/CityGrid";
 import { BuildingPicker } from "@/components/city/BuildingPicker";
 import { RewardsClaimer } from "@/components/city/RewardsClaimer";
-import { LevelProgress } from "@/components/city/LevelProgress";
 import { Button } from "@/components/ui/button";
 import { Eye, Hammer } from "lucide-react";
 import { useUserStore } from "@/lib/stores/user-store";
 
 export default function CityPage() {
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const [city, setCity] = useState<CityState>(getDefaultCityState());
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingType | null>(null);
@@ -28,11 +27,6 @@ export default function CityPage() {
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const setStoreCoins = useUserStore((s) => s.setCoins);
-
-  function syncCity(state: CityState) {
-    setCity(state);
-    setStoreCoins(state.coins);
-  }
 
   // Load user + city state
   useEffect(() => {
@@ -45,51 +39,44 @@ export default function CityPage() {
 
       try {
         const state = await fetchCityState(supabase, user.id);
-        syncCity(state);
+        setCity(state);
+        setStoreCoins(state.coins);
       } catch (err) {
         console.error("Failed to load city:", err);
       }
       setLoading(false);
     }
     init();
-  }, []);
+  }, [supabase, setStoreCoins]);
 
   // Claim rewards handler
-  const handleClaim = useCallback(
-    async (newCoins: number, newXp: number, ids: string[]) => {
-      if (!userId) return;
-      try {
-        const updated = await claimRewards(supabase, userId, newCoins, newXp, ids);
-        syncCity(updated);
-      } catch (err) {
-        console.error("Claim failed:", err);
-      }
-    },
-    [userId]
-  );
+  async function handleClaim(newCoins: number, newXp: number, ids: string[]) {
+    if (!userId) return;
+    try {
+      const updated = await claimRewards(supabase, userId, newCoins, newXp, ids);
+      setCity(updated);
+      setStoreCoins(updated.coins);
+    } catch (err) {
+      console.error("Claim failed:", err);
+    }
+  }
 
   // Place building handler
-  const handleCellClick = useCallback(
-    async (row: number, col: number) => {
-      if (mode !== "build" || !selectedBuilding || !userId || placing) return;
-      if (isCellOccupied(city.buildings, row, col)) return;
-      if (city.coins < selectedBuilding.cost) return;
+  async function handleCellClick(row: number, col: number) {
+    if (mode !== "build" || !selectedBuilding || !userId || placing) return;
+    if (isCellOccupied(city.buildings, row, col)) return;
+    if (city.coins < selectedBuilding.cost) return;
 
-      setPlacing(true);
-      try {
-        const updated = await placeBuilding(supabase, userId, selectedBuilding, row, col);
-        syncCity(updated);
-      } catch (err) {
-        console.error("Place failed:", err);
-      }
-      setPlacing(false);
-    },
-    [mode, selectedBuilding, userId, placing, city.buildings, city.coins]
-  );
-
-  const population =
-    city.buildings.filter((b) => b.type.category === "residential").length * 12 +
-    city.buildings.filter((b) => b.type.category === "commercial").length * 5;
+    setPlacing(true);
+    try {
+      const updated = await placeBuilding(supabase, userId, selectedBuilding, row, col);
+      setCity(updated);
+      setStoreCoins(updated.coins);
+    } catch (err) {
+      console.error("Place failed:", err);
+    }
+    setPlacing(false);
+  }
 
   if (loading) {
     return (
@@ -126,25 +113,6 @@ export default function CityPage() {
           >
             <Hammer className="h-4 w-4 mr-1" /> Build
           </Button>
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <LevelProgress xp={city.xp} coins={city.coins} />
-        <div className="rounded-lg border p-4 flex items-center gap-3">
-          <span className="text-3xl">🏗️</span>
-          <div>
-            <p className="text-2xl font-bold">{city.buildings.length}</p>
-            <p className="text-xs text-muted-foreground">Buildings</p>
-          </div>
-        </div>
-        <div className="rounded-lg border p-4 flex items-center gap-3">
-          <span className="text-3xl">👥</span>
-          <div>
-            <p className="text-2xl font-bold">{population}</p>
-            <p className="text-xs text-muted-foreground">Population</p>
-          </div>
         </div>
       </div>
 

@@ -2,13 +2,17 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { Database } from '@/lib/supabase/database.types'
 import { supabaseInsert } from '@/lib/supabase/helpers'
+
+interface AuthProfileState {
+  id: string
+  onboarding_complete: boolean
+}
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/onboarding'
+  const explicitNext = searchParams.get('next')
 
   if (code) {
     // Exchange the authorization code for a session
@@ -21,12 +25,15 @@ export async function GET(request: Request) {
         data: { user },
       } = await supabase.auth.getUser()
 
+      let profileComplete = false
+
       if (user) {
-        const { data: profile } = await supabase
+        const { data: profileData } = await supabase
           .from('profiles')
-          .select('id')
+          .select('id, onboarding_complete')
           .eq('id', user.id)
           .single()
+        const profile = profileData as AuthProfileState | null
 
         if (!profile) {
           await supabaseInsert(supabase, 'profiles', {
@@ -34,9 +41,12 @@ export async function GET(request: Request) {
             username: user.user_metadata?.full_name ?? null,
             avatar_url: user.user_metadata?.avatar_url ?? null,
           })
+        } else {
+          profileComplete = Boolean(profile.onboarding_complete)
         }
       }
 
+      const next = explicitNext ?? (profileComplete ? '/dashboard' : '/onboarding')
       const forwardedHost = request.headers.get('x-forwarded-host')
       const isLocalEnv = process.env.NODE_ENV === 'development'
 

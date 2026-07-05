@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Database } from '@/lib/supabase/database.types'
 import { supabaseInsert, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { Task } from "@/lib/types";
-import { fetchTasks, toggleTask, deleteTask, createTask } from "@/lib/tasks";
+import { fetchTasks, toggleTask, deleteTask, createTask, updateTask } from "@/lib/tasks";
 import { useUserStore } from '@/lib/stores/user-store'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,9 +14,9 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from '@/components/ui/date-picker';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ListTodo } from "lucide-react";
+import { CalendarClock, Pencil, Plus, Save, Trash2, X, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, isPast, isToday } from "date-fns";
+import { addDays, format, isPast, isToday } from "date-fns";
 
 interface TaskListProps {
   userId: string;
@@ -47,6 +47,10 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
   const [newPriority, setNewPriority] = useState<"low" | "medium" | "high">("medium");
   const [newDueDate, setNewDueDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editPriority, setEditPriority] = useState<"low" | "medium" | "high">("medium");
+  const [editDueDate, setEditDueDate] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,6 +130,8 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
         }
       }
       // reload to re-sort
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'));
+      router.refresh();
       load();
     } catch (err) {
       console.error("Toggle failed:", err);
@@ -137,6 +143,8 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
     try {
       await deleteTask(supabase, taskId);
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'));
+      router.refresh();
     } catch (err) {
       console.error("Delete failed:", err);
       load();
@@ -158,15 +166,64 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
       setNewPriority("medium");
       setShowAddForm(false);
       await load();
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'));
+      router.refresh();
     } catch (err) {
       console.error("Create failed:", err);
     }
     setSubmitting(false);
   }
 
+  function startEdit(task: Task) {
+    setEditingTaskId(task.id);
+    setEditTitle(task.title);
+    setEditPriority(task.priority);
+    setEditDueDate(task.due_date ?? "");
+  }
+
+  function cancelEdit() {
+    setEditingTaskId(null);
+    setEditTitle("");
+    setEditPriority("medium");
+    setEditDueDate("");
+  }
+
+  async function handleSaveEdit(taskId: string) {
+    if (!editTitle.trim()) return;
+    try {
+      const updated = await updateTask(supabase, taskId, {
+        title: editTitle,
+        priority: editPriority,
+        due_date: editDueDate || null,
+      });
+      setTasks((prev) => prev.map((task) => (task.id === taskId ? updated : task)));
+      cancelEdit();
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'));
+      router.refresh();
+      await load();
+    } catch (err) {
+      console.error("Update failed:", err);
+      await load();
+    }
+  }
+
+  async function handleDeferTomorrow(task: Task) {
+    const tomorrow = format(addDays(new Date(), 1), "yyyy-MM-dd");
+    setTasks((prev) => prev.filter((item) => item.id !== task.id));
+    try {
+      await updateTask(supabase, task.id, { due_date: tomorrow });
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'));
+      router.refresh();
+      await load();
+    } catch (err) {
+      console.error("Defer failed:", err);
+      await load();
+    }
+  }
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+    <Card size={compact ? "sm" : "default"} className={compact ? "bg-background/60 shadow-none ring-border/80" : undefined}>
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
         <CardTitle className="text-lg flex items-center gap-2">
           <ListTodo className="h-5 w-5" />
           Tasks
@@ -197,7 +254,7 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
               autoFocus
               required
             />
-            <div className="flex gap-2">
+            <div className="grid gap-2 sm:grid-cols-[140px_1fr_auto]">
               <select
                 value={newPriority}
                 onChange={(e) => setNewPriority(e.target.value as "low" | "medium" | "high")}
@@ -207,13 +264,13 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
                 <option value="medium">Medium priority</option>
                 <option value="high">High priority</option>
               </select>
-              <div className="flex-1">
+              <div className="min-w-0">
                 <DatePicker
                   value={newDueDate || null}
                   onChange={(d) => setNewDueDate(d ?? '')}
                 />
               </div>
-              <Button type="submit" size="sm" disabled={submitting || !newTitle.trim()}>
+              <Button type="submit" size="sm" className="h-9" disabled={submitting || !newTitle.trim()}>
                 {submitting ? "..." : "Save"}
               </Button>
             </div>
@@ -233,6 +290,7 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
               const due = task.due_date ? new Date(task.due_date) : null;
               const overdue = due && !task.is_completed && isPast(due) && !isToday(due);
               const dueToday = due && isToday(due);
+              const isEditing = editingTaskId === task.id;
 
               return (
                 <li
@@ -246,49 +304,107 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
                     checked={task.is_completed}
                     onCheckedChange={() => handleToggle(task)}
                     className="mt-0.5"
+                    disabled={isEditing}
                   />
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={cn(
-                        "text-sm",
-                        task.is_completed && "line-through text-muted-foreground"
-                      )}
-                    >
-                      {task.title}
-                    </p>
-                    {!compact && task.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{task.description}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge
-                        variant="outline"
-                        className={cn("text-xs h-5", priorityStyles[task.priority])}
-                      >
-                        {task.priority}
-                      </Badge>
-                      {due && (
-                        <span
+                  {isEditing ? (
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Input
+                        value={editTitle}
+                        onChange={(event) => setEditTitle(event.target.value)}
+                        className="h-8"
+                        autoFocus
+                      />
+                      <div className="grid gap-2 sm:grid-cols-[120px_1fr_auto_auto]">
+                        <select
+                          value={editPriority}
+                          onChange={(event) => setEditPriority(event.target.value as "low" | "medium" | "high")}
+                          className="flex h-8 rounded-md border border-input bg-background px-2 text-xs"
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                        <DatePicker
+                          value={editDueDate || null}
+                          onChange={(date) => setEditDueDate(date ?? "")}
+                        />
+                        <Button size="sm" className="h-8" onClick={() => handleSaveEdit(task.id)} disabled={!editTitle.trim()}>
+                          <Save className="size-3.5" />
+                          Save
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8" onClick={cancelEdit}>
+                          <X className="size-3.5" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <p
                           className={cn(
-                            "text-xs",
-                            overdue && "text-red-600 font-medium",
-                            dueToday && "text-orange-600 font-medium",
-                            !overdue && !dueToday && "text-muted-foreground"
+                            "text-sm",
+                            task.is_completed && "line-through text-muted-foreground"
                           )}
                         >
-                          {overdue ? "Overdue • " : dueToday ? "Today • " : ""}
-                          {format(due, "MMM d")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDelete(task.id)}
-                    className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                          {task.title}
+                        </p>
+                        {!compact && task.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{task.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge
+                            variant="outline"
+                            className={cn("text-xs h-5", priorityStyles[task.priority])}
+                          >
+                            {task.priority}
+                          </Badge>
+                          {due && (
+                            <span
+                              className={cn(
+                                "text-xs",
+                                overdue && "text-red-600 font-medium",
+                                dueToday && "text-orange-600 font-medium",
+                                !overdue && !dueToday && "text-muted-foreground"
+                              )}
+                            >
+                              {overdue ? "Overdue • " : dueToday ? "Today • " : ""}
+                              {format(due, "MMM d")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeferTomorrow(task)}
+                          className="h-7 w-7 p-0 text-muted-foreground"
+                          aria-label="Defer to tomorrow"
+                        >
+                          <CalendarClock className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => startEdit(task)}
+                          className="h-7 w-7 p-0 text-muted-foreground"
+                          aria-label="Edit task"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(task.id)}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          aria-label="Delete task"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </li>
               );
             })}

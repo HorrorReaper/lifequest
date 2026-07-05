@@ -11,9 +11,14 @@ interface LearnPageClientProps {
 
 export function LearnPageClient({ lessons }: LearnPageClientProps) {
   const [topic, setTopic] = useState('All')
+  const lessonTopics = Array.from(new Set(lessons.flatMap((lesson) => lesson.topics))).sort()
+  const prioritizedTopics = [
+    ...lessonTopics.filter((item) => item === 'Habits'),
+    ...lessonTopics.filter((item) => item !== 'Habits'),
+  ]
   const topics = [
     'All',
-    ...Array.from(new Set(lessons.flatMap((lesson) => lesson.topics))).sort(),
+    ...prioritizedTopics,
   ]
   const filteredLessons =
     topic === 'All'

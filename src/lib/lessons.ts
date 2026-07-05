@@ -88,6 +88,42 @@ function getLessonRewardErrorMessage(error: unknown): string {
   return 'Could not complete this lesson.'
 }
 
+function habitLesson(input: {
+  id: string
+  title: string
+  description: string
+  icon: string
+  image: string
+  estimatedMinutes: number
+  habit: SuggestedHabit
+  secondaryTopic: string
+  articleTitle: string
+  content: string
+  quiz: QuizQuestion[]
+}): Lesson {
+  return {
+    id: input.id,
+    title: input.title,
+    description: input.description,
+    icon: input.icon,
+    image: input.image,
+    topics: ['Habits', input.secondaryTopic],
+    xp_reward: 50,
+    coin_reward: 20,
+    difficulty: 'easy',
+    estimatedMinutes: input.estimatedMinutes,
+    suggestedHabits: [input.habit],
+    suggestedTasks: [],
+    steps: [
+      {
+        title: input.articleTitle,
+        content: input.content,
+      },
+    ],
+    quiz: input.quiz,
+  }
+}
+
 export const LESSONS: Lesson[] = [
   {
     id: 'daily-journaling',
@@ -368,6 +404,310 @@ Within 30 days, you won't need the anchor anymore — the journaling itself will
       },
     ],
   },
+
+  habitLesson({
+    id: 'habit-daily-planning',
+    title: 'The 3-Minute Daily Plan',
+    description: 'Start the day by choosing the few actions that actually matter.',
+    icon: '🗓️',
+    image: 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=800&h=400&q=80&auto=format&fit=crop',
+    estimatedMinutes: 3,
+    secondaryTopic: 'Productivity',
+    habit: { name: '3-minute daily plan', emoji: '🗓️', color: 'blue' },
+    articleTitle: 'Plan Before the Day Plans You',
+    content: `A daily plan is not a full schedule. It is a short commitment to what deserves your best attention today.
+
+### The tiny version
+
+Write down:
+
+- **One must-win task**
+- **One health action**
+- **One relationship or business touchpoint**
+
+That is enough to turn a vague day into an intentional one.
+
+### Why it works
+
+Most days get lost because everything looks equally important at 9:00. A tiny plan creates contrast. It tells your brain what to protect when messages, errands, and random ideas start competing for attention.
+
+> Founder lesson: clarity compounds. A three-minute plan often saves an hour of scattered work later.`,
+    quiz: [
+      {
+        question: 'What is the main purpose of a 3-minute daily plan?',
+        options: [
+          'To fill every hour of the calendar',
+          'To choose the few actions that deserve priority',
+          'To avoid changing plans during the day',
+          'To replace task management entirely',
+        ],
+        correctIndex: 1,
+      },
+    ],
+  }),
+
+  habitLesson({
+    id: 'habit-water-first',
+    title: 'Water First',
+    description: 'Build a simple hydration anchor before caffeine, work, or training.',
+    icon: '💧',
+    image: 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=800&h=400&q=80&auto=format&fit=crop',
+    estimatedMinutes: 2,
+    secondaryTopic: 'Health',
+    habit: { name: 'Water before caffeine', emoji: '💧', color: 'cyan' },
+    articleTitle: 'Make Hydration Automatic',
+    content: `A hydration habit works best when it is attached to something you already do every morning.
+
+### The rule
+
+Before coffee, energy drinks, or the first work sprint, drink one glass of water.
+
+This is not about perfection or tracking every milliliter. It is about creating a reliable anchor that makes the healthy choice happen before the day gets noisy.
+
+### Make it frictionless
+
+- Put the glass or bottle where you will see it
+- Keep the target small enough that it feels almost silly
+- Pair it with an existing cue: waking up, brushing teeth, or starting coffee
+
+> Small health habits are powerful because they create an early vote for the kind of day you want to have.`,
+    quiz: [
+      {
+        question: 'What makes the water-first habit easier to repeat?',
+        options: [
+          'Making the target huge from day one',
+          'Only doing it after hard workouts',
+          'Attaching it to an existing morning cue',
+          'Waiting until you feel thirsty',
+        ],
+        correctIndex: 2,
+      },
+    ],
+  }),
+
+  habitLesson({
+    id: 'habit-protein-anchor',
+    title: 'The Protein Anchor',
+    description: 'Use one consistent protein-focused meal as a stabilizing nutrition habit.',
+    icon: '🍳',
+    image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&h=400&q=80&auto=format&fit=crop',
+    estimatedMinutes: 3,
+    secondaryTopic: 'Fitness',
+    habit: { name: 'Protein anchor meal', emoji: '🍳', color: 'orange' },
+    articleTitle: 'One Meal That Holds the Day Together',
+    content: `Nutrition gets easier when one meal becomes predictable.
+
+### The protein anchor
+
+Pick one meal each day where protein is the first decision. It could be breakfast, lunch, or your post-training meal.
+
+The goal is not to optimize every meal. The goal is to create one reliable nutritional base that supports training, energy, and consistency.
+
+### Good anchor questions
+
+- What protein source will I use?
+- What is the easiest version on a busy day?
+- Can I keep the ingredients available by default?
+
+> Bodybuilding lesson: consistency beats heroic meal plans. One repeatable anchor is more useful than a perfect plan you abandon.`,
+    quiz: [
+      {
+        question: 'What is the goal of a protein anchor meal?',
+        options: [
+          'To make every meal identical',
+          'To create one reliable nutrition base each day',
+          'To skip meals that are not high protein',
+          'To track every calorie perfectly',
+        ],
+        correctIndex: 1,
+      },
+    ],
+  }),
+
+  habitLesson({
+    id: 'habit-mobility-reset',
+    title: 'The 5-Minute Mobility Reset',
+    description: 'Use a short movement reset to break up desk time and support training consistency.',
+    icon: '🤸',
+    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&h=400&q=80&auto=format&fit=crop',
+    estimatedMinutes: 3,
+    secondaryTopic: 'Fitness',
+    habit: { name: '5-minute mobility reset', emoji: '🤸', color: 'green' },
+    articleTitle: 'Move Before Stiffness Becomes the Default',
+    content: `If you build, code, sell, and operate from a desk, your body needs small interruptions.
+
+### The reset
+
+Once per day, do five minutes of easy mobility:
+
+- Neck and shoulder circles
+- Hip flexor stretch
+- Deep squat hold
+- A few slow bodyweight reps
+
+Keep it light. The point is not a workout. The point is to remind your body that sitting is not the only mode.
+
+> Operator lesson: your body is part of the operating system. Small resets keep the machine responsive.`,
+    quiz: [
+      {
+        question: 'What is the purpose of the 5-minute mobility reset?',
+        options: [
+          'To replace strength training',
+          'To create a light movement interruption during desk-heavy days',
+          'To train to failure',
+          'To avoid all sitting',
+        ],
+        correctIndex: 1,
+      },
+    ],
+  }),
+
+  habitLesson({
+    id: 'habit-read-10-pages',
+    title: 'Read 10 Pages',
+    description: 'Turn learning into a daily system instead of waiting for motivation.',
+    icon: '📚',
+    image: 'https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=800&h=400&q=80&auto=format&fit=crop',
+    estimatedMinutes: 3,
+    secondaryTopic: 'Learning',
+    habit: { name: 'Read 10 pages', emoji: '📚', color: 'purple' },
+    articleTitle: 'Make Learning Too Small to Avoid',
+    content: `Reading compounds when it becomes boringly consistent.
+
+### Why 10 pages works
+
+Ten pages is small enough to do on busy days and large enough to matter over a year. At that pace, you can finish many serious books without needing dramatic reading sessions.
+
+### Make it operational
+
+- Keep one active book visible
+- Read before opening social apps
+- Capture one sentence worth remembering
+
+For Patrick, this can become a founder advantage: better mental models, better language, and better decisions.
+
+> The goal is not to become a person who owns books. The goal is to become a person who metabolizes ideas.`,
+    quiz: [
+      {
+        question: 'Why is “read 10 pages” a strong habit target?',
+        options: [
+          'It is small enough to repeat and large enough to compound',
+          'It requires no attention',
+          'It only works with business books',
+          'It replaces all other learning',
+        ],
+        correctIndex: 0,
+      },
+    ],
+  }),
+
+  habitLesson({
+    id: 'habit-sleep-shutdown',
+    title: 'The Sleep Shutdown',
+    description: 'Close the day with a simple routine that reduces open loops.',
+    icon: '🌙',
+    image: 'https://images.unsplash.com/photo-1511295742362-92c96b1cf484?w=800&h=400&q=80&auto=format&fit=crop',
+    estimatedMinutes: 3,
+    secondaryTopic: 'Recovery',
+    habit: { name: 'Evening shutdown', emoji: '🌙', color: 'indigo' },
+    articleTitle: 'End the Day on Purpose',
+    content: `A shutdown ritual tells your brain that work is complete enough for today.
+
+### The three-part shutdown
+
+1. Write down any open loops
+2. Choose tomorrow's first action
+3. Put the workspace or phone into its night position
+
+This is not a medical sleep protocol. It is a practical closure habit. You are reducing the chance that your brain keeps trying to manage tomorrow from bed.
+
+> Ambitious people often do not need more intensity. They need cleaner endings.`,
+    quiz: [
+      {
+        question: 'What is the main purpose of an evening shutdown?',
+        options: [
+          'To finish every open task',
+          'To create closure and reduce open loops',
+          'To add more work at night',
+          'To avoid planning tomorrow',
+        ],
+        correctIndex: 1,
+      },
+    ],
+  }),
+
+  habitLesson({
+    id: 'habit-deep-work-sprint',
+    title: 'One Deep Work Sprint',
+    description: 'Protect one focused block for building, learning, or selling.',
+    icon: '🧠',
+    image: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=800&h=400&q=80&auto=format&fit=crop',
+    estimatedMinutes: 3,
+    secondaryTopic: 'Productivity',
+    habit: { name: 'One deep work sprint', emoji: '🧠', color: 'blue' },
+    articleTitle: 'Win One Focused Block',
+    content: `A deep work habit is not about disappearing for eight hours. Start with one protected sprint.
+
+### The sprint rules
+
+- Pick one outcome
+- Set a timer for 25-50 minutes
+- Remove the obvious interruptions
+- Stop when the timer ends and record what moved forward
+
+This works especially well for startup work because most valuable tasks require uninterrupted thinking: writing offers, building features, researching customers, or improving systems.
+
+> If the day gets chaotic, one focused sprint still gives you a win to build from.`,
+    quiz: [
+      {
+        question: 'What should define a deep work sprint?',
+        options: [
+          'One clear outcome and a protected focus block',
+          'As many tasks as possible',
+          'Keeping messages open for speed',
+          'Only doing creative work at night',
+        ],
+        correctIndex: 0,
+      },
+    ],
+  }),
+
+  habitLesson({
+    id: 'habit-gratitude-rep',
+    title: 'One Gratitude Rep',
+    description: 'Train attention by noticing one specific thing that went right.',
+    icon: '🙏',
+    image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&h=400&q=80&auto=format&fit=crop',
+    estimatedMinutes: 2,
+    secondaryTopic: 'Mindset',
+    habit: { name: 'One gratitude rep', emoji: '🙏', color: 'yellow' },
+    articleTitle: 'Train What You Notice',
+    content: `Gratitude works best when it is specific.
+
+Not: "I am grateful for my life."
+
+Better: "I am grateful that I had enough energy to train even though the day was busy."
+
+### The rep
+
+Write one specific thing that went right today and why it mattered.
+
+This trains attention. Your brain starts scanning for useful, good, or meaningful moments instead of only threats and unfinished work.
+
+> A gratitude rep is not pretending everything is good. It is refusing to let your attention become lazy and one-sided.`,
+    quiz: [
+      {
+        question: 'What makes a gratitude rep more effective?',
+        options: [
+          'Keeping it vague',
+          'Making it specific and connected to why it mattered',
+          'Only writing about major life events',
+          'Avoiding difficult emotions completely',
+        ],
+        correctIndex: 1,
+      },
+    ],
+  }),
 
   {
     id: 'morning-vs-evening',

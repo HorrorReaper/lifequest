@@ -172,6 +172,50 @@ export interface Database {
           updated_at?: string
         }
       }
+      journal_learnings: {
+        Row: {
+          id: string
+          user_id: string
+          entry_id: string
+          field_id: string | null
+          title: string
+          note: string
+          tags: string[]
+          source_response_ids: string[]
+          action_text: string | null
+          is_favorite: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          entry_id: string
+          field_id?: string | null
+          title: string
+          note: string
+          tags?: string[]
+          source_response_ids?: string[]
+          action_text?: string | null
+          is_favorite?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          entry_id?: string
+          field_id?: string | null
+          title?: string
+          note?: string
+          tags?: string[]
+          source_response_ids?: string[]
+          action_text?: string | null
+          is_favorite?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       journal_responses: {
         Row: {
           id: string

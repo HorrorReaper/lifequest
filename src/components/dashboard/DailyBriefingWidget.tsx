@@ -1,14 +1,19 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, BookOpen, CalendarClock, CheckCircle2, Circle, Flame, ListTodo, Minus, Plus, Sparkles } from 'lucide-react'
+import { ArrowRight, BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, Focus, ListTodo, Minus, Plus, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { upsertDayPlan } from '@/lib/day-plans'
 import type { DayPlanBlock } from '@/lib/types'
+import type { Database } from '@/lib/supabase/database.types'
+import { supabaseInsert, supabaseUpdateWhere } from '@/lib/supabase/helpers'
+import { toggleTask } from '@/lib/tasks'
+import { useUserStore } from '@/lib/stores/user-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { TaskList } from '@/components/tasks/TaskList'
@@ -58,6 +63,30 @@ interface DailyBriefingWidgetProps {
   initialOpenPanel?: 'plan' | 'task' | 'habit' | null
 }
 
+type FocusSheetTab = 'today' | 'tasks' | 'habits' | 'plan'
+
+const focusSheetTabs: { value: FocusSheetTab; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'tasks', label: 'Tasks' },
+  { value: 'habits', label: 'Habits' },
+  { value: 'plan', label: 'Plan' },
+]
+
+interface HabitLogUpsertClient {
+  from(table: 'habit_logs'): {
+    upsert(
+      value: {
+        user_id: string
+        habit_id: string
+        log_date: string
+        completed: boolean
+        entry_id: string | null
+      },
+      options: { onConflict: string }
+    ): PromiseLike<{ error: unknown }>
+  }
+}
+
 const priorityStyles = {
   high: 'text-red-600 dark:text-red-400',
   medium: 'text-yellow-600 dark:text-yellow-400',
@@ -86,7 +115,10 @@ export function DailyBriefingWidget({
 }: DailyBriefingWidgetProps) {
   const supabase = createClient()
   const router = useRouter()
+  const addXp = useUserStore((state) => state.addXp)
   const [blocks, setBlocks] = useState(planBlocks)
+  const [localHabits, setLocalHabits] = useState(habits)
+  const [localTasks, setLocalTasks] = useState(tasks)
   const [showAddPlan, setShowAddPlan] = useState(initialOpenPanel === 'plan')
   const [planTitle, setPlanTitle] = useState('')
   const [startTime, setStartTime] = useState('09:00')
@@ -94,27 +126,44 @@ export function DailyBriefingWidget({
   const [category, setCategory] = useState<DayPlanBlock['category']>('deep_work')
   const [savingPlan, setSavingPlan] = useState(false)
   const [planError, setPlanError] = useState<string | null>(null)
-  const [activeManagePanel, setActiveManagePanel] = useState<'task' | 'habit' | null>(
-    initialOpenPanel === 'task' || initialOpenPanel === 'habit' ? initialOpenPanel : null
+  const [sheetOpen, setSheetOpen] = useState(initialOpenPanel !== null)
+  const [sheetTab, setSheetTab] = useState<FocusSheetTab>(
+    initialOpenPanel === 'task'
+      ? 'tasks'
+      : initialOpenPanel === 'habit'
+        ? 'habits'
+        : initialOpenPanel === 'plan'
+          ? 'plan'
+          : 'today'
   )
+  const [quickActionId, setQuickActionId] = useState<string | null>(null)
+  const [quickError, setQuickError] = useState<string | null>(null)
 
-  const completedHabits = habits.filter((habit) => habit.completed).length
-  const openTasks = tasks.length
+  useEffect(() => {
+    setLocalHabits(habits)
+  }, [habits])
+
+  useEffect(() => {
+    setLocalTasks(tasks)
+  }, [tasks])
+
+  const completedHabits = localHabits.filter((habit) => habit.completed).length
+  const openTasks = localTasks.length
   const activePlanBlocks = blocks.filter((block) => !block.isPast).length
-  const totalItems = habits.length + openTasks + activePlanBlocks + Math.max(journals.length > 0 ? 1 : 0, 0)
+  const totalItems = localHabits.length + openTasks + activePlanBlocks + Math.max(journals.length > 0 ? 1 : 0, 0)
   const doneItems = completedHabits + completedJournalCount + blocks.filter((block) => block.isPast).length
   const allClear = totalItems > 0 && doneItems >= totalItems
   const canSavePlan = planTitle.trim().length > 0 && startTime < endTime
   const currentBlock = blocks.find((block) => block.isCurrent)
   const nextPlanBlock = currentBlock ?? blocks.find((block) => !block.isPast) ?? null
-  const nextHabit = habits.find((habit) => !habit.completed) ?? null
+  const nextHabit = localHabits.find((habit) => !habit.completed) ?? null
   const nextJournal = journals.find((journal) => !journal.completedToday) ?? journals[0] ?? null
-  const topTask = [...tasks].sort((a, b) => {
+  const topTask = [...localTasks].sort((a, b) => {
     if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
     const priorityRank = { high: 0, medium: 1, low: 2 }
     return priorityRank[a.priority] - priorityRank[b.priority]
   })[0] ?? null
-  const habitPct = habits.length > 0 ? Math.round((completedHabits / habits.length) * 100) : 0
+  const habitPct = localHabits.length > 0 ? Math.round((completedHabits / localHabits.length) * 100) : 0
   const focusCopy = allClear
     ? 'Everything important is handled. Keep the day light or add a deliberate next block.'
     : completedJournalCount === 0
@@ -169,11 +218,99 @@ export function DailyBriefingWidget({
     }
   }
 
-  function toggleManagePanel(panel: 'task' | 'habit') {
-    setActiveManagePanel((current) => (current === panel ? null : panel))
+  function openSheet(tab: FocusSheetTab = 'today') {
+    setSheetTab(tab)
+    setSheetOpen(true)
+  }
+
+  async function handleQuickCompleteTask() {
+    if (!topTask || quickActionId) return
+
+    setQuickActionId(`task:${topTask.id}`)
+    setQuickError(null)
+    setLocalTasks((current) => current.filter((task) => task.id !== topTask.id))
+
+    try {
+      await toggleTask(supabase, topTask.id, true)
+
+      const award = 5
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('total_xp')
+        .eq('id', userId)
+        .single()
+      const profile = profileData as Pick<Database['public']['Tables']['profiles']['Row'], 'total_xp'> | null
+
+      await supabaseInsert(supabase, 'xp_events', {
+        user_id: userId,
+        source_type: 'task',
+        source_id: topTask.id,
+        xp_amount: award,
+        description: `Completed task: ${topTask.title}`,
+      })
+
+      if (profile) {
+        await supabaseUpdateWhere(
+          supabase,
+          'profiles',
+          { total_xp: profile.total_xp + award, updated_at: new Date().toISOString() },
+          'id',
+          userId
+        )
+        addXp(award, profile.total_xp)
+      }
+
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to complete task from Today Focus:', error)
+      setLocalTasks(tasks)
+      setQuickError('Could not complete that task. Open the manager and try again.')
+    } finally {
+      setQuickActionId(null)
+    }
+  }
+
+  async function handleQuickCheckHabit() {
+    if (!nextHabit || quickActionId) return
+
+    setQuickActionId(`habit:${nextHabit.id}`)
+    setQuickError(null)
+    setLocalHabits((current) =>
+      current.map((habit) =>
+        habit.id === nextHabit.id ? { ...habit, completed: true } : habit
+      )
+    )
+
+    try {
+      const { error } = await (supabase as unknown as HabitLogUpsertClient)
+        .from('habit_logs')
+        .upsert(
+          {
+            user_id: userId,
+            habit_id: nextHabit.id,
+            log_date: todayDate,
+            completed: true,
+            entry_id: null,
+          },
+          { onConflict: 'user_id,habit_id,log_date' }
+        )
+
+      if (error) throw error
+
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to check habit from Today Focus:', error)
+      setLocalHabits(habits)
+      setQuickError('Could not check that habit. Open the manager and try again.')
+    } finally {
+      setQuickActionId(null)
+    }
   }
 
   return (
+    <>
     <Card className="overflow-hidden border-primary/20 bg-primary/5">
       <CardHeader>
         <CardTitle className="flex items-start gap-3 text-lg">
@@ -217,71 +354,28 @@ export function DailyBriefingWidget({
               type="button"
               size="lg"
               variant="outline"
-              onClick={() => setShowAddPlan((open) => !open)}
+              onClick={() => {
+                setShowAddPlan(true)
+                openSheet('plan')
+              }}
               className="h-10 flex-1"
             >
-              {showAddPlan ? (
-                <Minus className="mr-1.5 size-4" />
-              ) : (
-                <Plus className="mr-1.5 size-4" />
-              )}
-              {showAddPlan ? 'Close Plan' : 'Add Plan Block'}
+              <CalendarClock className="mr-1.5 size-4" />
+              Plan Today
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              onClick={() => openSheet('today')}
+              className="h-10 flex-1"
+            >
+              <Focus className="mr-1.5 size-4" />
+              Manage Today
             </Button>
           </div>
+          {quickError && <p className="mt-3 text-xs text-destructive">{quickError}</p>}
         </div>
-
-        {showAddPlan && (
-          <form onSubmit={handleAddPlanBlock} className="space-y-2 rounded-lg border bg-background/80 p-3">
-            <Input
-              placeholder="What will you do?"
-              value={planTitle}
-              onChange={(event) => setPlanTitle(event.target.value)}
-              disabled={savingPlan}
-              autoFocus
-            />
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
-              <Input
-                type="time"
-                value={startTime}
-                onChange={(event) => setStartTime(event.target.value)}
-                disabled={savingPlan}
-                aria-label="Start time"
-              />
-              <Input
-                type="time"
-                value={endTime}
-                onChange={(event) => setEndTime(event.target.value)}
-                disabled={savingPlan}
-                aria-label="End time"
-              />
-              <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value as DayPlanBlock['category'])}
-                disabled={savingPlan}
-                className="col-span-2 flex h-8 rounded-lg border border-input bg-background px-2 text-xs sm:col-span-1"
-                aria-label="Plan category"
-              >
-                {Object.entries(categoryLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={savingPlan || !canSavePlan}
-                className="col-span-2 h-8 sm:col-span-1"
-              >
-                {savingPlan ? 'Saving...' : 'Save'}
-              </Button>
-            </div>
-            {startTime >= endTime && (
-              <p className="text-xs text-destructive">End time must be after start time.</p>
-            )}
-            {planError && <p className="text-xs text-destructive">{planError}</p>}
-          </form>
-        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <section className="rounded-lg border bg-background/70 p-3">
@@ -311,16 +405,7 @@ export function DailyBriefingWidget({
             )}
           </section>
 
-          <button
-            type="button"
-            onClick={() => toggleManagePanel('task')}
-            className={cn(
-              'rounded-lg border bg-background/70 p-3 text-left transition-colors hover:border-primary/40 hover:bg-background focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-              activeManagePanel === 'task' && 'border-primary/40 bg-background'
-            )}
-            aria-expanded={activeManagePanel === 'task'}
-            aria-controls="dashboard-task-manager"
-          >
+          <section className="rounded-lg border bg-background/70 p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <ListTodo className="size-4 text-blue-500" />
@@ -348,32 +433,43 @@ export function DailyBriefingWidget({
                 No due or overdue tasks. Keep the day clean.
               </p>
             )}
-            <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Click to manage tasks
-            </p>
-          </button>
+            <div className="mt-3 flex gap-2">
+              {topTask && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 flex-1"
+                  onClick={handleQuickCompleteTask}
+                  disabled={quickActionId === `task:${topTask.id}`}
+                >
+                  <Check className="mr-1.5 size-3.5" />
+                  {quickActionId === `task:${topTask.id}` ? 'Completing...' : 'Complete'}
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 flex-1"
+                onClick={() => openSheet('tasks')}
+              >
+                Manage
+              </Button>
+            </div>
+          </section>
 
-          <button
-            type="button"
-            onClick={() => toggleManagePanel('habit')}
-            className={cn(
-              'rounded-lg border bg-background/70 p-3 text-left transition-colors hover:border-primary/40 hover:bg-background focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-              activeManagePanel === 'habit' && 'border-primary/40 bg-background'
-            )}
-            aria-expanded={activeManagePanel === 'habit'}
-            aria-controls="dashboard-habit-manager"
-          >
+          <section className="rounded-lg border bg-background/70 p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Flame className="size-4 text-orange-500" />
                 <h3 className="text-sm font-semibold">Habit Chain</h3>
               </div>
               <span className="text-xs text-muted-foreground">
-                {habits.length > 0 ? `${completedHabits}/${habits.length}` : 'None'}
+                {localHabits.length > 0 ? `${completedHabits}/${localHabits.length}` : 'None'}
               </span>
             </div>
 
-            {habits.length > 0 ? (
+            {localHabits.length > 0 ? (
               <div className="space-y-2">
                 <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                   <div className="h-full rounded-full bg-orange-500 transition-all" style={{ width: `${habitPct}%` }} />
@@ -393,10 +489,30 @@ export function DailyBriefingWidget({
                 Add habits to make your daily chain visible here.
               </p>
             )}
-            <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Click to manage habits
-            </p>
-          </button>
+            <div className="mt-3 flex gap-2">
+              {nextHabit && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 flex-1"
+                  onClick={handleQuickCheckHabit}
+                  disabled={quickActionId === `habit:${nextHabit.id}`}
+                >
+                  <Check className="mr-1.5 size-3.5" />
+                  {quickActionId === `habit:${nextHabit.id}` ? 'Checking...' : 'Check'}
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 flex-1"
+                onClick={() => openSheet('habits')}
+              >
+                Manage
+              </Button>
+            </div>
+          </section>
 
           <section className="rounded-lg border bg-background/70 p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -459,29 +575,249 @@ export function DailyBriefingWidget({
           )}
         </div>
 
-        {activeManagePanel === 'task' && (
-          <div id="dashboard-task-manager" className="rounded-2xl border bg-background/80 p-2">
+      </CardContent>
+    </Card>
+    <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
+      <DialogContent className="max-h-[88svh] gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b px-5 py-4 pr-12">
+          <DialogTitle className="text-xl">Today Focus</DialogTitle>
+          <DialogDescription>
+            Manage the next useful action without leaving the dashboard.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-4">
+          <div
+            role="tablist"
+            aria-label="Today Focus sections"
+            className="grid grid-cols-4 gap-1 rounded-2xl border bg-muted/35 p-1"
+          >
+            {focusSheetTabs.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={sheetTab === tab.value}
+                onClick={() => setSheetTab(tab.value)}
+                className={cn(
+                  'h-9 rounded-xl px-2 text-sm font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                  sheetTab === tab.value && 'bg-background text-foreground shadow-sm'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {sheetTab === 'today' && (
+            <div className="space-y-3">
+              <div className="rounded-2xl border bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Focus now
+              </p>
+              <div className="mt-3 space-y-2">
+                {topTask ? (
+                  <div className="flex flex-col gap-3 rounded-xl border bg-background p-3 sm:flex-row sm:items-center">
+                    <ListTodo className="size-4 shrink-0 text-blue-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{topTask.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {topTask.isOverdue ? 'Overdue task' : `${topTask.priority} priority task`}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={handleQuickCompleteTask}
+                      disabled={quickActionId === `task:${topTask.id}`}
+                    >
+                      Complete
+                    </Button>
+                  </div>
+                ) : null}
+
+                {nextHabit ? (
+                  <div className="flex flex-col gap-3 rounded-xl border bg-background p-3 sm:flex-row sm:items-center">
+                    <Flame className="size-4 shrink-0 text-orange-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{nextHabit.emoji} {nextHabit.name}</p>
+                      <p className="text-xs text-muted-foreground">Next habit in the chain</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={handleQuickCheckHabit}
+                      disabled={quickActionId === `habit:${nextHabit.id}`}
+                    >
+                      Check
+                    </Button>
+                  </div>
+                ) : null}
+
+                {nextPlanBlock ? (
+                  <div className="flex items-center gap-3 rounded-xl border bg-background p-3">
+                    <CalendarClock className="size-4 shrink-0 text-purple-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{nextPlanBlock.title}</p>
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {nextPlanBlock.startTime}-{nextPlanBlock.endTime}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {!topTask && !nextHabit && !nextPlanBlock && (
+                  <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    Nothing urgent is waiting. Add a task, habit, or plan block when you want a sharper next move.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              <Button variant="outline" className="justify-start sm:justify-center" onClick={() => setSheetTab('tasks')}>
+                <ListTodo className="mr-1.5 size-4" />
+                Manage Tasks
+              </Button>
+              <Button variant="outline" className="justify-start sm:justify-center" onClick={() => setSheetTab('habits')}>
+                <Flame className="mr-1.5 size-4" />
+                Manage Habits
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-start sm:justify-center"
+                onClick={() => {
+                  setShowAddPlan(true)
+                  setSheetTab('plan')
+                }}
+              >
+                <CalendarClock className="mr-1.5 size-4" />
+                Add Plan
+              </Button>
+            </div>
+          </div>
+          )}
+
+          {sheetTab === 'tasks' && (
             <TaskList
-              key={`focus-tasks-${initialOpenPanel === 'task' ? 'open' : 'closed'}`}
+              key={`focus-sheet-tasks-${initialOpenPanel === 'task' ? 'open' : 'closed'}`}
               userId={userId}
               compact
-              limit={8}
+              limit={12}
               onlyOpen
               initiallyOpen={initialOpenPanel === 'task'}
             />
-          </div>
-        )}
+          )}
 
-        {activeManagePanel === 'habit' && (
-          <div id="dashboard-habit-manager" className="rounded-2xl border bg-background/80 p-2">
+          {sheetTab === 'habits' && (
             <HabitDashboardWidget
-              key={`focus-habits-${initialOpenPanel === 'habit' ? 'open' : 'closed'}`}
+              key={`focus-sheet-habits-${initialOpenPanel === 'habit' ? 'open' : 'closed'}`}
               userId={userId}
               initiallyOpen={initialOpenPanel === 'habit'}
             />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )}
+
+          {sheetTab === 'plan' && (
+            <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Today&apos;s Plan</p>
+                <p className="text-xs text-muted-foreground">
+                  Shape the day with concrete time blocks.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant={showAddPlan ? 'outline' : 'default'}
+                onClick={() => setShowAddPlan((open) => !open)}
+              >
+                {showAddPlan ? <Minus className="mr-1.5 size-4" /> : <Plus className="mr-1.5 size-4" />}
+                {showAddPlan ? 'Close' : 'Add Block'}
+              </Button>
+            </div>
+
+            {showAddPlan && (
+              <form onSubmit={handleAddPlanBlock} className="space-y-2 rounded-lg border bg-background/80 p-3">
+                <Input
+                  placeholder="What will you do?"
+                  value={planTitle}
+                  onChange={(event) => setPlanTitle(event.target.value)}
+                  disabled={savingPlan}
+                  autoFocus
+                />
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(event) => setStartTime(event.target.value)}
+                    disabled={savingPlan}
+                    aria-label="Start time"
+                  />
+                  <Input
+                    type="time"
+                    value={endTime}
+                    onChange={(event) => setEndTime(event.target.value)}
+                    disabled={savingPlan}
+                    aria-label="End time"
+                  />
+                  <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value as DayPlanBlock['category'])}
+                    disabled={savingPlan}
+                    className="col-span-2 flex h-8 rounded-lg border border-input bg-background px-2 text-xs sm:col-span-1"
+                    aria-label="Plan category"
+                  >
+                    {Object.entries(categoryLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={savingPlan || !canSavePlan}
+                    className="col-span-2 h-8 sm:col-span-1"
+                  >
+                    {savingPlan ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+                {startTime >= endTime && (
+                  <p className="text-xs text-destructive">End time must be after start time.</p>
+                )}
+                {planError && <p className="text-xs text-destructive">{planError}</p>}
+              </form>
+            )}
+
+            {blocks.length === 0 ? (
+              <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                No plan blocks yet. Add one to make the next part of the day obvious.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {blocks.map((block) => (
+                  <li key={block.id} className="flex items-center gap-3 rounded-lg border bg-background p-3 text-sm">
+                    {block.isCurrent ? (
+                      <CheckCircle2 className="size-4 text-primary" />
+                    ) : block.isPast ? (
+                      <Check className="size-4 text-muted-foreground" />
+                    ) : (
+                      <Circle className="size-4 text-muted-foreground" />
+                    )}
+                    <span className="w-24 shrink-0 font-mono text-xs text-muted-foreground">
+                      {block.startTime}-{block.endTime}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{block.title}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

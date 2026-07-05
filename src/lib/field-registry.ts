@@ -163,6 +163,18 @@ export const FIELD_REGISTRY: FieldTypeDefinition[] = [ //welche verschiedenen Ar
   },
   isDisplayOnly: false,
 },
+{
+  type: 'learning',
+  label: 'Learning',
+  icon: '🧠',
+  description: 'Save a durable lesson into your Learning Library',
+  hasConfig: true,
+  defaultConfig: {
+    defaultTags: [],
+    showAction: true,
+  },
+  isDisplayOnly: false,
+},
 
 
 ]

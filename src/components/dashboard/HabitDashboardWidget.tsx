@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { createHabit, fetchHabits } from '@/lib/habits'
+import { createHabit, fetchHabits, updateHabit } from '@/lib/habits'
 import type { Habit } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { Flame, Minus, Plus } from 'lucide-react'
+import { Archive, Flame, Minus, Pencil, Plus, Save, X } from 'lucide-react'
 import { format } from 'date-fns'
 
 interface HabitDashboardWidgetProps {
@@ -38,6 +39,7 @@ function habitLogUpsertClient(supabase: ReturnType<typeof createClient>): HabitL
 
 export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDashboardWidgetProps) {
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
   const today = format(new Date(), 'yyyy-MM-dd')
 
   const [habits, setHabits] = useState<Habit[]>([])
@@ -48,6 +50,9 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
   const [newName, setNewName] = useState('')
   const [newEmoji, setNewEmoji] = useState('✅')
   const [creating, setCreating] = useState(false)
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editEmoji, setEditEmoji] = useState('✅')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -97,6 +102,8 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
       setNewName('')
       setNewEmoji('✅')
       setShowAddForm(false)
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
+      router.refresh()
     } catch (e) {
       console.error(e)
     } finally {
@@ -134,6 +141,8 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
         )
         if (error) throw error
       }
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
+      router.refresh()
     } catch (e) {
       console.error(e)
       // revert
@@ -155,11 +164,61 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
     }
   }
 
+  function startEdit(habit: Habit) {
+    setEditingHabitId(habit.id)
+    setEditName(habit.name)
+    setEditEmoji(habit.emoji)
+  }
+
+  function cancelEdit() {
+    setEditingHabitId(null)
+    setEditName('')
+    setEditEmoji('✅')
+  }
+
+  async function handleSaveEdit(habit: Habit) {
+    const name = editName.trim()
+    if (!name) return
+
+    try {
+      await updateHabit(supabase, habit.id, { name, emoji: editEmoji })
+      setHabits((current) =>
+        current.map((item) =>
+          item.id === habit.id ? { ...item, name, emoji: editEmoji } : item
+        )
+      )
+      cancelEdit()
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to update habit:', error)
+      await load()
+    }
+  }
+
+  async function handleArchive(habit: Habit) {
+    setHabits((current) => current.filter((item) => item.id !== habit.id))
+    setLoggedIds((current) => {
+      const next = new Set(current)
+      next.delete(habit.id)
+      return next
+    })
+
+    try {
+      await updateHabit(supabase, habit.id, { is_archived: true })
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
+      router.refresh()
+    } catch (error) {
+      console.error('Failed to archive habit:', error)
+      await load()
+    }
+  }
+
   const doneCount = habits.filter((h) => loggedIds.has(h.id)).length
 
   return (
-    <div className="rounded-xl border p-4 space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="space-y-3 rounded-2xl border bg-background/60 p-3 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Flame className="size-4 text-orange-500" />
           <h2 className="text-sm font-semibold">Today&apos;s Habits</h2>
@@ -188,7 +247,7 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
 
       {showAddForm && (
         <form onSubmit={handleCreate} className="rounded-lg border bg-muted/30 p-3">
-          <div className="flex gap-2">
+          <div className="grid gap-2 sm:grid-cols-[3.5rem_1fr_auto]">
             <select
               value={newEmoji}
               onChange={(e) => setNewEmoji(e.target.value)}
@@ -208,7 +267,12 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
               disabled={creating}
               autoFocus
             />
-            <Button type="submit" size="sm" disabled={creating || !newName.trim()}>
+            <Button
+              type="submit"
+              size="sm"
+              className="col-span-2 h-9 sm:col-span-1"
+              disabled={creating || !newName.trim()}
+            >
               {creating ? 'Adding…' : 'Add'}
             </Button>
           </div>
@@ -235,23 +299,81 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
           {habits.map((habit) => {
             const checked = loggedIds.has(habit.id)
             const busy = toggling.has(habit.id)
+            const isEditing = editingHabitId === habit.id
             return (
-              <li key={habit.id} className="flex items-center gap-3">
+              <li key={habit.id} className="group flex items-center gap-3 rounded-lg border p-2">
                 <Checkbox
                   id={`habit-${habit.id}`}
                   checked={checked}
-                  disabled={busy}
+                  disabled={busy || isEditing}
                   onCheckedChange={() => handleToggle(habit)}
                 />
-                <label
-                  htmlFor={`habit-${habit.id}`}
-                  className={`flex flex-1 items-center gap-2 text-sm cursor-pointer select-none ${
-                    checked ? 'text-muted-foreground line-through' : ''
-                  }`}
-                >
-                  <span>{habit.emoji}</span>
-                  {habit.name}
-                </label>
+                {isEditing ? (
+                  <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
+                    <select
+                      value={editEmoji}
+                      onChange={(event) => setEditEmoji(event.target.value)}
+                      className="h-8 w-14 shrink-0 rounded-md border border-input bg-background text-center text-lg"
+                      aria-label="Habit icon"
+                    >
+                      {EMOJI_OPTIONS.map((emoji) => (
+                        <option key={emoji} value={emoji}>
+                          {emoji}
+                        </option>
+                      ))}
+                    </select>
+                    <Input
+                      value={editName}
+                      onChange={(event) => setEditName(event.target.value)}
+                      className="h-8"
+                      autoFocus
+                    />
+                    <div className="flex gap-1">
+                      <Button size="sm" className="h-8" onClick={() => handleSaveEdit(habit)} disabled={!editName.trim()}>
+                        <Save className="size-3.5" />
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8" onClick={cancelEdit}>
+                        <X className="size-3.5" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <label
+                      htmlFor={`habit-${habit.id}`}
+                      className={`flex min-w-0 flex-1 cursor-pointer select-none items-center gap-2 text-sm ${
+                        checked ? 'text-muted-foreground line-through' : ''
+                      }`}
+                    >
+                      <span className="shrink-0">{habit.emoji}</span>
+                      <span className="truncate">{habit.name}</span>
+                    </label>
+                    <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-muted-foreground"
+                        onClick={() => startEdit(habit)}
+                        aria-label="Edit habit"
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleArchive(habit)}
+                        aria-label="Archive habit"
+                      >
+                        <Archive className="size-3.5" />
+                      </Button>
+                    </div>
+                  </>
+                )}
               </li>
             )
           })}

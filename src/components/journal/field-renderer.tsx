@@ -10,10 +10,12 @@ import { StarRating } from '@/components/journal/star-rating'
 import { SliderInput } from '@/components/journal/slider-input'
 import { ChecklistInput } from '@/components/journal/checklist-input'
 import { PromptDisplay } from '@/components/journal/prompt-display'
-import { TemplateField, FieldValue, MoodOption, ChecklistItem } from '@/lib/types'
+import { TemplateField, FieldValue, MoodOption, ChecklistItem, DayPlanBlock } from '@/lib/types'
 import { DraftTask, TasksInput } from './TasksInput'
 import { DayPlannerInput } from './DayPlannerInput'
 import { HabitTrackerInput } from './HabitTrackerInput'
+import { LearningInput } from './LearningInput'
+import type { LearningFieldValue } from '@/lib/learnings'
 
 interface FieldRendererProps {
   field: TemplateField
@@ -211,7 +213,7 @@ export function FieldRenderer({
       {/* Day Planner */}
       {field.field_type === 'day_planner' && (
         <DayPlannerInput
-          value={(value.value_json as { plan_date: string; blocks: any[] }) ?? null}
+          value={(value.value_json as { plan_date: string; blocks: DayPlanBlock[] }) ?? null}
           onChange={(v) => onChange({ ...value, value_json: v })}
           config={field.config as { defaultDate?: "tomorrow" | "today"; startHour?: number }}
         />
@@ -222,6 +224,15 @@ export function FieldRenderer({
           value={value.value_json as string[] ?? []}
           onChange={(ids) => onChange({ ...value, value_json: ids })}
           config={field.config as { selectedHabitIds?: string[]; showAll?: boolean }}
+        />
+      )}
+      {/* Learning */}
+      {field.field_type === 'learning' && (
+        <LearningInput
+          value={(value.value_json as LearningFieldValue | null) ?? null}
+          onChange={(learning) => onChange({ ...value, value_json: learning })}
+          disabled={disabled}
+          config={field.config as { defaultTags?: string[]; showAction?: boolean }}
         />
       )}
     </div>

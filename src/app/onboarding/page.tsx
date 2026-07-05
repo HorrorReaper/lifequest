@@ -20,9 +20,7 @@ export default async function OnboardingPage() {
     .single()
   const profile = data as Database['public']['Tables']['profiles']['Row'] | null
 
-  const isMvp = process.env.IS_MVP === 'true'
-
-  if (profile?.onboarding_complete && !isMvp) redirect('/dashboard')
+  if (profile?.onboarding_complete) redirect('/dashboard')
 
   // Fetch system templates for the "pick your first template" step
   const { data: templates } = await supabase

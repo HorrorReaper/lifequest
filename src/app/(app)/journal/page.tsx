@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { TemplatePicker } from '@/components/journal/template-picker'
 import { EntryTimeline } from '@/components/journal/entry-timeline'
 import { JournalTemplate, JournalEntry } from '@/lib/types'
-import { LayoutList, LayoutTemplate } from 'lucide-react'
+import { BookOpenCheck, LayoutList, LayoutTemplate } from 'lucide-react'
 
 export default async function JournalPage() {
   const supabase = await createClient()
@@ -37,20 +37,29 @@ export default async function JournalPage() {
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="max-w-2xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">Journal</h1>
             <p className="text-sm text-muted-foreground">
               Choose a template to start today&apos;s entry.
             </p>
           </div>
-          <Link
-            href="/journal/templates"
-            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0"
-          >
-            <LayoutTemplate className="size-3.5" />
-            Templates
-          </Link>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Link
+              href="/learnings"
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+            >
+              <BookOpenCheck className="size-3.5" />
+              Learnings
+            </Link>
+            <Link
+              href="/journal/templates"
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
+              <LayoutTemplate className="size-3.5" />
+              Templates
+            </Link>
+          </div>
         </div>
 
         {/* Template Picker */}
