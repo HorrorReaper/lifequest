@@ -28,7 +28,7 @@ export function ChecklistInput({
       {items.map((item, index) => (
         <label
           key={index}
-          className={`flex items-center gap-3 rounded-lg border border-border/50 px-3 py-2.5 transition-colors ${
+          className={`flex items-center gap-3 rounded-xl border border-border/60 bg-background/70 px-3 py-3 transition-colors ${
             disabled
               ? 'opacity-50 cursor-not-allowed'
               : 'cursor-pointer hover:bg-muted/50'

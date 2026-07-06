@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { cn } from '@/lib/utils'
 
 interface StarRatingProps {
   max: number
@@ -22,26 +23,30 @@ export function StarRating({
   const displayValue = hovered ?? value ?? 0
 
   return (
-    <div className="flex gap-1">
+    <div className="flex flex-wrap items-center gap-2">
       {Array.from({ length: max }, (_, i) => i + 1).map((star) => (
         <motion.button
           key={star}
           type="button"
           disabled={disabled}
-          whileHover={{ scale: 1.2 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.98 }}
           onMouseEnter={() => !disabled && setHovered(star)}
           onMouseLeave={() => setHovered(null)}
           onClick={() => onChange(star)}
-          className={`text-2xl transition-colors ${
-            disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-          }`}
+          className={cn(
+            'flex size-10 items-center justify-center rounded-full border text-lg transition-colors',
+            star <= displayValue
+              ? 'border-primary/30 bg-primary/10 text-primary'
+              : 'border-border/60 bg-background/70 text-muted-foreground',
+            disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-primary/25'
+          )}
         >
-          {star <= displayValue ? '⭐' : '☆'}
+          ★
         </motion.button>
       ))}
       {value && (
-        <span className="ml-2 text-sm text-muted-foreground self-center">
+        <span className="ml-1 self-center text-sm text-muted-foreground">
           {value}/{max}
         </span>
       )}

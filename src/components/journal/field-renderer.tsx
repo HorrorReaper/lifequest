@@ -16,6 +16,7 @@ import { DayPlannerInput } from './DayPlannerInput'
 import { HabitTrackerInput } from './HabitTrackerInput'
 import { LearningInput } from './LearningInput'
 import type { LearningFieldValue } from '@/lib/learnings'
+import { cn } from '@/lib/utils'
 
 interface FieldRendererProps {
   field: TemplateField
@@ -30,12 +31,11 @@ export function FieldRenderer({
   onChange,
   disabled = false,
 }: FieldRendererProps) {
-    //Basically ist er dazu da, damit die Felder in der Journal Entry Seite gerendert werden können. Er nimmt die Informationen über das Feld und den aktuellen Wert und rendert das entsprechende Eingabefeld oder Anzeigeelement basierend auf dem Feldtyp.
   const config = field.config as Record<string, unknown>
 
   // Display-only fields
   if (field.field_type === 'divider') {
-    return <Separator className="my-2" />
+    return <Separator className="my-5 bg-border/60" />
   }
 
   if (field.field_type === 'heading') {
@@ -45,8 +45,8 @@ export function FieldRenderer({
       <Tag
         className={
           level === 1
-            ? 'text-xl font-bold tracking-tight'
-            : 'text-lg font-semibold'
+            ? 'font-heading text-2xl font-semibold tracking-tight'
+            : 'font-heading text-xl font-semibold tracking-tight'
         }
       >
         {field.label}
@@ -55,22 +55,28 @@ export function FieldRenderer({
   }
 
   if (field.field_type === 'prompt') {
-    return <PromptDisplay category={config?.category as string} />
+    return (
+      <div className="rounded-[1.5rem] border bg-card/85 p-4 shadow-sm sm:p-5">
+        <PromptDisplay category={config?.category as string} />
+      </div>
+    )
   }
 
   // Interactive fields — wrap in label container
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium leading-none">
-        {field.label}
-        {field.is_required && (
-          <span className="ml-1 text-destructive">*</span>
-        )}
-      </label>
+    <div className="space-y-3 rounded-[1.5rem] border bg-card/85 p-4 shadow-sm sm:p-5">
+      <div className="space-y-1.5">
+        <label className="text-sm font-semibold leading-none">
+          {field.label}
+          {field.is_required && (
+            <span className="ml-1 text-destructive">*</span>
+          )}
+        </label>
 
-      {field.description && (
-        <p className="text-xs text-muted-foreground">{field.description}</p>
-      )}
+        {field.description && (
+          <p className="max-w-2xl text-xs leading-5 text-muted-foreground">{field.description}</p>
+        )}
+      </div>
 
       {/* Text */}
       {field.field_type === 'text' && (
@@ -81,6 +87,7 @@ export function FieldRenderer({
             onChange({ ...value, value_text: e.target.value })
           }
           disabled={disabled}
+          className="h-11 rounded-xl bg-background/80"
         />
       )}
 
@@ -93,9 +100,9 @@ export function FieldRenderer({
             onChange({ ...value, value_text: e.target.value })
           }
           disabled={disabled}
-          rows={4}
+          rows={(config?.rows as number) ?? 7}
           maxLength={(config?.maxLength as number) ?? undefined}
-          className="resize-none"
+          className="min-h-40 resize-none rounded-xl bg-background/80 leading-6"
         />
       )}
 
@@ -114,6 +121,7 @@ export function FieldRenderer({
             })
           }
           disabled={disabled}
+          className="h-11 rounded-xl bg-background/80"
         />
       )}
 
@@ -139,11 +147,13 @@ export function FieldRenderer({
               type="button"
               disabled={disabled}
               onClick={() => onChange({ ...value, value_text: option })}
-              className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+              className={cn(
+                'rounded-full border px-3 py-2 text-sm transition-colors',
                 value.value_text === option
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border/50 hover:border-primary/30'
-              } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : 'border-border/60 bg-background/70 hover:border-primary/25',
+                disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+              )}
             >
               {option}
             </button>
@@ -173,7 +183,7 @@ export function FieldRenderer({
 
       {/* Checkbox */}
       {field.field_type === 'checkbox' && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 rounded-xl border bg-background/70 p-3">
           <Switch
             checked={value.value_boolean ?? false}
             onCheckedChange={(checked) =>
