@@ -258,7 +258,7 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
               <select
                 value={newPriority}
                 onChange={(e) => setNewPriority(e.target.value as "low" | "medium" | "high")}
-                className="flex h-9 rounded-md border border-input bg-background px-3 text-sm"
+                className="flex h-10 rounded-md border border-input bg-background px-3 text-sm sm:h-9"
               >
                 <option value="low">Low priority</option>
                 <option value="medium">Medium priority</option>
@@ -270,7 +270,7 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
                   onChange={(d) => setNewDueDate(d ?? '')}
                 />
               </div>
-              <Button type="submit" size="sm" className="h-9" disabled={submitting || !newTitle.trim()}>
+              <Button type="submit" size="sm" className="h-10 sm:h-9" disabled={submitting || !newTitle.trim()}>
                 {submitting ? "..." : "Save"}
               </Button>
             </div>
@@ -311,14 +311,14 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
                       <Input
                         value={editTitle}
                         onChange={(event) => setEditTitle(event.target.value)}
-                        className="h-8"
+                        className="h-10 sm:h-8"
                         autoFocus
                       />
                       <div className="grid gap-2 sm:grid-cols-[120px_1fr_auto_auto]">
                         <select
                           value={editPriority}
                           onChange={(event) => setEditPriority(event.target.value as "low" | "medium" | "high")}
-                          className="flex h-8 rounded-md border border-input bg-background px-2 text-xs"
+                          className="flex h-10 rounded-md border border-input bg-background px-3 text-sm sm:h-8 sm:px-2 sm:text-xs"
                         >
                           <option value="low">Low</option>
                           <option value="medium">Medium</option>
@@ -328,11 +328,11 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
                           value={editDueDate || null}
                           onChange={(date) => setEditDueDate(date ?? "")}
                         />
-                        <Button size="sm" className="h-8" onClick={() => handleSaveEdit(task.id)} disabled={!editTitle.trim()}>
+                        <Button size="sm" className="h-10 sm:h-8" onClick={() => handleSaveEdit(task.id)} disabled={!editTitle.trim()}>
                           <Save className="size-3.5" />
                           Save
                         </Button>
-                        <Button size="sm" variant="outline" className="h-8" onClick={cancelEdit}>
+                        <Button size="sm" variant="outline" className="h-10 sm:h-8" onClick={cancelEdit}>
                           <X className="size-3.5" />
                           Cancel
                         </Button>
@@ -379,7 +379,7 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
                           size="sm"
                           variant="ghost"
                           onClick={() => handleDeferTomorrow(task)}
-                          className="h-7 w-7 p-0 text-muted-foreground"
+                          className="size-10 p-0 text-muted-foreground sm:size-7"
                           aria-label="Defer to tomorrow"
                         >
                           <CalendarClock className="h-3.5 w-3.5" />
@@ -388,7 +388,7 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
                           size="sm"
                           variant="ghost"
                           onClick={() => startEdit(task)}
-                          className="h-7 w-7 p-0 text-muted-foreground"
+                          className="size-10 p-0 text-muted-foreground sm:size-7"
                           aria-label="Edit task"
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -397,7 +397,7 @@ export function TaskList({ userId, compact = false, limit, onlyOpen = false, ini
                           size="sm"
                           variant="ghost"
                           onClick={() => handleDelete(task.id)}
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          className="size-10 p-0 text-muted-foreground hover:text-destructive sm:size-7"
                           aria-label="Delete task"
                         >
                           <Trash2 className="h-3.5 w-3.5" />

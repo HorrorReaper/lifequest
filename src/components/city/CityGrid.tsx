@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building, GRID_SIZE, isCellOccupied, BuildingType } from "@/lib/city";
+import { Building, GRID_SIZE, BuildingType } from "@/lib/city";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -29,9 +29,9 @@ export function CityGrid({ buildings, selectedBuilding, onCellClick, mode }: Cit
   return (
     <TooltipProvider>
       <div
-        className="inline-grid gap-0.5 rounded-xl border-2 border-primary/20 p-2 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30"
+        className="grid aspect-square w-full max-w-[34rem] gap-0.5 rounded-xl border-2 border-primary/20 bg-gradient-to-br from-green-50 to-emerald-50 p-2 dark:from-green-950/30 dark:to-emerald-950/30"
         style={{
-          gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+          gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
         }}
       >
         {grid.flat().map((building, idx) => {
@@ -48,7 +48,7 @@ export function CityGrid({ buildings, selectedBuilding, onCellClick, mode }: Cit
                 onMouseEnter={() => canPlace && setHoveredCell(idx)}
                 onMouseLeave={() => setHoveredCell(null)}
                 className={cn(
-                  "h-10 w-10 sm:h-12 sm:w-12 rounded-md text-xl flex items-center justify-center transition-all duration-150",
+                  "flex aspect-square min-w-0 items-center justify-center rounded-md text-base transition-all duration-150 sm:text-xl",
                   occupied
                     ? "bg-white dark:bg-gray-800 shadow-sm"
                     : "bg-green-100/60 dark:bg-green-900/20",

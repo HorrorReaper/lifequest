@@ -274,6 +274,125 @@ export interface Database {
           sort_order?: number
         }
       }
+      habits: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          emoji: string
+          color: string
+          is_archived: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          emoji?: string
+          color?: string
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          emoji?: string
+          color?: string
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+      }
+      habit_logs: {
+        Row: {
+          id: string
+          user_id: string
+          habit_id: string
+          entry_id: string | null
+          log_date: string
+          completed: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          habit_id: string
+          entry_id?: string | null
+          log_date: string
+          completed?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          habit_id?: string
+          entry_id?: string | null
+          log_date?: string
+          completed?: boolean
+          created_at?: string
+        }
+      }
+      routines: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          emoji: string
+          description: string | null
+          is_archived: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          emoji?: string
+          description?: string | null
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          emoji?: string
+          description?: string | null
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      routine_items: {
+        Row: {
+          id: string
+          routine_id: string
+          habit_id: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          routine_id: string
+          habit_id: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          routine_id?: string
+          habit_id?: string
+          sort_order?: number
+          created_at?: string
+        }
+      }
       xp_events: {
         Row: {
           id: string

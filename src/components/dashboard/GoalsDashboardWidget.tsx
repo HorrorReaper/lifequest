@@ -209,7 +209,7 @@ export function GoalsDashboardWidget({ userId, initialGoals, initiallyOpen = fal
               value={category}
               onChange={(event) => setCategory(event.target.value as GoalCategory)}
               disabled={creating}
-              className="flex h-8 rounded-lg border border-input bg-background px-2 text-xs"
+              className="flex h-10 rounded-lg border border-input bg-background px-3 text-sm sm:h-8 sm:px-2 sm:text-xs"
               aria-label="Goal category"
             >
               {Object.entries(GOAL_CATEGORIES).map(([value, label]) => (
@@ -223,14 +223,14 @@ export function GoalsDashboardWidget({ userId, initialGoals, initiallyOpen = fal
               value={targetDate}
               onChange={(event) => setTargetDate(event.target.value)}
               disabled={creating}
-              className="h-8 text-xs"
+              className="h-10 text-sm sm:h-8 sm:text-xs"
               aria-label="Target date"
             />
             <Button
               type="submit"
               size="sm"
               disabled={creating || !title.trim()}
-              className="col-span-2 h-8 sm:col-span-1"
+              className="col-span-2 h-10 sm:col-span-1 sm:h-8"
             >
               {creating ? 'Adding...' : 'Save'}
             </Button>
@@ -286,14 +286,14 @@ export function GoalsDashboardWidget({ userId, initialGoals, initiallyOpen = fal
                     )}
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2 pl-11">
+                <div className="mt-3 flex flex-wrap gap-2 sm:pl-11">
                   <Button
                     type="button"
                     size="sm"
                     variant="secondary"
                     onClick={() => handleGenerateQuests(goal)}
                     disabled={generating || busy}
-                    className="h-7 text-xs"
+                    className="h-10 text-xs sm:h-7"
                   >
                     {generating ? (
                       <Loader2 className="mr-1 size-3.5 animate-spin" />
@@ -308,7 +308,7 @@ export function GoalsDashboardWidget({ userId, initialGoals, initiallyOpen = fal
                     variant="outline"
                     onClick={() => handleStatus(goal, 'completed')}
                     disabled={busy}
-                    className="h-7 text-xs"
+                    className="h-10 text-xs sm:h-7"
                   >
                     <CheckCircle2 className="mr-1 size-3.5" />
                     Complete
@@ -319,14 +319,14 @@ export function GoalsDashboardWidget({ userId, initialGoals, initiallyOpen = fal
                     variant="ghost"
                     onClick={() => handleStatus(goal, 'archived')}
                     disabled={busy}
-                    className="h-7 text-xs"
+                    className="h-10 text-xs sm:h-7"
                   >
                     <Archive className="mr-1 size-3.5" />
                     Archive
                   </Button>
                 </div>
                 {generated.length > 0 && (
-                  <div className="mt-3 space-y-2 pl-11">
+                  <div className="mt-3 space-y-2 sm:pl-11">
                     <p className="text-xs font-medium text-muted-foreground">
                       Suggested quests
                     </p>
@@ -351,7 +351,7 @@ export function GoalsDashboardWidget({ userId, initialGoals, initiallyOpen = fal
                               size="sm"
                               onClick={() => handleAddQuest(goal.id, suggestion, index)}
                               disabled={adding}
-                              className="h-7 shrink-0 text-xs"
+                              className="h-10 shrink-0 text-xs sm:h-7"
                             >
                               {adding ? 'Adding...' : 'Add'}
                             </Button>

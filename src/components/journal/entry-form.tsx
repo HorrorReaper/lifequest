@@ -649,7 +649,7 @@ export function EntryForm({
         </div>
       )}
 
-      <div className="sticky bottom-20 z-10 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:bottom-6">
+      <div className="sticky bottom-[calc(var(--bottom-nav-height)+var(--safe-area-bottom)+0.75rem)] z-10 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:bottom-6">
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button
             type="button"

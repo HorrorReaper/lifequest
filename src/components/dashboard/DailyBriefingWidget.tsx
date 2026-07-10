@@ -438,7 +438,7 @@ export function DailyBriefingWidget({
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8 flex-1"
+                  className="h-10 flex-1 sm:h-8"
                   onClick={handleQuickCompleteTask}
                   disabled={quickActionId === `task:${topTask.id}`}
                 >
@@ -450,7 +450,7 @@ export function DailyBriefingWidget({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 flex-1"
+                className="h-10 flex-1 sm:h-8"
                 onClick={() => openSheet('tasks')}
               >
                 Manage
@@ -494,7 +494,7 @@ export function DailyBriefingWidget({
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8 flex-1"
+                  className="h-10 flex-1 sm:h-8"
                   onClick={handleQuickCheckHabit}
                   disabled={quickActionId === `habit:${nextHabit.id}`}
                 >
@@ -506,7 +506,7 @@ export function DailyBriefingWidget({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 flex-1"
+                className="h-10 flex-1 sm:h-8"
                 onClick={() => openSheet('habits')}
               >
                 Manage
@@ -532,7 +532,7 @@ export function DailyBriefingWidget({
             ) : journals.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {journals.slice(0, 2).map((journal) => (
-                  <Button key={journal.id} asChild variant="outline" size="sm" className="h-8">
+                  <Button key={journal.id} asChild variant="outline" size="sm" className="h-10 sm:h-8">
                     <Link href={`/journal/new/${journal.id}`}>
                       <span className="mr-1.5">{journal.icon}</span>
                       {journal.name}
@@ -578,7 +578,7 @@ export function DailyBriefingWidget({
       </CardContent>
     </Card>
     <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
-      <DialogContent className="max-h-[88svh] gap-0 overflow-hidden p-0 sm:max-w-2xl">
+      <DialogContent className="bottom-0 top-auto max-h-[92svh] max-w-none translate-y-0 gap-0 overflow-hidden rounded-b-none rounded-t-3xl p-0 sm:bottom-auto sm:top-1/2 sm:max-h-[88svh] sm:max-w-2xl sm:-translate-y-1/2 sm:rounded-xl">
         <DialogHeader className="border-b px-5 py-4 pr-12">
           <DialogTitle className="text-xl">Today Focus</DialogTitle>
           <DialogDescription>
@@ -586,7 +586,7 @@ export function DailyBriefingWidget({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-4">
+        <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-4 pb-[calc(1rem+var(--safe-area-bottom))] sm:pb-4">
           <div
             role="tablist"
             aria-label="Today Focus sections"
@@ -600,7 +600,7 @@ export function DailyBriefingWidget({
                 aria-selected={sheetTab === tab.value}
                 onClick={() => setSheetTab(tab.value)}
                 className={cn(
-                  'h-9 rounded-xl px-2 text-sm font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                  'h-11 rounded-xl px-2 text-sm font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-9',
                   sheetTab === tab.value && 'bg-background text-foreground shadow-sm'
                 )}
               >
@@ -765,7 +765,7 @@ export function DailyBriefingWidget({
                     value={category}
                     onChange={(event) => setCategory(event.target.value as DayPlanBlock['category'])}
                     disabled={savingPlan}
-                    className="col-span-2 flex h-8 rounded-lg border border-input bg-background px-2 text-xs sm:col-span-1"
+                    className="col-span-2 flex h-10 rounded-lg border border-input bg-background px-3 text-sm sm:col-span-1 sm:h-8 sm:px-2 sm:text-xs"
                     aria-label="Plan category"
                   >
                     {Object.entries(categoryLabels).map(([value, label]) => (
@@ -778,7 +778,7 @@ export function DailyBriefingWidget({
                     type="submit"
                     size="sm"
                     disabled={savingPlan || !canSavePlan}
-                    className="col-span-2 h-8 sm:col-span-1"
+                    className="col-span-2 h-10 sm:col-span-1 sm:h-8"
                   >
                     {savingPlan ? 'Saving...' : 'Save'}
                   </Button>

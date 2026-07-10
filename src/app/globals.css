@@ -7,6 +7,8 @@
 @custom-variant white-mode (&:is(.white-mode *));
 
 :root {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-nav-height: 5.75rem;
   --background: hsl(0 0% 100%);
   --foreground: hsl(222.2 84% 4.9%);
   --card: hsl(0 0% 100%);

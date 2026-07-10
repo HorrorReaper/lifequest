@@ -2,6 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+## Admin-only testing
+
+Set one or both of these server-side environment variables to expose admin-only testing tools:
+
+```bash
+ADMIN_EMAILS=patrick@example.com
+ADMIN_USER_IDS=00000000-0000-0000-0000-000000000000
+```
+
+Use comma-separated values for multiple admins. Do not prefix these with `NEXT_PUBLIC_`; they must stay server-only.
+Allowlisted users can open `/admin` for private MVP testing tools.
+
 First, run the development server:
 
 ```bash

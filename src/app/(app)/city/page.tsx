@@ -88,14 +88,14 @@ export default function CityPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">🏙️ My City</h1>
           <p className="text-muted-foreground mt-1">
             Journal to earn coins & XP, then build your dream city.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           <Button
             variant={mode === "view" ? "default" : "outline"}
             size="sm"
@@ -126,8 +126,8 @@ export default function CityPage() {
       )}
 
       {/* Grid + Picker */}
-      <div className="grid lg:grid-cols-[auto_1fr] gap-6 items-start">
-        <div className="flex justify-center">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,34rem)_1fr] lg:items-start">
+        <div className="flex w-full justify-center">
           <CityGrid
             buildings={city.buildings}
             selectedBuilding={selectedBuilding}

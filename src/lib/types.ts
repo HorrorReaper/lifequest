@@ -244,6 +244,44 @@ export interface HabitLog {
 }
 
 // ============================================
+// Routines
+// ============================================
+export interface Routine {
+  id: string;
+  user_id: string;
+  name: string;
+  emoji: string;
+  description: string | null;
+  is_archived: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoutineItem {
+  id: string;
+  routine_id: string;
+  habit_id: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface RoutineItemWithHabit extends RoutineItem {
+  habit: Habit;
+}
+
+export interface RoutineWithItems extends Routine {
+  items: RoutineItemWithHabit[];
+}
+
+export interface RoutineProgress {
+  routineId: string;
+  completed: number;
+  total: number;
+  completedHabitIds: string[];
+}
+
+// ============================================
 // XP Rules
 // ============================================
 export type XpRuleOperator =

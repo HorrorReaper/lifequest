@@ -97,7 +97,7 @@ export function ChatbotWidget() {
   }
 
   return (
-    <div className="fixed bottom-32 right-4 z-[70] sm:bottom-6">
+    <div className="fixed bottom-[calc(var(--bottom-nav-height)+var(--safe-area-bottom)+1rem)] right-4 z-[70] sm:bottom-6">
       <AnimatePresence>
         {open && (
           <motion.div
@@ -106,7 +106,7 @@ export function ChatbotWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.97 }}
             transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-            className="mb-3 flex h-[min(540px,calc(100svh-11rem))] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl sm:h-[min(540px,calc(100svh-8rem))]"
+            className="mb-3 flex h-[min(540px,calc(100svh-var(--bottom-nav-height)-var(--safe-area-bottom)-5rem))] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl sm:h-[min(540px,calc(100svh-8rem))]"
           >
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Habit } from "@/lib/types";
 import { fetchHabits, createHabit, updateHabit, deleteHabit } from "@/lib/habits";
@@ -16,21 +16,25 @@ interface HabitsManagerProps {
 }
 
 export function HabitsManager({ userId }: HabitsManagerProps) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("✅");
 
-  useEffect(() => { load(); }, [userId]);
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       setHabits(await fetchHabits(supabase, userId, true));
     } catch (e) { console.error(e); }
     setLoading(false);
-  }
+  }, [supabase, userId]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void load();
+    });
+  }, [load]);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -66,7 +70,7 @@ export function HabitsManager({ userId }: HabitsManagerProps) {
             <select
               value={emoji}
               onChange={(e) => setEmoji(e.target.value)}
-              className="h-9 w-16 rounded-md border border-input bg-background text-lg text-center"
+              className="h-10 w-16 rounded-md border border-input bg-background text-center text-lg sm:h-9"
             >
               {EMOJI_OPTIONS.map((e) => <option key={e} value={e}>{e}</option>)}
             </select>
@@ -102,7 +106,7 @@ export function HabitsManager({ userId }: HabitsManagerProps) {
                   size="sm"
                   variant="ghost"
                   onClick={() => toggleArchive(h)}
-                  className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0"
+                  className="size-10 p-0 opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
                   title={h.is_archived ? "Restore" : "Archive"}
                 >
                   {h.is_archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
@@ -111,7 +115,7 @@ export function HabitsManager({ userId }: HabitsManagerProps) {
                   size="sm"
                   variant="ghost"
                   onClick={() => handleDelete(h.id)}
-                  className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 text-destructive"
+                  className="size-10 p-0 text-destructive opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>

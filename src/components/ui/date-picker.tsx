@@ -70,7 +70,7 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', class
     <div className={`relative z-50 inline-block ${className}`} ref={containerRef}>
       <button
         type="button"
-        className="w-full text-left rounded-md border border-input px-3 py-2 bg-background"
+        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-left sm:h-9"
         onClick={() => setOpen((s) => !s)}
       >
         <span className="text-sm">{value ? format(parseISO(value), 'PPP') : placeholder}</span>
@@ -95,14 +95,14 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', class
           <div className="mt-2 flex gap-2">
             <button
               type="button"
-              className="flex-1 rounded-md border px-2 py-1 text-sm"
+              className="min-h-10 flex-1 rounded-md border px-2 py-1 text-sm sm:min-h-8"
               onClick={() => { onChange(null); setOpen(false) }}
             >
               Clear
             </button>
             <button
               type="button"
-              className="flex-1 rounded-md bg-primary/10 px-2 py-1 text-sm"
+              className="min-h-10 flex-1 rounded-md bg-primary/10 px-2 py-1 text-sm sm:min-h-8"
               onClick={() => setOpen(false)}
             >
               Close

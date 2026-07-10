@@ -125,7 +125,7 @@ export function LearningLibrary({ learnings: initialLearnings }: LearningLibrary
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search learnings, tags, actions, or source entries..."
-              className="h-9 pl-8"
+              className="h-10 pl-8 sm:h-9"
             />
           </div>
           <Button
@@ -134,7 +134,7 @@ export function LearningLibrary({ learnings: initialLearnings }: LearningLibrary
             size="sm"
             onClick={clearFilters}
             disabled={!hasActiveFilters}
-            className="h-9 justify-self-start sm:justify-self-end"
+            className="h-10 justify-self-start sm:h-9 sm:justify-self-end"
           >
             <X className="size-3.5" />
             Reset
@@ -147,7 +147,7 @@ export function LearningLibrary({ learnings: initialLearnings }: LearningLibrary
             <select
               value={tag}
               onChange={(event) => setTag(event.target.value)}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-9 sm:px-2.5"
             >
               <option value="all">All tags</option>
               {tags.map((item) => (
@@ -166,7 +166,7 @@ export function LearningLibrary({ learnings: initialLearnings }: LearningLibrary
             <select
               value={sortMode}
               onChange={(event) => setSortMode(event.target.value as SortMode)}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-9 sm:px-2.5"
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -178,7 +178,7 @@ export function LearningLibrary({ learnings: initialLearnings }: LearningLibrary
             type="button"
             variant={favoritesOnly ? 'default' : 'outline'}
             onClick={() => setFavoritesOnly((current) => !current)}
-            className="mt-5 h-9 justify-self-start sm:justify-self-stretch"
+            className="mt-5 h-10 justify-self-start sm:h-9 sm:justify-self-stretch"
           >
             <Star className={favoritesOnly ? 'size-3.5 fill-current' : 'size-3.5'} />
             Favorites

@@ -251,7 +251,7 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
             <select
               value={newEmoji}
               onChange={(e) => setNewEmoji(e.target.value)}
-              className="h-9 w-14 shrink-0 rounded-md border border-input bg-background text-center text-lg"
+              className="h-10 w-14 shrink-0 rounded-md border border-input bg-background text-center text-lg sm:h-9"
               aria-label="Habit icon"
             >
               {EMOJI_OPTIONS.map((emoji) => (
@@ -270,7 +270,7 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
             <Button
               type="submit"
               size="sm"
-              className="col-span-2 h-9 sm:col-span-1"
+              className="col-span-2 h-10 sm:col-span-1 sm:h-9"
               disabled={creating || !newName.trim()}
             >
               {creating ? 'Adding…' : 'Add'}
@@ -313,7 +313,7 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
                     <select
                       value={editEmoji}
                       onChange={(event) => setEditEmoji(event.target.value)}
-                      className="h-8 w-14 shrink-0 rounded-md border border-input bg-background text-center text-lg"
+                      className="h-10 w-14 shrink-0 rounded-md border border-input bg-background text-center text-lg sm:h-8"
                       aria-label="Habit icon"
                     >
                       {EMOJI_OPTIONS.map((emoji) => (
@@ -325,15 +325,15 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
                     <Input
                       value={editName}
                       onChange={(event) => setEditName(event.target.value)}
-                      className="h-8"
+                      className="h-10 sm:h-8"
                       autoFocus
                     />
                     <div className="flex gap-1">
-                      <Button size="sm" className="h-8" onClick={() => handleSaveEdit(habit)} disabled={!editName.trim()}>
+                      <Button size="sm" className="h-10 sm:h-8" onClick={() => handleSaveEdit(habit)} disabled={!editName.trim()}>
                         <Save className="size-3.5" />
                         Save
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8" onClick={cancelEdit}>
+                      <Button size="sm" variant="outline" className="h-10 sm:h-8" onClick={cancelEdit}>
                         <X className="size-3.5" />
                         Cancel
                       </Button>
@@ -355,7 +355,7 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
                         type="button"
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 text-muted-foreground"
+                        className="size-10 p-0 text-muted-foreground sm:size-7"
                         onClick={() => startEdit(habit)}
                         aria-label="Edit habit"
                       >
@@ -365,7 +365,7 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
                         type="button"
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        className="size-10 p-0 text-muted-foreground hover:text-destructive sm:size-7"
                         onClick={() => handleArchive(habit)}
                         aria-label="Archive habit"
                       >

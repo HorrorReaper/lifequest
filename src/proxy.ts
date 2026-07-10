@@ -9,9 +9,11 @@ export const config = {
   // Only run proxy for routes that need auth/session checks.
   matcher: [
     '/dashboard/:path*',
+    '/admin/:path*',
     '/journal/:path*',
     '/city/:path*',
     '/settings/:path*',
+    '/routines/:path*',
     '/onboarding/:path*',
     '/api/:path*',
   ],
