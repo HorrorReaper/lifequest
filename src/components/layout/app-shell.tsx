@@ -10,7 +10,7 @@ interface AppShellProps {
 }
 
 function isImmersiveRoute(pathname: string) {
-  return pathname.startsWith('/routines/') && pathname.endsWith('/run')
+  return pathname.startsWith('/admin') || (pathname.startsWith('/routines/') && pathname.endsWith('/run'))
 }
 
 export function AppShell({ children }: AppShellProps) {

@@ -2,22 +2,28 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Coins, Plus, Sparkles, Trophy, ScrollText, CheckCircle, Zap } from 'lucide-react'
+import { BookOpenText, Coins, Plus, Sparkles, Trophy, ScrollText, CheckCircle, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import {
   claimSystemQuest,
+  checkInDailyChallengeQuest,
+  completeChallengeProgramDay,
   completeCustomQuest,
   createCustomQuest,
+  restartChallengeProgram,
+  startChallengeProgram,
+  type ChallengeProgram,
   type DefaultQuestWithStatus,
   type CustomQuest,
 } from '@/lib/quests'
 import { useUserStore } from '@/lib/stores/user-store'
 import { SystemQuestCard, CustomQuestCard } from '@/components/quests/QuestCard'
+import { ChallengeProgramCard } from '@/components/quests/ChallengeProgramCard'
 
-type Tab = 'achievements' | 'my-quests' | 'completed'
+type Tab = 'achievements' | 'challenges' | 'my-quests' | 'completed'
 
 interface QuestCompletionReward {
   title: string
@@ -41,6 +47,7 @@ interface QuestPageClientProps {
   userId: string
   defaultQuests: DefaultQuestWithStatus[]
   initialCustomQuests: CustomQuest[]
+  initialChallengePrograms: ChallengeProgram[]
 }
 
 function questDeleteClient(supabase: ReturnType<typeof createClient>): QuestDeleteClient {
@@ -56,7 +63,7 @@ function getDeleteErrorMessage(error: unknown): string {
   return 'Could not delete this quest.'
 }
 
-export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: QuestPageClientProps) {
+export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, initialChallengePrograms }: QuestPageClientProps) {
   const supabase = createClient()
   const addXp = useUserStore((s) => s.addXp)
   const setCoins = useUserStore((s) => s.setCoins)
@@ -64,6 +71,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
   const [tab, setTab] = useState<Tab>('achievements')
   const [systemQuests, setSystemQuests] = useState<DefaultQuestWithStatus[]>(defaultQuests)
   const [customQuests, setCustomQuests] = useState<CustomQuest[]>(initialCustomQuests)
+  const [challengePrograms, setChallengePrograms] = useState<ChallengeProgram[]>(initialChallengePrograms)
   const [showForm, setShowForm] = useState(false)
   const [formTitle, setFormTitle] = useState('')
   const [formDesc, setFormDesc] = useState('')
@@ -115,10 +123,66 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
     })
   }
 
+  async function handleCheckInChallenge(quest: CustomQuest) {
+    const result = await checkInDailyChallengeQuest(supabase, quest.id)
+    const now = new Date().toISOString()
+    setCustomQuests((prev) =>
+      prev.map((q) => {
+        if (q.id !== quest.id) return q
+        const existingLogs = q.daily_logs ?? []
+        const hasLog = existingLogs.some((log) => log.log_date === result.log_date)
+        const daily_logs = hasLog
+          ? existingLogs.map((log) => log.log_date === result.log_date ? { ...log, created_at: now } : log)
+          : [
+              {
+                id: `${quest.id}-${result.log_date}`,
+                quest_id: quest.id,
+                user_id: userId,
+                log_date: result.log_date,
+                note: null,
+                created_at: now,
+              },
+              ...existingLogs,
+            ]
+
+        return { ...q, daily_logs }
+      })
+    )
+  }
+
   async function handleDeleteCustom(id: string) {
     const { error } = await questDeleteClient(supabase).from('quests').delete().eq('id', id)
     if (error) throw new Error(getDeleteErrorMessage(error))
     setCustomQuests((prev) => prev.filter((q) => q.id !== id))
+  }
+
+  async function handleStartProgram(program: ChallengeProgram) {
+    const enrollment = await startChallengeProgram(supabase, program.template.id, userId)
+    setChallengePrograms((current) => current.map((item) => item.template.id === program.template.id ? { ...item, enrollment, progress: [] } : item))
+  }
+
+  async function handleRestartProgram(program: ChallengeProgram) {
+    const enrollment = await restartChallengeProgram(supabase, program.template.id, userId)
+    setChallengePrograms((current) => current.map((item) => item.template.id === program.template.id ? { ...item, enrollment, progress: [] } : item))
+  }
+
+  async function handleCompleteProgramDay(program: ChallengeProgram, note: string) {
+    if (!program.enrollment) return
+    const result = await completeChallengeProgramDay(supabase, program.enrollment.id, note)
+    const challengeDay = program.days.find((day) => day.day_number === result.completed_day)
+    if (!challengeDay) return
+    const now = new Date().toISOString()
+    const today = result.completion_date
+    setChallengePrograms((current) => current.map((item) => item.template.id !== program.template.id ? item : {
+      ...item,
+      enrollment: item.enrollment ? { ...item.enrollment, status: result.challenge_completed ? 'completed' : 'active', completed_at: result.challenge_completed ? now : null, updated_at: now } : null,
+      progress: item.progress.some((entry) => entry.day_number === result.completed_day) ? item.progress : [...item.progress, { id: `${program.enrollment!.id}-${result.completed_day}`, enrollment_id: program.enrollment!.id, challenge_day_id: challengeDay.id, user_id: userId, day_number: result.completed_day, completed_on: today, note: note.trim() || null, created_at: now }],
+    }))
+    if (result.challenge_completed) {
+      addXp(program.template.xp_reward, result.total_xp - program.template.xp_reward)
+      setCoins(result.coins)
+      setCompletionReward({ title: program.template.title, xp: program.template.xp_reward, coins: program.template.coin_reward })
+    }
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -145,6 +209,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; count?: number }[] = [
     { id: 'achievements', label: 'Achievements', icon: <Trophy className="size-4" />, count: claimable.length || undefined },
+    { id: 'challenges', label: 'Challenges', icon: <BookOpenText className="size-4" />, count: challengePrograms.filter((program) => program.enrollment?.status === 'active').length || undefined },
     { id: 'my-quests', label: 'My Quests', icon: <ScrollText className="size-4" />, count: activeCustom.length || undefined },
     { id: 'completed', label: 'Completed', icon: <CheckCircle className="size-4" />, count: (claimedSystem.length + completedCustom.length) || undefined },
   ]
@@ -217,6 +282,13 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
               All achievements claimed! Keep journaling to unlock more.
             </p>
           )}
+        </div>
+      )}
+
+      {/* Guided challenges tab */}
+      {tab === 'challenges' && (
+        <div className="space-y-3">
+          {challengePrograms.length === 0 ? <div className="rounded-xl border border-dashed p-8 text-center"><BookOpenText className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 font-medium">No guided challenges available</p><p className="mt-1 text-sm text-muted-foreground">Published programs from LifeQuest Labs will appear here.</p></div> : challengePrograms.map((program) => <ChallengeProgramCard key={program.template.id} program={program} onStart={handleStartProgram} onRestart={handleRestartProgram} onCompleteDay={handleCompleteProgramDay} />)}
         </div>
       )}
 
@@ -299,6 +371,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
                 quest={q}
                 onComplete={handleCompleteCustom}
                 onDelete={handleDeleteCustom}
+                onCheckIn={handleCheckInChallenge}
               />
             ))}
           </div>
@@ -333,6 +406,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: 
                     quest={q}
                     onComplete={handleCompleteCustom}
                     onDelete={handleDeleteCustom}
+                    onCheckIn={handleCheckInChallenge}
                   />
                 ))}
               </div>

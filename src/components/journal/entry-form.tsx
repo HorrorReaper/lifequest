@@ -655,12 +655,16 @@ export function EntryForm({
             type="button"
             variant="outline"
             onClick={() => router.back()}
-            className="h-10 flex-1"
+            className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
           >
             Cancel
           </Button>
-          <Button type="submit" className="h-10 flex-1" disabled={submitting}>
-            <BookOpenCheck className="mr-1.5 size-4" />
+          <Button
+            type="submit"
+            className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
+            disabled={submitting}
+          >
+            <BookOpenCheck className="mr-1.5 size-5" />
             {submitting ? 'Saving...' : 'Save Reflection'}
           </Button>
         </div>

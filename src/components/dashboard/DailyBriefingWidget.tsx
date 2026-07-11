@@ -333,19 +333,19 @@ export function DailyBriefingWidget({
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             {focusCopy}
           </p>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
             {completedJournalCount === 0 && nextJournal ? (
-              <Button asChild size="lg" className="h-10 flex-1">
+              <Button asChild size="lg" className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5">
                 <Link href={`/journal/new/${nextJournal.id}`}>
-                  <span className="mr-1.5">{nextJournal.icon}</span>
+                  <span className="mr-1.5 text-base">{nextJournal.icon}</span>
                   Start {nextJournal.name}
-                  <ArrowRight className="ml-1.5 size-4" />
+                  <ArrowRight className="ml-1.5 size-5" />
                 </Link>
               </Button>
             ) : (
-              <Button asChild size="lg" variant="secondary" className="h-10 flex-1">
+              <Button asChild size="lg" variant="secondary" className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5">
                 <Link href="/journal">
-                  <BookOpen className="mr-1.5 size-4" />
+                  <BookOpen className="mr-1.5 size-5" />
                   Add Reflection
                 </Link>
               </Button>
@@ -358,9 +358,9 @@ export function DailyBriefingWidget({
                 setShowAddPlan(true)
                 openSheet('plan')
               }}
-              className="h-10 flex-1"
+              className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
             >
-              <CalendarClock className="mr-1.5 size-4" />
+              <CalendarClock className="mr-1.5 size-5" />
               Plan Today
             </Button>
             <Button
@@ -368,9 +368,9 @@ export function DailyBriefingWidget({
               size="lg"
               variant="outline"
               onClick={() => openSheet('today')}
-              className="h-10 flex-1"
+              className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
             >
-              <Focus className="mr-1.5 size-4" />
+              <Focus className="mr-1.5 size-5" />
               Manage Today
             </Button>
           </div>

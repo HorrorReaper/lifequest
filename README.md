@@ -2,7 +2,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-## Admin-only testing
+## Admin workspace
 
 Set one or both of these server-side environment variables to expose admin-only testing tools:
 
@@ -12,7 +12,25 @@ ADMIN_USER_IDS=00000000-0000-0000-0000-000000000000
 ```
 
 Use comma-separated values for multiple admins. Do not prefix these with `NEXT_PUBLIC_`; they must stay server-only.
-Allowlisted users can open `/admin` for private MVP testing tools.
+Allowlisted users can open `/admin` as a temporary route-level fallback. The productivity, workout, and nutrition tables additionally require a trusted Supabase admin claim.
+
+After the admin-hubs migration has been applied, assign the role once in the Supabase SQL editor:
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
+  || '{"role":"admin"}'::jsonb
+where email = 'patrick.egi04@gmail.com';
+```
+
+Sign out and sign in again after running the command so Supabase issues a fresh JWT. The admin workspace then provides:
+
+- `/admin/productivity`
+- `/admin/workouts`
+- `/admin/nutrition`
+- `/admin/tools`
+
+Do not place the admin role in `raw_user_meta_data`; users can edit that field themselves and it is not safe for authorization.
 
 First, run the development server:
 
