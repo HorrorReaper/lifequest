@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { BotMessageSquare, Loader2, MessageCircle, Send, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { createClient } from '@/lib/supabase/client'
+import { supabaseSelect } from '@/lib/supabase/helpers'
 import { cn } from '@/lib/utils'
 
 type ChatRole = 'user' | 'assistant'
@@ -45,7 +47,60 @@ export function ChatbotWidget() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [consentLoading, setConsentLoading] = useState(true)
+  const [aiEnabled, setAiEnabled] = useState(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+
+    async function loadConsent() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user || !active) {
+        if (active) setConsentLoading(false)
+        return
+      }
+
+      const { data, error: consentError } = await supabaseSelect(
+        supabase,
+        'profiles',
+        'ai_assistant_enabled,ai_consent_at'
+      )
+        .eq('id', user.id)
+        .single()
+
+      if (!active) return
+      if (consentError) {
+        setError('The assistant privacy preference could not be loaded.')
+      } else {
+        const consent = data as {
+          ai_assistant_enabled: boolean
+          ai_consent_at: string | null
+        } | null
+        setAiEnabled(Boolean(consent?.ai_assistant_enabled && consent.ai_consent_at))
+      }
+      setConsentLoading(false)
+    }
+
+    function handleConsentChange(event: Event) {
+      const detail = (event as CustomEvent<{ enabled?: boolean }>).detail
+      const enabled = Boolean(detail?.enabled)
+      setAiEnabled(enabled)
+      if (enabled) setError(null)
+      if (!enabled) setOpen(false)
+    }
+
+    void loadConsent()
+    window.addEventListener('lifequest-ai-consent-changed', handleConsentChange)
+    return () => {
+      active = false
+      window.removeEventListener('lifequest-ai-consent-changed', handleConsentChange)
+    }
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -80,6 +135,7 @@ export function ChatbotWidget() {
       const data = (await response.json()) as ChatResponse
 
       if (!response.ok || !data.reply) {
+        if (response.status === 403) setAiEnabled(false)
         throw new Error(data.error ?? 'The assistant could not reply right now.')
       }
 
@@ -95,6 +151,8 @@ export function ChatbotWidget() {
       setLoading(false)
     }
   }
+
+  if (consentLoading || !aiEnabled) return null
 
   return (
     <div className="fixed bottom-[calc(var(--bottom-nav-height)+var(--safe-area-bottom)+1rem)] right-4 z-[70] sm:bottom-6">
@@ -179,7 +237,12 @@ export function ChatbotWidget() {
                   placeholder="Ask for a plan, habit idea, or next step..."
                   className="max-h-24 min-h-9 flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
-                <Button type="submit" size="icon-lg" disabled={!input.trim() || loading} aria-label="Send message">
+                <Button
+                  type="submit"
+                  size="icon-lg"
+                  disabled={!input.trim() || loading}
+                  aria-label="Send message"
+                >
                   {loading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 </Button>
               </div>

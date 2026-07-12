@@ -3,10 +3,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, Focus, ListTodo, Minus, Plus, Sparkles } from 'lucide-react'
+import { ArrowRight, BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, Focus, ListTodo, Minus, Plus, Sparkles, Target } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { upsertDayPlan } from '@/lib/day-plans'
-import type { DayPlanBlock } from '@/lib/types'
+import type { DayPlanBlock, Goal } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
 import { supabaseInsert, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { toggleTask } from '@/lib/tasks'
@@ -18,6 +18,8 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { TaskList } from '@/components/tasks/TaskList'
 import { HabitDashboardWidget } from '@/components/dashboard/HabitDashboardWidget'
+import { GoalsDashboardWidget } from '@/components/dashboard/GoalsDashboardWidget'
+import { RoutinesManager } from '@/components/settings/RoutinesManager'
 
 interface BriefingHabit {
   id: string
@@ -59,17 +61,20 @@ interface DailyBriefingWidgetProps {
   tasks: BriefingTask[]
   journals: BriefingJournal[]
   planBlocks: BriefingPlanBlock[]
+  goals: Goal[]
   completedJournalCount: number
-  initialOpenPanel?: 'plan' | 'task' | 'habit' | null
+  initialOpenPanel?: 'plan' | 'task' | 'habit' | 'goal' | 'routine' | null
 }
 
-type FocusSheetTab = 'today' | 'tasks' | 'habits' | 'plan'
+type FocusSheetTab = 'today' | 'tasks' | 'habits' | 'routines' | 'plan' | 'goals'
 
 const focusSheetTabs: { value: FocusSheetTab; label: string }[] = [
   { value: 'today', label: 'Today' },
   { value: 'tasks', label: 'Tasks' },
   { value: 'habits', label: 'Habits' },
+  { value: 'routines', label: 'Routines' },
   { value: 'plan', label: 'Plan' },
+  { value: 'goals', label: 'Goals' },
 ]
 
 interface HabitLogUpsertClient {
@@ -110,6 +115,7 @@ export function DailyBriefingWidget({
   tasks,
   journals,
   planBlocks,
+  goals,
   completedJournalCount,
   initialOpenPanel = null,
 }: DailyBriefingWidgetProps) {
@@ -132,8 +138,12 @@ export function DailyBriefingWidget({
       ? 'tasks'
       : initialOpenPanel === 'habit'
         ? 'habits'
+        : initialOpenPanel === 'routine'
+          ? 'routines'
         : initialOpenPanel === 'plan'
           ? 'plan'
+          : initialOpenPanel === 'goal'
+            ? 'goals'
           : 'today'
   )
   const [quickActionId, setQuickActionId] = useState<string | null>(null)
@@ -514,7 +524,19 @@ export function DailyBriefingWidget({
             </div>
           </section>
 
-          <section className="rounded-lg border bg-background/70 p-3">
+          <section
+            role="link"
+            tabIndex={0}
+            aria-label="Open journal"
+            onClick={() => router.push('/journal')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                router.push('/journal')
+              }
+            }}
+            className="cursor-pointer rounded-lg border bg-background/70 p-3 transition-colors hover:border-primary/35 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <BookOpen className="size-4 text-primary" />
@@ -533,7 +555,7 @@ export function DailyBriefingWidget({
               <div className="flex flex-wrap gap-2">
                 {journals.slice(0, 2).map((journal) => (
                   <Button key={journal.id} asChild variant="outline" size="sm" className="h-10 sm:h-8">
-                    <Link href={`/journal/new/${journal.id}`}>
+                    <Link href={`/journal/new/${journal.id}`} onClick={(event) => event.stopPropagation()}>
                       <span className="mr-1.5">{journal.icon}</span>
                       {journal.name}
                     </Link>
@@ -590,7 +612,7 @@ export function DailyBriefingWidget({
           <div
             role="tablist"
             aria-label="Today Focus sections"
-            className="grid grid-cols-4 gap-1 rounded-2xl border bg-muted/35 p-1"
+            className="grid grid-cols-3 gap-1 rounded-2xl border bg-muted/35 p-1 sm:grid-cols-6"
           >
             {focusSheetTabs.map((tab) => (
               <button
@@ -674,7 +696,7 @@ export function DailyBriefingWidget({
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-5">
               <Button variant="outline" className="justify-start sm:justify-center" onClick={() => setSheetTab('tasks')}>
                 <ListTodo className="mr-1.5 size-4" />
                 Manage Tasks
@@ -682,6 +704,10 @@ export function DailyBriefingWidget({
               <Button variant="outline" className="justify-start sm:justify-center" onClick={() => setSheetTab('habits')}>
                 <Flame className="mr-1.5 size-4" />
                 Manage Habits
+              </Button>
+              <Button variant="outline" className="justify-start sm:justify-center" onClick={() => setSheetTab('routines')}>
+                <Sparkles className="mr-1.5 size-4" />
+                Routines
               </Button>
               <Button
                 variant="outline"
@@ -693,6 +719,14 @@ export function DailyBriefingWidget({
               >
                 <CalendarClock className="mr-1.5 size-4" />
                 Add Plan
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-start sm:justify-center"
+                onClick={() => setSheetTab('goals')}
+              >
+                <Target className="mr-1.5 size-4" />
+                Goals
               </Button>
             </div>
           </div>
@@ -715,6 +749,10 @@ export function DailyBriefingWidget({
               userId={userId}
               initiallyOpen={initialOpenPanel === 'habit'}
             />
+          )}
+
+          {sheetTab === 'routines' && (
+            <RoutinesManager userId={userId} />
           )}
 
           {sheetTab === 'plan' && (
@@ -814,6 +852,15 @@ export function DailyBriefingWidget({
               </ul>
             )}
             </div>
+          )}
+
+          {sheetTab === 'goals' && (
+            <GoalsDashboardWidget
+              key={`focus-sheet-goals-${initialOpenPanel === 'goal' ? 'open' : 'closed'}`}
+              userId={userId}
+              initialGoals={goals}
+              initiallyOpen={initialOpenPanel === 'goal'}
+            />
           )}
         </div>
       </DialogContent>

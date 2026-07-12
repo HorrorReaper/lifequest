@@ -35,7 +35,7 @@ export function RoutinesDashboardWidget({ routines }: RoutinesDashboardWidgetPro
               Chain existing habits into a morning ritual, focus starter, or evening shutdown.
             </p>
             <Button asChild size="sm" variant="outline" className="mt-3">
-              <Link href="/settings">Create a routine</Link>
+              <Link href="/dashboard?quick=routine">Create a routine</Link>
             </Button>
           </div>
         ) : (

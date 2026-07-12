@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { JournalTemplate } from '@/lib/types'
@@ -23,8 +23,6 @@ const TYPE_COPY: Record<string, string> = {
 }
 
 export function TemplatePicker({ templates, recommendedTemplateId = null }: TemplatePickerProps) {
-  const router = useRouter()
-
   if (templates.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed p-8 text-center">
@@ -45,14 +43,17 @@ export function TemplatePicker({ templates, recommendedTemplateId = null }: Temp
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.05 }}
         >
-          <Card
-            className={cn(
-              'cursor-pointer border bg-card/85 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card',
-              recommendedTemplateId === template.id && 'border-primary/30 ring-1 ring-primary/15'
-            )}
-            onClick={() => router.push(`/journal/new/${template.id}`)}
+          <Link
+            href={`/journal/new/${template.id}`}
+            className="block rounded-xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            <CardContent className="flex items-center gap-4 p-4">
+            <Card
+              className={cn(
+                'border bg-card/85 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card',
+                recommendedTemplateId === template.id && 'border-primary/30 ring-1 ring-primary/15'
+              )}
+            >
+              <CardContent className="flex items-center gap-4 p-4">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-2xl">
                 {template.icon}
               </span>
@@ -77,8 +78,9 @@ export function TemplatePicker({ templates, recommendedTemplateId = null }: Temp
                 +{template.xp_reward} XP
               </span>
               <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         </motion.div>
       ))}
     </div>

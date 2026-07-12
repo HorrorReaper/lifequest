@@ -112,6 +112,11 @@ interface ProfileXpRow {
   total_xp: number | null
 }
 
+interface AiConsentRow {
+  ai_assistant_enabled: boolean
+  ai_consent_at: string | null
+}
+
 interface AssistantContext {
   today: string
   tasks: {
@@ -651,6 +656,27 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { data: consentData, error: consentError } = await db
+    .from('profiles')
+    .select('ai_assistant_enabled,ai_consent_at')
+    .eq('id', user.id)
+    .single()
+
+  if (consentError) {
+    return NextResponse.json(
+      { error: 'The assistant privacy preference could not be verified.' },
+      { status: 503 }
+    )
+  }
+
+  const consent = consentData as AiConsentRow | null
+  if (!consent?.ai_assistant_enabled || !consent.ai_consent_at) {
+    return NextResponse.json(
+      { error: 'Enable the contextual AI assistant in Settings before sending a message.' },
+      { status: 403 }
+    )
   }
 
   const body = (await request.json().catch(() => ({}))) as ChatRequestBody

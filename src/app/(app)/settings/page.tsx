@@ -1,8 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SettingsForm } from '@/components/settings/settings-form'
-import { HabitsManager } from '@/components/settings/HabitsManager'
-import { RoutinesManager } from '@/components/settings/RoutinesManager'
 import type { Database } from '@/lib/supabase/database.types'
 
 export default async function SettingsPage() {
@@ -29,9 +27,9 @@ export default async function SettingsPage() {
           email={user.email ?? ''}
           username={profile?.username ?? ''}
           timezone={profile?.timezone ?? 'UTC'}
+          aiAssistantEnabled={profile?.ai_assistant_enabled ?? false}
+          aiConsentAt={profile?.ai_consent_at ?? null}
         />
-        <HabitsManager userId={user.id} />
-        <RoutinesManager userId={user.id} />
       </div>
     </div>
   )

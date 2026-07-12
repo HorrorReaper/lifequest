@@ -32,6 +32,18 @@ Sign out and sign in again after running the command so Supabase issues a fresh 
 
 Do not place the admin role in `raw_user_meta_data`; users can edit that field themselves and it is not safe for authorization.
 
+## Account deletion
+
+The Settings danger zone uses Supabase's server-only Admin API to permanently delete the signed-in user and cascade-delete owned application data. Configure one of these server-only variables in local development and Vercel:
+
+```bash
+SUPABASE_SECRET_KEY=sb_secret_...
+# Legacy alternative:
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+```
+
+Never prefix either key with `NEXT_PUBLIC_` or expose it to browser code.
+
 First, run the development server:
 
 ```bash

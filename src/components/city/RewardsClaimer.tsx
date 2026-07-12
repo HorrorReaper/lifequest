@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Gift, Coins, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -9,16 +8,16 @@ import {
   calculateRewards,
   fetchUnclaimedEntryCount,
 } from "@/lib/city/city";
-import { calculateStreaks, JournalEntry } from "@/lib/analytics";
+import { calculateStreaks, type JournalEntry } from "@/lib/analytics";
 
 interface RewardsClaimerProps {
   userId: string;
   claimedIds: string[];
-  onClaim: (newCoins: number, newXp: number, claimedIds: string[]) => void;
+  onClaim: (newCoins: number, newXp: number, claimedIds: string[]) => void | Promise<void>;
 }
 
 export function RewardsClaimer({ userId, claimedIds, onClaim }: RewardsClaimerProps) {
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
   const [unclaimedCount, setUnclaimedCount] = useState(0);
   const [unclaimedIds, setUnclaimedIds] = useState<string[]>([]);
   const [streakDays, setStreakDays] = useState(0);
@@ -45,11 +44,12 @@ export function RewardsClaimer({ userId, claimedIds, onClaim }: RewardsClaimerPr
         .eq("user_id", userId);
 
       if (entries) {
-        const mapped = entries.map((e: any) => ({
-          id: e.id,
+        const entryRows = entries as unknown as Array<{ id: string; created_at: string }>
+        const mapped: JournalEntry[] = entryRows.map((entry) => ({
+          id: entry.id,
           templateId: "",
           templateName: "",
-          createdAt: e.created_at,
+          createdAt: entry.created_at,
           fields: {},
         }));
         setStreakDays(calculateStreaks(mapped).current);
@@ -58,76 +58,42 @@ export function RewardsClaimer({ userId, claimedIds, onClaim }: RewardsClaimerPr
       setLoading(false);
     }
     load();
-  }, [userId, claimedIds]);
+  }, [userId, claimedIds, supabase]);
 
   if (loading) {
-    return (
-      <Card>
-        <CardContent className="pt-6 text-center text-sm text-muted-foreground">
-          Loading rewards...
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   if (unclaimedCount === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-6 text-center text-sm text-muted-foreground">
-          <Gift className="h-8 w-8 mx-auto mb-2 opacity-40" />
-          No unclaimed rewards. Write a journal entry to earn coins & XP!
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   const rewards = calculateRewards(unclaimedCount, streakDays);
 
   const handleClaim = async () => {
     setClaiming(true);
-    onClaim(rewards.coins, rewards.xp, unclaimedIds);
+    await onClaim(rewards.coins, rewards.xp, unclaimedIds);
     setClaiming(false);
   };
 
   return (
-    <Card className="border-primary/30 bg-primary/5">
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Gift className="h-5 w-5 text-primary" />
-          Unclaimed Rewards
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          You have <strong>{unclaimedCount}</strong> unclaimed{" "}
-          {unclaimedCount === 1 ? "entry" : "entries"}.
-          {streakDays > 1 && (
-            <span className="text-primary font-medium">
-              {" "}🔥 {streakDays}-day streak bonus active!
-            </span>
-          )}
-        </p>
-        <div className="flex gap-6">
-          <div className="flex items-center gap-2">
-            <Coins className="h-5 w-5 text-yellow-500" />
-            <span className="text-xl font-bold">+{rewards.coins}</span>
-            <span className="text-sm text-muted-foreground">coins</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-500" />
-            <span className="text-xl font-bold">+{rewards.xp}</span>
-            <span className="text-sm text-muted-foreground">XP</span>
-          </div>
+    <div className="flex flex-col gap-3 rounded-2xl border border-[#d9b95f]/30 bg-[#fff5d7]/75 p-3 text-[#5f491d] shadow-sm dark:bg-[#44391d]/70 dark:text-[#f2dda0] sm:flex-row sm:items-center">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#efd37b]/35">
+          <Gift className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">Your journal created new city resources</p>
+          <p className="flex flex-wrap items-center gap-x-3 text-xs opacity-75">
+            <span className="inline-flex items-center gap-1"><Coins className="size-3" /> +{rewards.coins}</span>
+            <span className="inline-flex items-center gap-1"><Sparkles className="size-3" /> +{rewards.xp} XP</span>
+            {streakDays > 1 && <span>{streakDays}-day bonus</span>}
+          </p>
         </div>
-        <Button onClick={handleClaim} className="w-full" disabled={claiming}>
-          {claiming ? "Claiming..." : (
-            <>
-              <Gift className="h-4 w-4 mr-2" />
-              Claim Rewards
-            </>
-          )}
-        </Button>
-      </CardContent>
-    </Card>
+      </div>
+      <Button onClick={handleClaim} size="sm" className="shrink-0" disabled={claiming}>
+        {claiming ? "Claiming..." : `Claim ${unclaimedCount}`}
+      </Button>
+    </div>
   );
 }

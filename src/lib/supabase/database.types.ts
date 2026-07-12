@@ -47,6 +47,8 @@ export interface Database {
           last_journal_date: string | null
           timezone: string
           onboarding_complete: boolean
+          ai_assistant_enabled: boolean
+          ai_consent_at: string | null
           created_at: string
           updated_at: string
         }
@@ -61,6 +63,8 @@ export interface Database {
           last_journal_date?: string | null
           timezone?: string
           onboarding_complete?: boolean
+          ai_assistant_enabled?: boolean
+          ai_consent_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -75,6 +79,8 @@ export interface Database {
           last_journal_date?: string | null
           timezone?: string
           onboarding_complete?: boolean
+          ai_assistant_enabled?: boolean
+          ai_consent_at?: string | null
           created_at?: string
           updated_at?: string
         }

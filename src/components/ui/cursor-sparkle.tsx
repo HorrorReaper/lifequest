@@ -9,6 +9,7 @@ export function CursorSparkle() {
   useEffect(() => {
     if (theme === 'white') return
     if (!window.matchMedia('(pointer: fine)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
     let lastTime = 0
 

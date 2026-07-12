@@ -7,6 +7,7 @@ import { createHabit, fetchHabits, updateHabit } from '@/lib/habits'
 import type { Habit } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { EmojiPicker } from '@/components/ui/emoji-picker'
 import { Input } from '@/components/ui/input'
 import { Archive, Flame, Minus, Pencil, Plus, Save, X } from 'lucide-react'
 import { format } from 'date-fns'
@@ -30,8 +31,6 @@ interface HabitLogUpsertClient {
     ): PromiseLike<{ error: unknown }>
   }
 }
-
-const EMOJI_OPTIONS = ['✅', '💪', '🧘', '💧', '📖', '🏃', '🥗', '😴', '🎯', '🧠', '🙏', '🚭', '☕', '💻', '🎵']
 
 function habitLogUpsertClient(supabase: ReturnType<typeof createClient>): HabitLogUpsertClient {
   return supabase as unknown as HabitLogUpsertClient
@@ -248,18 +247,12 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
       {showAddForm && (
         <form onSubmit={handleCreate} className="rounded-lg border bg-muted/30 p-3">
           <div className="grid gap-2 sm:grid-cols-[3.5rem_1fr_auto]">
-            <select
+            <EmojiPicker
               value={newEmoji}
-              onChange={(e) => setNewEmoji(e.target.value)}
-              className="h-10 w-14 shrink-0 rounded-md border border-input bg-background text-center text-lg sm:h-9"
-              aria-label="Habit icon"
-            >
-              {EMOJI_OPTIONS.map((emoji) => (
-                <option key={emoji} value={emoji}>
-                  {emoji}
-                </option>
-              ))}
-            </select>
+              onChange={setNewEmoji}
+              label="Choose habit icon"
+              disabled={creating}
+            />
             <Input
               placeholder="New habit"
               value={newName}
@@ -310,18 +303,11 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
                 />
                 {isEditing ? (
                   <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
-                    <select
+                    <EmojiPicker
                       value={editEmoji}
-                      onChange={(event) => setEditEmoji(event.target.value)}
-                      className="h-10 w-14 shrink-0 rounded-md border border-input bg-background text-center text-lg sm:h-8"
-                      aria-label="Habit icon"
-                    >
-                      {EMOJI_OPTIONS.map((emoji) => (
-                        <option key={emoji} value={emoji}>
-                          {emoji}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setEditEmoji}
+                      label="Choose habit icon"
+                    />
                     <Input
                       value={editName}
                       onChange={(event) => setEditName(event.target.value)}

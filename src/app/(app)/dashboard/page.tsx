@@ -12,7 +12,6 @@ import { AdminTestPanel } from '@/components/dev/AdminTestPanel'
 import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
 import type { DayPlanBlock } from '@/lib/types'
 import { fetchGoals } from '@/lib/goals'
-import { GoalsDashboardWidget } from '@/components/dashboard/GoalsDashboardWidget'
 import { calculateRoutineProgress, fetchRoutines } from '@/lib/routines'
 import { RoutinesDashboardWidget } from '@/components/dashboard/RoutinesDashboardWidget'
 import { isAdminUser } from '@/lib/admin'
@@ -267,9 +266,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           tasks={briefingTasks}
           journals={briefingJournals}
           planBlocks={planBlocks}
+          goals={activeGoals}
           completedJournalCount={(todayEntriesRes.data ?? []).length}
           initialOpenPanel={
-            quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit'
+            quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit' || quickAction === 'goal' || quickAction === 'routine'
               ? quickAction
               : null
           }
@@ -278,13 +278,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <RoutinesDashboardWidget routines={dashboardRoutines} />
 
         <NextRewardCard building={nextBuilding} currentXp={profile.total_xp} />
-
-        <GoalsDashboardWidget
-          key={`goals-${quickAction === 'goal' ? 'open' : 'closed'}`}
-          userId={user.id}
-          initialGoals={activeGoals}
-          initiallyOpen={quickAction === 'goal'}
-        />
 
         <QuestDashboardWidget
           claimable={claimableQuests}
