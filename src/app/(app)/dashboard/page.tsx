@@ -1,7 +1,5 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Button } from '@/components/ui/button'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import { getLockedBuildings } from '@/lib/city'
 import type { Database } from '@/lib/supabase/database.types'
@@ -10,13 +8,15 @@ import { StatTileGrid } from '@/components/dashboard/StatTileGrid'
 import { NextRewardCard } from '@/components/dashboard/NextRewardCard'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
-import { LevelUpTestButton } from '@/components/dev/LevelUpTestButton'
+import { AdminTestPanel } from '@/components/dev/AdminTestPanel'
 import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
 import type { DayPlanBlock } from '@/lib/types'
 import { fetchGoals } from '@/lib/goals'
-import { GoalsDashboardWidget } from '@/components/dashboard/GoalsDashboardWidget'
+import { calculateRoutineProgress, fetchRoutines } from '@/lib/routines'
+import { RoutinesDashboardWidget } from '@/components/dashboard/RoutinesDashboardWidget'
+import { isAdminUser } from '@/lib/admin'
 
-type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal'
+type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal' | 'routine'
 
 interface DashboardPageProps {
   searchParams?: Promise<{
@@ -26,7 +26,7 @@ interface DashboardPageProps {
 
 function parseQuickAction(value: string | string[] | undefined): QuickActionTarget | null {
   const quick = Array.isArray(value) ? value[0] : value
-  if (quick === 'task' || quick === 'plan' || quick === 'habit' || quick === 'goal') {
+  if (quick === 'task' || quick === 'plan' || quick === 'habit' || quick === 'goal' || quick === 'routine') {
     return quick
   }
   return null
@@ -88,7 +88,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   if (!profile?.onboarding_complete) redirect('/onboarding')
 
-  const isMvp = process.env.IS_MVP === 'true'
+  const isAdmin = isAdminUser(user)
 
   const level = getLevel(profile.total_xp)
   const cityTier = getCityTier(level)
@@ -117,6 +117,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     briefingTemplatesRes,
     todayEntriesRes,
     dayPlanRes,
+    routines,
   ] = await Promise.all([
     supabase
       .from('habits')
@@ -159,6 +160,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('user_id', user.id)
       .eq('plan_date', today)
       .maybeSingle(),
+    fetchRoutines(supabase, user.id, false),
   ])
 
   const completedHabitIds = new Set(
@@ -216,19 +218,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         isPast: end <= nowMinutes,
       }
     }))
+  const dashboardRoutines = routines
+    .filter((routine) => routine.items.length > 0)
+    .map((routine) => {
+      const progress = calculateRoutineProgress(routine, completedHabitIds)
+
+      return {
+        id: routine.id,
+        name: routine.name,
+        emoji: routine.emoji,
+        description: routine.description,
+        completed: progress.completed,
+        total: progress.total,
+      }
+    })
 
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="max-w-2xl mx-auto space-y-5">
 
-        {isMvp && (
-          <div className="flex gap-2">
-            <Button asChild variant="outline" size="sm" className="flex-1">
-              <Link href="/onboarding">Start onboarding</Link>
-            </Button>
-            <LevelUpTestButton />
-          </div>
-        )}
+        {isAdmin && <AdminTestPanel />}
 
         <DashboardHero
           username={profile.username}
@@ -257,22 +266,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           tasks={briefingTasks}
           journals={briefingJournals}
           planBlocks={planBlocks}
+          goals={activeGoals}
           completedJournalCount={(todayEntriesRes.data ?? []).length}
           initialOpenPanel={
-            quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit'
+            quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit' || quickAction === 'goal' || quickAction === 'routine'
               ? quickAction
               : null
           }
         />
 
-        <NextRewardCard building={nextBuilding} currentXp={profile.total_xp} />
+        <RoutinesDashboardWidget routines={dashboardRoutines} />
 
-        <GoalsDashboardWidget
-          key={`goals-${quickAction === 'goal' ? 'open' : 'closed'}`}
-          userId={user.id}
-          initialGoals={activeGoals}
-          initiallyOpen={quickAction === 'goal'}
-        />
+        <NextRewardCard building={nextBuilding} currentXp={profile.total_xp} />
 
         <QuestDashboardWidget
           claimable={claimableQuests}

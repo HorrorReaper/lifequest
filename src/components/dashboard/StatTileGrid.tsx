@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Flame, Zap, Coins, Trophy, type LucideIcon } from "lucide-react";
+import { Flame, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StatTileGridProps {
@@ -20,7 +20,7 @@ interface Tile {
   caption?: string;
 }
 
-export function StatTileGrid({ streak, bestStreak, totalXp, coins, level }: StatTileGridProps) {
+export function StatTileGrid({ streak, bestStreak }: StatTileGridProps) {
   const tiles: Tile[] = [
     {
       icon: Flame,
@@ -29,22 +29,10 @@ export function StatTileGrid({ streak, bestStreak, totalXp, coins, level }: Stat
       iconBgClass: "bg-orange-500/15 text-orange-500",
       caption: streak > 0 && streak >= bestStreak ? "Best ever!" : undefined,
     },
-    {
-      icon: Zap,
-      label: "Total XP",
-      value: totalXp,
-      iconBgClass: "bg-blue-500/15 text-blue-500",
-    },
-    {
-      icon: Coins,
-      label: "Coins",
-      value: coins,
-      iconBgClass: "bg-yellow-500/15 text-yellow-500",
-    },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3">
       {tiles.map((tile, index) => (
         <motion.div
           key={tile.label}

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -8,6 +9,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
+import { Loader2, Trash2 } from 'lucide-react'
 import { useTheme, type Theme } from '@/components/providers/theme-provider'
 import { cn } from '@/lib/utils'
 
@@ -52,6 +63,8 @@ interface SettingsFormProps {
   email: string
   username: string
   timezone: string
+  aiAssistantEnabled: boolean
+  aiConsentAt: string | null
 }
 
 export function SettingsForm({
@@ -59,6 +72,8 @@ export function SettingsForm({
   email,
   username: initialUsername,
   timezone: initialTimezone,
+  aiAssistantEnabled: initialAiAssistantEnabled,
+  aiConsentAt: initialAiConsentAt,
 }: SettingsFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -68,25 +83,100 @@ export function SettingsForm({
   const [timezone, setTimezone] = useState(initialTimezone)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [aiAssistantEnabled, setAiAssistantEnabled] = useState(initialAiAssistantEnabled)
+  const [aiConsentAt, setAiConsentAt] = useState(initialAiConsentAt)
+  const [aiSaving, setAiSaving] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   async function handleSave() {
     setSaving(true)
     setSaved(false)
+    setProfileError(null)
 
-    await supabaseUpdateWhere(supabase, 'profiles', {
-      username: username.trim(),
-      timezone,
-      updated_at: new Date().toISOString(),
-    }, 'id', userId)
+    const { error } = await supabaseUpdateWhere(
+      supabase,
+      'profiles',
+      {
+        username: username.trim(),
+        timezone,
+        updated_at: new Date().toISOString(),
+      },
+      'id',
+      userId
+    )
 
     setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    if (error) {
+      setProfileError('We could not save your profile. Please try again.')
+    } else {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    }
   }
 
   async function handleSignOut() {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  async function handleAiConsent(enabled: boolean) {
+    setAiSaving(true)
+    setAiError(null)
+    const consentAt = enabled ? new Date().toISOString() : null
+
+    const { error } = await supabaseUpdateWhere(
+      supabase,
+      'profiles',
+      {
+        ai_assistant_enabled: enabled,
+        ai_consent_at: consentAt,
+        updated_at: new Date().toISOString(),
+      },
+      'id',
+      userId
+    )
+
+    if (error) {
+      setAiError('We could not update your AI privacy preference. Please try again.')
+    } else {
+      setAiAssistantEnabled(enabled)
+      setAiConsentAt(consentAt)
+      window.dispatchEvent(
+        new CustomEvent('lifequest-ai-consent-changed', { detail: { enabled } })
+      )
+    }
+
+    setAiSaving(false)
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmation.trim().toLowerCase() !== email.trim().toLowerCase()) return
+    setDeleting(true)
+    setDeleteError(null)
+
+    try {
+      const response = await fetch('/api/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: deleteConfirmation }),
+      })
+      const data = (await response.json().catch(() => ({}))) as { error?: string }
+
+      if (!response.ok) {
+        throw new Error(data.error ?? 'We could not delete your account.')
+      }
+
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined)
+      window.location.assign('/login?account=deleted')
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'We could not delete your account.')
+      setDeleting(false)
+    }
   }
 
   return (
@@ -128,6 +218,53 @@ export function SettingsForm({
       </Card>
 
       <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle>AI &amp; privacy</CardTitle>
+          <CardDescription>
+            The assistant is optional and stays off until you explicitly enable contextual AI processing.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start justify-between gap-4 rounded-xl border bg-muted/25 p-4">
+            <div className="min-w-0 space-y-1">
+              <Label htmlFor="ai-assistant-consent" className="text-sm font-semibold">
+                Contextual AI assistant
+              </Label>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                When enabled, your messages and relevant recent tasks, habits, and journal responses may be sent to OpenRouter and the selected model provider to answer your request.
+              </p>
+            </div>
+            <Switch
+              id="ai-assistant-consent"
+              checked={aiAssistantEnabled}
+              onCheckedChange={handleAiConsent}
+              disabled={aiSaving}
+              aria-describedby="ai-assistant-status"
+            />
+          </div>
+
+          <div id="ai-assistant-status" className="text-xs leading-relaxed text-muted-foreground">
+            {aiAssistantEnabled ? (
+              <p>
+                Enabled{aiConsentAt ? ` since ${new Date(aiConsentAt).toLocaleDateString()}` : ''}. You can withdraw consent at any time; future AI requests will be blocked immediately.
+              </p>
+            ) : (
+              <p>Disabled. LifeQuest will not send your app context to the AI provider.</p>
+            )}
+          </div>
+
+          {aiError && <p className="text-xs text-destructive">{aiError}</p>}
+
+          <Link
+            href="/privacy#ai-assistant"
+            className="inline-flex text-xs font-medium text-primary underline underline-offset-4"
+          >
+            Read how AI processing works
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
         <CardContent className="space-y-4 pt-6">
           <div className="space-y-2">
             <Label>Email</Label>
@@ -160,8 +297,10 @@ export function SettingsForm({
           </div>
 
           <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Changes'}
+            {saving && <Loader2 className="size-4 animate-spin" />}
+            {saving ? 'Saving...' : saved ? 'Saved' : 'Save changes'}
           </Button>
+          {profileError && <p className="text-xs text-destructive">{profileError}</p>}
         </CardContent>
       </Card>
 
@@ -176,6 +315,69 @@ export function SettingsForm({
           </Button>
         </CardContent>
       </Card>
+
+      <Card className="border-destructive/25 bg-destructive/5">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger zone</CardTitle>
+          <CardDescription>
+            Permanently remove your account and LifeQuest data. This cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="destructive"
+            className="w-full"
+            onClick={() => {
+              setDeleteConfirmation('')
+              setDeleteError(null)
+              setDeleteOpen(true)
+            }}
+          >
+            <Trash2 className="size-4" />
+            Delete account
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={deleteOpen} onOpenChange={(open) => !deleting && setDeleteOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete your account?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes your journal entries, tasks, habits, routines, goals, progress, and account. Enter <strong className="font-semibold text-foreground">{email}</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="delete-account-confirmation">Account email</Label>
+            <Input
+              id="delete-account-confirmation"
+              type="email"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              autoComplete="off"
+              disabled={deleting}
+            />
+            {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Keep account
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={
+                deleting || deleteConfirmation.trim().toLowerCase() !== email.trim().toLowerCase()
+              }
+            >
+              {deleting && <Loader2 className="size-4 animate-spin" />}
+              {deleting ? 'Deleting...' : 'Delete permanently'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

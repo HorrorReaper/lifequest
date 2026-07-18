@@ -11,7 +11,7 @@ export default async function QuestsPage() {
 
   if (!user) redirect('/login')
 
-  const { annotated, customQuests } = await fetchQuestPageData(supabase, user.id)
+  const { annotated, customQuests, challengePrograms } = await fetchQuestPageData(supabase, user.id)
 
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
@@ -27,6 +27,7 @@ export default async function QuestsPage() {
           userId={user.id}
           defaultQuests={annotated}
           initialCustomQuests={customQuests}
+          initialChallengePrograms={challengePrograms}
         />
       </div>
     </div>

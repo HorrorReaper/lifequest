@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { CalendarClock, Flame, ListTodo, NotebookPen, Plus, Target } from 'lucide-react'
+import { BookOpen, CalendarClock, Flame, ListTodo, NotebookPen, Plus, Sparkles, Trophy, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -22,6 +22,12 @@ const QUICK_ACTIONS = [
     icon: NotebookPen,
   },
   {
+    href: '/learn',
+    title: 'Learn',
+    description: 'Open lessons, habits, and ideas.',
+    icon: BookOpen,
+  },
+  {
     href: '/dashboard?quick=task',
     title: 'Task',
     description: 'Capture something that needs doing.',
@@ -36,37 +42,48 @@ const QUICK_ACTIONS = [
   {
     href: '/dashboard?quick=habit',
     title: 'Habit',
-    description: 'Add a routine to keep alive.',
+    description: 'Add a small action to repeat.',
     icon: Flame,
   },
   {
-    href: '/dashboard?quick=goal',
-    title: 'Goal',
-    description: 'Set a direction for your quests.',
-    icon: Target,
+    href: '/dashboard?quick=routine',
+    title: 'Routine',
+    description: 'Run a guided chain of habits.',
+    icon: Sparkles,
+  },
+  {
+    href: '/quests',
+    title: 'Quests',
+    description: 'Open active quests and challenges.',
+    icon: Trophy,
   },
 ]
 
 export function QuickActionButton() {
   const [open, setOpen] = useState(false)
+  const TriggerIcon = open ? X : Plus
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
           <Button
-            aria-label="Open quick actions"
-            className="relative -top-5 mx-auto flex size-14 rounded-full border-4 border-background p-0 shadow-[0_16px_40px_rgba(0,0,0,0.22)] hover:scale-105 white-mode:shadow-[0_12px_30px_rgba(68,64,60,0.14)]"
+            aria-label={open ? 'Close quick actions' : 'Open quick actions'}
+            aria-expanded={open}
+            className="relative -top-5 mx-auto flex size-14 rounded-full border-4 border-background p-0 shadow-[0_16px_40px_rgba(0,0,0,0.22)] transition-transform hover:scale-105 sm:size-14 sm:p-0 white-mode:shadow-[0_12px_30px_rgba(68,64,60,0.14)]"
           />
         }
       >
-        <Plus className="size-7" />
+        <TriggerIcon className="size-7" />
       </DialogTrigger>
 
-      <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl p-5 sm:bottom-auto sm:top-1/2 sm:max-w-sm sm:-translate-y-1/2 sm:rounded-xl">
-        <DialogHeader>
+      <DialogContent
+        showCloseButton={false}
+        className="bottom-[calc(var(--bottom-nav-height)+var(--safe-area-bottom)+0.85rem)] top-auto max-h-[72svh] max-w-[calc(100%-2rem)] translate-y-0 overflow-y-auto rounded-2xl p-4 shadow-[0_20px_70px_rgba(0,0,0,0.22)] sm:bottom-[calc(var(--bottom-nav-height)+1rem)] sm:max-w-sm sm:rounded-2xl white-mode:shadow-[0_18px_48px_rgba(68,64,60,0.16)]"
+      >
+        <DialogHeader className="gap-1">
           <DialogTitle>Quick actions</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             Capture what you need without breaking flow.
           </DialogDescription>
         </DialogHeader>

@@ -169,7 +169,7 @@ export function DayPlannerInput({ value, onChange, config }: DayPlannerInputProp
                   size="sm"
                   variant="ghost"
                   onClick={() => removeBlock(b.id)}
-                  className="h-7 w-7 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                  className="size-10 p-0 opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>

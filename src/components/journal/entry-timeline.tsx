@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { JournalEntry, JournalResponse } from '@/lib/types'
@@ -38,8 +38,6 @@ function entryPreview(entry: JournalEntry) {
 }
 
 export function EntryTimeline({ entries }: EntryTimelineProps) {
-  const router = useRouter()
-
   if (entries.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border/60 bg-card/50 p-8 text-center">
@@ -66,11 +64,12 @@ export function EntryTimeline({ entries }: EntryTimelineProps) {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.03 }}
           >
-            <Card
-              className="cursor-pointer border-border/60 bg-card/80 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card"
-              onClick={() => router.push(`/journal/${entry.id}`)}
+            <Link
+              href={`/journal/${entry.id}`}
+              className="block rounded-xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <CardContent className="flex items-start gap-3 p-4">
+              <Card className="border-border/60 bg-card/80 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card">
+                <CardContent className="flex items-start gap-3 p-4">
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-muted text-xl">
                   {template?.icon ?? '📓'}
                 </span>
@@ -97,8 +96,9 @@ export function EntryTimeline({ entries }: EntryTimelineProps) {
                   </p>
                 </div>
                 <ArrowRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           </motion.div>
         )
       })}

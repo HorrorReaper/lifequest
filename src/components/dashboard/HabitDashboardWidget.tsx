@@ -7,6 +7,7 @@ import { createHabit, fetchHabits, updateHabit } from '@/lib/habits'
 import type { Habit } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { EmojiPicker } from '@/components/ui/emoji-picker'
 import { Input } from '@/components/ui/input'
 import { Archive, Flame, Minus, Pencil, Plus, Save, X } from 'lucide-react'
 import { format } from 'date-fns'
@@ -30,8 +31,6 @@ interface HabitLogUpsertClient {
     ): PromiseLike<{ error: unknown }>
   }
 }
-
-const EMOJI_OPTIONS = ['✅', '💪', '🧘', '💧', '📖', '🏃', '🥗', '😴', '🎯', '🧠', '🙏', '🚭', '☕', '💻', '🎵']
 
 function habitLogUpsertClient(supabase: ReturnType<typeof createClient>): HabitLogUpsertClient {
   return supabase as unknown as HabitLogUpsertClient
@@ -248,18 +247,12 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
       {showAddForm && (
         <form onSubmit={handleCreate} className="rounded-lg border bg-muted/30 p-3">
           <div className="grid gap-2 sm:grid-cols-[3.5rem_1fr_auto]">
-            <select
+            <EmojiPicker
               value={newEmoji}
-              onChange={(e) => setNewEmoji(e.target.value)}
-              className="h-9 w-14 shrink-0 rounded-md border border-input bg-background text-center text-lg"
-              aria-label="Habit icon"
-            >
-              {EMOJI_OPTIONS.map((emoji) => (
-                <option key={emoji} value={emoji}>
-                  {emoji}
-                </option>
-              ))}
-            </select>
+              onChange={setNewEmoji}
+              label="Choose habit icon"
+              disabled={creating}
+            />
             <Input
               placeholder="New habit"
               value={newName}
@@ -270,7 +263,7 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
             <Button
               type="submit"
               size="sm"
-              className="col-span-2 h-9 sm:col-span-1"
+              className="col-span-2 h-10 sm:col-span-1 sm:h-9"
               disabled={creating || !newName.trim()}
             >
               {creating ? 'Adding…' : 'Add'}
@@ -310,30 +303,23 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
                 />
                 {isEditing ? (
                   <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
-                    <select
+                    <EmojiPicker
                       value={editEmoji}
-                      onChange={(event) => setEditEmoji(event.target.value)}
-                      className="h-8 w-14 shrink-0 rounded-md border border-input bg-background text-center text-lg"
-                      aria-label="Habit icon"
-                    >
-                      {EMOJI_OPTIONS.map((emoji) => (
-                        <option key={emoji} value={emoji}>
-                          {emoji}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setEditEmoji}
+                      label="Choose habit icon"
+                    />
                     <Input
                       value={editName}
                       onChange={(event) => setEditName(event.target.value)}
-                      className="h-8"
+                      className="h-10 sm:h-8"
                       autoFocus
                     />
                     <div className="flex gap-1">
-                      <Button size="sm" className="h-8" onClick={() => handleSaveEdit(habit)} disabled={!editName.trim()}>
+                      <Button size="sm" className="h-10 sm:h-8" onClick={() => handleSaveEdit(habit)} disabled={!editName.trim()}>
                         <Save className="size-3.5" />
                         Save
                       </Button>
-                      <Button size="sm" variant="outline" className="h-8" onClick={cancelEdit}>
+                      <Button size="sm" variant="outline" className="h-10 sm:h-8" onClick={cancelEdit}>
                         <X className="size-3.5" />
                         Cancel
                       </Button>
@@ -355,7 +341,7 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
                         type="button"
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 text-muted-foreground"
+                        className="size-10 p-0 text-muted-foreground sm:size-7"
                         onClick={() => startEdit(habit)}
                         aria-label="Edit habit"
                       >
@@ -365,7 +351,7 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
                         type="button"
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        className="size-10 p-0 text-muted-foreground hover:text-destructive sm:size-7"
                         onClick={() => handleArchive(habit)}
                         aria-label="Archive habit"
                       >

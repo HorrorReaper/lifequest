@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getLevel } from '@/lib/gamification'
+import type { ChallengeDayProgressRow, ChallengeDayRow, ChallengeEnrollmentRow, ChallengeTemplateRow } from '@/lib/supabase/database.types'
 
 interface SupabaseResult<T> {
   data: T | null
@@ -23,6 +24,22 @@ interface QuestSupabaseClient {
     fn: 'complete_custom_quest_reward',
     args: { p_quest_id: string }
   ): PromiseLike<SupabaseResult<{ total_xp: number; coins: number }[]>>
+  rpc(
+    fn: 'check_in_daily_challenge_quest',
+    args: { p_quest_id: string; p_note?: string | null }
+  ): PromiseLike<SupabaseResult<ChallengeCheckInResult[]>>
+  rpc(
+    fn: 'start_challenge_program',
+    args: { p_template_id: string }
+  ): PromiseLike<SupabaseResult<{ enrollment_id: string; start_date: string; status: string }[]>>
+  rpc(
+    fn: 'restart_challenge_program',
+    args: { p_template_id: string }
+  ): PromiseLike<SupabaseResult<{ enrollment_id: string; start_date: string; status: string }[]>>
+  rpc(
+    fn: 'complete_challenge_program_day',
+    args: { p_enrollment_id: string; p_note?: string | null }
+  ): PromiseLike<SupabaseResult<ChallengeDayCompletionResult[]>>
   from(table: string): QueryBuilder<unknown>
 }
 
@@ -70,10 +87,48 @@ export interface CustomQuest {
   description: string | null
   xp_reward: number
   coin_reward: number
+  quest_type: 'single' | 'daily_challenge'
+  challenge_days: number | null
+  challenge_task: string | null
+  challenge_start_date: string | null
   is_completed: boolean
   completed_at: string | null
   created_at: string
   updated_at: string
+  daily_logs?: QuestDailyLog[]
+}
+
+export interface QuestDailyLog {
+  id: string
+  quest_id: string
+  user_id: string
+  log_date: string
+  note: string | null
+  created_at: string
+}
+
+export interface ChallengeCheckInResult {
+  log_date: string
+  completed_days: number
+  required_days: number
+  ready_to_complete: boolean
+}
+
+export interface ChallengeProgram {
+  template: ChallengeTemplateRow
+  days: ChallengeDayRow[]
+  enrollment: ChallengeEnrollmentRow | null
+  progress: ChallengeDayProgressRow[]
+}
+
+export interface ChallengeDayCompletionResult {
+  completed_day: number
+  completed_days: number
+  total_days: number
+  completion_date: string
+  challenge_completed: boolean
+  total_xp: number
+  coins: number
 }
 
 interface QuestProfileStatsRow {
@@ -244,10 +299,84 @@ export async function completeCustomQuest(
   callbacks.setCoins(rewardState.coins)
 }
 
+export async function checkInDailyChallengeQuest(
+  supabase: SupabaseClient,
+  questId: string,
+  note?: string
+): Promise<ChallengeCheckInResult> {
+  const client = questClient(supabase)
+  const { data, error } = await client.rpc('check_in_daily_challenge_quest', {
+    p_quest_id: questId,
+    p_note: note?.trim() || null,
+  })
+
+  if (error) {
+    throw new Error(getQuestErrorMessage(error, 'Could not check in for this challenge.'))
+  }
+
+  const result = Array.isArray(data) ? data[0] : data
+
+  if (!result?.log_date) {
+    throw new Error('Challenge check-in completed, but the progress state was invalid.')
+  }
+
+  return result
+}
+
+export async function startChallengeProgram(
+  supabase: SupabaseClient,
+  templateId: string,
+  userId: string
+): Promise<ChallengeEnrollmentRow> {
+  const { data, error } = await questClient(supabase).rpc('start_challenge_program', { p_template_id: templateId })
+  if (error) throw new Error(getQuestErrorMessage(error, 'Could not start this challenge.'))
+  const result = Array.isArray(data) ? data[0] : data
+  if (!result?.enrollment_id) throw new Error('Challenge started, but the enrollment state was invalid.')
+  const now = new Date().toISOString()
+  return { id: result.enrollment_id, template_id: templateId, user_id: userId, start_date: result.start_date, status: result.status as ChallengeEnrollmentRow['status'], completed_at: null, created_at: now, updated_at: now }
+}
+
+export async function restartChallengeProgram(
+  supabase: SupabaseClient,
+  templateId: string,
+  userId: string
+): Promise<ChallengeEnrollmentRow> {
+  const { data, error } = await questClient(supabase).rpc('restart_challenge_program', { p_template_id: templateId })
+  if (error) throw new Error(getQuestErrorMessage(error, 'Could not restart this challenge.'))
+  const result = Array.isArray(data) ? data[0] : data
+  if (!result?.enrollment_id) throw new Error('Challenge restarted, but the enrollment state was invalid.')
+  const now = new Date().toISOString()
+  return { id: result.enrollment_id, template_id: templateId, user_id: userId, start_date: result.start_date, status: result.status as ChallengeEnrollmentRow['status'], completed_at: null, created_at: now, updated_at: now }
+}
+
+export async function completeChallengeProgramDay(
+  supabase: SupabaseClient,
+  enrollmentId: string,
+  note?: string
+): Promise<ChallengeDayCompletionResult> {
+  const { data, error } = await questClient(supabase).rpc('complete_challenge_program_day', {
+    p_enrollment_id: enrollmentId,
+    p_note: note?.trim() || null,
+  })
+  if (error) throw new Error(getQuestErrorMessage(error, 'Could not complete today’s challenge.'))
+  const result = Array.isArray(data) ? data[0] : data
+  if (!result?.completed_day) throw new Error('Challenge day completed, but the progress state was invalid.')
+  return result
+}
+
 export async function createCustomQuest(
   supabase: SupabaseClient,
   userId: string,
-  data: { title: string; description: string; xp_reward: number; coin_reward: number }
+  data: {
+    title: string
+    description: string
+    xp_reward: number
+    coin_reward: number
+    quest_type?: 'single' | 'daily_challenge'
+    challenge_days?: number | null
+    challenge_task?: string | null
+    challenge_start_date?: string | null
+  }
 ): Promise<CustomQuest> {
   const client = questClient(supabase)
   const { data: quest, error } = await client.from('quests').insert({
@@ -261,13 +390,18 @@ export async function createCustomQuest(
 
 export async function fetchQuestPageData(supabase: SupabaseClient, userId: string) {
   const client = questClient(supabase)
-  const [profileRes, entriesRes, buildingsRes, completionsRes, customQuestsRes] =
+  const [profileRes, entriesRes, buildingsRes, completionsRes, customQuestsRes, dailyLogsRes, templatesRes, challengeDaysRes, enrollmentsRes, challengeProgressRes] =
     await Promise.all([
       client.from('profiles').select('total_xp, best_streak').eq('id', userId).single(),
       client.from('journal_entries').select('id').eq('user_id', userId).eq('is_complete', true),
       client.from('city_buildings_placing').select('id').eq('user_id', userId),
       client.from('quest_completions').select('quest_key, completed_at').eq('user_id', userId),
       client.from('quests').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+      client.from('quest_daily_logs').select('*').eq('user_id', userId).order('log_date', { ascending: false }),
+      client.from('challenge_templates').select('*').order('created_at', { ascending: false }),
+      client.from('challenge_days').select('*').order('day_number'),
+      client.from('challenge_enrollments').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+      client.from('challenge_day_progress').select('*').eq('user_id', userId).order('day_number'),
     ])
 
   const profile = (profileRes.data as QuestProfileStatsRow | null) ?? { total_xp: 0, best_streak: 0 }
@@ -285,7 +419,33 @@ export async function fetchQuestPageData(supabase: SupabaseClient, userId: strin
   )
 
   const annotated = annotateDefaultQuests(stats, claimedKeys, completionTimes)
-  const customQuests = ((customQuestsRes.data as CustomQuest[] | null) ?? [])
+  const dailyLogs = ((dailyLogsRes.data as QuestDailyLog[] | null) ?? [])
+  const customQuests = ((customQuestsRes.data as CustomQuest[] | null) ?? []).map((quest) => ({
+    ...quest,
+    quest_type: quest.quest_type ?? 'single',
+    challenge_days: quest.challenge_days ?? null,
+    challenge_task: quest.challenge_task ?? null,
+    challenge_start_date: quest.challenge_start_date ?? null,
+    daily_logs: dailyLogs.filter((log) => log.quest_id === quest.id),
+  }))
 
-  return { stats, annotated, customQuests }
+  const challengeDays = (challengeDaysRes.data as ChallengeDayRow[] | null) ?? []
+  const enrollments = (enrollmentsRes.data as ChallengeEnrollmentRow[] | null) ?? []
+  const challengeProgress = (challengeProgressRes.data as ChallengeDayProgressRow[] | null) ?? []
+  const visibleTemplates = ((templatesRes.data as ChallengeTemplateRow[] | null) ?? []).filter(
+    (template) => template.is_published || enrollments.some((item) => item.template_id === template.id)
+  )
+  const challengePrograms: ChallengeProgram[] = visibleTemplates.map((template) => {
+    const enrollment = enrollments.find((item) => item.template_id === template.id && item.status === 'active')
+      ?? enrollments.find((item) => item.template_id === template.id)
+      ?? null
+    return {
+      template,
+      days: challengeDays.filter((day) => day.template_id === template.id),
+      enrollment,
+      progress: enrollment ? challengeProgress.filter((item) => item.enrollment_id === enrollment.id) : [],
+    }
+  })
+
+  return { stats, annotated, customQuests, challengePrograms }
 }

@@ -27,6 +27,8 @@ export default async function SettingsPage() {
           email={user.email ?? ''}
           username={profile?.username ?? ''}
           timezone={profile?.timezone ?? 'UTC'}
+          aiAssistantEnabled={profile?.ai_assistant_enabled ?? false}
+          aiConsentAt={profile?.ai_consent_at ?? null}
         />
       </div>
     </div>

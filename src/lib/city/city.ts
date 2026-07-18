@@ -146,7 +146,6 @@ export async function fetchCityState(
     .select("*")
     .eq("user_id", userId)
     .single();
-  console.log("Fetched city state:", cityRow);
   if (!cityRow) {
     const { data: newRow, error } = await supabase
       .from("city_states")

@@ -2,6 +2,48 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+## Admin workspace
+
+Set one or both of these server-side environment variables to expose admin-only testing tools:
+
+```bash
+ADMIN_EMAILS=patrick@example.com
+ADMIN_USER_IDS=00000000-0000-0000-0000-000000000000
+```
+
+Use comma-separated values for multiple admins. Do not prefix these with `NEXT_PUBLIC_`; they must stay server-only.
+Allowlisted users can open `/admin` as a temporary route-level fallback. The productivity, workout, and nutrition tables additionally require a trusted Supabase admin claim.
+
+After the admin-hubs migration has been applied, assign the role once in the Supabase SQL editor:
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
+  || '{"role":"admin"}'::jsonb
+where email = 'patrick.egi04@gmail.com';
+```
+
+Sign out and sign in again after running the command so Supabase issues a fresh JWT. The admin workspace then provides:
+
+- `/admin/productivity`
+- `/admin/workouts`
+- `/admin/nutrition`
+- `/admin/tools`
+
+Do not place the admin role in `raw_user_meta_data`; users can edit that field themselves and it is not safe for authorization.
+
+## Account deletion
+
+The Settings danger zone uses Supabase's server-only Admin API to permanently delete the signed-in user and cascade-delete owned application data. Configure one of these server-only variables in local development and Vercel:
+
+```bash
+SUPABASE_SECRET_KEY=sb_secret_...
+# Legacy alternative:
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+```
+
+Never prefix either key with `NEXT_PUBLIC_` or expose it to browser code.
+
 First, run the development server:
 
 ```bash

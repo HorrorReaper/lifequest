@@ -116,7 +116,7 @@ export function EntryArchive({ entries, templates }: EntryArchiveProps) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search entries, templates, or response text..."
-              className="h-9 pl-8"
+              className="h-10 pl-8 sm:h-9"
             />
           </div>
           <Button
@@ -125,7 +125,7 @@ export function EntryArchive({ entries, templates }: EntryArchiveProps) {
             size="sm"
             onClick={clearFilters}
             disabled={!activeFilters && sortMode === 'newest'}
-            className="h-9 justify-self-start sm:justify-self-end"
+            className="h-10 justify-self-start sm:h-9 sm:justify-self-end"
           >
             <X className="size-3.5" />
             Reset
@@ -141,7 +141,7 @@ export function EntryArchive({ entries, templates }: EntryArchiveProps) {
             <select
               value={templateId}
               onChange={(event) => setTemplateId(event.target.value)}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-9 sm:px-2.5"
             >
               <option value="all">All templates</option>
               {templates.map((template) => (
@@ -161,7 +161,7 @@ export function EntryArchive({ entries, templates }: EntryArchiveProps) {
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
-              className="h-9"
+              className="h-10 sm:h-9"
             />
           </label>
 
@@ -174,7 +174,7 @@ export function EntryArchive({ entries, templates }: EntryArchiveProps) {
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
-              className="h-9"
+              className="h-10 sm:h-9"
             />
           </label>
 
@@ -186,7 +186,7 @@ export function EntryArchive({ entries, templates }: EntryArchiveProps) {
             <select
               value={sortMode}
               onChange={(event) => setSortMode(event.target.value as SortMode)}
-              className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-9 sm:px-2.5"
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>

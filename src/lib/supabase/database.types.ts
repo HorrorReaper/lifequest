@@ -1,5 +1,29 @@
 import { CityBuilding, UserBuilding } from "../types"
 
+export type ProductivityPriorityRow = { id: string; user_id: string; priority_date: string; task_id: string; sort_order: number; created_at: string }
+export type FocusSessionRow = { id: string; user_id: string; task_id: string | null; planned_minutes: number; status: 'active' | 'completed' | 'cancelled'; started_at: string; ended_at: string | null; actual_seconds: number | null; created_at: string; updated_at: string }
+export type ExerciseRow = { id: string; user_id: string; name: string; muscle_group: string; equipment: string; notes: string | null; is_archived: boolean; created_at: string; updated_at: string }
+export type WorkoutTemplateRow = { id: string; user_id: string; name: string; notes: string | null; sort_order: number; created_at: string; updated_at: string }
+export type WorkoutTemplateExerciseRow = { id: string; template_id: string; exercise_id: string; sort_order: number; target_sets: number; rep_min: number | null; rep_max: number | null; rest_seconds: number; created_at: string }
+export type WorkoutSessionRow = { id: string; user_id: string; template_id: string | null; name: string; status: 'active' | 'completed' | 'cancelled'; started_at: string; ended_at: string | null; duration_seconds: number | null; notes: string | null; created_at: string; updated_at: string }
+export type WorkoutSessionExerciseRow = { id: string; session_id: string; exercise_id: string; sort_order: number; is_complete: boolean; created_at: string }
+export type WorkoutSetRow = { id: string; session_exercise_id: string; set_order: number; set_type: 'warmup' | 'working' | 'drop' | 'failure'; reps: number | null; weight_kg: number | null; rir: number | null; is_complete: boolean; completed_at: string | null; created_at: string; updated_at: string }
+export type NutritionTargetRow = { user_id: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; created_at: string; updated_at: string }
+export type NutritionEntryRow = { id: string; user_id: string; entry_date: string; meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other'; name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; notes: string | null; created_at: string; updated_at: string }
+export type QuestDailyLogRow = { id: string; quest_id: string; user_id: string; log_date: string; note: string | null; created_at: string }
+export type ChallengeTemplateRow = { id: string; created_by: string; title: string; description: string | null; duration_days: number; schedule_mode: 'sequential' | 'strict'; xp_reward: number; coin_reward: number; is_published: boolean; created_at: string; updated_at: string }
+export type ChallengeDayRow = { id: string; template_id: string; day_number: number; title: string; instructions: string; reflection_prompt: string | null; created_at: string }
+export type ChallengeEnrollmentRow = { id: string; template_id: string; user_id: string; start_date: string; status: 'active' | 'completed' | 'failed' | 'abandoned'; completed_at: string | null; created_at: string; updated_at: string }
+export type ChallengeDayProgressRow = { id: string; enrollment_id: string; challenge_day_id: string; user_id: string; day_number: number; completed_on: string; note: string | null; created_at: string }
+export type AdminNoteRow = { id: string; user_id: string; title: string; body: string; tags: string[]; module: 'general' | 'productivity' | 'workouts' | 'nutrition' | 'challenges' | 'tools'; status: 'idea' | 'testing' | 'validated' | 'rejected'; is_pinned: boolean; created_at: string; updated_at: string }
+
+type MutableTable<Row, Required extends keyof Row> = {
+  Row: Row
+  Insert: Pick<Row, Required> & Partial<Row>
+  Update: Partial<Row>
+  Relationships: []
+}
+
 export type Json =
   | string
   | number
@@ -23,6 +47,8 @@ export interface Database {
           last_journal_date: string | null
           timezone: string
           onboarding_complete: boolean
+          ai_assistant_enabled: boolean
+          ai_consent_at: string | null
           created_at: string
           updated_at: string
         }
@@ -37,6 +63,8 @@ export interface Database {
           last_journal_date?: string | null
           timezone?: string
           onboarding_complete?: boolean
+          ai_assistant_enabled?: boolean
+          ai_consent_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -51,6 +79,8 @@ export interface Database {
           last_journal_date?: string | null
           timezone?: string
           onboarding_complete?: boolean
+          ai_assistant_enabled?: boolean
+          ai_consent_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -274,6 +304,140 @@ export interface Database {
           sort_order?: number
         }
       }
+      habits: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          emoji: string
+          color: string
+          is_archived: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          emoji?: string
+          color?: string
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          emoji?: string
+          color?: string
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+      }
+      habit_logs: {
+        Row: {
+          id: string
+          user_id: string
+          habit_id: string
+          entry_id: string | null
+          log_date: string
+          completed: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          habit_id: string
+          entry_id?: string | null
+          log_date: string
+          completed?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          habit_id?: string
+          entry_id?: string | null
+          log_date?: string
+          completed?: boolean
+          created_at?: string
+        }
+      }
+      routines: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          emoji: string
+          description: string | null
+          is_archived: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          emoji?: string
+          description?: string | null
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          emoji?: string
+          description?: string | null
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      routine_items: {
+        Row: {
+          id: string
+          routine_id: string
+          habit_id: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          routine_id: string
+          habit_id: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          routine_id?: string
+          habit_id?: string
+          sort_order?: number
+          created_at?: string
+        }
+      }
+      productivity_daily_priorities: MutableTable<ProductivityPriorityRow, 'user_id' | 'priority_date' | 'task_id'>
+      focus_sessions: MutableTable<FocusSessionRow, 'user_id' | 'planned_minutes'>
+      exercises: MutableTable<ExerciseRow, 'user_id' | 'name'>
+      workout_templates: MutableTable<WorkoutTemplateRow, 'user_id' | 'name'>
+      workout_template_exercises: MutableTable<WorkoutTemplateExerciseRow, 'template_id' | 'exercise_id'>
+      workout_sessions: MutableTable<WorkoutSessionRow, 'user_id' | 'name'>
+      workout_session_exercises: MutableTable<WorkoutSessionExerciseRow, 'session_id' | 'exercise_id'>
+      workout_sets: MutableTable<WorkoutSetRow, 'session_exercise_id'>
+      nutrition_targets: MutableTable<NutritionTargetRow, 'user_id'>
+      nutrition_entries: MutableTable<NutritionEntryRow, 'user_id' | 'entry_date' | 'name'>
+      challenge_templates: MutableTable<ChallengeTemplateRow, 'created_by' | 'title' | 'duration_days'>
+      challenge_days: MutableTable<ChallengeDayRow, 'template_id' | 'day_number' | 'title' | 'instructions'>
+      challenge_enrollments: MutableTable<ChallengeEnrollmentRow, 'template_id' | 'user_id' | 'start_date'>
+      challenge_day_progress: MutableTable<ChallengeDayProgressRow, 'enrollment_id' | 'challenge_day_id' | 'user_id' | 'day_number' | 'completed_on'>
+      admin_notes: MutableTable<AdminNoteRow, 'user_id' | 'title'>
       xp_events: {
         Row: {
           id: string
@@ -473,6 +637,10 @@ export interface Database {
           description: string | null
           xp_reward: number
           coin_reward: number
+          quest_type: 'single' | 'daily_challenge'
+          challenge_days: number | null
+          challenge_task: string | null
+          challenge_start_date: string | null
           is_completed: boolean
           completed_at: string | null
           created_at: string
@@ -485,6 +653,10 @@ export interface Database {
           description?: string | null
           xp_reward?: number
           coin_reward?: number
+          quest_type?: 'single' | 'daily_challenge'
+          challenge_days?: number | null
+          challenge_task?: string | null
+          challenge_start_date?: string | null
           is_completed?: boolean
           completed_at?: string | null
           created_at?: string
@@ -497,6 +669,10 @@ export interface Database {
           description?: string | null
           xp_reward?: number
           coin_reward?: number
+          quest_type?: 'single' | 'daily_challenge'
+          challenge_days?: number | null
+          challenge_task?: string | null
+          challenge_start_date?: string | null
           is_completed?: boolean
           completed_at?: string | null
           created_at?: string
@@ -544,6 +720,7 @@ export interface Database {
           updated_at?: string
         }
       }
+      quest_daily_logs: MutableTable<QuestDailyLogRow, 'quest_id' | 'user_id' | 'log_date'>
       quest_completions: {
         Row: {
           id: string
@@ -598,6 +775,30 @@ export interface Database {
       }
     }
     Functions: {
+      admin_app_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: { total_users: number }[]
+      }
+      check_in_daily_challenge_quest: {
+        Args: { p_quest_id: string; p_note?: string | null }
+        Returns: { log_date: string; completed_days: number; required_days: number; ready_to_complete: boolean }[]
+      }
+      admin_save_challenge_template: {
+        Args: { p_template_id: string | null; p_title: string; p_description: string; p_schedule_mode: 'sequential' | 'strict'; p_xp_reward: number; p_coin_reward: number; p_is_published: boolean; p_days: Json }
+        Returns: string
+      }
+      start_challenge_program: {
+        Args: { p_template_id: string }
+        Returns: { enrollment_id: string; start_date: string; status: string }[]
+      }
+      restart_challenge_program: {
+        Args: { p_template_id: string }
+        Returns: { enrollment_id: string; start_date: string; status: string }[]
+      }
+      complete_challenge_program_day: {
+        Args: { p_enrollment_id: string; p_note?: string | null }
+        Returns: { completed_day: number; completed_days: number; total_days: number; completion_date: string; challenge_completed: boolean; total_xp: number; coins: number }[]
+      }
       claim_system_quest_reward: {
         Args: { p_quest_key: string }
         Returns: { total_xp: number; coins: number }[]
