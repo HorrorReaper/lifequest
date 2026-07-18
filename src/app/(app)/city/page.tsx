@@ -152,97 +152,105 @@ export default function CityPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:px-6 sm:py-8" aria-busy="true">
-        <div className="h-10 w-44 animate-pulse rounded-xl bg-muted" />
-        <div className="h-[65dvh] animate-pulse rounded-[2rem] bg-muted/70" />
+      <main
+        className="h-[calc(100svh-var(--bottom-nav-height)-var(--safe-area-bottom))] min-h-[30rem] overflow-hidden bg-muted/70"
+        aria-busy="true"
+      >
+        <div className="h-full animate-pulse bg-[linear-gradient(180deg,#b9dde1_0%,#d8ebdc_38%,#9fc487_100%)] dark:bg-[linear-gradient(180deg,#183744_0%,#24483d_42%,#193a29_100%)]" />
         <span className="sr-only">Loading your city</span>
-      </div>
+      </main>
     )
   }
 
   return (
-    <main className="mx-auto max-w-7xl space-y-3 px-3 py-4 sm:space-y-4 sm:px-6 sm:py-8">
-      <header className="flex items-end justify-between gap-4 px-1">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">Your world</p>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">My city</h1>
-        </div>
-        <p className="hidden max-w-md text-right text-sm text-muted-foreground sm:block">
-          Turn your daily progress into a place that feels like yours.
-        </p>
-      </header>
-
-      {error && (
-        <div
-          role="alert"
-          className="flex flex-col gap-3 rounded-2xl border border-destructive/25 bg-destructive/10 p-3 text-sm sm:flex-row sm:items-center"
-        >
-          <AlertCircle className="size-5 shrink-0 text-destructive" />
-          <p className="min-w-0 flex-1 text-destructive">{error}</p>
-          <Button size="sm" variant="outline" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
-            <RefreshCw className="size-4" />
-            Reload
-          </Button>
-        </div>
-      )}
-
-      {userId && (
-        <RewardsClaimer
-          userId={userId}
-          claimedIds={city.claimedEntryIds}
-          onClaim={handleClaim}
-        />
-      )}
-
-      <section className="relative overflow-hidden rounded-[2rem] border border-[#91b8bd]/35 bg-[linear-gradient(180deg,#b9dde1_0%,#d8ebdc_38%,#9fc487_100%)] shadow-[0_24px_80px_rgb(35_70_59_/_0.16)] dark:bg-[linear-gradient(180deg,#183744_0%,#24483d_42%,#193a29_100%)]">
+    <main className="h-[calc(100svh-var(--bottom-nav-height)-var(--safe-area-bottom))] min-h-[30rem] overflow-hidden">
+      <section className="relative h-full w-full overflow-hidden bg-[linear-gradient(180deg,#b9dde1_0%,#d8ebdc_38%,#9fc487_100%)] dark:bg-[linear-gradient(180deg,#183744_0%,#24483d_42%,#193a29_100%)]">
         <div className="pointer-events-none absolute -left-12 top-20 size-40 rounded-full bg-white/20 blur-3xl" />
         <div className="pointer-events-none absolute right-0 top-0 h-40 w-72 bg-[radial-gradient(circle_at_center,rgb(255_255_255_/_0.35),transparent_68%)]" />
 
-        <div className="absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-3">
-          <div className="flex rounded-2xl border border-white/45 bg-background/85 p-1 shadow-sm backdrop-blur-md">
-            {(['view', 'build'] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => selectMode(item)}
-                className={cn(
-                  'flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold capitalize transition active:scale-[0.97]',
-                  mode === item ? 'bg-foreground text-background shadow-sm' : 'text-muted-foreground'
-                )}
-                aria-pressed={mode === item}
-              >
-                {item === 'view' ? <Eye className="size-4" /> : <Hammer className="size-4" />}
-                {item}
-              </button>
-            ))}
-          </div>
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-background/90 via-background/65 to-transparent px-3 pb-8 pt-3 backdrop-blur-[2px] sm:px-6 sm:pt-4">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Your world</p>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">My city</h1>
+            </div>
 
-          <div className="flex rounded-2xl border border-white/45 bg-background/85 p-1 shadow-sm backdrop-blur-md">
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              onClick={() => setZoomIndex((index) => Math.max(0, index - 1))}
-              disabled={zoomIndex === 0}
-              aria-label="Zoom city out"
-            >
-              <Minus className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              onClick={() => setZoomIndex((index) => Math.min(CELL_SIZES.length - 1, index + 1))}
-              disabled={zoomIndex === CELL_SIZES.length - 1}
-              aria-label="Zoom city in"
-            >
-              <Plus className="size-4" />
-            </Button>
+            <div className="pointer-events-auto flex items-center justify-between gap-3 sm:justify-end">
+              <div className="flex rounded-2xl border border-white/45 bg-background/85 p-1 shadow-sm backdrop-blur-md">
+                {(['view', 'build'] as const).map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => selectMode(item)}
+                    className={cn(
+                      'flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold capitalize transition active:scale-[0.97]',
+                      mode === item ? 'bg-foreground text-background shadow-sm' : 'text-muted-foreground'
+                    )}
+                    aria-pressed={mode === item}
+                  >
+                    {item === 'view' ? <Eye className="size-4" /> : <Hammer className="size-4" />}
+                    {item}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex rounded-2xl border border-white/45 bg-background/85 p-1 shadow-sm backdrop-blur-md">
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setZoomIndex((index) => Math.max(0, index - 1))}
+                  disabled={zoomIndex === 0}
+                  aria-label="Zoom city out"
+                >
+                  <Minus className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setZoomIndex((index) => Math.min(CELL_SIZES.length - 1, index + 1))}
+                  disabled={zoomIndex === CELL_SIZES.length - 1}
+                  aria-label="Zoom city in"
+                >
+                  <Plus className="size-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="h-[58dvh] min-h-[25rem] max-h-[44rem] overflow-auto overscroll-contain px-8 pb-24 pt-24 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex min-h-full min-w-full items-center justify-center">
+        <div className="absolute inset-x-3 top-[8.5rem] z-30 mx-auto max-w-2xl space-y-2 sm:top-20">
+          {error && (
+            <div
+              role="alert"
+              className="flex flex-col gap-3 rounded-2xl border border-destructive/25 bg-background/95 p-3 text-sm shadow-lg backdrop-blur-xl sm:flex-row sm:items-center"
+            >
+              <AlertCircle className="size-5 shrink-0 text-destructive" />
+              <p className="min-w-0 flex-1 text-destructive">{error}</p>
+              <Button size="sm" variant="outline" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+                <RefreshCw className="size-4" />
+                Reload
+              </Button>
+            </div>
+          )}
+
+          {userId && (
+            <RewardsClaimer
+              userId={userId}
+              claimedIds={city.claimedEntryIds}
+              onClaim={handleClaim}
+            />
+          )}
+        </div>
+
+        <div
+          className={cn(
+            'h-full overflow-auto overscroll-contain px-1 pt-28 [scrollbar-width:none] sm:px-8 sm:pt-24 [&::-webkit-scrollbar]:hidden',
+            mode === 'build' ? 'pb-72' : 'pb-24'
+          )}
+        >
+          <div className="flex min-h-full w-max min-w-full items-center justify-center">
             <CityGrid
               buildings={city.buildings}
               selectedBuilding={selectedBuilding}
@@ -255,7 +263,7 @@ export default function CityPage() {
         </div>
 
         {mode === 'build' && !selectedBuilding && !previewCell && (
-          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 mx-auto max-w-sm rounded-2xl border border-white/40 bg-background/85 px-4 py-3 text-center text-sm shadow-lg backdrop-blur-md">
+          <div className="pointer-events-none absolute inset-x-4 bottom-[17.5rem] z-20 mx-auto max-w-sm rounded-2xl border border-white/40 bg-background/90 px-4 py-3 text-center text-sm shadow-lg backdrop-blur-md">
             Choose a building from the dock, then tap an empty tile.
           </div>
         )}
@@ -267,7 +275,7 @@ export default function CityPage() {
         )}
 
         {previewCell && selectedBuilding && (
-          <div className="absolute inset-x-3 bottom-3 z-20 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-white/50 bg-background/95 p-2.5 shadow-xl backdrop-blur-xl">
+          <div className="absolute inset-x-3 bottom-[17.5rem] z-30 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-white/50 bg-background/95 p-2.5 shadow-xl backdrop-blur-xl">
             <BuildingSprite building={selectedBuilding} className="size-14 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">Place {selectedBuilding.name}?</p>
@@ -290,7 +298,12 @@ export default function CityPage() {
         )}
 
         {inspectedBuilding && !previewCell && (
-          <div className="absolute inset-x-3 bottom-3 z-20 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-white/50 bg-background/95 p-3 shadow-xl backdrop-blur-xl">
+          <div
+            className={cn(
+              'absolute inset-x-3 z-30 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-white/50 bg-background/95 p-3 shadow-xl backdrop-blur-xl',
+              mode === 'build' ? 'bottom-[17.5rem]' : 'bottom-3'
+            )}
+          >
             <BuildingSprite building={inspectedBuilding.type} className="size-16 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="font-semibold">{inspectedBuilding.type.name}</p>
@@ -307,16 +320,17 @@ export default function CityPage() {
             </Button>
           </div>
         )}
-      </section>
 
-      {mode === 'build' && (
-        <BuildingPicker
-          xp={city.xp}
-          coins={city.coins}
-          selected={selectedBuilding}
-          onSelect={handleBuildingSelect}
-        />
-      )}
+        {mode === 'build' && (
+          <BuildingPicker
+            xp={city.xp}
+            coins={city.coins}
+            selected={selectedBuilding}
+            onSelect={handleBuildingSelect}
+            className="absolute inset-x-3 bottom-3 mx-auto max-w-5xl sm:inset-x-6 sm:bottom-6"
+          />
+        )}
+      </section>
     </main>
   )
 }

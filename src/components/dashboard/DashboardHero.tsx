@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Coins } from "lucide-react";
+import { Coins, Flame } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { XpRing } from "./XpRing";
 
@@ -13,6 +13,7 @@ interface DashboardHeroProps {
   totalXp: number;
   pct: number;
   coins: number;
+  streak: number;
 }
 
 export function DashboardHero({
@@ -23,6 +24,7 @@ export function DashboardHero({
   totalXp,
   pct,
   coins,
+  streak,
 }: DashboardHeroProps) {
   return (
     <motion.div
@@ -45,6 +47,10 @@ export function DashboardHero({
             <Badge variant="outline" className="gap-1 border-yellow-500/30 text-yellow-600 dark:text-yellow-400">
               <Coins className="size-3.5" />
               {coins}
+            </Badge>
+            <Badge variant="outline" className="gap-1 border-orange-500/30 text-orange-600 dark:text-orange-400">
+              <Flame className="size-3.5" />
+              {streak} {streak === 1 ? "day" : "days"}
             </Badge>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">

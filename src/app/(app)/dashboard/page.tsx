@@ -4,11 +4,9 @@ import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/ga
 import { getLockedBuildings } from '@/lib/city'
 import type { Database } from '@/lib/supabase/database.types'
 import { DashboardHero } from '@/components/dashboard/DashboardHero'
-import { StatTileGrid } from '@/components/dashboard/StatTileGrid'
 import { NextRewardCard } from '@/components/dashboard/NextRewardCard'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
-import { AdminTestPanel } from '@/components/dev/AdminTestPanel'
 import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
 import type { DayPlanBlock } from '@/lib/types'
 import { fetchGoals } from '@/lib/goals'
@@ -160,7 +158,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('user_id', user.id)
       .eq('plan_date', today)
       .maybeSingle(),
-    fetchRoutines(supabase, user.id, false),
+    isAdmin ? fetchRoutines(supabase, user.id, false) : Promise.resolve([]),
   ])
 
   const completedHabitIds = new Set(
@@ -236,9 +234,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="max-w-2xl mx-auto space-y-5">
-
-        {isAdmin && <AdminTestPanel />}
-
         <DashboardHero
           username={profile.username}
           level={level}
@@ -247,14 +242,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           totalXp={profile.total_xp}
           pct={progress.pct}
           coins={coins}
-        />
-
-        <StatTileGrid
           streak={profile.current_streak}
-          bestStreak={profile.best_streak}
-          totalXp={profile.total_xp}
-          coins={coins}
-          level={level}
         />
 
         <DailyBriefingWidget
@@ -268,14 +256,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           planBlocks={planBlocks}
           goals={activeGoals}
           completedJournalCount={(todayEntriesRes.data ?? []).length}
+          routinesEnabled={isAdmin}
           initialOpenPanel={
-            quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit' || quickAction === 'goal' || quickAction === 'routine'
+            quickAction === 'routine'
+              ? (isAdmin ? 'routine' : null)
+              : quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit' || quickAction === 'goal'
               ? quickAction
               : null
           }
         />
 
-        <RoutinesDashboardWidget routines={dashboardRoutines} />
+        {isAdmin && <RoutinesDashboardWidget routines={dashboardRoutines} />}
 
         <NextRewardCard building={nextBuilding} currentXp={profile.total_xp} />
 

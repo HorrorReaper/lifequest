@@ -1,5 +1,3 @@
-// src/components/onboarding/onboarding-flow.tsx
-
 'use client'
 
 import { type ReactNode, useState } from 'react'
@@ -253,7 +251,7 @@ function StepHeader({
   description,
   icon,
 }: {
-  eyebrow: string
+  eyebrow?: string
   title: string
   description?: string
   icon?: LucideIcon
@@ -262,7 +260,7 @@ function StepHeader({
     <div className="space-y-5">
       {icon && <IconOrb icon={icon} />}
       <div className="space-y-3">
-        <p className="text-sm font-medium text-muted-foreground">{eyebrow}</p>
+        {eyebrow && <p className="text-sm font-medium text-muted-foreground">{eyebrow}</p>}
         <h1 className="text-balance text-4xl font-bold leading-tight tracking-normal text-foreground sm:text-5xl">
           {title}
         </h1>
@@ -332,7 +330,7 @@ export function OnboardingFlow({
       <StepHeader
         eyebrow="Welcome to LifeQuest"
         title="Build your life like a city."
-        description="Journal, plan, complete habits, and turn small daily actions into XP, coins, quests, lessons, and visible progress."
+        description="Journal, plan, complete habits, and turn small daily actions into a growing city"
         icon={CastleIcon}
       />
 
@@ -357,9 +355,8 @@ export function OnboardingFlow({
 
     <div key="profile" className="space-y-8">
       <StepHeader
-        eyebrow="Hello, I am LifeQuest"
-        title="What should I call you?"
-        description="Your dashboard, briefing, and quests will feel more personal with a name."
+        title="What should we call you?"
+        description="Your dashboard, briefing, and quests will feel more personal with your name."
         icon={UserRoundIcon}
       />
 
@@ -418,8 +415,8 @@ export function OnboardingFlow({
     <div key="rhythm" className="space-y-7">
       <StepHeader
         eyebrow={selectedIntent ? 'That makes sense' : 'Your rhythm'}
-        title="What is your current relationship with journaling?"
-        description="This helps set the right tone: no guilt, no streak anxiety, just a useful daily practice."
+        title="How familiar are you with journaling?"
+        description="This helps us set the right tone for you"
         icon={BookOpenCheckIcon}
       />
 
@@ -468,7 +465,7 @@ export function OnboardingFlow({
       </div>
 
       <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm text-primary">
-        Your first mission is simple: choose a journal prompt and write the first entry.
+        Your first mission is simple: choose a journal prompt and write your very first entry.
       </div>
     </div>,
 
@@ -586,12 +583,8 @@ export function OnboardingFlow({
       </div>
 
       <div className="relative grid min-h-[calc(100svh-4rem)] lg:min-h-[720px] lg:grid-cols-[0.78fr_1fr]">
-        <aside className="hidden border-r border-white/50 bg-white/35 p-10 dark:border-white/10 dark:bg-white/5 lg:flex lg:flex-col lg:justify-between">
+        <aside className="hidden border-r border-white/50 bg-white/35 p-10 dark:border-white/10 dark:bg-white/5 lg:flex lg:flex-col lg:justify-start lg:gap-10">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/60 px-3 py-1.5 text-sm font-medium text-muted-foreground shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/10">
-              <CastleIcon className="size-4 text-primary" />
-              LifeQuest setup
-            </div>
             <h2 className="max-w-sm text-3xl font-bold leading-tight tracking-normal">
               A calm operating system for your personal growth.
             </h2>
@@ -602,7 +595,7 @@ export function OnboardingFlow({
 
           <div className="relative mx-auto flex h-80 w-80 items-center justify-center">
             <div className="absolute inset-8 rounded-full border border-dashed border-primary/25" />
-            <div className="absolute left-8 top-12">
+            <div className="absolute left-8 top-8">
               <IconOrb icon={PencilLineIcon} />
             </div>
             <div className="absolute right-8 top-20">
@@ -627,21 +620,6 @@ export function OnboardingFlow({
             </motion.div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 text-center">
-            {[
-              ['XP', 'Levels'],
-              ['Coins', 'City'],
-              ['Quests', 'Growth'],
-            ].map(([top, bottom]) => (
-              <div
-                key={top}
-                className="rounded-2xl border border-white/60 bg-white/45 p-3 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5"
-              >
-                <p className="text-sm font-semibold">{top}</p>
-                <p className="text-xs text-muted-foreground">{bottom}</p>
-              </div>
-            ))}
-          </div>
         </aside>
 
         <section className="flex min-h-[calc(100svh-4rem)] flex-col p-5 sm:p-8 lg:min-h-[720px] lg:p-10">
@@ -707,7 +685,7 @@ export function OnboardingFlow({
               ) : isLastStep ? (
                 <>
                   Start writing
-                  <RocketIcon data-icon="inline-end" />
+                  <PencilLineIcon data-icon="inline-end"/>
                 </>
               ) : (
                 <>

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { LevelUpOverlay } from '@/components/ui/level-up-overlay'
 import { AppShell } from '@/components/layout/app-shell'
+import { isAdminUser } from '@/lib/admin'
 
 export default async function AppLayout({
   children,
@@ -18,7 +19,7 @@ export default async function AppLayout({
   if (!user) redirect('/login')
 
   return (
-    <AppShell>
+    <AppShell isAdmin={isAdminUser(user)}>
       {children}
       <LevelUpOverlay />
     </AppShell>

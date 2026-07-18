@@ -63,6 +63,7 @@ interface DailyBriefingWidgetProps {
   planBlocks: BriefingPlanBlock[]
   goals: Goal[]
   completedJournalCount: number
+  routinesEnabled?: boolean
   initialOpenPanel?: 'plan' | 'task' | 'habit' | 'goal' | 'routine' | null
 }
 
@@ -117,37 +118,43 @@ export function DailyBriefingWidget({
   planBlocks,
   goals,
   completedJournalCount,
+  routinesEnabled = false,
   initialOpenPanel = null,
 }: DailyBriefingWidgetProps) {
+  const safeInitialOpenPanel =
+    initialOpenPanel === 'routine' && !routinesEnabled ? null : initialOpenPanel
   const supabase = createClient()
   const router = useRouter()
   const addXp = useUserStore((state) => state.addXp)
   const [blocks, setBlocks] = useState(planBlocks)
   const [localHabits, setLocalHabits] = useState(habits)
   const [localTasks, setLocalTasks] = useState(tasks)
-  const [showAddPlan, setShowAddPlan] = useState(initialOpenPanel === 'plan')
+  const [showAddPlan, setShowAddPlan] = useState(safeInitialOpenPanel === 'plan')
   const [planTitle, setPlanTitle] = useState('')
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('10:00')
   const [category, setCategory] = useState<DayPlanBlock['category']>('deep_work')
   const [savingPlan, setSavingPlan] = useState(false)
   const [planError, setPlanError] = useState<string | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(initialOpenPanel !== null)
+  const [sheetOpen, setSheetOpen] = useState(safeInitialOpenPanel !== null)
   const [sheetTab, setSheetTab] = useState<FocusSheetTab>(
-    initialOpenPanel === 'task'
+    safeInitialOpenPanel === 'task'
       ? 'tasks'
-      : initialOpenPanel === 'habit'
+      : safeInitialOpenPanel === 'habit'
         ? 'habits'
-        : initialOpenPanel === 'routine'
+        : safeInitialOpenPanel === 'routine'
           ? 'routines'
-        : initialOpenPanel === 'plan'
+        : safeInitialOpenPanel === 'plan'
           ? 'plan'
-          : initialOpenPanel === 'goal'
+          : safeInitialOpenPanel === 'goal'
             ? 'goals'
           : 'today'
   )
   const [quickActionId, setQuickActionId] = useState<string | null>(null)
   const [quickError, setQuickError] = useState<string | null>(null)
+  const visibleFocusSheetTabs = routinesEnabled
+    ? focusSheetTabs
+    : focusSheetTabs.filter((tab) => tab.value !== 'routines')
 
   useEffect(() => {
     setLocalHabits(habits)
@@ -415,7 +422,19 @@ export function DailyBriefingWidget({
             )}
           </section>
 
-          <section className="rounded-lg border bg-background/70 p-3">
+          <section
+            role="link"
+            tabIndex={0}
+            aria-label="Manage tasks"
+            onClick={() => router.push('/tasks')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                router.push('/tasks')
+              }
+            }}
+            className="cursor-pointer rounded-lg border bg-background/70 p-3 transition-colors hover:border-blue-500/35 hover:bg-blue-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <ListTodo className="size-4 text-blue-500" />
@@ -449,26 +468,35 @@ export function DailyBriefingWidget({
                   type="button"
                   size="sm"
                   className="h-10 flex-1 sm:h-8"
-                  onClick={handleQuickCompleteTask}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void handleQuickCompleteTask()
+                  }}
                   disabled={quickActionId === `task:${topTask.id}`}
                 >
                   <Check className="mr-1.5 size-3.5" />
                   {quickActionId === `task:${topTask.id}` ? 'Completing...' : 'Complete'}
                 </Button>
               )}
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-10 flex-1 sm:h-8"
-                onClick={() => openSheet('tasks')}
-              >
-                Manage
+              <Button asChild size="sm" variant="outline" className="h-10 flex-1 sm:h-8">
+                <Link href="/tasks" onClick={(event) => event.stopPropagation()}>Manage</Link>
               </Button>
             </div>
           </section>
 
-          <section className="rounded-lg border bg-background/70 p-3">
+          <section
+            role="link"
+            tabIndex={0}
+            aria-label="Manage habits"
+            onClick={() => router.push('/habits')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                router.push('/habits')
+              }
+            }}
+            className="cursor-pointer rounded-lg border bg-background/70 p-3 transition-colors hover:border-orange-500/35 hover:bg-orange-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Flame className="size-4 text-orange-500" />
@@ -505,21 +533,18 @@ export function DailyBriefingWidget({
                   type="button"
                   size="sm"
                   className="h-10 flex-1 sm:h-8"
-                  onClick={handleQuickCheckHabit}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void handleQuickCheckHabit()
+                  }}
                   disabled={quickActionId === `habit:${nextHabit.id}`}
                 >
                   <Check className="mr-1.5 size-3.5" />
                   {quickActionId === `habit:${nextHabit.id}` ? 'Checking...' : 'Check'}
                 </Button>
               )}
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-10 flex-1 sm:h-8"
-                onClick={() => openSheet('habits')}
-              >
-                Manage
+              <Button asChild size="sm" variant="outline" className="h-10 flex-1 sm:h-8">
+                <Link href="/habits" onClick={(event) => event.stopPropagation()}>Manage</Link>
               </Button>
             </div>
           </section>
@@ -612,9 +637,12 @@ export function DailyBriefingWidget({
           <div
             role="tablist"
             aria-label="Today Focus sections"
-            className="grid grid-cols-3 gap-1 rounded-2xl border bg-muted/35 p-1 sm:grid-cols-6"
+            className={cn(
+              'grid grid-cols-3 gap-1 rounded-2xl border bg-muted/35 p-1',
+              routinesEnabled ? 'sm:grid-cols-6' : 'sm:grid-cols-5'
+            )}
           >
-            {focusSheetTabs.map((tab) => (
+            {visibleFocusSheetTabs.map((tab) => (
               <button
                 key={tab.value}
                 type="button"
@@ -639,7 +667,19 @@ export function DailyBriefingWidget({
               </p>
               <div className="mt-3 space-y-2">
                 {topTask ? (
-                  <div className="flex flex-col gap-3 rounded-xl border bg-background p-3 sm:flex-row sm:items-center">
+                  <div
+                    role="link"
+                    tabIndex={0}
+                    aria-label="Manage tasks"
+                    onClick={() => router.push('/tasks')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        router.push('/tasks')
+                      }
+                    }}
+                    className="flex cursor-pointer flex-col gap-3 rounded-xl border bg-background p-3 transition-colors hover:border-blue-500/35 sm:flex-row sm:items-center"
+                  >
                     <ListTodo className="size-4 shrink-0 text-blue-500" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{topTask.title}</p>
@@ -650,7 +690,10 @@ export function DailyBriefingWidget({
                     <Button
                       size="sm"
                       className="w-full sm:w-auto"
-                      onClick={handleQuickCompleteTask}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void handleQuickCompleteTask()
+                      }}
                       disabled={quickActionId === `task:${topTask.id}`}
                     >
                       Complete
@@ -659,7 +702,19 @@ export function DailyBriefingWidget({
                 ) : null}
 
                 {nextHabit ? (
-                  <div className="flex flex-col gap-3 rounded-xl border bg-background p-3 sm:flex-row sm:items-center">
+                  <div
+                    role="link"
+                    tabIndex={0}
+                    aria-label="Manage habits"
+                    onClick={() => router.push('/habits')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        router.push('/habits')
+                      }
+                    }}
+                    className="flex cursor-pointer flex-col gap-3 rounded-xl border bg-background p-3 transition-colors hover:border-orange-500/35 sm:flex-row sm:items-center"
+                  >
                     <Flame className="size-4 shrink-0 text-orange-500" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{nextHabit.emoji} {nextHabit.name}</p>
@@ -668,7 +723,10 @@ export function DailyBriefingWidget({
                     <Button
                       size="sm"
                       className="w-full sm:w-auto"
-                      onClick={handleQuickCheckHabit}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void handleQuickCheckHabit()
+                      }}
                       disabled={quickActionId === `habit:${nextHabit.id}`}
                     >
                       Check
@@ -696,7 +754,7 @@ export function DailyBriefingWidget({
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-5">
+            <div className={cn('grid gap-2', routinesEnabled ? 'sm:grid-cols-5' : 'sm:grid-cols-4')}>
               <Button variant="outline" className="justify-start sm:justify-center" onClick={() => setSheetTab('tasks')}>
                 <ListTodo className="mr-1.5 size-4" />
                 Manage Tasks
@@ -705,10 +763,12 @@ export function DailyBriefingWidget({
                 <Flame className="mr-1.5 size-4" />
                 Manage Habits
               </Button>
-              <Button variant="outline" className="justify-start sm:justify-center" onClick={() => setSheetTab('routines')}>
-                <Sparkles className="mr-1.5 size-4" />
-                Routines
-              </Button>
+              {routinesEnabled && (
+                <Button variant="outline" className="justify-start sm:justify-center" onClick={() => setSheetTab('routines')}>
+                  <Sparkles className="mr-1.5 size-4" />
+                  Routines
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="justify-start sm:justify-center"
@@ -751,7 +811,7 @@ export function DailyBriefingWidget({
             />
           )}
 
-          {sheetTab === 'routines' && (
+          {routinesEnabled && sheetTab === 'routines' && (
             <RoutinesManager userId={userId} />
           )}
 

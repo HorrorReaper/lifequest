@@ -59,9 +59,12 @@ const QUICK_ACTIONS = [
   },
 ]
 
-export function QuickActionButton() {
+export function QuickActionButton({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false)
   const TriggerIcon = open ? X : Plus
+  const visibleActions = QUICK_ACTIONS.filter(
+    (action) => action.href !== '/dashboard?quick=routine' || isAdmin
+  )
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -89,7 +92,7 @@ export function QuickActionButton() {
         </DialogHeader>
 
         <div className="grid gap-2">
-          {QUICK_ACTIONS.map((action) => {
+          {visibleActions.map((action) => {
             const Icon = action.icon
 
             return (
