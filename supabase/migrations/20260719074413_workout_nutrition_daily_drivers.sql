@@ -82,8 +82,16 @@ alter table public.workout_sets
 
 create index if not exists exercise_preferences_favorites_idx
   on public.exercise_preferences (user_id, is_favorite, updated_at desc);
+create index if not exists exercise_preferences_exercise_idx
+  on public.exercise_preferences (exercise_id);
 create index if not exists workout_template_sets_order_idx
   on public.workout_template_sets (template_exercise_id, set_order);
+create index if not exists workout_template_exercises_exercise_idx
+  on public.workout_template_exercises (exercise_id);
+create index if not exists workout_sessions_template_idx
+  on public.workout_sessions (template_id) where template_id is not null;
+create index if not exists workout_session_exercises_exercise_idx
+  on public.workout_session_exercises (exercise_id);
 
 create table public.food_items (
   id uuid primary key default gen_random_uuid(),
@@ -129,6 +137,7 @@ create table public.food_favorites (
   created_at timestamptz not null default now(),
   primary key (user_id, food_item_id)
 );
+create index food_favorites_food_idx on public.food_favorites (food_item_id);
 
 create table public.saved_meals (
   id uuid primary key default gen_random_uuid(),
@@ -170,8 +179,10 @@ create table public.recipe_ingredients (
 
 create index saved_meals_user_idx on public.saved_meals (user_id, updated_at desc);
 create index saved_meal_items_meal_idx on public.saved_meal_items (saved_meal_id, sort_order);
+create index saved_meal_items_food_idx on public.saved_meal_items (food_item_id);
 create index recipes_user_idx on public.recipes (user_id, updated_at desc);
 create index recipe_ingredients_recipe_idx on public.recipe_ingredients (recipe_id, sort_order);
+create index recipe_ingredients_food_idx on public.recipe_ingredients (food_item_id);
 
 alter table public.nutrition_targets
   add column if not exists fiber_g numeric(7,2) check (fiber_g is null or fiber_g >= 0),
@@ -192,6 +203,8 @@ alter table public.nutrition_entries
 
 create index if not exists nutrition_entries_food_recent_idx
   on public.nutrition_entries (user_id, food_item_id, created_at desc) where food_item_id is not null;
+create index if not exists nutrition_entries_food_fk_idx
+  on public.nutrition_entries (food_item_id) where food_item_id is not null;
 
 -- Existing exercises are custom; seeded catalog exercises are global and immutable.
 update public.exercises set is_system = false, source = 'custom' where user_id is not null;
