@@ -109,7 +109,7 @@ create table public.food_items (
 );
 
 create unique index food_items_external_idx
-  on public.food_items (user_id, source, external_id) where external_id is not null;
+  on public.food_items (user_id, source, external_id);
 create index food_items_barcode_idx on public.food_items (user_id, barcode) where barcode is not null;
 create index food_items_search_idx on public.food_items (user_id, is_archived, name);
 
