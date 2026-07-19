@@ -679,6 +679,86 @@ begin
 end;
 $$;
 
+create or replace function public.save_workout_template(
+  p_template_id uuid,
+  p_name text,
+  p_notes text,
+  p_items jsonb
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := (select auth.uid());
+  v_template_id uuid := p_template_id;
+  v_item jsonb;
+  v_item_id uuid;
+  v_index integer := 0;
+  v_sets integer;
+begin
+  if (select auth.jwt() -> 'app_metadata' ->> 'role') <> 'admin'
+     or char_length(trim(p_name)) not between 1 and 120
+     or jsonb_typeof(p_items) <> 'array'
+     or jsonb_array_length(p_items) = 0 then
+    raise exception 'Invalid routine';
+  end if;
+
+  if v_template_id is null then
+    insert into public.workout_templates (user_id, name, notes, sort_order)
+    values (
+      v_user_id,
+      trim(p_name),
+      nullif(trim(p_notes), ''),
+      coalesce((select max(sort_order) + 1 from public.workout_templates where user_id = v_user_id), 0)
+    )
+    returning id into v_template_id;
+  else
+    update public.workout_templates
+    set name = trim(p_name), notes = nullif(trim(p_notes), ''), updated_at = now()
+    where id = v_template_id and user_id = v_user_id;
+    if not found then raise exception 'Routine not found'; end if;
+    delete from public.workout_template_exercises where template_id = v_template_id;
+  end if;
+
+  for v_item in select value from jsonb_array_elements(p_items) loop
+    if not exists (
+      select 1 from public.exercises exercise
+      where exercise.id = (v_item ->> 'exercise_id')::uuid
+        and not exercise.is_archived
+        and (exercise.user_id is null or exercise.user_id = v_user_id)
+    ) then
+      raise exception 'Exercise is unavailable';
+    end if;
+
+    v_sets := greatest(1, least(20, coalesce((v_item ->> 'target_sets')::integer, 3)));
+    insert into public.workout_template_exercises (
+      template_id, exercise_id, sort_order, target_sets, rep_min, rep_max,
+      rest_seconds, superset_group, notes
+    )
+    values (
+      v_template_id,
+      (v_item ->> 'exercise_id')::uuid,
+      v_index,
+      v_sets,
+      nullif(v_item ->> 'rep_min', '')::integer,
+      nullif(v_item ->> 'rep_max', '')::integer,
+      greatest(0, least(1800, coalesce((v_item ->> 'rest_seconds')::integer, 120))),
+      nullif(trim(v_item ->> 'superset_group'), ''),
+      nullif(trim(v_item ->> 'notes'), '')
+    )
+    returning id into v_item_id;
+
+    insert into public.workout_template_sets (template_exercise_id, set_order, target_reps)
+    select v_item_id, generated, nullif(v_item ->> 'rep_min', '')::integer
+    from generate_series(0, v_sets - 1) generated;
+    v_index := v_index + 1;
+  end loop;
+  return v_template_id;
+end;
+$$;
+
 create or replace function public.log_saved_meal(
   p_saved_meal_id uuid,
   p_entry_date date,
@@ -770,10 +850,12 @@ $$;
 revoke all on function public.start_workout(uuid, text) from public, anon;
 revoke all on function public.finish_workout(uuid, text) from public, anon;
 revoke all on function public.clone_workout_template(uuid) from public, anon;
+revoke all on function public.save_workout_template(uuid, text, text, jsonb) from public, anon;
 revoke all on function public.log_saved_meal(uuid, date, text) from public, anon;
 revoke all on function public.log_recipe(uuid, date, text, numeric) from public, anon;
 grant execute on function public.start_workout(uuid, text) to authenticated;
 grant execute on function public.finish_workout(uuid, text) to authenticated;
 grant execute on function public.clone_workout_template(uuid) to authenticated;
+grant execute on function public.save_workout_template(uuid, text, text, jsonb) to authenticated;
 grant execute on function public.log_saved_meal(uuid, date, text) to authenticated;
 grant execute on function public.log_recipe(uuid, date, text, numeric) to authenticated;

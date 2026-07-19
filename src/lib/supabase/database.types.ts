@@ -826,6 +826,10 @@ export interface Database {
         Args: { p_template_id: string }
         Returns: string
       }
+      save_workout_template: {
+        Args: { p_template_id: string | null; p_name: string; p_notes: string | null; p_items: Json }
+        Returns: string
+      }
       log_saved_meal: {
         Args: { p_saved_meal_id: string; p_entry_date: string; p_meal_type?: MealType }
         Returns: number
