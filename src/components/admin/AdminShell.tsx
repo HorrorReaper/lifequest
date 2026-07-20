@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, BookOpenText, Dumbbell, FlaskConical, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
+import { ArrowLeft, BookOpenText, Dumbbell, FlaskConical, FolderKanban, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const sections = [
@@ -10,7 +10,8 @@ const sections = [
   { href: '/admin/workouts', label: 'Training', icon: Dumbbell },
   { href: '/admin/nutrition', label: 'Nutrition', icon: Salad },
   { href: '/admin/challenges', label: 'Challenges', icon: BookOpenText },
-  { href: '/admin/notes', label: 'Notes', icon: NotebookPen },
+  { href: '/admin/notes', label: 'Knowledge', icon: NotebookPen },
+  { href: '/admin/projects', label: 'Projects', icon: FolderKanban },
   { href: '/admin/tools', label: 'Tools', icon: FlaskConical },
 ]
 
