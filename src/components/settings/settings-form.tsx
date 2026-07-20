@@ -65,6 +65,7 @@ interface SettingsFormProps {
   timezone: string
   aiAssistantEnabled: boolean
   aiConsentAt: string | null
+  aiAccessEnabled: boolean
 }
 
 export function SettingsForm({
@@ -74,6 +75,7 @@ export function SettingsForm({
   timezone: initialTimezone,
   aiAssistantEnabled: initialAiAssistantEnabled,
   aiConsentAt: initialAiConsentAt,
+  aiAccessEnabled,
 }: SettingsFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -217,52 +219,54 @@ export function SettingsForm({
         </CardContent>
       </Card>
 
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle>AI &amp; privacy</CardTitle>
-          <CardDescription>
-            The assistant is optional and stays off until you explicitly enable contextual AI processing.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-start justify-between gap-4 rounded-xl border bg-muted/25 p-4">
-            <div className="min-w-0 space-y-1">
-              <Label htmlFor="ai-assistant-consent" className="text-sm font-semibold">
-                Contextual AI assistant
-              </Label>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                When enabled, your messages and relevant recent tasks, habits, and journal responses may be sent to OpenRouter and the selected model provider to answer your request.
-              </p>
+      {aiAccessEnabled && (
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle>AI &amp; privacy</CardTitle>
+            <CardDescription>
+              The assistant is optional and stays off until you explicitly enable contextual AI processing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start justify-between gap-4 rounded-xl border bg-muted/25 p-4">
+              <div className="min-w-0 space-y-1">
+                <Label htmlFor="ai-assistant-consent" className="text-sm font-semibold">
+                  Contextual AI assistant
+                </Label>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  When enabled, your messages and relevant recent tasks, habits, and journal responses may be sent to OpenRouter and the selected model provider to answer your request.
+                </p>
+              </div>
+              <Switch
+                id="ai-assistant-consent"
+                checked={aiAssistantEnabled}
+                onCheckedChange={handleAiConsent}
+                disabled={aiSaving}
+                aria-describedby="ai-assistant-status"
+              />
             </div>
-            <Switch
-              id="ai-assistant-consent"
-              checked={aiAssistantEnabled}
-              onCheckedChange={handleAiConsent}
-              disabled={aiSaving}
-              aria-describedby="ai-assistant-status"
-            />
-          </div>
 
-          <div id="ai-assistant-status" className="text-xs leading-relaxed text-muted-foreground">
-            {aiAssistantEnabled ? (
-              <p>
-                Enabled{aiConsentAt ? ` since ${new Date(aiConsentAt).toLocaleDateString()}` : ''}. You can withdraw consent at any time; future AI requests will be blocked immediately.
-              </p>
-            ) : (
-              <p>Disabled. LifeQuest will not send your app context to the AI provider.</p>
-            )}
-          </div>
+            <div id="ai-assistant-status" className="text-xs leading-relaxed text-muted-foreground">
+              {aiAssistantEnabled ? (
+                <p>
+                  Enabled{aiConsentAt ? ` since ${new Date(aiConsentAt).toLocaleDateString()}` : ''}. You can withdraw consent at any time; future AI requests will be blocked immediately.
+                </p>
+              ) : (
+                <p>Disabled. LifeQuest will not send your app context to the AI provider.</p>
+              )}
+            </div>
 
-          {aiError && <p className="text-xs text-destructive">{aiError}</p>}
+            {aiError && <p className="text-xs text-destructive">{aiError}</p>}
 
-          <Link
-            href="/privacy#ai-assistant"
-            className="inline-flex text-xs font-medium text-primary underline underline-offset-4"
-          >
-            Read how AI processing works
-          </Link>
-        </CardContent>
-      </Card>
+            <Link
+              href="/privacy#ai-assistant"
+              className="inline-flex text-xs font-medium text-primary underline underline-offset-4"
+            >
+              Read how AI processing works
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-border/50">
         <CardContent className="space-y-4 pt-6">

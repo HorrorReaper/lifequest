@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { EntryForm } from '@/components/journal/entry-form'
 import { JournalTemplate, TemplateField } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
+import { fetchInsightTagSuggestions } from '@/lib/insights'
 
 interface PageProps {
   params: Promise<{ templateId: string }>
@@ -35,12 +36,14 @@ export default async function NewEntryPage({ params }: PageProps) {
     redirect('/journal')
   }
 
-  // Fetch fields
-  const { data: fields } = await supabase
-    .from('template_fields')
-    .select('*')
-    .eq('template_id', templateId)
-    .order('sort_order')
+  const [{ data: fields }, suggestedInsightTags] = await Promise.all([
+    supabase
+      .from('template_fields')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('sort_order'),
+    fetchInsightTagSuggestions(supabase, user.id),
+  ])
 
   return (
     <div className="min-h-svh bg-background px-4 pb-24 pt-5 sm:px-8 sm:pt-8">
@@ -48,6 +51,7 @@ export default async function NewEntryPage({ params }: PageProps) {
         <EntryForm
           template={template as JournalTemplate}
           fields={(fields as TemplateField[]) ?? []}
+          suggestedInsightTags={suggestedInsightTags}
         />
       </div>
     </div>

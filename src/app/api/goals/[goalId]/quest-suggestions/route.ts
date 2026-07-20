@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { Goal } from '@/lib/types'
+import { isAdminUser } from '@/lib/admin'
 
 interface QuestSuggestion {
   title: string
@@ -70,15 +71,6 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ goalId: string }> }
 ) {
-  const apiKey = process.env.OPENROUTER_API_KEY
-
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'OpenRouter is not configured yet. Add OPENROUTER_API_KEY to enable AI quest generation.' },
-      { status: 503 }
-    )
-  }
-
   const { goalId } = await params
   const supabase = await createClient()
   const {
@@ -87,6 +79,18 @@ export async function POST(
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!isAdminUser(user)) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'OpenRouter is not configured yet. Add OPENROUTER_API_KEY to enable AI quest generation.' },
+      { status: 503 }
+    )
   }
 
   const { data: goalData, error: goalError } = await supabase

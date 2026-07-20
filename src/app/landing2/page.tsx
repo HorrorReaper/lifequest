@@ -15,9 +15,7 @@ import {
   ListChecks,
   MoonStar,
   NotebookPen,
-  Repeat2,
   Sparkles,
-  Target,
 } from 'lucide-react'
 import { BuildingSprite } from '@/components/city/BuildingSprite'
 import { BUILDING_CATALOG } from '@/lib/city/city'
@@ -35,14 +33,14 @@ const dailyLoop = [
     number: '01',
     label: 'Focus',
     title: 'Choose the next useful move',
-    description: 'Today Focus brings your plan, tasks, habits, routines, and journal into one clear starting point.',
+    description: 'Today Focus brings your plan, tasks, habits, and journal into one clear starting point.',
     icon: Focus,
   },
   {
     number: '02',
     label: 'Act',
     title: 'Follow through without switching tools',
-    description: 'Check habits, finish tasks, run routines, and progress through focused quests from one daily system.',
+    description: 'Check habits, finish tasks, and progress through focused quests from one daily system.',
     icon: CheckCircle2,
   },
   {
@@ -67,7 +65,7 @@ const roadmap = [
     status: 'Live beta',
     title: 'The complete daily loop',
     description:
-      'Today Focus, tasks, habits, routines, planning, goals, quests, calm journaling, saved learnings, and the city builder work together in one mobile-optimized web app.',
+      'Today Focus, tasks, habits, planning, quests, calm journaling, saved learnings, and the city builder work together in one mobile-optimized web app.',
   },
   {
     phase: 'Next',
@@ -309,7 +307,7 @@ export default function LandingPageV2() {
                 <div className="max-w-sm">
                   <span className="grid size-11 place-items-center rounded-2xl bg-[#dfe9dd] text-[#315f50]"><Focus className="size-5" /></span>
                   <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em]">Run the day from Today Focus</h3>
-                  <p className="mt-3 leading-7 text-[#5a6f66]">See the next plan block, top task, habit chain, journal, and routines without turning your dashboard into noise.</p>
+                  <p className="mt-3 leading-7 text-[#5a6f66]">See the next plan block, top task, habit, and journal without turning your dashboard into noise.</p>
                 </div>
                 <div className="mt-8 grid gap-2 sm:grid-cols-3">
                   {[
@@ -341,14 +339,14 @@ export default function LandingPageV2() {
               </article>
 
               <article className="rounded-[2rem] border border-[#18332b]/10 bg-[#f2eddc] p-6 sm:p-8 lg:col-span-5">
-                <span className="grid size-11 place-items-center rounded-2xl bg-[#ead8a9] text-[#76581f]"><Repeat2 className="size-5" /></span>
-                <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em]">Build systems, not isolated checkmarks</h3>
-                <p className="mt-3 leading-7 text-[#5a6f66]">Chain habits into routines, pursue goals through quests, and use focused challenges when you need a stronger commitment.</p>
+                <span className="grid size-11 place-items-center rounded-2xl bg-[#ead8a9] text-[#76581f]"><Flame className="size-5" /></span>
+                <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em]">Build consistency, not isolated checkmarks</h3>
+                <p className="mt-3 leading-7 text-[#5a6f66]">Strengthen daily habits, pursue practical quests, and use focused challenges when you need a stronger commitment.</p>
                 <div className="mt-8 space-y-2.5">
                   {[
-                    { icon: Repeat2, title: 'Morning routine', meta: '3 habits · 12 min' },
+                    { icon: Flame, title: 'Daily habits', meta: '2 of 3 complete' },
                     { icon: Flag, title: '30-day challenge', meta: 'Day 8 · Social confidence' },
-                    { icon: Target, title: 'Active goal', meta: 'Launch the first beta' },
+                    { icon: CheckCircle2, title: 'Active quest', meta: '4 of 7 complete' },
                   ].map((item) => {
                     const Icon = item.icon
                     return (
@@ -515,7 +513,7 @@ export default function LandingPageV2() {
             {[
               ['Is LifeQuest free?', 'LifeQuest is free during the MVP beta. The page does not promise permanent pricing before the product and business model are validated.'],
               ['Is there a native mobile app?', 'Not yet. The current MVP is a responsive web application designed to work well on mobile devices and desktop browsers.'],
-              ['What can I manage inside LifeQuest?', 'Your daily plan, tasks, habits, routines, goals, quests, journal entries, saved learnings, and personal city all live in the same account.'],
+              ['What can I manage inside LifeQuest?', 'Your daily plan, tasks, habits, quests, journal entries, saved learnings, and personal city all live in the same account.'],
               ['Does my progress sync?', 'Yes. Your account data is saved securely and is available when you sign in on another supported device.'],
             ].map(([question, answer]) => (
               <details key={question} className="group py-5">

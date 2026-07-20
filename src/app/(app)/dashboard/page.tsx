@@ -105,7 +105,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { annotated, customQuests } = await fetchQuestPageData(supabase, user.id)
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
-  const activeGoals = await fetchGoals(supabase, user.id, { status: 'active' })
+  const activeGoals = isAdmin
+    ? await fetchGoals(supabase, user.id, { status: 'active' })
+    : []
   const today = dateInTimezone(profile.timezone ?? 'UTC')
 
   const [
@@ -255,12 +257,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           journals={briefingJournals}
           planBlocks={planBlocks}
           goals={activeGoals}
+          goalsEnabled={isAdmin}
           completedJournalCount={(todayEntriesRes.data ?? []).length}
           routinesEnabled={isAdmin}
           initialOpenPanel={
             quickAction === 'routine'
               ? (isAdmin ? 'routine' : null)
-              : quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit' || quickAction === 'goal'
+              : quickAction === 'goal'
+                ? (isAdmin ? 'goal' : null)
+              : quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit'
               ? quickAction
               : null
           }

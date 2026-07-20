@@ -6,6 +6,8 @@ import { ArrowUpDown, Calendar, Search, SlidersHorizontal, X } from 'lucide-reac
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
+import { insightTypeLabel, isInsightType } from '@/lib/insights'
+import type { InsightType } from '@/lib/types'
 
 export interface JournalArchiveTemplate {
   id: string
@@ -18,6 +20,8 @@ export interface JournalArchiveResponse {
   value_number: number | null
   value_boolean: boolean | null
   value_json: unknown | null
+  insight_type: InsightType | null
+  topic_tags: string[]
   template_fields?: { label: string | null } | null
 }
 
@@ -43,6 +47,8 @@ function responseToText(response: JournalArchiveResponse) {
     response.value_number?.toString(),
     typeof response.value_boolean === 'boolean' ? String(response.value_boolean) : null,
     response.value_json ? JSON.stringify(response.value_json) : null,
+    response.insight_type ? insightTypeLabel(response.insight_type) : null,
+    ...(response.topic_tags ?? []),
   ]
 
   return parts.filter(Boolean).join(' ')
@@ -214,6 +220,13 @@ export function EntryArchive({ entries, templates }: EntryArchiveProps) {
         <div className="space-y-2">
           {filteredEntries.map((entry) => {
             const template = entry.journal_templates
+            const insightTypes = [
+              ...new Set(
+                (entry.journal_responses ?? [])
+                  .map((response) => response.insight_type)
+                  .filter(isInsightType)
+              ),
+            ].slice(0, 2)
 
             return (
               <Link key={entry.id} href={`/journal/${entry.id}`} className="block">
@@ -227,6 +240,18 @@ export function EntryArchive({ entries, templates }: EntryArchiveProps) {
                       <p className="text-xs text-muted-foreground">
                         {formatEntryDate(entry.entry_date)}
                       </p>
+                      {insightTypes.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {insightTypes.map((insightType) => (
+                            <span
+                              key={insightType}
+                              className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-medium text-primary"
+                            >
+                              {insightTypeLabel(insightType)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {entry.xp_earned > 0 && (
                       <span className="text-xs font-medium text-primary">

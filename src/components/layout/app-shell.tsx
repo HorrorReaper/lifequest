@@ -44,7 +44,7 @@ export function AppShell({ children, isAdmin = false }: AppShellProps) {
     >
       {children}
       {!immersive && <BottomNav isAdmin={isAdmin} />}
-      {!immersive && <ChatbotWidget />}
+      {!immersive && isAdmin && <ChatbotWidget />}
     </div>
   )
 }

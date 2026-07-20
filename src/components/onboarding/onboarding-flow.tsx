@@ -29,7 +29,6 @@ import {
   MedalIcon,
   PencilLineIcon,
   RepeatIcon,
-  RocketIcon,
   SparklesIcon,
   TargetIcon,
   TrophyIcon,

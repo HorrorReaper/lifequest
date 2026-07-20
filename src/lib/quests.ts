@@ -63,7 +63,9 @@ export interface DefaultQuest {
   xp: number
   coins: number
   difficulty: QuestDifficulty
-  check: (stats: QuestStats) => boolean
+  progressLabel: string
+  progressTarget: number
+  getProgress: (stats: QuestStats) => number
 }
 
 export type QuestStatus = 'claimable' | 'locked' | 'claimed'
@@ -76,6 +78,9 @@ export interface DefaultQuestWithStatus {
   xp: number
   coins: number
   difficulty: QuestDifficulty
+  progressLabel: string
+  progressCurrent: number
+  progressTarget: number
   status: QuestStatus
   completedAt?: string
 }
@@ -149,7 +154,9 @@ export const DEFAULT_QUESTS: DefaultQuest[] = [
     xp: 50,
     coins: 20,
     difficulty: 'easy',
-    check: (s) => s.totalEntries >= 1,
+    progressLabel: 'Journal entries',
+    progressTarget: 1,
+    getProgress: (s) => s.totalEntries,
   },
   {
     key: 'streak_3',
@@ -158,7 +165,9 @@ export const DEFAULT_QUESTS: DefaultQuest[] = [
     xp: 75,
     coins: 30,
     difficulty: 'easy',
-    check: (s) => s.bestStreak >= 3,
+    progressLabel: 'Best streak',
+    progressTarget: 3,
+    getProgress: (s) => s.bestStreak,
   },
   {
     key: 'first_building',
@@ -167,7 +176,9 @@ export const DEFAULT_QUESTS: DefaultQuest[] = [
     xp: 100,
     coins: 50,
     difficulty: 'easy',
-    check: (s) => s.totalBuildings >= 1,
+    progressLabel: 'Buildings placed',
+    progressTarget: 1,
+    getProgress: (s) => s.totalBuildings,
   },
   {
     key: 'entries_10',
@@ -176,7 +187,9 @@ export const DEFAULT_QUESTS: DefaultQuest[] = [
     xp: 200,
     coins: 100,
     difficulty: 'medium',
-    check: (s) => s.totalEntries >= 10,
+    progressLabel: 'Journal entries',
+    progressTarget: 10,
+    getProgress: (s) => s.totalEntries,
   },
   {
     key: 'streak_7',
@@ -185,7 +198,9 @@ export const DEFAULT_QUESTS: DefaultQuest[] = [
     xp: 150,
     coins: 75,
     difficulty: 'medium',
-    check: (s) => s.bestStreak >= 7,
+    progressLabel: 'Best streak',
+    progressTarget: 7,
+    getProgress: (s) => s.bestStreak,
   },
   {
     key: 'buildings_5',
@@ -194,7 +209,9 @@ export const DEFAULT_QUESTS: DefaultQuest[] = [
     xp: 200,
     coins: 100,
     difficulty: 'medium',
-    check: (s) => s.totalBuildings >= 5,
+    progressLabel: 'Buildings placed',
+    progressTarget: 5,
+    getProgress: (s) => s.totalBuildings,
   },
   {
     key: 'level_5',
@@ -203,7 +220,9 @@ export const DEFAULT_QUESTS: DefaultQuest[] = [
     xp: 300,
     coins: 150,
     difficulty: 'hard',
-    check: (s) => s.level >= 5,
+    progressLabel: 'Current level',
+    progressTarget: 5,
+    getProgress: (s) => s.level,
   },
   {
     key: 'entries_50',
@@ -212,7 +231,9 @@ export const DEFAULT_QUESTS: DefaultQuest[] = [
     xp: 500,
     coins: 250,
     difficulty: 'hard',
-    check: (s) => s.totalEntries >= 50,
+    progressLabel: 'Journal entries',
+    progressTarget: 50,
+    getProgress: (s) => s.totalEntries,
   },
   {
     key: 'streak_30',
@@ -221,7 +242,9 @@ export const DEFAULT_QUESTS: DefaultQuest[] = [
     xp: 500,
     coins: 250,
     difficulty: 'hard',
-    check: (s) => s.bestStreak >= 30,
+    progressLabel: 'Best streak',
+    progressTarget: 30,
+    getProgress: (s) => s.bestStreak,
   },
 ]
 
@@ -230,11 +253,23 @@ export function annotateDefaultQuests(
   claimedKeys: string[],
   completionTimes: Record<string, string>
 ): DefaultQuestWithStatus[] {
-  return DEFAULT_QUESTS.map(({ check, ...q }) => {
+  return DEFAULT_QUESTS.map(({ getProgress, ...q }) => {
+    const progressCurrent = Math.max(0, getProgress(stats))
+
     if (claimedKeys.includes(q.key)) {
-      return { ...q, status: 'claimed' as const, completedAt: completionTimes[q.key] }
+      return {
+        ...q,
+        progressCurrent,
+        status: 'claimed' as const,
+        completedAt: completionTimes[q.key],
+      }
     }
-    return { ...q, status: check(stats) ? ('claimable' as const) : ('locked' as const) }
+
+    return {
+      ...q,
+      progressCurrent,
+      status: progressCurrent >= q.progressTarget ? ('claimable' as const) : ('locked' as const),
+    }
   })
 }
 

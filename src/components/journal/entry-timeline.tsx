@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { JournalEntry, JournalResponse } from '@/lib/types'
 import { ArrowRight, BookOpenText } from 'lucide-react'
+import { insightTypeLabel, isInsightType } from '@/lib/insights'
 
 interface EntryTimelineProps {
   entries: JournalEntry[]
@@ -56,6 +57,13 @@ export function EntryTimeline({ entries }: EntryTimelineProps) {
         const template = entry.journal_templates
         const date = new Date(entry.entry_date)
         const preview = entryPreview(entry)
+        const insightTypes = [
+          ...new Set(
+            (entry.journal_responses ?? [])
+              .map((response) => response.insight_type)
+              .filter(isInsightType)
+          ),
+        ].slice(0, 2)
 
         return (
           <motion.div
@@ -94,6 +102,18 @@ export function EntryTimeline({ entries }: EntryTimelineProps) {
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
                     {preview ?? 'A quiet reflection saved for this day.'}
                   </p>
+                  {insightTypes.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {insightTypes.map((insightType) => (
+                        <span
+                          key={insightType}
+                          className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-medium text-primary"
+                        >
+                          {insightTypeLabel(insightType)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <ArrowRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
                 </CardContent>

@@ -22,6 +22,7 @@ import {
   DayPlanBlock,
 } from '@/lib/types'
 import { cleanLearningDraft, type LearningFieldValue } from '@/lib/learnings'
+import { normalizeInsightTags } from '@/lib/insights'
 import { calculateEntryBonusXp } from '@/lib/gamification'
 import { BookOpenCheck, CheckCircle2, Sparkles } from 'lucide-react'
 import { DraftTask } from './TasksInput'
@@ -31,6 +32,7 @@ interface EntryFormProps {
   fields: TemplateField[]
   existingEntryId?: string
   existingResponses?: Record<string, FieldValue>
+  suggestedInsightTags?: string[]
 }
 
 const DISPLAY_ONLY_TYPES = ['divider', 'heading', 'prompt']
@@ -125,6 +127,7 @@ export function EntryForm({
   fields,
   existingEntryId,
   existingResponses,
+  suggestedInsightTags = [],
 }: EntryFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -160,6 +163,10 @@ export function EntryForm({
                   action_text: null,
                 }
             : null,
+        insight_type: null,
+        topic_tags: [],
+        insight_marked_at: null,
+        insight_is_favorite: false,
       }
     }
     return initial
@@ -262,14 +269,32 @@ export function EntryForm({
       }
 
       // 2. Upsert responses
-      const responses: JournalResponseInsert[] = Object.entries(values).map(([fieldId, val]) => ({
-        entry_id: entryId!,
-        field_id: fieldId,
-        value_text: val.value_text ?? null,
-        value_number: val.value_number ?? null,
-        value_boolean: val.value_boolean ?? null,
-        value_json: (val.value_json ?? null) as Json | null,
-      }))
+      const fieldById = new Map(fields.map((field) => [field.id, field]))
+      const responses: JournalResponseInsert[] = Object.entries(values).map(([fieldId, val]) => {
+        const field = fieldById.get(fieldId)
+        const legacyLearning =
+          field?.field_type === 'learning' ? learningValueFromField(val) : null
+        const insightType =
+          val.insight_type ?? (legacyLearning?.note.trim() ? 'learning' : null)
+        const topicTags = insightType
+          ? normalizeInsightTags(val.topic_tags ?? legacyLearning?.tags ?? [])
+          : []
+
+        return {
+          entry_id: entryId!,
+          field_id: fieldId,
+          value_text: val.value_text ?? null,
+          value_number: val.value_number ?? null,
+          value_boolean: val.value_boolean ?? null,
+          value_json: (val.value_json ?? null) as Json | null,
+          insight_type: insightType,
+          topic_tags: topicTags,
+          insight_marked_at:
+            insightType ? (val.insight_marked_at ?? new Date().toISOString()) : null,
+          insight_is_favorite:
+            insightType ? (val.insight_is_favorite ?? false) : false,
+        }
+      })
 
       // Delete existing responses if editing
       if (existingEntryId) {
@@ -629,6 +654,7 @@ export function EntryForm({
               }
               onChange={(val) => updateValue(field.id, val)}
               disabled={!!existingEntryId && false}
+              suggestedInsightTags={suggestedInsightTags}
             />
           </motion.div>
         ))}

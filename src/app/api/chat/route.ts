@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
+import { isAdminUser } from '@/lib/admin'
 
 type ChatRole = 'user' | 'assistant'
 type Priority = 'low' | 'medium' | 'high'
@@ -639,15 +640,6 @@ async function getAssistantDecision(
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENROUTER_API_KEY
-
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'AI chat is not configured yet. Add OPENROUTER_API_KEY to enable it.' },
-      { status: 503 }
-    )
-  }
-
   const supabase = await createClient()
   const db = appClient(supabase)
   const {
@@ -656,6 +648,18 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!isAdminUser(user)) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'AI chat is not configured yet. Add OPENROUTER_API_KEY to enable it.' },
+      { status: 503 }
+    )
   }
 
   const { data: consentData, error: consentError } = await db

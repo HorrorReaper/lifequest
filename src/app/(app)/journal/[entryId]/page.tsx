@@ -7,6 +7,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import { EntryForm } from '@/components/journal/entry-form'
 import { JournalTemplate, TemplateField, FieldValue } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import { fetchInsightTagSuggestions, isInsightType } from '@/lib/insights'
 
 interface PageProps {
   params: Promise<{ entryId: string }>
@@ -40,18 +41,18 @@ export default async function ViewEntryPage({ params }: PageProps) {
 
   const template = entry.journal_templates as unknown as JournalTemplate
 
-  // Fetch fields
-  const { data: fields } = await supabase
-    .from('template_fields')
-    .select('*')
-    .eq('template_id', template.id)
-    .order('sort_order')
-
-  // Fetch responses
-  const { data: responsesData } = await supabase
-    .from('journal_responses')
-    .select('*')
-    .eq('entry_id', entryId)
+  const [{ data: fields }, { data: responsesData }, suggestedInsightTags] = await Promise.all([
+    supabase
+      .from('template_fields')
+      .select('*')
+      .eq('template_id', template.id)
+      .order('sort_order'),
+    supabase
+      .from('journal_responses')
+      .select('*')
+      .eq('entry_id', entryId),
+    fetchInsightTagSuggestions(supabase, user.id),
+  ])
   const responses = responsesData as Database['public']['Tables']['journal_responses']['Row'][] | null
 
   // Map responses to field values
@@ -63,6 +64,10 @@ export default async function ViewEntryPage({ params }: PageProps) {
       value_number: response.value_number,
       value_boolean: response.value_boolean,
       value_json: response.value_json,
+      insight_type: isInsightType(response.insight_type) ? response.insight_type : null,
+      topic_tags: response.topic_tags ?? [],
+      insight_marked_at: response.insight_marked_at,
+      insight_is_favorite: response.insight_is_favorite,
     }
   }
 
@@ -98,6 +103,7 @@ export default async function ViewEntryPage({ params }: PageProps) {
           fields={(fields as TemplateField[]) ?? []}
           existingEntryId={entry.id}
           existingResponses={existingResponses}
+          suggestedInsightTags={suggestedInsightTags}
         />
       </div>
     </div>

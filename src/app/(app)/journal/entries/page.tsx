@@ -31,6 +31,8 @@ export default async function JournalEntriesPage() {
           value_number,
           value_boolean,
           value_json,
+          insight_type,
+          topic_tags,
           template_fields(label)
         )
       `
