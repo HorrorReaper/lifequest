@@ -29,6 +29,19 @@ export type ChallengeDayRow = { id: string; template_id: string; day_number: num
 export type ChallengeEnrollmentRow = { id: string; template_id: string; user_id: string; start_date: string; status: 'active' | 'completed' | 'failed' | 'abandoned'; completed_at: string | null; created_at: string; updated_at: string }
 export type ChallengeDayProgressRow = { id: string; enrollment_id: string; challenge_day_id: string; user_id: string; day_number: number; completed_on: string; note: string | null; created_at: string }
 export type AdminNoteRow = { id: string; user_id: string; title: string; body: string; tags: string[]; module: 'general' | 'productivity' | 'workouts' | 'nutrition' | 'challenges' | 'tools'; status: 'idea' | 'testing' | 'validated' | 'rejected'; is_pinned: boolean; created_at: string; updated_at: string }
+export type KnowledgeNoteType = 'note' | 'experiment' | 'meeting' | 'reference' | 'project'
+export type KnowledgeFolderRow = { id: string; user_id: string; parent_id: string | null; name: string; sort_order: number; created_at: string; updated_at: string }
+export type KnowledgeNoteRow = { id: string; user_id: string; folder_id: string | null; title: string; slug: string; content: string; note_type: KnowledgeNoteType; properties: Json; tags: string[]; aliases: string[]; is_pinned: boolean; is_archived: boolean; version: number; created_at: string; updated_at: string; search_vector?: unknown }
+export type KnowledgeNoteLinkRow = { id: string; user_id: string; source_note_id: string; target_note_id: string | null; target_title: string; target_heading: string | null; display_text: string | null; created_at: string }
+export type KnowledgeNoteVersionRow = { id: string; user_id: string; note_id: string; version: number; title: string; content: string; properties: Json; tags: string[]; aliases: string[]; created_at: string }
+export type KnowledgeNoteTemplateRow = { id: string; user_id: string; name: string; content: string; properties: Json; tags: string[]; aliases: string[]; created_at: string; updated_at: string }
+export type KnowledgeNoteProjectRow = { user_id: string; note_id: string; project_id: string; created_at: string }
+export type KnowledgeNoteTaskRow = { user_id: string; note_id: string; task_id: string; created_at: string }
+export type ProjectStatus = 'idea' | 'planned' | 'active' | 'paused' | 'completed' | 'archived'
+export type ProjectPriority = 'low' | 'medium' | 'high' | 'urgent'
+export type ProjectHealth = 'unset' | 'on_track' | 'at_risk' | 'off_track'
+export type ProjectRow = { id: string; user_id: string; home_note_id: string | null; name: string; outcome: string; description: string; status: ProjectStatus; priority: ProjectPriority; health: ProjectHealth; start_date: string | null; target_date: string | null; color: string; icon: string; sort_order: number; completed_at: string | null; created_at: string; updated_at: string }
+export type ProjectMilestoneRow = { id: string; user_id: string; project_id: string; title: string; status: 'open' | 'completed' | 'cancelled'; target_date: string | null; sort_order: number; completed_at: string | null; created_at: string; updated_at: string }
 
 type MutableTable<Row, Required extends keyof Row> = {
   Row: Row
@@ -473,6 +486,15 @@ export interface Database {
       challenge_enrollments: MutableTable<ChallengeEnrollmentRow, 'template_id' | 'user_id' | 'start_date'>
       challenge_day_progress: MutableTable<ChallengeDayProgressRow, 'enrollment_id' | 'challenge_day_id' | 'user_id' | 'day_number' | 'completed_on'>
       admin_notes: MutableTable<AdminNoteRow, 'user_id' | 'title'>
+      knowledge_folders: MutableTable<KnowledgeFolderRow, 'user_id' | 'name'>
+      knowledge_notes: MutableTable<KnowledgeNoteRow, 'user_id' | 'title' | 'slug'>
+      knowledge_note_links: MutableTable<KnowledgeNoteLinkRow, 'user_id' | 'source_note_id' | 'target_title'>
+      knowledge_note_versions: MutableTable<KnowledgeNoteVersionRow, 'user_id' | 'note_id' | 'version' | 'title' | 'content'>
+      knowledge_note_templates: MutableTable<KnowledgeNoteTemplateRow, 'user_id' | 'name'>
+      knowledge_note_projects: MutableTable<KnowledgeNoteProjectRow, 'user_id' | 'note_id' | 'project_id'>
+      knowledge_note_tasks: MutableTable<KnowledgeNoteTaskRow, 'user_id' | 'note_id' | 'task_id'>
+      projects: MutableTable<ProjectRow, 'user_id' | 'name'>
+      project_milestones: MutableTable<ProjectMilestoneRow, 'user_id' | 'project_id' | 'title'>
       xp_events: {
         Row: {
           id: string
@@ -825,6 +847,32 @@ export interface Database {
       clone_workout_template: {
         Args: { p_template_id: string }
         Returns: string
+      }
+      save_knowledge_note: {
+        Args: {
+          p_note_id: string | null
+          p_expected_version: number
+          p_title: string
+          p_content: string
+          p_folder_id: string | null
+          p_note_type: KnowledgeNoteType
+          p_properties: Json
+          p_tags: string[]
+          p_aliases: string[]
+          p_is_pinned: boolean
+          p_links: Json
+          p_checkpoint?: boolean
+        }
+        Returns: { saved_note_id: string; saved_version: number; saved_updated_at: string }[]
+      }
+      create_project_with_home_note: {
+        Args: {
+          p_name: string
+          p_outcome: string
+          p_status?: ProjectStatus
+          p_priority?: ProjectPriority
+        }
+        Returns: { created_project_id: string; created_note_id: string }[]
       }
       save_workout_template: {
         Args: { p_template_id: string | null; p_name: string; p_notes: string | null; p_items: Json }

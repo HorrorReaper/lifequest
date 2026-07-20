@@ -178,11 +178,27 @@ export interface Task {
   title: string;
   description: string | null;
   is_completed: boolean;
+  project_id: string | null;
+  status: TaskStatus;
+  sort_order: number;
+  start_date: string | null;
+  estimate_minutes: number | null;
+  parent_task_id: string | null;
+  blocked_reason: string | null;
   due_date: string | null;
   priority: "low" | "medium" | "high";
   created_at: string;
+  updated_at: string;
   completed_at: string | null;
 }
+
+export type TaskStatus =
+  | "backlog"
+  | "todo"
+  | "in_progress"
+  | "blocked"
+  | "done"
+  | "cancelled";
 
 export type GoalCategory =
   | "personal"
