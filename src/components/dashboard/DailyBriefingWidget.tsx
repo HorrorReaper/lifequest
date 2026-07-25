@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, Focus, ListTodo, Minus, Plus, Sparkles } from 'lucide-react'
+import { ArrowRight, BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, ListTodo, Minus, Plus, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { upsertDayPlan } from '@/lib/day-plans'
 import type { DayPlanBlock, Goal } from '@/lib/types'
@@ -483,12 +483,12 @@ export function DailyBriefingWidget({
           <section
             role="link"
             tabIndex={0}
-            aria-label="Manage habits"
-            onClick={() => router.push('/habits')}
+            aria-label={nextHabit ? `View analytics for ${nextHabit.name}` : 'Manage habits'}
+            onClick={() => router.push(nextHabit ? `/habits/${nextHabit.id}` : '/habits')}
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
-                router.push('/habits')
+                router.push(nextHabit ? `/habits/${nextHabit.id}` : '/habits')
               }
             }}
             className="cursor-pointer rounded-lg border bg-background/70 p-3 transition-colors hover:border-orange-500/35 hover:bg-orange-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -675,6 +675,7 @@ export function DailyBriefingWidget({
               key={`focus-sheet-habits-${initialOpenPanel === 'habit' ? 'open' : 'closed'}`}
               userId={userId}
               initiallyOpen={initialOpenPanel === 'habit'}
+              todayDate={todayDate}
             />
           )}
 

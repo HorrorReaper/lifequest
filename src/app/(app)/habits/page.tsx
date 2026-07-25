@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowLeft, Flame } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { HabitDashboardWidget } from '@/components/dashboard/HabitDashboardWidget'
+import { HabitManager } from '@/components/habits/HabitManager'
+import { dateInTimezone } from '@/lib/habit-manager'
 
 export default async function HabitsPage() {
   const supabase = await createClient()
@@ -12,9 +13,17 @@ export default async function HabitsPage() {
 
   if (!user) redirect('/login')
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const timezone = (profile as { timezone?: string } | null)?.timezone ?? 'UTC'
+  const today = dateInTimezone(new Date(), timezone)
+
   return (
     <main className="min-h-svh bg-background p-4 pb-24 sm:p-8">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6">
         <header>
           <Link
             href="/dashboard"
@@ -34,7 +43,7 @@ export default async function HabitsPage() {
           </div>
         </header>
 
-        <HabitDashboardWidget userId={user.id} />
+        <HabitManager userId={user.id} timezone={timezone} today={today} />
       </div>
     </main>
   )

@@ -2,124 +2,426 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
+import { Activity, Dumbbell, History, Library, Play, RefreshCw, Settings2, Trophy, X } from 'lucide-react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { Archive, ArrowDown, ArrowUp, Check, Copy, Dumbbell, History, Library, Pencil, Play, Plus, Save, Trash2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { ExerciseRow, WorkoutSessionExerciseRow, WorkoutSessionRow, WorkoutSetRow, WorkoutTemplateExerciseRow, WorkoutTemplateRow } from '@/lib/supabase/database.types'
+import type {
+  ExercisePreferenceRow,
+  ExerciseRow,
+  WorkoutPreferenceRow,
+  WorkoutSessionExerciseRow,
+  WorkoutSessionRow,
+  WorkoutSetRow,
+  WorkoutTemplateExerciseRow,
+  WorkoutTemplateRow,
+  WorkoutTemplateSetRow,
+} from '@/lib/supabase/database.types'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { AdminPageHeader } from './AdminPageHeader'
 import { cn } from '@/lib/utils'
+import { ActiveWorkout, type ActiveExercise } from './workouts/ActiveWorkout'
+import { ExerciseLibrary, type ExerciseDraft } from './workouts/ExerciseLibrary'
+import { RoutineBuilder, type RoutineDraft, type RoutineWithItems } from './workouts/RoutineBuilder'
+import { WorkoutHistory } from './workouts/WorkoutHistory'
+import { sessionVolume } from './workouts/analytics'
+import { findPreviousPerformance } from './workouts/workout-utils'
 
-type View = 'overview' | 'templates' | 'exercises' | 'history'
-type TemplateWithExercises = WorkoutTemplateRow & { items: WorkoutTemplateExerciseRow[] }
-type ActiveExercise = WorkoutSessionExerciseRow & { exercise: ExerciseRow; sets: WorkoutSetRow[] }
-
-const starterExercises = [
-  ['Barbell Bench Press', 'chest', 'barbell'], ['Incline Dumbbell Press', 'chest', 'dumbbell'], ['Pull-up', 'back', 'bodyweight'],
-  ['Barbell Row', 'back', 'barbell'], ['Back Squat', 'legs', 'barbell'], ['Romanian Deadlift', 'legs', 'barbell'],
-  ['Leg Press', 'legs', 'machine'], ['Overhead Press', 'shoulders', 'barbell'], ['Lateral Raise', 'shoulders', 'dumbbell'],
-  ['Barbell Curl', 'arms', 'barbell'], ['Triceps Pushdown', 'arms', 'cable'], ['Calf Raise', 'calves', 'machine'],
-] as const
+type View = 'overview' | 'routines' | 'exercises' | 'history'
+const defaultPreferences: Omit<WorkoutPreferenceRow, 'user_id' | 'created_at' | 'updated_at'> = {
+  default_rest_seconds: 120,
+  previous_scope: 'same_template',
+  weight_unit: 'kg',
+  distance_unit: 'km',
+  timer_sound: true,
+  timer_vibration: true,
+}
 
 export function WorkoutHub({ userId }: { userId: string }) {
   const supabase = useMemo(() => createClient() as unknown as SupabaseClient, [])
   const [view, setView] = useState<View>('overview')
   const [exercises, setExercises] = useState<ExerciseRow[]>([])
-  const [templates, setTemplates] = useState<TemplateWithExercises[]>([])
+  const [exercisePreferences, setExercisePreferences] = useState<ExercisePreferenceRow[]>([])
+  const [preferences, setPreferences] = useState(defaultPreferences)
+  const [routines, setRoutines] = useState<RoutineWithItems[]>([])
   const [sessions, setSessions] = useState<WorkoutSessionRow[]>([])
+  const [sessionExercises, setSessionExercises] = useState<WorkoutSessionExerciseRow[]>([])
+  const [sets, setSets] = useState<WorkoutSetRow[]>([])
   const [activeSession, setActiveSession] = useState<WorkoutSessionRow | null>(null)
   const [activeExercises, setActiveExercises] = useState<ActiveExercise[]>([])
-  const [allSessionExercises, setAllSessionExercises] = useState<WorkoutSessionExerciseRow[]>([])
-  const [allSets, setAllSets] = useState<WorkoutSetRow[]>([])
-  const [newExercise, setNewExercise] = useState({ name: '', muscle_group: 'other', equipment: 'other', notes: '' })
-  const [templateDraft, setTemplateDraft] = useState({ id: '', name: '', notes: '', exerciseIds: [] as string[] })
-  const [showTemplateForm, setShowTemplateForm] = useState(false)
-  const [sessionExerciseId, setSessionExerciseId] = useState('')
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
-  const [editingSessionName, setEditingSessionName] = useState('')
+  const [activeOpen, setActiveOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [mountedAt] = useState(() => Date.now())
 
   const load = useCallback(async () => {
+    setLoading(true)
     setError(null)
-    const [exerciseRes, templateRes, templateItemRes, sessionRes] = await Promise.all([
-      supabase.from('exercises').select('*').eq('user_id', userId).order('is_archived').order('name'),
+    const [exerciseRes, preferenceRes, workoutPreferenceRes, routineRes, routineItemRes, routineSetRes, sessionRes] = await Promise.all([
+      supabase.from('exercises').select('*').or(`user_id.is.null,user_id.eq.${userId}`).order('is_archived').order('name'),
+      supabase.from('exercise_preferences').select('*').eq('user_id', userId),
+      supabase.from('workout_preferences').select('*').eq('user_id', userId).maybeSingle(),
       supabase.from('workout_templates').select('*').eq('user_id', userId).order('sort_order').order('created_at'),
       supabase.from('workout_template_exercises').select('*').order('sort_order'),
-      supabase.from('workout_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }).limit(40),
+      supabase.from('workout_template_sets').select('*').order('set_order'),
+      supabase.from('workout_sessions').select('*').eq('user_id', userId).order('started_at', { ascending: false }).limit(100),
     ])
-    const firstError = exerciseRes.error ?? templateRes.error ?? templateItemRes.error ?? sessionRes.error
-    if (firstError) setError(firstError.message)
-    const loadedExercises = (exerciseRes.data ?? []) as ExerciseRow[]
-    const loadedTemplates = (templateRes.data ?? []) as WorkoutTemplateRow[]
-    const loadedTemplateItems = (templateItemRes.data ?? []) as WorkoutTemplateExerciseRow[]
-    const loadedSessions = (sessionRes.data ?? []) as WorkoutSessionRow[]
-    setExercises(loadedExercises)
-    setTemplates(loadedTemplates.map((template) => ({ ...template, items: loadedTemplateItems.filter((item) => item.template_id === template.id).sort((a, b) => a.sort_order - b.sort_order) })))
-    setSessions(loadedSessions)
-    const active = loadedSessions.find((session) => session.status === 'active') ?? null
-    setActiveSession(active)
+    const firstError = exerciseRes.error ?? preferenceRes.error ?? workoutPreferenceRes.error ?? routineRes.error ?? routineItemRes.error ?? routineSetRes.error ?? sessionRes.error
+    if (firstError) {
+      setError(firstError.message)
+      setLoading(false)
+      return
+    }
 
-    const sessionIds = loadedSessions.map((session) => session.id)
-    const sessionExerciseRes = sessionIds.length ? await supabase.from('workout_session_exercises').select('*').in('session_id', sessionIds).order('sort_order') : { data: [], error: null }
+    const loadedExercises = exerciseRes.data as ExerciseRow[]
+    const loadedRoutines = routineRes.data as WorkoutTemplateRow[]
+    const loadedItems = routineItemRes.data as WorkoutTemplateExerciseRow[]
+    const loadedTemplateSets = routineSetRes.data as WorkoutTemplateSetRow[]
+    const loadedSessions = sessionRes.data as WorkoutSessionRow[]
+    const loadedSessionIds = loadedSessions.map((session) => session.id)
+    const sessionExerciseRes = loadedSessionIds.length
+      ? await supabase.from('workout_session_exercises').select('*').in('session_id', loadedSessionIds).order('sort_order')
+      : { data: [], error: null }
     const loadedSessionExercises = (sessionExerciseRes.data ?? []) as WorkoutSessionExerciseRow[]
-    const sessionExerciseIds = loadedSessionExercises.map((item) => item.id)
-    const setRes = sessionExerciseIds.length ? await supabase.from('workout_sets').select('*').in('session_exercise_id', sessionExerciseIds).order('set_order') : { data: [], error: null }
+    const loadedSessionExerciseIds = loadedSessionExercises.map((item) => item.id)
+    const setRes = loadedSessionExerciseIds.length
+      ? await supabase.from('workout_sets').select('*').in('session_exercise_id', loadedSessionExerciseIds).order('set_order')
+      : { data: [], error: null }
+    if (sessionExerciseRes.error || setRes.error) setError((sessionExerciseRes.error ?? setRes.error)?.message ?? 'Workout details could not be loaded.')
+
     const loadedSets = (setRes.data ?? []) as WorkoutSetRow[]
-    if (sessionExerciseRes.error || setRes.error) setError((sessionExerciseRes.error ?? setRes.error)?.message ?? 'Could not load workout details.')
-    setAllSessionExercises(loadedSessionExercises); setAllSets(loadedSets)
-    setActiveExercises(active ? loadedSessionExercises.filter((item) => item.session_id === active.id).sort((a, b) => a.sort_order - b.sort_order).map((item) => ({ ...item, exercise: loadedExercises.find((exercise) => exercise.id === item.exercise_id)!, sets: loadedSets.filter((set) => set.session_exercise_id === item.id).sort((a, b) => a.set_order - b.set_order) })).filter((item) => item.exercise) : [])
+    const active = loadedSessions.find((session) => session.status === 'active') ?? null
+    setExercises(loadedExercises)
+    setExercisePreferences(preferenceRes.data as ExercisePreferenceRow[])
+    setPreferences(workoutPreferenceRes.data ? workoutPreferenceRes.data as WorkoutPreferenceRow : defaultPreferences)
+    setRoutines(loadedRoutines.map((routine) => ({
+      ...routine,
+      items: loadedItems
+        .filter((item) => item.template_id === routine.id)
+        .map((item) => ({ ...item, sets: loadedTemplateSets.filter((set) => set.template_exercise_id === item.id) })),
+    })))
+    setSessions(loadedSessions)
+    setSessionExercises(loadedSessionExercises)
+    setSets(loadedSets)
+    setActiveSession(active)
+    setActiveExercises(active ? loadedSessionExercises
+      .filter((item) => item.session_id === active.id)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((item) => ({
+        ...item,
+        exercise: loadedExercises.find((exercise) => exercise.id === item.exercise_id)!,
+        sets: loadedSets.filter((set) => set.session_exercise_id === item.id).sort((a, b) => a.set_order - b.set_order),
+      }))
+      .filter((item) => item.exercise) : [])
+    setLoading(false)
   }, [supabase, userId])
 
   useEffect(() => { queueMicrotask(() => void load()) }, [load])
 
-  async function addStarterLibrary() { const { error: insertError } = await supabase.from('exercises').insert(starterExercises.map(([name, muscle_group, equipment]) => ({ user_id: userId, name, muscle_group, equipment }))); if (insertError) setError(insertError.message); else await load() }
-  async function createExercise(event: React.FormEvent) { event.preventDefault(); if (!newExercise.name.trim()) return; const { error: insertError } = await supabase.from('exercises').insert({ user_id: userId, ...newExercise, name: newExercise.name.trim(), notes: newExercise.notes.trim() || null }); if (insertError) setError(insertError.message); else { setNewExercise({ name: '', muscle_group: 'other', equipment: 'other', notes: '' }); await load() } }
-  async function archiveExercise(exercise: ExerciseRow) { await supabase.from('exercises').update({ is_archived: !exercise.is_archived, updated_at: new Date().toISOString() }).eq('id', exercise.id); await load() }
-
-  function editTemplate(template: TemplateWithExercises) { setTemplateDraft({ id: template.id, name: template.name, notes: template.notes ?? '', exerciseIds: template.items.map((item) => item.exercise_id) }); setShowTemplateForm(true); setView('templates') }
-  async function saveTemplate(event: React.FormEvent) { event.preventDefault(); if (!templateDraft.name.trim() || templateDraft.exerciseIds.length === 0) return; let templateId = templateDraft.id; if (templateId) { const { error: updateError } = await supabase.from('workout_templates').update({ name: templateDraft.name.trim(), notes: templateDraft.notes.trim() || null, updated_at: new Date().toISOString() }).eq('id', templateId); if (updateError) { setError(updateError.message); return } await supabase.from('workout_template_exercises').delete().eq('template_id', templateId) } else { const { data, error: insertError } = await supabase.from('workout_templates').insert({ user_id: userId, name: templateDraft.name.trim(), notes: templateDraft.notes.trim() || null, sort_order: templates.length }).select('*').single(); if (insertError || !data) { setError(insertError?.message ?? 'Template could not be created.'); return } templateId = data.id }
-    const { error: itemError } = await supabase.from('workout_template_exercises').insert(templateDraft.exerciseIds.map((exerciseId, index) => ({ template_id: templateId, exercise_id: exerciseId, sort_order: index, target_sets: 3, rep_min: 6, rep_max: 12, rest_seconds: 120 }))); if (itemError) setError(itemError.message); else { setShowTemplateForm(false); setTemplateDraft({ id: '', name: '', notes: '', exerciseIds: [] }); await load() }
+  async function execute(action: () => Promise<void>) {
+    if (working) throw new Error('Another workout action is still being saved.')
+    setWorking(true)
+    setError(null)
+    try {
+      await action()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Something went wrong.')
+      throw caught
+    } finally {
+      setWorking(false)
+    }
   }
-  async function duplicateTemplate(template: TemplateWithExercises) { const { data } = await supabase.from('workout_templates').insert({ user_id: userId, name: `${template.name} copy`, notes: template.notes, sort_order: templates.length }).select('*').single(); if (data) await supabase.from('workout_template_exercises').insert(template.items.map((item, index) => ({ template_id: data.id, exercise_id: item.exercise_id, sort_order: index, target_sets: item.target_sets, rep_min: item.rep_min, rep_max: item.rep_max, rest_seconds: item.rest_seconds }))); await load() }
-  async function deleteTemplate(id: string) { await supabase.from('workout_templates').delete().eq('id', id); await load() }
-  function moveDraftExercise(index: number, direction: -1 | 1) { const next = index + direction; if (next < 0 || next >= templateDraft.exerciseIds.length) return; const ids = [...templateDraft.exerciseIds]; [ids[index], ids[next]] = [ids[next], ids[index]]; setTemplateDraft({ ...templateDraft, exerciseIds: ids }) }
 
-  async function startWorkout(template?: TemplateWithExercises) { if (activeSession) { setView('overview'); return } const { data: session, error: sessionError } = await supabase.from('workout_sessions').insert({ user_id: userId, template_id: template?.id ?? null, name: template?.name ?? 'Open workout' }).select('*').single(); if (sessionError || !session) { setError(sessionError?.message ?? 'Workout could not start.'); return } if (template?.items.length) { const { data: items, error: itemError } = await supabase.from('workout_session_exercises').insert(template.items.map((item, index) => ({ session_id: session.id, exercise_id: item.exercise_id, sort_order: index }))).select('*'); if (itemError) setError(itemError.message); else if (items) { const sets = items.flatMap((sessionExercise, index) => Array.from({ length: template.items[index]?.target_sets ?? 3 }, (_, setIndex) => ({ session_exercise_id: sessionExercise.id, set_order: setIndex }))); if (sets.length) await supabase.from('workout_sets').insert(sets) } } await load(); setView('overview') }
-  async function addSessionExercise() { if (!activeSession || !sessionExerciseId || activeExercises.some((item) => item.exercise_id === sessionExerciseId)) return; const { data, error: insertError } = await supabase.from('workout_session_exercises').insert({ session_id: activeSession.id, exercise_id: sessionExerciseId, sort_order: activeExercises.length }).select('*').single(); if (insertError || !data) setError(insertError?.message ?? 'Exercise could not be added.'); else { await supabase.from('workout_sets').insert(Array.from({ length: 3 }, (_, index) => ({ session_exercise_id: data.id, set_order: index }))); setSessionExerciseId(''); await load() } }
-  async function removeSessionExercise(id: string) { await supabase.from('workout_session_exercises').delete().eq('id', id); await load() }
-  async function moveSessionExercise(index: number, direction: -1 | 1) { const next = index + direction; if (next < 0 || next >= activeExercises.length) return; const current = activeExercises[index]; const target = activeExercises[next]; await supabase.from('workout_session_exercises').update({ sort_order: 99 }).eq('id', current.id); await supabase.from('workout_session_exercises').update({ sort_order: index }).eq('id', target.id); await supabase.from('workout_session_exercises').update({ sort_order: next }).eq('id', current.id); await load() }
-  async function updateSet(id: string, patch: Partial<WorkoutSetRow>) { await supabase.from('workout_sets').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id); setAllSets((sets) => sets.map((set) => set.id === id ? { ...set, ...patch } : set)); setActiveExercises((items) => items.map((item) => ({ ...item, sets: item.sets.map((set) => set.id === id ? { ...set, ...patch } : set) }))) }
-  async function addSet(item: ActiveExercise, source?: WorkoutSetRow) { await supabase.from('workout_sets').insert({ session_exercise_id: item.id, set_order: item.sets.length, set_type: source?.set_type ?? 'working', reps: source?.reps ?? null, weight_kg: source?.weight_kg ?? null, rir: source?.rir ?? null }); await load() }
-  async function deleteSet(id: string) { await supabase.from('workout_sets').delete().eq('id', id); await load() }
-  async function toggleExercise(item: ActiveExercise) { await supabase.from('workout_session_exercises').update({ is_complete: !item.is_complete }).eq('id', item.id); await load() }
-  async function finishWorkout(status: 'completed' | 'cancelled') { if (!activeSession) return; const ended = new Date(); const duration = Math.max(0, Math.floor((ended.getTime() - new Date(activeSession.started_at).getTime()) / 1000)); await supabase.from('workout_sessions').update({ status, ended_at: ended.toISOString(), duration_seconds: duration, updated_at: ended.toISOString() }).eq('id', activeSession.id); await load(); setView('history') }
-  async function saveSessionName(sessionId: string) { if (!editingSessionName.trim()) return; await supabase.from('workout_sessions').update({ name: editingSessionName.trim(), updated_at: new Date().toISOString() }).eq('id', sessionId); setEditingSessionId(null); setEditingSessionName(''); await load() }
-  async function deleteSession(id: string) { await supabase.from('workout_sessions').delete().eq('id', id); await load() }
+  async function saveExercise(draft: ExerciseDraft) {
+    await execute(async () => {
+      const payload = {
+        user_id: userId,
+        name: draft.name.trim(),
+        slug: `${slugify(draft.name)}-${draft.id?.slice(0, 8) ?? crypto.randomUUID().slice(0, 8)}`,
+        muscle_group: draft.muscle_group.trim().toLowerCase() || 'other',
+        equipment: draft.equipment.trim().toLowerCase() || 'other',
+        tracking_type: draft.tracking_type,
+        notes: draft.notes.trim() || null,
+        source: 'custom' as const,
+        is_system: false,
+        updated_at: new Date().toISOString(),
+      }
+      const result = draft.id
+        ? await supabase.from('exercises').update(payload).eq('id', draft.id)
+        : await supabase.from('exercises').insert(payload)
+      if (result.error) throw result.error
+      await load()
+    })
+  }
 
-  const completedSessions = sessions.filter((session) => session.status === 'completed')
-  const weeklySessions = completedSessions.filter((session) => mountedAt - new Date(session.started_at).getTime() < 7 * 86400000)
-  const weeklyVolume = weeklySessions.reduce((total, session) => { const ids = allSessionExercises.filter((item) => item.session_id === session.id).map((item) => item.id); return total + allSets.filter((set) => ids.includes(set.session_exercise_id) && set.is_complete).reduce((sum, set) => sum + Number(set.weight_kg ?? 0) * Number(set.reps ?? 0), 0) }, 0)
+  async function archiveExercise(exercise: ExerciseRow) {
+    await execute(async () => {
+      const { error: updateError } = await supabase.from('exercises').update({ is_archived: !exercise.is_archived, updated_at: new Date().toISOString() }).eq('id', exercise.id)
+      if (updateError) throw updateError
+      await load()
+    })
+  }
 
-  if (activeSession) return <ActiveWorkout session={activeSession} items={activeExercises} exercises={exercises.filter((e) => !e.is_archived)} selectedExerciseId={sessionExerciseId} setSelectedExerciseId={setSessionExerciseId} onAddExercise={addSessionExercise} onRemoveExercise={removeSessionExercise} onMoveExercise={moveSessionExercise} onUpdateSet={updateSet} onAddSet={addSet} onDeleteSet={deleteSet} onToggleExercise={toggleExercise} onFinish={finishWorkout} previous={(exerciseId) => previousPerformance(exerciseId, activeSession.id, completedSessions, allSessionExercises, allSets)} />
+  async function toggleFavorite(exercise: ExerciseRow) {
+    await execute(async () => {
+      const favorite = exercisePreferences.some((preference) => preference.exercise_id === exercise.id && preference.is_favorite)
+      const result = favorite
+        ? await supabase.from('exercise_preferences').delete().eq('user_id', userId).eq('exercise_id', exercise.id)
+        : await supabase.from('exercise_preferences').upsert({ user_id: userId, exercise_id: exercise.id, is_favorite: true, updated_at: new Date().toISOString() })
+      if (result.error) throw result.error
+      await load()
+    })
+  }
 
-  return <div className="mx-auto max-w-[92rem] space-y-7"><AdminPageHeader eyebrow="Progressive training" title="Workout tracker" description="Build repeatable sessions, record every working set, and make progression visible without cluttering the training floor." actions={<Button onClick={() => startWorkout()}><Play /> Start empty workout</Button>} />
-    {error && <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
-    <div className="flex gap-1 overflow-x-auto rounded-2xl bg-muted/50 p-1">{(['overview', 'templates', 'exercises', 'history'] as View[]).map((item) => <button key={item} onClick={() => setView(item)} className={cn('min-w-24 flex-1 rounded-xl px-4 py-2.5 text-sm font-medium capitalize transition-colors', view === item ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground')}>{item}</button>)}</div>
+  async function saveRoutine(draft: RoutineDraft) {
+    await execute(async () => {
+      const { data: savedTemplateId, error: saveError } = await supabase.rpc('save_workout_template', {
+        p_template_id: draft.id ?? null,
+        p_name: draft.name.trim(),
+        p_notes: draft.notes.trim() || null,
+        p_items: draft.items.map((item) => ({
+          exercise_id: item.exerciseId,
+          target_sets: item.sets.length,
+          rep_min: minimum(item.sets.map((set) => set.targetReps)),
+          rep_max: maximum(item.sets.map((set) => set.targetReps)),
+          rest_seconds: item.restSeconds,
+          superset_group: item.supersetGroup.trim() || null,
+          notes: item.notes.trim() || null,
+        })),
+      })
+      if (saveError) throw saveError
+      const templateId = String(savedTemplateId)
+      const { data: savedItems, error: itemError } = await supabase
+        .from('workout_template_exercises')
+        .select('*')
+        .eq('template_id', templateId)
+      if (itemError) throw itemError
+      for (const draftItem of draft.items) {
+        const savedItem = (savedItems as WorkoutTemplateExerciseRow[]).find((item) => item.exercise_id === draftItem.exerciseId)
+        if (!savedItem) throw new Error('A planned exercise could not be saved.')
+        const { error: clearError } = await supabase.from('workout_template_sets').delete().eq('template_exercise_id', savedItem.id)
+        if (clearError) throw clearError
+        const { error: setError } = await supabase.from('workout_template_sets').insert(draftItem.sets.map((set, index) => ({
+          template_exercise_id: savedItem.id,
+          set_order: index,
+          set_type: set.setType,
+          target_reps: set.targetReps,
+          target_weight_kg: set.targetWeightKg,
+          target_assistance_kg: set.targetAssistanceKg,
+          target_duration_seconds: set.targetDurationSeconds,
+          target_distance_meters: set.targetDistanceMeters,
+          target_rir: set.targetRir,
+        })))
+        if (setError) throw setError
+      }
+      await load()
+    })
+  }
 
-    {view === 'overview' && <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]"><div className="rounded-[2rem] bg-card p-5 ring-1 ring-border sm:p-7"><div><p className="text-sm text-muted-foreground">Ready sessions</p><h2 className="text-xl font-semibold">Workout templates</h2></div><div className="mt-5 grid gap-3 md:grid-cols-2">{templates.length ? templates.map((template) => <div key={template.id} className="rounded-2xl bg-muted/45 p-4"><Dumbbell className="size-5 text-muted-foreground" /><p className="mt-4 font-semibold">{template.name}</p><p className="mt-1 text-xs text-muted-foreground">{template.items.length} exercises · {template.items.reduce((sum, item) => sum + item.target_sets, 0)} planned sets</p><Button className="mt-5 w-full" onClick={() => startWorkout(template)}><Play /> Start workout</Button></div>) : <Empty title="No templates yet" text="Create a repeatable training day in the Templates tab." />}</div></div><div className="space-y-4"><div className="rounded-[2rem] bg-primary p-6 text-primary-foreground"><p className="text-sm opacity-70">Last seven days</p><p className="mt-4 font-mono text-5xl font-semibold tracking-[-0.07em]">{weeklySessions.length}</p><p className="text-sm opacity-70">completed workouts</p><div className="mt-7 rounded-2xl bg-primary-foreground/10 p-4"><p className="font-mono text-2xl">{Math.round(weeklyVolume).toLocaleString()} kg</p><p className="text-xs opacity-65">training volume</p></div></div>{completedSessions[0] && <div className="rounded-[2rem] bg-card p-5 ring-1 ring-border"><p className="text-sm text-muted-foreground">Last session</p><p className="mt-2 font-semibold">{completedSessions[0].name}</p><p className="mt-1 text-xs text-muted-foreground">{format(new Date(completedSessions[0].started_at), 'd MMM · HH:mm')}</p></div>}</div></section>}
+  async function startWorkout(routine?: RoutineWithItems) {
+    if (activeSession) {
+      setActiveOpen(true)
+      return
+    }
+    await execute(async () => {
+      const { error: startError } = await supabase.rpc('start_workout', { p_template_id: routine?.id ?? null, p_name: routine?.name ?? 'Open workout' })
+      if (startError) throw startError
+      await load()
+      setView('overview')
+      setActiveOpen(true)
+    })
+  }
 
-    {view === 'templates' && <section className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">{showTemplateForm ? <form onSubmit={saveTemplate} className="rounded-[2rem] bg-card p-5 ring-1 ring-border sm:p-7"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">{templateDraft.id ? 'Edit template' : 'New template'}</h2><Button type="button" size="icon" variant="ghost" onClick={() => setShowTemplateForm(false)}><X /></Button></div><Input className="mt-5" value={templateDraft.name} onChange={(e) => setTemplateDraft({ ...templateDraft, name: e.target.value })} placeholder="Push day" required /><Input className="mt-3" value={templateDraft.notes} onChange={(e) => setTemplateDraft({ ...templateDraft, notes: e.target.value })} placeholder="Optional intent" /><select className="mt-3 h-10 w-full rounded-md border bg-background px-3 text-sm" value="" onChange={(e) => e.target.value && !templateDraft.exerciseIds.includes(e.target.value) && setTemplateDraft({ ...templateDraft, exerciseIds: [...templateDraft.exerciseIds, e.target.value] })}><option value="">Add exercise...</option>{exercises.filter((e) => !e.is_archived && !templateDraft.exerciseIds.includes(e.id)).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select><div className="mt-4 space-y-2">{templateDraft.exerciseIds.map((id, index) => <div key={id} className="flex items-center gap-2 rounded-xl bg-muted/45 p-2"><span className="w-7 font-mono text-xs text-muted-foreground">{index + 1}</span><p className="flex-1 text-sm font-medium">{exercises.find((e) => e.id === id)?.name}</p><Button type="button" size="icon" variant="ghost" onClick={() => moveDraftExercise(index, -1)}><ArrowUp /></Button><Button type="button" size="icon" variant="ghost" onClick={() => moveDraftExercise(index, 1)}><ArrowDown /></Button><Button type="button" size="icon" variant="ghost" onClick={() => setTemplateDraft({ ...templateDraft, exerciseIds: templateDraft.exerciseIds.filter((item) => item !== id) })}><Trash2 /></Button></div>)}</div><Button className="mt-5" type="submit" disabled={!templateDraft.name.trim() || !templateDraft.exerciseIds.length}><Save /> Save template</Button></form> : <button onClick={() => { setTemplateDraft({ id: '', name: '', notes: '', exerciseIds: [] }); setShowTemplateForm(true) }} className="grid min-h-56 place-items-center rounded-[2rem] border border-dashed bg-muted/20 text-center transition-colors hover:bg-muted/40"><span><Plus className="mx-auto size-7" /><span className="mt-3 block font-medium">Create workout template</span></span></button>}<div className="space-y-3">{templates.map((template) => <div key={template.id} className="rounded-2xl bg-card p-4 ring-1 ring-border"><div className="flex items-start gap-3"><div className="min-w-0 flex-1"><p className="font-semibold">{template.name}</p><p className="mt-1 text-xs text-muted-foreground">{template.items.map((item) => exercises.find((e) => e.id === item.exercise_id)?.name).filter(Boolean).join(' · ')}</p></div><Button size="icon" variant="ghost" onClick={() => editTemplate(template)}><Pencil /></Button><Button size="icon" variant="ghost" onClick={() => duplicateTemplate(template)}><Copy /></Button><Button size="icon" variant="ghost" onClick={() => deleteTemplate(template.id)}><Trash2 /></Button></div><Button className="mt-4" size="sm" onClick={() => startWorkout(template)}><Play /> Start</Button></div>)}{!templates.length && <Empty title="No workout templates" text="Create one from your exercise library." />}</div></section>}
+  async function cloneRoutine(id: string) {
+    await execute(async () => {
+      const { error: cloneError } = await supabase.rpc('clone_workout_template', { p_template_id: id })
+      if (cloneError) throw cloneError
+      await load()
+    })
+  }
 
-    {view === 'exercises' && <section className="grid gap-5 xl:grid-cols-[0.7fr_1.3fr]"><form onSubmit={createExercise} className="self-start rounded-[2rem] bg-card p-5 ring-1 ring-border sm:p-7"><Library className="size-5 text-muted-foreground" /><h2 className="mt-4 text-lg font-semibold">Exercise library</h2><Input className="mt-5" value={newExercise.name} onChange={(e) => setNewExercise({ ...newExercise, name: e.target.value })} placeholder="Exercise name" required /><div className="mt-3 grid grid-cols-2 gap-3"><Input value={newExercise.muscle_group} onChange={(e) => setNewExercise({ ...newExercise, muscle_group: e.target.value })} placeholder="Muscle group" /><Input value={newExercise.equipment} onChange={(e) => setNewExercise({ ...newExercise, equipment: e.target.value })} placeholder="Equipment" /></div><Input className="mt-3" value={newExercise.notes} onChange={(e) => setNewExercise({ ...newExercise, notes: e.target.value })} placeholder="Optional setup notes" /><Button className="mt-4" type="submit"><Plus /> Add exercise</Button>{!exercises.length && <Button className="mt-2" type="button" variant="outline" onClick={addStarterLibrary}>Add starter library</Button>}</form><div className="grid gap-3 md:grid-cols-2">{exercises.map((exercise) => <div key={exercise.id} className={cn('rounded-2xl bg-card p-4 ring-1 ring-border', exercise.is_archived && 'opacity-55')}><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{exercise.name}</p><p className="mt-1 text-xs capitalize text-muted-foreground">{exercise.muscle_group} · {exercise.equipment}</p></div><Button size="icon" variant="ghost" onClick={() => archiveExercise(exercise)}><Archive /></Button></div>{exercise.notes && <p className="mt-3 text-sm text-muted-foreground">{exercise.notes}</p>}{exerciseTrend(exercise.id, completedSessions, allSessionExercises, allSets).length > 0 && <div className="mt-4 flex items-end gap-1">{exerciseTrend(exercise.id, completedSessions, allSessionExercises, allSets).slice(-8).map((value, index, values) => { const max = Math.max(...values, 1); return <span key={index} className="flex-1 rounded-t bg-primary/65" style={{ height: `${Math.max(4, value / max * 36)}px` }} /> })}</div>}</div>)}</div></section>}
+  async function deleteRoutine(id: string) {
+    await execute(async () => {
+      const { error: deleteError } = await supabase.from('workout_templates').delete().eq('id', id)
+      if (deleteError) throw deleteError
+      await load()
+    })
+  }
 
-    {view === 'history' && <section className="rounded-[2rem] bg-card p-5 ring-1 ring-border sm:p-7"><div className="flex items-center gap-2"><History className="size-5" /><h2 className="text-xl font-semibold">Workout history</h2></div><div className="mt-5 divide-y">{completedSessions.length ? completedSessions.map((session) => { const itemIds = allSessionExercises.filter((item) => item.session_id === session.id).map((item) => item.id); const sets = allSets.filter((set) => itemIds.includes(set.session_exercise_id) && set.is_complete); const volume = sets.reduce((sum, set) => sum + Number(set.weight_kg ?? 0) * Number(set.reps ?? 0), 0); const editing = editingSessionId === session.id; return <div key={session.id} className="flex items-center gap-3 py-4"><div className="grid size-11 place-items-center rounded-xl bg-muted"><Dumbbell className="size-4" /></div><div className="min-w-0 flex-1">{editing ? <Input value={editingSessionName} onChange={(event) => setEditingSessionName(event.target.value)} autoFocus /> : <p className="truncate font-medium">{session.name}</p>}<p className="mt-1 text-xs text-muted-foreground">{format(new Date(session.started_at), 'd MMM yyyy · HH:mm')} · {sets.length} sets · {Math.round(volume).toLocaleString()} kg</p></div>{editing ? <><Button size="icon" onClick={() => saveSessionName(session.id)}><Save /></Button><Button size="icon" variant="ghost" onClick={() => setEditingSessionId(null)}><X /></Button></> : <Button size="icon" variant="ghost" onClick={() => { setEditingSessionId(session.id); setEditingSessionName(session.name) }}><Pencil /></Button>}<Button size="icon" variant="ghost" onClick={() => deleteSession(session.id)}><Trash2 /></Button></div> }) : <Empty title="No completed workouts" text="Your first finished session will appear here." />}</div></section>}
+  async function addSessionExercise(exerciseId: string) {
+    if (!activeSession) return
+    await execute(async () => {
+      const exercisePreference = exercisePreferences.find((preference) => preference.exercise_id === exerciseId)
+      const { data, error: insertError } = await supabase.from('workout_session_exercises').insert({
+        session_id: activeSession.id,
+        exercise_id: exerciseId,
+        sort_order: activeExercises.length,
+        rest_seconds: exercisePreference?.rest_seconds ?? preferences.default_rest_seconds,
+      }).select('*').single()
+      if (insertError) throw insertError
+      const { error: setsError } = await supabase.from('workout_sets').insert(Array.from({ length: 3 }, (_, index) => ({ session_exercise_id: data.id, set_order: index })))
+      if (setsError) {
+        await supabase.from('workout_session_exercises').delete().eq('id', data.id)
+        throw setsError
+      }
+      await load()
+    })
+  }
+
+  async function removeSessionExercise(id: string) {
+    await execute(async () => {
+      const { error: deleteError } = await supabase.from('workout_session_exercises').delete().eq('id', id)
+      if (deleteError) throw deleteError
+      await load()
+    })
+  }
+
+  async function moveSessionExercise(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= activeExercises.length) return
+    await execute(async () => {
+      const current = activeExercises[index]
+      const target = activeExercises[targetIndex]
+      const [currentResult, targetResult] = await Promise.all([
+        supabase.from('workout_session_exercises').update({ sort_order: targetIndex }).eq('id', current.id),
+        supabase.from('workout_session_exercises').update({ sort_order: index }).eq('id', target.id),
+      ])
+      if (currentResult.error || targetResult.error) throw currentResult.error ?? targetResult.error
+      await load()
+    })
+  }
+
+  async function updateSessionExercise(id: string, patch: Partial<WorkoutSessionExerciseRow>) {
+    const { error: updateError } = await supabase.from('workout_session_exercises').update(patch).eq('id', id)
+    if (updateError) {
+      setError(updateError.message)
+      throw updateError
+    }
+    setSessionExercises((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item))
+    setActiveExercises((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item))
+  }
+
+  async function updateSet(id: string, patch: Partial<WorkoutSetRow>) {
+    const { error: updateError } = await supabase.from('workout_sets').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
+    if (updateError) {
+      setError(updateError.message)
+      throw updateError
+    }
+    setSets((current) => current.map((set) => set.id === id ? { ...set, ...patch } : set))
+    setActiveExercises((current) => current.map((item) => ({ ...item, sets: item.sets.map((set) => set.id === id ? { ...set, ...patch } : set) })))
+  }
+
+  async function addSet(item: ActiveExercise, source?: WorkoutSetRow) {
+    await execute(async () => {
+      const { error: insertError } = await supabase.from('workout_sets').insert({
+        session_exercise_id: item.id,
+        set_order: item.sets.length,
+        set_type: source?.set_type ?? 'working',
+        reps: source?.reps ?? null,
+        weight_kg: source?.weight_kg ?? null,
+        assistance_kg: source?.assistance_kg ?? null,
+        duration_seconds: source?.duration_seconds ?? null,
+        distance_meters: source?.distance_meters ?? null,
+        rir: source?.rir ?? null,
+      })
+      if (insertError) throw insertError
+      await load()
+    })
+  }
+
+  async function deleteSet(id: string) {
+    await execute(async () => {
+      const { error: deleteError } = await supabase.from('workout_sets').delete().eq('id', id)
+      if (deleteError) throw deleteError
+      await load()
+    })
+  }
+
+  async function finishWorkout(status: 'completed' | 'cancelled') {
+    if (!activeSession) return
+    await execute(async () => {
+      const { error: finishError } = await supabase.rpc('finish_workout', { p_session_id: activeSession.id, p_status: status })
+      if (finishError) throw finishError
+      await load()
+      setView(status === 'completed' ? 'history' : 'overview')
+      setActiveOpen(false)
+    })
+  }
+
+  async function updateSession(id: string, patch: Partial<WorkoutSessionRow>) {
+    await execute(async () => {
+      const { error: updateError } = await supabase.from('workout_sessions').update(patch).eq('id', id)
+      if (updateError) throw updateError
+      await load()
+    })
+  }
+
+  async function deleteSession(id: string) {
+    await execute(async () => {
+      const { error: deleteError } = await supabase.from('workout_sessions').delete().eq('id', id)
+      if (deleteError) throw deleteError
+      await load()
+    })
+  }
+
+  function previousPerformance(exerciseId: string) {
+    return findPreviousPerformance({
+      exerciseId,
+      activeTemplateId: activeSession?.template_id ?? null,
+      scope: preferences.previous_scope,
+      sessions,
+      sessionExercises,
+      sets,
+    })
+  }
+
+  const completed = sessions.filter((session) => session.status === 'completed')
+  const recentSessionIds = new Set(sessions.slice(0, 20).map((session) => session.id))
+  const recentIds = new Set(sessionExercises.filter((item) => recentSessionIds.has(item.session_id)).map((item) => item.exercise_id))
+  const favoriteIds = new Set(exercisePreferences.filter((preference) => preference.is_favorite).map((preference) => preference.exercise_id))
+  const lastWeek = completed.filter((session) => Date.now() - new Date(session.started_at).getTime() < 7 * 86400000)
+  const weeklyVolume = lastWeek.reduce((sum, session) => sum + sessionVolume(session.id, sessionExercises, sets), 0)
+
+  if (activeSession && activeOpen) return <ActiveWorkout session={activeSession} items={activeExercises} exercises={exercises.filter((exercise) => !exercise.is_archived)} previous={previousPerformance} recentIds={recentIds} favoriteIds={favoriteIds} timerSound={preferences.timer_sound} timerVibration={preferences.timer_vibration} externalError={error} onRetryLoad={load} onAddExercise={addSessionExercise} onRemoveExercise={removeSessionExercise} onMoveExercise={moveSessionExercise} onUpdateExercise={updateSessionExercise} onUpdateSession={updateSession} onUpdateSet={updateSet} onAddSet={addSet} onDeleteSet={deleteSet} onFinish={finishWorkout} />
+
+  return <div className="mx-auto max-w-[92rem] space-y-7">
+    <AdminPageHeader eyebrow="Progressive training" title="Workout tracker" description="Build routines, track every training mode, and turn completed sets into useful progression data." actions={<Button onClick={() => activeSession ? setActiveOpen(true) : startWorkout()} disabled={working}><Play /> {activeSession ? 'Resume workout' : 'Start empty workout'}</Button>} />
+    {error && <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><span className="flex-1">{error}</span><Button size="sm" variant="ghost" onClick={() => load()}><RefreshCw /> Retry</Button></div>}
+    <nav className="flex gap-1 overflow-x-auto rounded-2xl bg-muted/50 p-1">{([
+      ['overview', Activity], ['routines', Dumbbell], ['exercises', Library], ['history', History],
+    ] as const).map(([item, Icon]) => <button key={item} onClick={() => setView(item)} className={cn('flex min-w-28 flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium capitalize transition-colors', view === item ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground')}><Icon className="size-4" />{item}</button>)}</nav>
+    {loading ? <div className="grid min-h-64 place-items-center text-sm text-muted-foreground">Loading training data…</div> : <>
+      {view === 'overview' && <Overview routines={routines} completed={completed} activeSession={activeSession} weeklyCount={lastWeek.length} weeklyVolume={weeklyVolume} exerciseCount={exercises.filter((exercise) => !exercise.is_archived).length} onStart={startWorkout} onResume={() => setActiveOpen(true)} onDiscard={() => finishWorkout('cancelled')} onOpenRoutines={() => setView('routines')} />}
+      {view === 'routines' && <RoutineBuilder exercises={exercises.filter((exercise) => !exercise.is_archived)} routines={routines} onSave={saveRoutine} onStart={startWorkout} onClone={cloneRoutine} onDelete={deleteRoutine} />}
+      {view === 'exercises' && <ExerciseLibrary exercises={exercises} favoriteIds={favoriteIds} recentIds={recentIds} sessions={sessions} sessionExercises={sessionExercises} sets={sets} onSave={saveExercise} onArchive={archiveExercise} onFavorite={toggleFavorite} />}
+      {view === 'history' && <WorkoutHistory sessions={sessions} sessionExercises={sessionExercises} sets={sets} exercises={exercises} onUpdate={updateSession} onDelete={deleteSession} />}
+    </>}
   </div>
 }
 
-function ActiveWorkout({ session, items, exercises, selectedExerciseId, setSelectedExerciseId, onAddExercise, onRemoveExercise, onMoveExercise, onUpdateSet, onAddSet, onDeleteSet, onToggleExercise, onFinish, previous }: { session: WorkoutSessionRow; items: ActiveExercise[]; exercises: ExerciseRow[]; selectedExerciseId: string; setSelectedExerciseId: (id: string) => void; onAddExercise: () => void; onRemoveExercise: (id: string) => void; onMoveExercise: (index: number, direction: -1 | 1) => void; onUpdateSet: (id: string, patch: Partial<WorkoutSetRow>) => void; onAddSet: (item: ActiveExercise, source?: WorkoutSetRow) => void; onDeleteSet: (id: string) => void; onToggleExercise: (item: ActiveExercise) => void; onFinish: (status: 'completed' | 'cancelled') => void; previous: (exerciseId: string) => string }) { return <div className="mx-auto min-h-dvh max-w-6xl space-y-6"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm text-muted-foreground">Active since {format(new Date(session.started_at), 'HH:mm')}</p><h1 className="text-3xl font-semibold tracking-tight">{session.name}</h1></div><div className="flex gap-2"><Button variant="ghost" onClick={() => onFinish('cancelled')}>Cancel</Button><Button onClick={() => onFinish('completed')}><Check /> Finish workout</Button></div></div><div className="flex gap-2 rounded-2xl bg-card p-3 ring-1 ring-border"><select className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" value={selectedExerciseId} onChange={(e) => setSelectedExerciseId(e.target.value)}><option value="">Add exercise...</option>{exercises.filter((exercise) => !items.some((item) => item.exercise_id === exercise.id)).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}</select><Button onClick={onAddExercise} disabled={!selectedExerciseId}><Plus /> Add</Button></div>{items.length === 0 ? <Empty title="Empty workout" text="Add the first exercise above." /> : items.map((item, itemIndex) => <section key={item.id} className={cn('rounded-[2rem] bg-card p-4 ring-1 ring-border sm:p-6', item.is_complete && 'opacity-70')}><div className="flex items-start gap-2"><div className="min-w-0 flex-1"><p className="text-lg font-semibold">{item.exercise.name}</p><p className="mt-1 text-xs text-muted-foreground">Previous: {previous(item.exercise_id) || 'No prior working sets'}</p></div><Button size="icon" variant="ghost" onClick={() => onMoveExercise(itemIndex, -1)}><ArrowUp /></Button><Button size="icon" variant="ghost" onClick={() => onMoveExercise(itemIndex, 1)}><ArrowDown /></Button><Button size="icon" variant="ghost" onClick={() => onRemoveExercise(item.id)}><Trash2 /></Button></div><div className="mt-5 grid grid-cols-[2rem_1fr_1fr_1fr_2.5rem_2.5rem] gap-2 text-center text-[10px] uppercase tracking-wider text-muted-foreground"><span>Set</span><span>kg</span><span>Reps</span><span>RIR</span><span /><span /></div><div className="mt-2 space-y-2">{item.sets.map((set, index) => <div key={set.id} className="grid grid-cols-[2rem_1fr_1fr_1fr_2.5rem_2.5rem] items-center gap-2"><span className="text-center font-mono text-xs">{index + 1}</span><Input type="number" inputMode="decimal" value={set.weight_kg ?? ''} onChange={(e) => onUpdateSet(set.id, { weight_kg: e.target.value ? Number(e.target.value) : null })} className="font-mono" /><Input type="number" inputMode="numeric" value={set.reps ?? ''} onChange={(e) => onUpdateSet(set.id, { reps: e.target.value ? Number(e.target.value) : null })} className="font-mono" /><Input type="number" inputMode="decimal" value={set.rir ?? ''} onChange={(e) => onUpdateSet(set.id, { rir: e.target.value ? Number(e.target.value) : null })} className="font-mono" /><button onClick={() => onUpdateSet(set.id, { is_complete: !set.is_complete, completed_at: !set.is_complete ? new Date().toISOString() : null })} className={cn('grid size-10 place-items-center rounded-xl border', set.is_complete && 'bg-primary text-primary-foreground')}><Check className="size-4" /></button><button onClick={() => onDeleteSet(set.id)} className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-muted"><Trash2 className="size-4" /></button></div>)}</div><div className="mt-4 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => onAddSet(item)}><Plus /> Add set</Button>{item.sets.at(-1) && <Button size="sm" variant="ghost" onClick={() => onAddSet(item, item.sets.at(-1))}><Copy /> Duplicate last</Button>}<Button size="sm" variant={item.is_complete ? 'secondary' : 'default'} className="ml-auto" onClick={() => onToggleExercise(item)}><Check /> {item.is_complete ? 'Reopen' : 'Exercise done'}</Button></div></section>)}</div> }
+function Overview({ routines, completed, activeSession, weeklyCount, weeklyVolume, exerciseCount, onStart, onResume, onDiscard, onOpenRoutines }: { routines: RoutineWithItems[]; completed: WorkoutSessionRow[]; activeSession: WorkoutSessionRow | null; weeklyCount: number; weeklyVolume: number; exerciseCount: number; onStart: (routine?: RoutineWithItems) => Promise<void>; onResume: () => void; onDiscard: () => Promise<void>; onOpenRoutines: () => void }) {
+  return <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+    <div className="space-y-4">
+      {activeSession && <div className="rounded-[2rem] bg-primary p-5 text-primary-foreground shadow-lg sm:p-6"><p className="text-xs opacity-70">Workout in progress · {format(new Date(activeSession.started_at), 'HH:mm')}</p><h2 className="mt-1 text-xl font-semibold">{activeSession.name}</h2><p className="mt-2 text-sm opacity-75">Your workout is saved and ready to continue.</p><div className="mt-5 grid grid-cols-[1fr_auto] gap-2"><Button variant="secondary" onClick={onResume}><Play /> Resume</Button><Button variant="ghost" className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={onDiscard}><X /> Discard</Button></div></div>}
+      <div className="rounded-[2rem] bg-card p-5 ring-1 ring-border sm:p-7"><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Ready sessions</p><h2 className="text-xl font-semibold">Your routines</h2></div><Button variant="ghost" onClick={onOpenRoutines}><Settings2 /> Manage</Button></div><Button className="mt-5 w-full min-h-12" variant="outline" disabled={Boolean(activeSession)} onClick={() => onStart()}><Play /> Start empty workout</Button><div className="mt-3 grid gap-3 md:grid-cols-2">{routines.slice(0, 6).map((routine) => <article key={routine.id} className="rounded-2xl bg-muted/45 p-4"><Dumbbell className="size-5 text-primary" /><p className="mt-4 font-semibold">{routine.name}</p><p className="mt-1 text-xs text-muted-foreground">{routine.items.length} exercises · {routine.items.reduce((sum, item) => sum + item.sets.length, 0)} sets</p><Button className="mt-5 w-full" disabled={Boolean(activeSession)} onClick={() => onStart(routine)}><Play /> Start</Button></article>)}{!routines.length && <button className="min-h-48 rounded-2xl border border-dashed text-sm text-muted-foreground" onClick={onOpenRoutines}>Create your first routine</button>}</div></div>
+    </div>
+    <div className="space-y-4"><div className="rounded-[2rem] bg-primary p-6 text-primary-foreground"><p className="text-sm opacity-70">Last seven days</p><p className="mt-4 font-mono text-5xl font-semibold tracking-[-0.07em]">{weeklyCount}</p><p className="text-sm opacity-70">completed workouts</p><div className="mt-7 rounded-2xl bg-primary-foreground/10 p-4"><p className="font-mono text-2xl">{Math.round(weeklyVolume).toLocaleString()} kg</p><p className="text-xs opacity-65">recorded volume</p></div></div><div className="grid grid-cols-2 gap-3"><Stat icon={Library} value={exerciseCount} label="Exercises" /><Stat icon={Trophy} value={completed.length} label="All workouts" /></div>{completed[0] && <div className="rounded-2xl bg-card p-5 ring-1 ring-border"><p className="text-sm text-muted-foreground">Last session</p><p className="mt-2 font-semibold">{completed[0].name}</p><p className="mt-1 text-xs text-muted-foreground">{format(new Date(completed[0].started_at), 'd MMM · HH:mm')}</p></div>}</div>
+  </section>
+}
 
-function previousPerformance(exerciseId: string, activeId: string, sessions: WorkoutSessionRow[], sessionExercises: WorkoutSessionExerciseRow[], sets: WorkoutSetRow[]) { const previousSession = sessions.find((session) => session.id !== activeId && session.status === 'completed' && sessionExercises.some((item) => item.session_id === session.id && item.exercise_id === exerciseId)); if (!previousSession) return ''; const item = sessionExercises.find((row) => row.session_id === previousSession.id && row.exercise_id === exerciseId); if (!item) return ''; return sets.filter((set) => set.session_exercise_id === item.id && set.is_complete).map((set) => `${Number(set.weight_kg ?? 0)}×${set.reps ?? 0}`).join(', ') }
-function exerciseTrend(exerciseId: string, sessions: WorkoutSessionRow[], sessionExercises: WorkoutSessionExerciseRow[], sets: WorkoutSetRow[]) { return sessions.filter((session) => session.status === 'completed').slice().reverse().map((session) => { const item = sessionExercises.find((row) => row.session_id === session.id && row.exercise_id === exerciseId); if (!item) return 0; return Math.max(0, ...sets.filter((set) => set.session_exercise_id === item.id && set.is_complete).map((set) => Number(set.weight_kg ?? 0) * (1 + Number(set.reps ?? 0) / 30))) }).filter(Boolean) }
-function Empty({ title, text }: { title: string; text: string }) { return <div className="rounded-2xl bg-muted/35 p-8 text-center"><p className="font-medium">{title}</p><p className="mt-1 text-sm text-muted-foreground">{text}</p></div> }
+function Stat({ icon: Icon, value, label }: { icon: typeof Library; value: number; label: string }) {
+  return <div className="rounded-2xl bg-card p-4 ring-1 ring-border"><Icon className="size-4 text-primary" /><p className="mt-3 font-mono text-2xl font-semibold">{value}</p><p className="text-xs text-muted-foreground">{label}</p></div>
+}
+
+function slugify(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'exercise'
+}
+
+function minimum(values: Array<number | null>) {
+  const numbers = values.filter((value): value is number => value !== null)
+  return numbers.length ? Math.min(...numbers) : null
+}
+
+function maximum(values: Array<number | null>) {
+  const numbers = values.filter((value): value is number => value !== null)
+  return numbers.length ? Math.max(...numbers) : null
+}

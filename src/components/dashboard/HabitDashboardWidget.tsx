@@ -1,364 +1,302 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { createHabit, fetchHabits, updateHabit } from '@/lib/habits'
-import type { Habit } from '@/lib/types'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { EmojiPicker } from '@/components/ui/emoji-picker'
-import { Input } from '@/components/ui/input'
-import { Archive, Flame, Minus, Pencil, Plus, Save, X } from 'lucide-react'
-import { format } from 'date-fns'
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  AlertCircle,
+  ChevronRight,
+  Flame,
+  Loader2,
+  Plus,
+  RotateCcw,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  createHabit,
+  fetchHabits,
+  setHabitLogCompletion,
+} from "@/lib/habits";
+import { habitLogKey, indexHabitLogs } from "@/lib/habit-manager";
+import type { Habit, HabitLog } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  HabitEditorDialog,
+  habitColorClass,
+  type HabitEditorValue,
+} from "@/components/habits/HabitEditorDialog";
 
 interface HabitDashboardWidgetProps {
-  userId: string
-  initiallyOpen?: boolean
+  userId: string;
+  initiallyOpen?: boolean;
+  todayDate?: string;
 }
 
-interface HabitLogUpsertClient {
-  from(table: 'habit_logs'): {
-    upsert(
-      value: {
-        user_id: string
-        habit_id: string
-        log_date: string
-        completed: boolean
-        entry_id: string | null
-      },
-      options: { onConflict: string }
-    ): PromiseLike<{ error: unknown }>
-  }
+function localDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function habitLogUpsertClient(supabase: ReturnType<typeof createClient>): HabitLogUpsertClient {
-  return supabase as unknown as HabitLogUpsertClient
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDashboardWidgetProps) {
-  const supabase = useMemo(() => createClient(), [])
-  const router = useRouter()
-  const today = format(new Date(), 'yyyy-MM-dd')
-
-  const [habits, setHabits] = useState<Habit[]>([])
-  const [loggedIds, setLoggedIds] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(true)
-  const [toggling, setToggling] = useState<Set<string>>(new Set())
-  const [showAddForm, setShowAddForm] = useState(initiallyOpen)
-  const [newName, setNewName] = useState('')
-  const [newEmoji, setNewEmoji] = useState('✅')
-  const [creating, setCreating] = useState(false)
-  const [editingHabitId, setEditingHabitId] = useState<string | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editEmoji, setEditEmoji] = useState('✅')
+export function HabitDashboardWidget({
+  userId,
+  initiallyOpen = false,
+  todayDate,
+}: HabitDashboardWidgetProps) {
+  const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
+  const today = todayDate ?? localDate();
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [logs, setLogs] = useState<HabitLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editorOpen, setEditorOpen] = useState(initiallyOpen);
+  const [creating, setCreating] = useState(false);
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const [failure, setFailure] = useState<{
+    message: string;
+    retry?: () => void | Promise<void>;
+  } | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
+    setFailure(null);
     try {
-      const [habitData, logData] = await Promise.all([
+      const [habitRows, logResult] = await Promise.all([
         fetchHabits(supabase, userId),
         supabase
-          .from('habit_logs')
-          .select('habit_id')
-          .eq('user_id', userId)
-          .eq('log_date', today)
-          .eq('completed', true),
-      ])
-      setHabits(habitData)
-      const ids = new Set<string>((logData.data ?? []).map((l: { habit_id: string }) => l.habit_id))
-      setLoggedIds(ids)
-    } catch (e) {
-      console.error(e)
+          .from("habit_logs")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("log_date", today),
+      ]);
+      if (logResult.error) throw logResult.error;
+      setHabits(habitRows);
+      setLogs((logResult.data ?? []) as HabitLog[]);
+    } catch (error) {
+      setFailure({
+        message: errorMessage(error, "Could not load today's habits."),
+        retry: load,
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false)
-  }, [supabase, today, userId])
+  }, [supabase, today, userId]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void load()
-    })
-  }, [load])
+    void load();
+  }, [load]);
 
-  useEffect(() => {
-    function handleDataUpdated() {
-      load()
-    }
+  const logIndex = useMemo(() => indexHabitLogs(logs), [logs]);
+  const doneCount = habits.filter(
+    (habit) => logIndex.get(habitLogKey(habit.id, today))?.completed
+  ).length;
 
-    window.addEventListener('lifequest-data-updated', handleDataUpdated)
-    return () => window.removeEventListener('lifequest-data-updated', handleDataUpdated)
-  }, [load])
+  function notifyUpdated() {
+    window.dispatchEvent(new CustomEvent("lifequest-data-updated"));
+    router.refresh();
+  }
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
-    const name = newName.trim()
-    if (!name) return
-
-    setCreating(true)
+  async function saveCompletion(
+    habit: Habit,
+    completed: boolean,
+    previousLog?: HabitLog
+  ) {
+    if (busyIds.has(habit.id)) return;
+    const optimistic: HabitLog = previousLog
+      ? { ...previousLog, completed }
+      : {
+          id: `optimistic-${habit.id}`,
+          user_id: userId,
+          habit_id: habit.id,
+          entry_id: null,
+          log_date: today,
+          completed,
+          created_at: new Date().toISOString(),
+        };
+    setBusyIds((current) => new Set(current).add(habit.id));
+    setFailure(null);
+    setLogs((current) => [
+      ...current.filter((log) => log.habit_id !== habit.id),
+      optimistic,
+    ]);
     try {
-      const habit = await createHabit(supabase, userId, { name, emoji: newEmoji })
-      setHabits((prev) => [...prev, habit])
-      setNewName('')
-      setNewEmoji('✅')
-      setShowAddForm(false)
-      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
-      router.refresh()
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  async function handleToggle(habit: Habit) {
-    const wasChecked = loggedIds.has(habit.id)
-    setToggling((s) => new Set(s).add(habit.id))
-
-    // Optimistic update
-    setLoggedIds((prev) => {
-      const next = new Set(prev)
-      if (wasChecked) {
-        next.delete(habit.id)
-      } else {
-        next.add(habit.id)
-      }
-      return next
-    })
-
-    try {
-      if (wasChecked) {
-        await supabase
-          .from('habit_logs')
-          .delete()
-          .eq('user_id', userId)
-          .eq('habit_id', habit.id)
-          .eq('log_date', today)
-      } else {
-        const { error } = await habitLogUpsertClient(supabase).from('habit_logs').upsert(
-          { user_id: userId, habit_id: habit.id, log_date: today, completed: true, entry_id: null },
-          { onConflict: 'user_id,habit_id,log_date' }
-        )
-        if (error) throw error
-      }
-      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
-      router.refresh()
-    } catch (e) {
-      console.error(e)
-      // revert
-      setLoggedIds((prev) => {
-        const next = new Set(prev)
-        if (wasChecked) {
-          next.add(habit.id)
-        } else {
-          next.delete(habit.id)
-        }
-        return next
-      })
-    } finally {
-      setToggling((s) => {
-        const next = new Set(s)
-        next.delete(habit.id)
-        return next
-      })
-    }
-  }
-
-  function startEdit(habit: Habit) {
-    setEditingHabitId(habit.id)
-    setEditName(habit.name)
-    setEditEmoji(habit.emoji)
-  }
-
-  function cancelEdit() {
-    setEditingHabitId(null)
-    setEditName('')
-    setEditEmoji('✅')
-  }
-
-  async function handleSaveEdit(habit: Habit) {
-    const name = editName.trim()
-    if (!name) return
-
-    try {
-      await updateHabit(supabase, habit.id, { name, emoji: editEmoji })
-      setHabits((current) =>
-        current.map((item) =>
-          item.id === habit.id ? { ...item, name, emoji: editEmoji } : item
-        )
-      )
-      cancelEdit()
-      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
-      router.refresh()
+      const saved = await setHabitLogCompletion(supabase, {
+        existingLog: previousLog,
+        userId,
+        habitId: habit.id,
+        date: today,
+        completed,
+      });
+      setLogs((current) => [
+        ...current.filter((log) => log.habit_id !== habit.id),
+        saved,
+      ]);
+      notifyUpdated();
     } catch (error) {
-      console.error('Failed to update habit:', error)
-      await load()
+      setLogs((current) => {
+        const next = current.filter((log) => log.habit_id !== habit.id);
+        return previousLog ? [...next, previousLog] : next;
+      });
+      setFailure({
+        message: errorMessage(error, `Could not update ${habit.name}.`),
+        retry: () => saveCompletion(habit, completed, previousLog),
+      });
+    } finally {
+      setBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(habit.id);
+        return next;
+      });
     }
   }
 
-  async function handleArchive(habit: Habit) {
-    setHabits((current) => current.filter((item) => item.id !== habit.id))
-    setLoggedIds((current) => {
-      const next = new Set(current)
-      next.delete(habit.id)
-      return next
-    })
-
+  async function handleCreate(value: HabitEditorValue) {
+    if (creating) return;
+    setCreating(true);
+    setFailure(null);
     try {
-      await updateHabit(supabase, habit.id, { is_archived: true })
-      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
-      router.refresh()
+      const habit = await createHabit(supabase, userId, {
+        ...value,
+        sortOrder: habits.length,
+      });
+      setHabits((current) => [...current, habit]);
+      setEditorOpen(false);
+      notifyUpdated();
     } catch (error) {
-      console.error('Failed to archive habit:', error)
-      await load()
+      setFailure({
+        message: errorMessage(error, "Could not create this habit."),
+        retry: () => handleCreate(value),
+      });
+    } finally {
+      setCreating(false);
     }
   }
-
-  const doneCount = habits.filter((h) => loggedIds.has(h.id)).length
 
   return (
-    <div className="space-y-3 rounded-2xl border bg-background/60 p-3 sm:p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Flame className="size-4 text-orange-500" />
-          <h2 className="text-sm font-semibold">Today&apos;s Habits</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          {habits.length > 0 && (
-          <span className="text-xs text-muted-foreground">
-            {doneCount}/{habits.length} done
-          </span>
+    <section className="space-y-3 rounded-2xl border bg-background/60 p-3 sm:p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Flame className="size-4 text-orange-500" />
+            <h2 className="text-sm font-semibold">Today&apos;s habits</h2>
+          </div>
+          {!loading && habits.length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {doneCount} of {habits.length} completed
+            </p>
           )}
-          <Button
-            type="button"
-            size="sm"
-            variant={showAddForm ? 'outline' : 'default'}
-            onClick={() => setShowAddForm((v) => !v)}
-          >
-            {showAddForm ? (
-              <Minus className="mr-1 size-4" />
-            ) : (
-              <Plus className="mr-1 size-4" />
-            )}
-            {showAddForm ? 'Close' : 'Add'}
-          </Button>
         </div>
+        <Button size="sm" onClick={() => setEditorOpen(true)}>
+          <Plus className="size-3.5" />
+          Add
+        </Button>
       </div>
 
-      {showAddForm && (
-        <form onSubmit={handleCreate} className="rounded-lg border bg-muted/30 p-3">
-          <div className="grid gap-2 sm:grid-cols-[3.5rem_1fr_auto]">
-            <EmojiPicker
-              value={newEmoji}
-              onChange={setNewEmoji}
-              label="Choose habit icon"
-              disabled={creating}
-            />
-            <Input
-              placeholder="New habit"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              disabled={creating}
-              autoFocus
-            />
+      {failure && (
+        <div
+          role="alert"
+          className="flex items-start justify-between gap-3 rounded-xl bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          <span className="flex gap-2">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            {failure.message}
+          </span>
+          {failure.retry && (
             <Button
-              type="submit"
+              variant="ghost"
               size="sm"
-              className="col-span-2 h-10 sm:col-span-1 sm:h-9"
-              disabled={creating || !newName.trim()}
+              className="shrink-0"
+              onClick={() => {
+                setFailure(null);
+                void failure.retry?.();
+              }}
             >
-              {creating ? 'Adding…' : 'Add'}
+              <RotateCcw className="size-3.5" />
+              Retry
             </Button>
-          </div>
-        </form>
+          )}
+        </div>
       )}
 
       {loading ? (
-        <p className="text-xs text-muted-foreground py-2">Loading…</p>
+        <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" />
+          Loading…
+        </div>
       ) : habits.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-4 text-center">
+        <div className="rounded-xl border border-dashed p-4 text-center">
           <p className="text-sm font-medium">No habits yet</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Add the first daily habit you want to keep alive.
+            Add one daily behavior to begin.
           </p>
         </div>
       ) : (
         <ul className="space-y-2">
           {habits.map((habit) => {
-            const checked = loggedIds.has(habit.id)
-            const busy = toggling.has(habit.id)
-            const isEditing = editingHabitId === habit.id
+            const existingLog = logIndex.get(habitLogKey(habit.id, today));
+            const completed = existingLog?.completed ?? false;
+            const busy = busyIds.has(habit.id);
             return (
-              <li key={habit.id} className="group flex items-center gap-3 rounded-lg border p-2">
-                <Checkbox
-                  id={`habit-${habit.id}`}
-                  checked={checked}
-                  disabled={busy || isEditing}
-                  onCheckedChange={() => handleToggle(habit)}
-                />
-                {isEditing ? (
-                  <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
-                    <EmojiPicker
-                      value={editEmoji}
-                      onChange={setEditEmoji}
-                      label="Choose habit icon"
-                    />
-                    <Input
-                      value={editName}
-                      onChange={(event) => setEditName(event.target.value)}
-                      className="h-10 sm:h-8"
-                      autoFocus
-                    />
-                    <div className="flex gap-1">
-                      <Button size="sm" className="h-10 sm:h-8" onClick={() => handleSaveEdit(habit)} disabled={!editName.trim()}>
-                        <Save className="size-3.5" />
-                        Save
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-10 sm:h-8" onClick={cancelEdit}>
-                        <X className="size-3.5" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <label
-                      htmlFor={`habit-${habit.id}`}
-                      className={`flex min-w-0 flex-1 cursor-pointer select-none items-center gap-2 text-sm ${
-                        checked ? 'text-muted-foreground line-through' : ''
-                      }`}
-                    >
-                      <span className="shrink-0">{habit.emoji}</span>
-                      <span className="truncate">{habit.name}</span>
-                    </label>
-                    <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="size-10 p-0 text-muted-foreground sm:size-7"
-                        onClick={() => startEdit(habit)}
-                        aria-label="Edit habit"
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="size-10 p-0 text-muted-foreground hover:text-destructive sm:size-7"
-                        onClick={() => handleArchive(habit)}
-                        aria-label="Archive habit"
-                      >
-                        <Archive className="size-3.5" />
-                      </Button>
-                    </div>
-                  </>
+              <li
+                key={habit.id}
+                className={cn(
+                  "flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 transition-colors",
+                  completed && "bg-muted/40"
                 )}
+              >
+                <Checkbox
+                  checked={completed}
+                  disabled={busy}
+                  onCheckedChange={() =>
+                    void saveCompletion(habit, !completed, existingLog)
+                  }
+                  aria-label={`Mark ${habit.name} ${completed ? "incomplete" : "complete"}`}
+                />
+                <span
+                  className={cn(
+                    "grid size-8 shrink-0 place-items-center rounded-lg text-sm text-white",
+                    habitColorClass(habit.color)
+                  )}
+                >
+                  {habit.emoji}
+                </span>
+                <Link
+                  href={`/habits/${habit.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className={cn("truncate text-sm", completed && "text-muted-foreground")}>
+                    {habit.name}
+                  </span>
+                  <ChevronRight className="ml-auto size-4 shrink-0 text-muted-foreground" />
+                </Link>
               </li>
-            )
+            );
           })}
         </ul>
       )}
-    </div>
-  )
+
+      <Button asChild variant="ghost" size="sm" className="w-full">
+        <Link href="/habits">
+          Open habit manager
+          <ChevronRight className="size-3.5" />
+        </Link>
+      </Button>
+
+      <HabitEditorDialog
+        open={editorOpen}
+        busy={creating}
+        error={failure?.message}
+        onOpenChange={setEditorOpen}
+        onSubmit={handleCreate}
+      />
+    </section>
+  );
 }
