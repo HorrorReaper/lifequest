@@ -9,13 +9,15 @@ interface AddFieldPanelProps {
 }
 
 export function AddFieldPanel({ onAdd }: AddFieldPanelProps) {
+  const availableFields = FIELD_REGISTRY.filter((definition) => definition.type !== 'learning')
+
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
         Add a Field
       </h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {FIELD_REGISTRY.map((def, index) => (
+        {availableFields.map((def, index) => (
           <motion.div
             key={def.type}
             initial={{ opacity: 0, scale: 0.95 }}

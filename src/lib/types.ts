@@ -62,12 +62,19 @@ export type FieldType =
   | 'habit_tracker'
   | 'learning'
 //Die verschiedenen Arten von Template-Feldern
+
+export type InsightType = 'learning' | 'problem' | 'idea' | 'decision'
+
 export interface FieldValue {
   field_id: string
   value_text?: string | null
   value_number?: number | null
   value_boolean?: boolean | null
   value_json?: unknown | null
+  insight_type?: InsightType | null
+  topic_tags?: string[]
+  insight_marked_at?: string | null
+  insight_is_favorite?: boolean
 } //Wert, den ein Feld annehmen kann
 
 export interface JournalEntry {
@@ -91,6 +98,10 @@ export interface JournalResponse {
   value_number: number | null
   value_boolean: boolean | null
   value_json: unknown | null
+  insight_type: InsightType | null
+  topic_tags: string[]
+  insight_marked_at: string | null
+  insight_is_favorite: boolean
   template_fields?: TemplateField
 } //Antwort auf ein Journal
 

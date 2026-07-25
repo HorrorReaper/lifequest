@@ -16,6 +16,7 @@ import { DayPlannerInput } from './DayPlannerInput'
 import { HabitTrackerInput } from './HabitTrackerInput'
 import { LearningInput } from './LearningInput'
 import type { LearningFieldValue } from '@/lib/learnings'
+import { InsightMarker } from './insight-marker'
 import { cn } from '@/lib/utils'
 
 interface FieldRendererProps {
@@ -23,6 +24,7 @@ interface FieldRendererProps {
   value: FieldValue
   onChange: (value: FieldValue) => void
   disabled?: boolean
+  suggestedInsightTags?: string[]
 }
 
 export function FieldRenderer({
@@ -30,8 +32,24 @@ export function FieldRenderer({
   value,
   onChange,
   disabled = false,
+  suggestedInsightTags = [],
 }: FieldRendererProps) {
   const config = field.config as Record<string, unknown>
+
+  function updateTextValue(text: string) {
+    onChange({
+      ...value,
+      value_text: text,
+      ...(text.trim()
+        ? {}
+        : {
+            insight_type: null,
+            topic_tags: [],
+            insight_marked_at: null,
+            insight_is_favorite: false,
+          }),
+    })
+  }
 
   // Display-only fields
   if (field.field_type === 'divider') {
@@ -83,9 +101,7 @@ export function FieldRenderer({
         <Input
           placeholder={field.placeholder ?? ''}
           value={value.value_text ?? ''}
-          onChange={(e) =>
-            onChange({ ...value, value_text: e.target.value })
-          }
+          onChange={(e) => updateTextValue(e.target.value)}
           disabled={disabled}
           className="h-11 rounded-xl bg-background/80"
         />
@@ -96,9 +112,7 @@ export function FieldRenderer({
         <Textarea
           placeholder={field.placeholder ?? ''}
           value={value.value_text ?? ''}
-          onChange={(e) =>
-            onChange({ ...value, value_text: e.target.value })
-          }
+          onChange={(e) => updateTextValue(e.target.value)}
           disabled={disabled}
           rows={(config?.rows as number) ?? 7}
           maxLength={(config?.maxLength as number) ?? undefined}
@@ -245,6 +259,26 @@ export function FieldRenderer({
           config={field.config as { defaultTags?: string[]; showAction?: boolean }}
         />
       )}
+
+      {(field.field_type === 'text' || field.field_type === 'textarea') &&
+        Boolean(value.value_text?.trim()) && (
+          <InsightMarker
+            insightType={value.insight_type ?? null}
+            topicTags={value.topic_tags ?? []}
+            markedAt={value.insight_marked_at ?? null}
+            suggestedTags={suggestedInsightTags}
+            disabled={disabled}
+            onChange={({ insightType, topicTags, markedAt }) =>
+              onChange({
+                ...value,
+                insight_type: insightType,
+                topic_tags: topicTags,
+                insight_marked_at: markedAt,
+                insight_is_favorite: insightType ? (value.insight_is_favorite ?? false) : false,
+              })
+            }
+          />
+        )}
     </div>
   )
 }

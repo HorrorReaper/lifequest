@@ -1,8 +1,16 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { Search, SmilePlus } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Search, SmilePlus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
@@ -124,18 +132,6 @@ export function EmojiPicker({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState(EMOJI_CATEGORIES[0].id)
-  const rootRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    function handlePointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown)
-    return () => document.removeEventListener("pointerdown", handlePointerDown)
-  }, [])
 
   const visibleEmojis = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -158,22 +154,50 @@ export function EmojiPicker({
     setQuery("")
   }
 
-  return (
-    <div ref={rootRef} className={cn("relative", className)}>
-      <Button
-        type="button"
-        variant="outline"
-        disabled={disabled}
-        aria-label={label}
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className="h-10 w-14 shrink-0 rounded-md px-0 text-xl sm:h-9"
-      >
-        {value || <SmilePlus className="size-5" />}
-      </Button>
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen)
+    if (!nextOpen) setQuery("")
+  }
 
-      {open && (
-        <div className="absolute left-0 top-[calc(100%+0.5rem)] z-50 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border bg-popover p-3 text-popover-foreground shadow-xl ring-1 ring-foreground/10">
+  return (
+    <div className={className}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger
+          disabled={disabled}
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              aria-label={label}
+              aria-expanded={open}
+              className="h-10 w-14 shrink-0 rounded-md px-0 text-xl sm:h-9"
+            />
+          }
+        >
+          {value || <SmilePlus className="size-5" />}
+        </DialogTrigger>
+
+        <DialogContent
+          showCloseButton={false}
+          className="bottom-[calc(var(--safe-area-bottom)+0.75rem)] top-auto flex max-h-[calc(100svh-1.5rem-var(--safe-area-bottom))] w-[calc(100%-1.5rem)] max-w-sm translate-y-0 flex-col gap-0 overflow-hidden rounded-2xl p-3 shadow-xl sm:bottom-auto sm:top-1/2 sm:max-h-[min(30rem,calc(100svh-2rem))] sm:-translate-y-1/2"
+        >
+          <DialogHeader className="mb-3 flex-row items-center justify-between gap-3 text-left">
+            <DialogTitle className="text-sm font-semibold">Choose an icon</DialogTitle>
+            <DialogClose
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Close emoji picker"
+                  className="shrink-0 rounded-full"
+                />
+              }
+            >
+              <X className="size-4" />
+            </DialogClose>
+          </DialogHeader>
+
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -181,11 +205,10 @@ export function EmojiPicker({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search emoji"
               className="h-10 pl-9"
-              autoFocus
             />
           </div>
 
-          <div className="mt-3 flex gap-1 overflow-x-auto pb-1">
+          <div className="mt-2 flex shrink-0 gap-1 overflow-x-auto pb-1 sm:mt-3">
             {EMOJI_CATEGORIES.map((category) => (
               <button
                 key={category.id}
@@ -206,7 +229,7 @@ export function EmojiPicker({
             ))}
           </div>
 
-          <div className="mt-3 grid max-h-56 grid-cols-6 gap-1 overflow-y-auto pr-1">
+          <div className="mt-2 grid min-h-0 max-h-44 grid-cols-6 gap-1 overflow-y-auto overscroll-contain pr-1 sm:mt-3 sm:max-h-56">
             {visibleEmojis.map((item) => (
               <button
                 key={`${item.category}-${item.emoji}`}
@@ -215,7 +238,7 @@ export function EmojiPicker({
                 aria-label={`Use ${item.emoji}`}
                 onClick={() => selectEmoji(item.emoji)}
                 className={cn(
-                  "grid size-10 place-items-center rounded-xl text-xl transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "grid size-9 place-items-center justify-self-center rounded-xl text-xl transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:size-10",
                   value === item.emoji && "bg-primary/10 ring-1 ring-primary/30"
                 )}
               >
@@ -229,8 +252,8 @@ export function EmojiPicker({
               No emoji found.
             </p>
           )}
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

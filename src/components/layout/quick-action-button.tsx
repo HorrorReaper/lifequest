@@ -6,9 +6,11 @@ import { BookOpen, CalendarClock, Flame, ListTodo, NotebookPen, Plus, Sparkles, 
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
+  DialogPortal,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
@@ -59,9 +61,12 @@ const QUICK_ACTIONS = [
   },
 ]
 
-export function QuickActionButton() {
+export function QuickActionButton({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false)
   const TriggerIcon = open ? X : Plus
+  const visibleActions = QUICK_ACTIONS.filter(
+    (action) => action.href !== '/dashboard?quick=routine' || isAdmin
+  )
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -89,7 +94,7 @@ export function QuickActionButton() {
         </DialogHeader>
 
         <div className="grid gap-2">
-          {QUICK_ACTIONS.map((action) => {
+          {visibleActions.map((action) => {
             const Icon = action.icon
 
             return (
@@ -116,6 +121,21 @@ export function QuickActionButton() {
           })}
         </div>
       </DialogContent>
+
+      {open && (
+        <DialogPortal>
+          <DialogClose
+            render={
+              <Button
+                aria-label="Close quick actions"
+                className="fixed bottom-[calc(var(--safe-area-bottom)+1.75rem)] left-1/2 z-[70] flex size-14 -translate-x-1/2 rounded-full border-4 border-background p-0 shadow-[0_16px_40px_rgba(0,0,0,0.22)] transition-transform hover:scale-105 sm:size-14 sm:p-0 white-mode:shadow-[0_12px_30px_rgba(68,64,60,0.14)]"
+              />
+            }
+          >
+            <X className="size-7" />
+          </DialogClose>
+        </DialogPortal>
+      )}
     </Dialog>
   )
 }

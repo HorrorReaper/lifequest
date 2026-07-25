@@ -21,7 +21,7 @@ const NAV_ITEMS = [
 const LEFT_NAV_ITEMS = NAV_ITEMS.slice(0, 2)
 const RIGHT_NAV_ITEMS = NAV_ITEMS.slice(2)
 
-export function BottomNav() {
+export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname()
   const totalXp = useUserStore((s) => s.totalXp)
   const setProfile = useUserStore((s) => s.setProfile)
@@ -108,7 +108,7 @@ export function BottomNav() {
           <div className="grid grid-cols-2 items-end gap-1">
             {LEFT_NAV_ITEMS.map(renderNavItem)}
           </div>
-          <QuickActionButton />
+          <QuickActionButton isAdmin={isAdmin} />
           <div className="grid grid-cols-2 items-end gap-1">
             {RIGHT_NAV_ITEMS.map(renderNavItem)}
           </div>

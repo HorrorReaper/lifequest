@@ -255,6 +255,10 @@ export interface Database {
           value_number: number | null
           value_boolean: boolean | null
           value_json: Json | null
+          insight_type: string | null
+          topic_tags: string[]
+          insight_marked_at: string | null
+          insight_is_favorite: boolean
           created_at: string
         }
         Insert: {
@@ -265,6 +269,10 @@ export interface Database {
           value_number?: number | null
           value_boolean?: boolean | null
           value_json?: Json | null
+          insight_type?: string | null
+          topic_tags?: string[]
+          insight_marked_at?: string | null
+          insight_is_favorite?: boolean
           created_at?: string
         }
         Update: {
@@ -275,6 +283,10 @@ export interface Database {
           value_number?: number | null
           value_boolean?: boolean | null
           value_json?: Json | null
+          insight_type?: string | null
+          topic_tags?: string[]
+          insight_marked_at?: string | null
+          insight_is_favorite?: boolean
           created_at?: string
         }
       }

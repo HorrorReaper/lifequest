@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SettingsForm } from '@/components/settings/settings-form'
 import type { Database } from '@/lib/supabase/database.types'
+import { isAdminUser } from '@/lib/admin'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -29,6 +30,7 @@ export default async function SettingsPage() {
           timezone={profile?.timezone ?? 'UTC'}
           aiAssistantEnabled={profile?.ai_assistant_enabled ?? false}
           aiConsentAt={profile?.ai_consent_at ?? null}
+          aiAccessEnabled={isAdminUser(user)}
         />
       </div>
     </div>

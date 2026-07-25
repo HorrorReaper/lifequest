@@ -1,0 +1,87 @@
+.page {
+  --ink: #18332b;
+  --paper: #f4f1e7;
+  --forest: #315f50;
+  --moss: #9fbb82;
+  --sun: #e7b85c;
+  background:
+    radial-gradient(circle at 8% 4%, rgb(231 184 92 / 18%), transparent 25rem),
+    radial-gradient(circle at 92% 17%, rgb(104 151 125 / 20%), transparent 30rem),
+    var(--paper);
+  color: var(--ink);
+}
+
+.paperGrid {
+  background-image:
+    linear-gradient(rgb(24 51 43 / 6%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(24 51 43 / 6%) 1px, transparent 1px);
+  background-size: 2rem 2rem;
+}
+
+.mapGrid {
+  background-color: #b9d6a8;
+  background-image:
+    linear-gradient(rgb(50 91 60 / 13%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(50 91 60 / 13%) 1px, transparent 1px),
+    radial-gradient(circle at 30% 25%, rgb(255 255 255 / 42%), transparent 46%);
+  background-size: 20% 20%, 20% 20%, 100% 100%;
+}
+
+.mapRoadHorizontal {
+  background: linear-gradient(180deg, #315d42 0 18%, #d4c39d 18% 82%, #315d42 82% 100%);
+}
+
+.mapRoadVertical {
+  background: linear-gradient(90deg, #315d42 0 18%, #d4c39d 18% 82%, #315d42 82% 100%);
+}
+
+.cityFloat {
+  animation: city-float 5.5s ease-in-out infinite;
+}
+
+.cityFloatDelayed {
+  animation: city-float 6.5s ease-in-out -2s infinite;
+}
+
+.focusFloat {
+  animation: focus-float 7s ease-in-out infinite;
+}
+
+.ticker {
+  animation: ticker 28s linear infinite;
+}
+
+@keyframes city-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes focus-float {
+  0%,
+  100% {
+    transform: rotate(-1.5deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-0.5deg) translateY(-7px);
+  }
+}
+
+@keyframes ticker {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cityFloat,
+  .cityFloatDelayed,
+  .focusFloat,
+  .ticker {
+    animation: none;
+  }
+}

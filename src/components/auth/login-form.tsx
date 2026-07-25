@@ -18,21 +18,21 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 
 export function LoginForm({
   className,
   accountDeleted = false,
+  defaultSignUp = false,
   ...props
-}: React.ComponentProps<'div'> & { accountDeleted?: boolean }) {
+}: React.ComponentProps<'div'> & { accountDeleted?: boolean; defaultSignUp?: boolean }) {
   const router = useRouter()
   const supabase = createClient()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(defaultSignUp)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(
     accountDeleted ? 'Your account and LifeQuest data were deleted.' : null
@@ -109,7 +109,7 @@ export function LoginForm({
             {isSignUp ? 'Create your LifeQuest account' : 'Welcome back'}
           </CardTitle>
           <CardDescription>
-            Journal daily, earn XP, and build a city from your progress.
+            Journal daily, earn XP, and build a city around your progress.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -144,9 +144,13 @@ export function LoginForm({
                 </Button>
               </Field>
 
-              <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
-                Or continue with email
-              </FieldSeparator>
+              <div className="flex items-center gap-3 py-1" role="separator" aria-label="Email sign in">
+                <span className="h-px flex-1 bg-border/65" />
+                <span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                  or use email
+                </span>
+                <span className="h-px flex-1 bg-border/65" />
+              </div>
 
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -193,9 +197,9 @@ export function LoginForm({
                   <button
                     type="button"
                     onClick={toggleMode}
-                    className="font-medium text-foreground underline underline-offset-4"
+                    className="font-medium text-foreground underline underline-offset-4 hover:cursor-pointer"
                   >
-                    {isSignUp ? 'Sign in' : 'Create one'}
+                    {isSignUp ? 'Sign in' : 'Create your account'}
                   </button>
                 </FieldDescription>
               </Field>

@@ -42,14 +42,19 @@ export function SystemQuestCard({ quest, onClaim }: SystemQuestCardProps) {
   const claimed = quest.status === 'claimed'
   const claimable = quest.status === 'claimable'
   const locked = quest.status === 'locked'
+  const visibleProgress = Math.min(quest.progressCurrent, quest.progressTarget)
+  const progressPercent = Math.min(
+    100,
+    Math.round((visibleProgress / quest.progressTarget) * 100)
+  )
 
   return (
     <div
       className={cn(
         'rounded-xl border p-4 space-y-3 transition-all',
         claimable && 'border-primary/40 bg-primary/5',
-        claimed && 'border-border/40 opacity-60',
-        locked && 'border-border/30 opacity-50'
+        claimed && 'border-border/40 bg-muted/20',
+        locked && 'border-border/50'
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -95,6 +100,38 @@ export function SystemQuestCard({ quest, onClaim }: SystemQuestCardProps) {
             {quest.coins}
           </span>
         </div>
+      </div>
+
+      <div className="space-y-2 rounded-lg bg-muted/45 p-3">
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="font-medium text-muted-foreground">{quest.progressLabel}</span>
+          <span className="shrink-0 font-mono font-medium text-foreground">
+            {visibleProgress}/{quest.progressTarget}
+          </span>
+        </div>
+        <div
+          className="h-2 overflow-hidden rounded-full bg-background"
+          role="progressbar"
+          aria-label={`${quest.title}: ${quest.progressLabel}`}
+          aria-valuemin={0}
+          aria-valuemax={quest.progressTarget}
+          aria-valuenow={visibleProgress}
+        >
+          <div
+            className={cn(
+              'h-full rounded-full transition-[width] duration-500',
+              claimed ? 'bg-muted-foreground/55' : 'bg-primary'
+            )}
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          {claimed
+            ? 'Reward claimed'
+            : claimable
+              ? 'Goal reached. Your reward is ready.'
+              : `${quest.progressTarget - visibleProgress} remaining`}
+        </p>
       </div>
 
       {claimable && (

@@ -48,11 +48,11 @@ export default async function LearnPage() {
             </p>
           </div>
           <Link
-            href="/learnings"
+            href="/journal/insights"
             className="flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
           >
             <BookOpenCheck className="size-3.5" />
-            My Learnings
+            Journal Insights
           </Link>
         </div>
         <LearnPageClient lessons={lessons} />

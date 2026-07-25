@@ -214,3 +214,350 @@
     transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, 0px))) scale(0);
   }
 }
+
+/* Login city atmosphere */
+.login-sky-day,
+.login-sky-sunset,
+.login-sky-night,
+.login-stars,
+.login-sun,
+.login-moon,
+.login-window-grid {
+  animation-duration: 72s;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+
+.login-sky-day {
+  animation-name: login-day-cycle;
+}
+
+.login-sky-sunset {
+  animation-name: login-sunset-cycle;
+}
+
+.login-sky-night {
+  animation-name: login-night-cycle;
+}
+
+.login-stars {
+  animation-name: login-stars-cycle;
+}
+
+.login-stars span:nth-child(3n + 1) {
+  animation: login-star-glimmer 4.8s ease-in-out -1.5s infinite;
+}
+
+.login-stars span:nth-child(3n + 2) {
+  animation: login-star-glimmer 6.2s ease-in-out -3.5s infinite;
+}
+
+.login-sun {
+  animation-name: login-sun-orbit;
+  will-change: transform, opacity;
+}
+
+.login-moon {
+  animation-name: login-moon-orbit;
+  will-change: transform, opacity;
+}
+
+.login-window-grid {
+  animation-name: login-windows-cycle;
+}
+
+.login-sky-glow {
+  animation: login-sky-breathe 14s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.login-cloud {
+  box-shadow:
+    1.5rem -0.45rem 0 0 rgb(255 255 255 / 0.08),
+    3.4rem 0.2rem 0 0 rgb(255 255 255 / 0.06);
+  will-change: transform;
+}
+
+.login-cloud-one {
+  animation: login-cloud-drift 42s linear infinite;
+}
+
+.login-cloud-two {
+  animation: login-cloud-drift 58s linear -23s infinite;
+}
+
+.login-flight {
+  animation: login-flight-crossing 24s linear -8s infinite;
+  will-change: transform, opacity;
+}
+
+.login-haze {
+  animation: login-haze-drift 18s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.login-window.bg-amber-300\/70 {
+  animation: login-window-twinkle 6s ease-in-out infinite;
+}
+
+.login-building:nth-child(3n + 1) .login-window.bg-amber-300\/70 {
+  animation-delay: -2.5s;
+  animation-duration: 7.5s;
+}
+
+.login-building:nth-child(4n + 2) .login-window.bg-amber-300\/70 {
+  animation-delay: -4s;
+  animation-duration: 9s;
+}
+
+.login-building:nth-child(6)::before,
+.login-building:nth-child(11)::before {
+  position: absolute;
+  left: 50%;
+  top: -0.25rem;
+  width: 0.2rem;
+  height: 0.2rem;
+  content: '';
+  border-radius: 999px;
+  background: rgb(253 230 138 / 0.9);
+  box-shadow: 0 0 0.65rem rgb(251 191 36 / 0.8);
+  animation: login-beacon-pulse 3.6s ease-in-out infinite;
+}
+
+.login-building:nth-child(11)::before {
+  animation-delay: -1.8s;
+}
+
+.login-tree-canopy {
+  transform-origin: 50% 100%;
+  animation: login-tree-sway 10s ease-in-out infinite;
+}
+
+.login-tree:nth-child(2n) .login-tree-canopy {
+  animation-delay: -5.5s;
+  animation-duration: 12s;
+}
+
+.login-tree-trunk {
+  transform-origin: 50% 100%;
+  animation: login-trunk-flex 10s ease-in-out infinite;
+}
+
+.login-tree:nth-child(2n) .login-tree-trunk {
+  animation-delay: -5.5s;
+  animation-duration: 12s;
+}
+
+.login-shrub:nth-child(3n) {
+  animation: login-shrub-breathe 8s ease-in-out -2s infinite alternate;
+}
+
+.login-city-ground {
+  box-shadow: 0 -1rem 2.5rem rgb(7 15 27 / 0.35);
+}
+
+.login-wind-leaf {
+  opacity: 0;
+  animation: login-leaf-drift 13s cubic-bezier(0.42, 0, 0.28, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.login-wind-leaf:nth-last-child(2) {
+  animation-delay: -4.5s;
+  animation-duration: 16s;
+}
+
+.login-wind-leaf:nth-last-child(3) {
+  animation-delay: -8s;
+  animation-duration: 11s;
+}
+
+.login-wind-leaf:nth-last-child(4) {
+  animation-delay: -10.5s;
+  animation-duration: 15s;
+}
+
+@keyframes login-day-cycle {
+  0%, 20% { opacity: 1; }
+  38%, 78% { opacity: 0; }
+  94%, 100% { opacity: 1; }
+}
+
+@keyframes login-sunset-cycle {
+  0%, 10% { opacity: 0.35; }
+  28%, 42% { opacity: 1; }
+  55%, 76% { opacity: 0; }
+  91%, 100% { opacity: 0.65; }
+}
+
+@keyframes login-night-cycle {
+  0%, 34% { opacity: 0; }
+  52%, 78% { opacity: 1; }
+  94%, 100% { opacity: 0; }
+}
+
+@keyframes login-stars-cycle {
+  0%, 40% { opacity: 0; }
+  54%, 78% { opacity: 0.8; }
+  91%, 100% { opacity: 0; }
+}
+
+@keyframes login-sun-orbit {
+  0% {
+    opacity: 0;
+    transform: translate3d(-12vw, 18vh, 0) scale(0.85);
+  }
+  6% { opacity: 0.9; }
+  22% {
+    opacity: 0.9;
+    transform: translate3d(52vw, -8vh, 0) scale(1);
+  }
+  33% { opacity: 0.9; }
+  42% {
+    opacity: 0;
+    transform: translate3d(112vw, 21vh, 0) scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(112vw, 21vh, 0) scale(1.05);
+  }
+}
+
+@keyframes login-moon-orbit {
+  0%, 40% {
+    opacity: 0;
+    transform: translate3d(-10vw, 18vh, 0) scale(0.85);
+  }
+  48% { opacity: 0.88; }
+  65% {
+    opacity: 0.88;
+    transform: translate3d(52vw, -7vh, 0) scale(1);
+  }
+  79% { opacity: 0.88; }
+  88% {
+    opacity: 0;
+    transform: translate3d(112vw, 20vh, 0) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(112vw, 20vh, 0) scale(1.02);
+  }
+}
+
+@keyframes login-windows-cycle {
+  0%, 28%, 100% { opacity: 0.25; }
+  48%, 82% { opacity: 0.88; }
+}
+
+@keyframes login-star-glimmer {
+  0%, 100% { opacity: 0.3; transform: scale(0.75); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes login-tree-sway {
+  0%, 28%, 100% { transform: translateX(-50%) rotate(-1deg) skewX(-0.5deg); }
+  38% { transform: translateX(-50%) rotate(1.5deg) skewX(1deg); }
+  44% { transform: translateX(-50%) rotate(-2.8deg) skewX(-1.5deg); }
+  53% { transform: translateX(-50%) rotate(1.8deg) skewX(0.8deg); }
+  70% { transform: translateX(-50%) rotate(0.4deg); }
+}
+
+@keyframes login-trunk-flex {
+  0%, 28%, 100% { transform: translateX(-50%) rotate(-0.25deg); }
+  38% { transform: translateX(-50%) rotate(0.5deg); }
+  44% { transform: translateX(-50%) rotate(-0.9deg); }
+  53% { transform: translateX(-50%) rotate(0.55deg); }
+  70% { transform: translateX(-50%) rotate(0deg); }
+}
+
+@keyframes login-leaf-drift {
+  0%, 30% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  35% { opacity: 0.75; }
+  48% {
+    opacity: 0.6;
+    transform: translate3d(9vw, -0.7rem, 0) rotate(150deg);
+  }
+  64% {
+    opacity: 0.7;
+    transform: translate3d(18vw, 0.35rem, 0) rotate(300deg);
+  }
+  78%, 100% {
+    opacity: 0;
+    transform: translate3d(28vw, -0.2rem, 0) rotate(480deg);
+  }
+}
+
+@keyframes login-shrub-breathe {
+  0% { transform: scaleX(0.97); }
+  100% { transform: scaleX(1.03); }
+}
+
+@keyframes login-sky-breathe {
+  0% {
+    opacity: 0.65;
+    transform: translate3d(-2%, -1%, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(4%, 2%, 0) scale(1.08);
+  }
+}
+
+@keyframes login-cloud-drift {
+  0% {
+    transform: translate3d(-24vw, 0, 0);
+  }
+  100% {
+    transform: translate3d(124vw, 0, 0);
+  }
+}
+
+@keyframes login-flight-crossing {
+  0%, 18% {
+    opacity: 0;
+    transform: translate3d(-12vw, 0, 0);
+  }
+  24%, 74% {
+    opacity: 0.55;
+  }
+  82%, 100% {
+    opacity: 0;
+    transform: translate3d(112vw, -4vh, 0);
+  }
+}
+
+@keyframes login-haze-drift {
+  0% {
+    opacity: 0.45;
+    transform: translate3d(-4%, 0, 0) scaleX(0.94);
+  }
+  100% {
+    opacity: 0.8;
+    transform: translate3d(5%, -0.35rem, 0) scaleX(1.05);
+  }
+}
+
+@keyframes login-window-twinkle {
+  0%, 32%, 100% {
+    opacity: 0.5;
+    filter: brightness(0.85);
+  }
+  45%, 68% {
+    opacity: 1;
+    filter: brightness(1.35);
+  }
+}
+
+@keyframes login-beacon-pulse {
+  0%, 55%, 100% {
+    opacity: 0.2;
+    transform: translateX(-50%) scale(0.7);
+  }
+  12% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.15);
+  }
+}

@@ -95,6 +95,10 @@ export default async function JournalPage() {
           value_number,
           value_boolean,
           value_json,
+          insight_type,
+          topic_tags,
+          insight_marked_at,
+          insight_is_favorite,
           template_fields(label, field_type, sort_order)
         )
       `
@@ -126,21 +130,15 @@ export default async function JournalPage() {
       <div className="mx-auto max-w-4xl space-y-7">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Daily ritual
-            </p>
             <h1 className="mt-1 font-heading text-3xl font-semibold tracking-tight">Journal</h1>
-            <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">
-              Slow the day down, capture what matters, and turn useful reflections into action.
-            </p>
           </div>
           <nav className="flex shrink-0 flex-wrap gap-2">
             <Link
-              href="/learnings"
+              href="/journal/insights"
               className="flex items-center gap-1.5 rounded-full border bg-background/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
             >
               <BookOpenCheck className="size-3.5" />
-              Learnings
+              Insights
             </Link>
             <Link
               href="/journal/templates"
@@ -169,7 +167,7 @@ export default async function JournalPage() {
                   </div>
                 </div>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Take five quiet minutes. Write what is true, save one useful learning, and leave with a clearer next move.
+                  Take five quiet minutes. Write what is true, mark one useful insight, and leave with a clearer next move.
                 </p>
                 {completedTodayCount > 0 && (
                   <p className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
@@ -211,11 +209,8 @@ export default async function JournalPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Ritual options
+                Journaling templates
               </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Choose a different entry when today needs a different shape.
-              </p>
             </div>
             <BookOpen className="hidden size-5 text-muted-foreground sm:block" />
           </div>
@@ -229,7 +224,7 @@ export default async function JournalPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Recent memories
+                Recent entries
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 The latest five reflections from your journal.

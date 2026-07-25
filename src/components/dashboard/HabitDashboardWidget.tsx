@@ -280,12 +280,6 @@ export function HabitDashboardWidget({ userId, initiallyOpen = false }: HabitDas
           <p className="mt-1 text-xs text-muted-foreground">
             Add the first daily habit you want to keep alive.
           </p>
-          {!showAddForm && (
-            <Button className="mt-3" size="sm" variant="outline" onClick={() => setShowAddForm(true)}>
-              <Plus className="mr-1.5 size-4" />
-              Add Habit
-            </Button>
-          )}
         </div>
       ) : (
         <ul className="space-y-2">

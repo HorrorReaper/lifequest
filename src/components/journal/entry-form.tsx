@@ -22,6 +22,7 @@ import {
   DayPlanBlock,
 } from '@/lib/types'
 import { cleanLearningDraft, type LearningFieldValue } from '@/lib/learnings'
+import { normalizeInsightTags } from '@/lib/insights'
 import { calculateEntryBonusXp } from '@/lib/gamification'
 import { BookOpenCheck, CheckCircle2, Sparkles } from 'lucide-react'
 import { DraftTask } from './TasksInput'
@@ -31,6 +32,7 @@ interface EntryFormProps {
   fields: TemplateField[]
   existingEntryId?: string
   existingResponses?: Record<string, FieldValue>
+  suggestedInsightTags?: string[]
 }
 
 const DISPLAY_ONLY_TYPES = ['divider', 'heading', 'prompt']
@@ -62,6 +64,22 @@ interface TaskInsertClient {
       due_date: string | null
     }>): PromiseLike<{ error: unknown }>
   }
+}
+
+function isDuplicateTemplateHeading(field: TemplateField, template: JournalTemplate) {
+  if (field.field_type !== 'heading') return false
+
+  const heading = field.label.trim().toLocaleLowerCase()
+  const templateName = template.name.trim().toLocaleLowerCase()
+
+  if (heading === templateName) return true
+  if (!heading.endsWith(templateName)) return false
+
+  const prefix = heading.slice(0, -templateName.length).trim()
+  return (
+    prefix === template.icon.trim().toLocaleLowerCase() ||
+    (prefix.length > 0 && [...prefix].length <= 3 && !/[\p{L}\p{N}]/u.test(prefix))
+  )
 }
 
 function learningValueFromField(value: FieldValue | undefined): LearningFieldValue | null {
@@ -125,6 +143,7 @@ export function EntryForm({
   fields,
   existingEntryId,
   existingResponses,
+  suggestedInsightTags = [],
 }: EntryFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -160,6 +179,10 @@ export function EntryForm({
                   action_text: null,
                 }
             : null,
+        insight_type: null,
+        topic_tags: [],
+        insight_marked_at: null,
+        insight_is_favorite: false,
       }
     }
     return initial
@@ -199,6 +222,9 @@ export function EntryForm({
     requiredFields.length > 0
       ? Math.round((completedRequiredFields / requiredFields.length) * 100)
       : 100
+  const visibleFields = fields.filter(
+    (field) => !isDuplicateTemplateHeading(field, template)
+  )
 
   function validate(): boolean {
     for (const field of fields) {
@@ -262,14 +288,32 @@ export function EntryForm({
       }
 
       // 2. Upsert responses
-      const responses: JournalResponseInsert[] = Object.entries(values).map(([fieldId, val]) => ({
-        entry_id: entryId!,
-        field_id: fieldId,
-        value_text: val.value_text ?? null,
-        value_number: val.value_number ?? null,
-        value_boolean: val.value_boolean ?? null,
-        value_json: (val.value_json ?? null) as Json | null,
-      }))
+      const fieldById = new Map(fields.map((field) => [field.id, field]))
+      const responses: JournalResponseInsert[] = Object.entries(values).map(([fieldId, val]) => {
+        const field = fieldById.get(fieldId)
+        const legacyLearning =
+          field?.field_type === 'learning' ? learningValueFromField(val) : null
+        const insightType =
+          val.insight_type ?? (legacyLearning?.note.trim() ? 'learning' : null)
+        const topicTags = insightType
+          ? normalizeInsightTags(val.topic_tags ?? legacyLearning?.tags ?? [])
+          : []
+
+        return {
+          entry_id: entryId!,
+          field_id: fieldId,
+          value_text: val.value_text ?? null,
+          value_number: val.value_number ?? null,
+          value_boolean: val.value_boolean ?? null,
+          value_json: (val.value_json ?? null) as Json | null,
+          insight_type: insightType,
+          topic_tags: topicTags,
+          insight_marked_at:
+            insightType ? (val.insight_marked_at ?? new Date().toISOString()) : null,
+          insight_is_favorite:
+            insightType ? (val.insight_is_favorite ?? false) : false,
+        }
+      })
 
       // Delete existing responses if editing
       if (existingEntryId) {
@@ -609,7 +653,7 @@ export function EntryForm({
       </section>
 
       <div className="space-y-4">
-        {fields.map((field, index) => (
+        {visibleFields.map((field, index) => (
           <motion.div
             key={field.id}
             initial={{ opacity: 0, y: 10 }}
@@ -629,6 +673,7 @@ export function EntryForm({
               }
               onChange={(val) => updateValue(field.id, val)}
               disabled={!!existingEntryId && false}
+              suggestedInsightTags={suggestedInsightTags}
             />
           </motion.div>
         ))}
@@ -649,7 +694,7 @@ export function EntryForm({
         </div>
       )}
 
-      <div className="sticky bottom-[calc(var(--bottom-nav-height)+var(--safe-area-bottom)+0.75rem)] z-10 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:bottom-6">
+      <div className="sticky bottom-[calc(var(--safe-area-bottom)+0.75rem)] z-40 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur">
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button
             type="button"

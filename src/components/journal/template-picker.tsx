@@ -47,12 +47,13 @@ export function TemplatePicker({ templates, recommendedTemplateId = null }: Temp
             href={`/journal/new/${template.id}`}
             className="block rounded-xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            <Card
-              className={cn(
-                'border bg-card/85 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card',
-                recommendedTemplateId === template.id && 'border-primary/30 ring-1 ring-primary/15'
-              )}
-            >
+                <Card
+                  className={cn(
+                    'border border-border/70 bg-card/85 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card',
+                    recommendedTemplateId === template.id &&
+                      'border-primary/80 bg-primary/[0.055] ring-2 ring-primary/20 shadow-md hover:border-primary hover:bg-primary/[0.07]'
+                  )}
+                >
               <CardContent className="flex items-center gap-4 p-4">
               <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-2xl">
                 {template.icon}

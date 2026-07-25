@@ -12,6 +12,7 @@ interface BuildingPickerProps {
   coins: number
   selected: BuildingType | null
   onSelect: (building: BuildingType) => void
+  className?: string
 }
 
 type Category = 'all' | BuildingType['category']
@@ -25,7 +26,7 @@ const CATEGORIES: Array<{ value: Category; label: string }> = [
   { value: 'landmark', label: 'Landmarks' },
 ]
 
-export function BuildingPicker({ xp, coins, selected, onSelect }: BuildingPickerProps) {
+export function BuildingPicker({ xp, coins, selected, onSelect, className }: BuildingPickerProps) {
   const [category, setCategory] = useState<Category>('all')
   const unlocked = getUnlockedBuildings(xp)
   const locked = getLockedBuildings(xp)
@@ -35,7 +36,10 @@ export function BuildingPicker({ xp, coins, selected, onSelect }: BuildingPicker
   return (
     <section
       aria-label="Building catalog"
-      className="sticky bottom-[calc(var(--bottom-nav-height)+var(--safe-area-bottom)+0.5rem)] z-30 overflow-hidden rounded-[1.6rem] border border-border/70 bg-card/95 shadow-[0_18px_60px_rgb(26_47_34_/_0.2)] backdrop-blur-xl sm:bottom-4"
+      className={cn(
+        'sticky bottom-[calc(var(--bottom-nav-height)+var(--safe-area-bottom)+0.5rem)] z-30 overflow-hidden rounded-[1.6rem] border border-border/70 bg-card/95 shadow-[0_18px_60px_rgb(26_47_34_/_0.2)] backdrop-blur-xl sm:bottom-4',
+        className
+      )}
     >
       <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
         <div>
