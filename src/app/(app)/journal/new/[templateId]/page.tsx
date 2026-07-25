@@ -46,9 +46,10 @@ export default async function NewEntryPage({ params }: PageProps) {
   ])
 
   return (
-    <div className="min-h-svh bg-background px-4 pb-24 pt-5 sm:px-8 sm:pt-8">
+    <div className="min-h-svh bg-background px-4 pb-24 pt-5 max-md:p-0 sm:px-8 sm:pt-8">
       <div className="mx-auto max-w-3xl">
         <EntryForm
+          userId={user.id}
           template={template as JournalTemplate}
           fields={(fields as TemplateField[]) ?? []}
           suggestedInsightTags={suggestedInsightTags}
