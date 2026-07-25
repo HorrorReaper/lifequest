@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Archive, Heart, Pencil, Plus, Search, X } from 'lucide-react'
+import { Archive, ChevronDown, ExternalLink, Heart, Pencil, Plus, Search, X } from 'lucide-react'
 import type { ExerciseRow, ExerciseTrackingType } from '@/lib/supabase/database.types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +24,8 @@ const blank: ExerciseDraft = {
   notes: '',
 }
 
+const PAGE_SIZE = 60
+
 export function ExerciseLibrary({
   exercises,
   favoriteIds,
@@ -45,6 +47,8 @@ export function ExerciseLibrary({
   const [tracking, setTracking] = useState('all')
   const [special, setSpecial] = useState<'all' | 'favorites' | 'recent'>('all')
   const [draft, setDraft] = useState<ExerciseDraft | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [saving, setSaving] = useState(false)
 
   const muscles = useMemo(() => [...new Set(exercises.map((exercise) => exercise.muscle_group))].sort(), [exercises])
@@ -52,7 +56,14 @@ export function ExerciseLibrary({
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return exercises.filter((exercise) => {
-      const searchable = [exercise.name, ...exercise.aliases].join(' ').toLowerCase()
+      const searchable = [
+        exercise.name,
+        exercise.target_muscle,
+        exercise.muscle_group,
+        exercise.equipment,
+        ...exercise.secondary_muscles,
+        ...exercise.aliases,
+      ].filter(Boolean).join(' ').toLowerCase()
       return (!needle || searchable.includes(needle))
         && (muscle === 'all' || exercise.muscle_group === muscle)
         && (equipment === 'all' || exercise.equipment === equipment)
@@ -60,6 +71,7 @@ export function ExerciseLibrary({
         && (special === 'all' || (special === 'favorites' ? favoriteIds.has(exercise.id) : recentIds.has(exercise.id)))
     })
   }, [equipment, exercises, favoriteIds, muscle, query, recentIds, special, tracking])
+  const visibleExercises = filtered.slice(0, visibleCount)
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -99,14 +111,24 @@ export function ExerciseLibrary({
       <Button className="mt-4" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save exercise'}</Button>
     </form>}
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {filtered.map((exercise) => <article key={exercise.id} className={cn('rounded-2xl bg-card p-4 ring-1 ring-border', exercise.is_archived && 'opacity-55')}>
-        <div className="flex items-start gap-3"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{exercise.name}</h3>{exercise.is_system && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">SYSTEM</span>}</div><p className="mt-1 text-xs capitalize text-muted-foreground">{exercise.muscle_group} · {exercise.equipment} · {trackingLabel(exercise.tracking_type)}</p></div>
+      {visibleExercises.map((exercise) => <article key={exercise.id} className={cn('rounded-2xl bg-card p-4 ring-1 ring-border', exercise.is_archived && 'opacity-55')}>
+        <div className="flex items-start gap-3"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{exercise.name}</h3>{exercise.is_system && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{exercise.catalog_source ? 'OPEN DATA' : 'SYSTEM'}</span>}</div><p className="mt-1 text-xs capitalize text-muted-foreground">{exercise.target_muscle ?? exercise.muscle_group} · {exercise.equipment} · {trackingLabel(exercise.tracking_type)}</p></div>
           <Button size="icon" variant="ghost" onClick={() => onFavorite(exercise)} aria-label="Favorite exercise"><Heart className={cn(favoriteIds.has(exercise.id) && 'fill-current text-rose-500')} /></Button>
         </div>
         {exercise.instructions[0] && <p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">{exercise.instructions[0]}</p>}
-        {!exercise.is_system && <div className="mt-3 flex gap-2"><Button size="sm" variant="outline" onClick={() => setDraft({ id: exercise.id, name: exercise.name, muscle_group: exercise.muscle_group, equipment: exercise.equipment, tracking_type: exercise.tracking_type, notes: exercise.notes ?? '' })}><Pencil /> Edit</Button><Button size="sm" variant="ghost" onClick={() => onArchive(exercise)}><Archive /> {exercise.is_archived ? 'Restore' : 'Archive'}</Button></div>}
+        {expandedId === exercise.id && <div className="mt-4 space-y-3 border-t pt-4 text-xs">
+          {exercise.secondary_muscles.length > 0 && <p className="capitalize text-muted-foreground"><span className="font-medium text-foreground">Also trains:</span> {exercise.secondary_muscles.join(', ')}</p>}
+          {exercise.instructions.length > 0 && <ol className="list-decimal space-y-2 pl-5 leading-5 text-muted-foreground">{exercise.instructions.map((instruction, index) => <li key={`${exercise.id}-${index}`}>{instruction}</li>)}</ol>}
+          {exercise.attribution && <p className="leading-5 text-muted-foreground">{exercise.source_url ? <a className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground" href={exercise.source_url} target="_blank" rel="noreferrer">{exercise.attribution}<ExternalLink className="size-3" /></a> : exercise.attribution}</p>}
+        </div>}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(exercise.instructions.length > 0 || exercise.attribution) && <Button size="sm" variant="ghost" aria-expanded={expandedId === exercise.id} onClick={() => setExpandedId(expandedId === exercise.id ? null : exercise.id)}>Details <ChevronDown className={cn('transition-transform', expandedId === exercise.id && 'rotate-180')} /></Button>}
+          {!exercise.is_system && <><Button size="sm" variant="outline" onClick={() => setDraft({ id: exercise.id, name: exercise.name, muscle_group: exercise.muscle_group, equipment: exercise.equipment, tracking_type: exercise.tracking_type, notes: exercise.notes ?? '' })}><Pencil /> Edit</Button><Button size="sm" variant="ghost" onClick={() => onArchive(exercise)}><Archive /> {exercise.is_archived ? 'Restore' : 'Archive'}</Button></>}
+        </div>
       </article>)}
     </div>
+    {filtered.length === 0 && <div className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">No exercises match these filters.</div>}
+    {visibleCount < filtered.length && <div className="flex justify-center"><Button variant="outline" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>Show {Math.min(PAGE_SIZE, filtered.length - visibleCount)} more</Button></div>}
   </section>
 }
 
