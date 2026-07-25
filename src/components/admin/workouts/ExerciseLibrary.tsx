@@ -1,11 +1,18 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Archive, ChevronDown, ExternalLink, Heart, Pencil, Plus, Search, X } from 'lucide-react'
-import type { ExerciseRow, ExerciseTrackingType } from '@/lib/supabase/database.types'
+import { Activity, Archive, ChevronDown, ExternalLink, Heart, Pencil, Plus, Search, X } from 'lucide-react'
+import type {
+  ExerciseRow,
+  ExerciseTrackingType,
+  WorkoutSessionExerciseRow,
+  WorkoutSessionRow,
+  WorkoutSetRow,
+} from '@/lib/supabase/database.types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { ExerciseDetailSheet } from './ExerciseDetailSheet'
 
 export type ExerciseDraft = {
   id?: string
@@ -30,6 +37,9 @@ export function ExerciseLibrary({
   exercises,
   favoriteIds,
   recentIds,
+  sessions = [],
+  sessionExercises = [],
+  sets = [],
   onSave,
   onArchive,
   onFavorite,
@@ -37,6 +47,9 @@ export function ExerciseLibrary({
   exercises: ExerciseRow[]
   favoriteIds: Set<string>
   recentIds: Set<string>
+  sessions?: WorkoutSessionRow[]
+  sessionExercises?: WorkoutSessionExerciseRow[]
+  sets?: WorkoutSetRow[]
   onSave: (draft: ExerciseDraft) => Promise<void>
   onArchive: (exercise: ExerciseRow) => Promise<void>
   onFavorite: (exercise: ExerciseRow) => Promise<void>
@@ -48,6 +61,7 @@ export function ExerciseLibrary({
   const [special, setSpecial] = useState<'all' | 'favorites' | 'recent'>('all')
   const [draft, setDraft] = useState<ExerciseDraft | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [detailExercise, setDetailExercise] = useState<ExerciseRow | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [saving, setSaving] = useState(false)
 
@@ -122,6 +136,7 @@ export function ExerciseLibrary({
           {exercise.attribution && <p className="leading-5 text-muted-foreground">{exercise.source_url ? <a className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground" href={exercise.source_url} target="_blank" rel="noreferrer">{exercise.attribution}<ExternalLink className="size-3" /></a> : exercise.attribution}</p>}
         </div>}
         <div className="mt-3 flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => setDetailExercise(exercise)}><Activity /> Progress</Button>
           {(exercise.instructions.length > 0 || exercise.attribution) && <Button size="sm" variant="ghost" aria-expanded={expandedId === exercise.id} onClick={() => setExpandedId(expandedId === exercise.id ? null : exercise.id)}>Details <ChevronDown className={cn('transition-transform', expandedId === exercise.id && 'rotate-180')} /></Button>}
           {!exercise.is_system && <><Button size="sm" variant="outline" onClick={() => setDraft({ id: exercise.id, name: exercise.name, muscle_group: exercise.muscle_group, equipment: exercise.equipment, tracking_type: exercise.tracking_type, notes: exercise.notes ?? '' })}><Pencil /> Edit</Button><Button size="sm" variant="ghost" onClick={() => onArchive(exercise)}><Archive /> {exercise.is_archived ? 'Restore' : 'Archive'}</Button></>}
         </div>
@@ -129,6 +144,7 @@ export function ExerciseLibrary({
     </div>
     {filtered.length === 0 && <div className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">No exercises match these filters.</div>}
     {visibleCount < filtered.length && <div className="flex justify-center"><Button variant="outline" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>Show {Math.min(PAGE_SIZE, filtered.length - visibleCount)} more</Button></div>}
+    <ExerciseDetailSheet exercise={detailExercise} sessions={sessions} sessionExercises={sessionExercises} sets={sets} onClose={() => setDetailExercise(null)} />
   </section>
 }
 
