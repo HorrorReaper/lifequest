@@ -14,7 +14,7 @@ export default async function TasksPage() {
 
   return (
     <main className="min-h-svh bg-background p-4 pb-24 sm:p-8">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         <header>
           <Link
             href="/dashboard"
@@ -29,7 +29,9 @@ export default async function TasksPage() {
             </span>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
-              <p className="text-sm text-muted-foreground">Create, prioritize, complete, or reschedule your work.</p>
+              <p className="text-sm text-muted-foreground">
+                Plan what matters, then move it forward.
+              </p>
             </div>
           </div>
         </header>
