@@ -3,11 +3,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format, subDays } from 'date-fns'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { Apple, BookOpen, Copy, Database, Heart, Pencil, Plus, RefreshCw, Save, Settings2, Trash2, X } from 'lucide-react'
+import {
+  Apple,
+  BookOpen,
+  CalendarDays,
+  Copy,
+  Database,
+  Heart,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Save,
+  Settings2,
+  Trash2,
+  Utensils,
+  X,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type {
   FoodFavoriteRow,
   FoodItemRow,
+  FoodPortionRow,
   MealType,
   NutritionEntryRow,
   NutritionTargetRow,
@@ -19,12 +35,24 @@ import type {
 import { scaleNutrients, sumNutrients } from '@/lib/nutrition/calculations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { AdminPageHeader } from './AdminPageHeader'
 import { FoodSearchPanel } from './nutrition/FoodSearchPanel'
+import { NutritionDiary } from './nutrition/NutritionDiary'
 import { ReusableFoodPlans, type ReusableItemDraft } from './nutrition/ReusableFoodPlans'
+import {
+  buildSnapshotPreservingEdit,
+  copyEntrySnapshot,
+} from './nutrition/diary-utils'
 import { cn } from '@/lib/utils'
 
-type View = 'diary' | 'foods' | 'plans'
+type View = 'diary' | 'foods'
 type QuickDraft = {
   id?: string
   name: string
@@ -41,6 +69,13 @@ type QuickDraft = {
 
 const mealTypes: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack', 'other']
 const blankQuick: QuickDraft = { name: '', meal_type: 'other', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sugar_g: 0, sodium_mg: 0, notes: '' }
+const mealLabels: Record<MealType, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+  snack: 'Snacks',
+  other: 'Other',
+}
 
 export function NutritionHub({ userId, initialDate }: { userId: string; initialDate: string }) {
   const supabase = useMemo(() => createClient() as unknown as SupabaseClient, [])
@@ -49,7 +84,9 @@ export function NutritionHub({ userId, initialDate }: { userId: string; initialD
   const [targets, setTargets] = useState<NutritionTargetRow>({ user_id: userId, calories: 2500, protein_g: 180, carbs_g: 250, fat_g: 75, fiber_g: 30, sodium_mg: 2300, created_at: '', updated_at: '' })
   const [entries, setEntries] = useState<NutritionEntryRow[]>([])
   const [weekEntries, setWeekEntries] = useState<NutritionEntryRow[]>([])
+  const [historyEntries, setHistoryEntries] = useState<NutritionEntryRow[]>([])
   const [foods, setFoods] = useState<FoodItemRow[]>([])
+  const [portions, setPortions] = useState<FoodPortionRow[]>([])
   const [favorites, setFavorites] = useState<FoodFavoriteRow[]>([])
   const [savedMeals, setSavedMeals] = useState<SavedMealRow[]>([])
   const [savedMealItems, setSavedMealItems] = useState<SavedMealItemRow[]>([])
@@ -57,8 +94,11 @@ export function NutritionHub({ userId, initialDate }: { userId: string; initialD
   const [recipeIngredients, setRecipeIngredients] = useState<RecipeIngredientRow[]>([])
   const [showTargets, setShowTargets] = useState(false)
   const [showFood, setShowFood] = useState(false)
+  const [showPlans, setShowPlans] = useState(false)
   const [foodMealType, setFoodMealType] = useState<MealType>('other')
   const [quick, setQuick] = useState<QuickDraft | null>(null)
+  const [mealTools, setMealTools] = useState<MealType | null>(null)
+  const [entryTools, setEntryTools] = useState<NutritionEntryRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -67,23 +107,28 @@ export function NutritionHub({ userId, initialDate }: { userId: string; initialD
     setLoading(true)
     setError(null)
     const weekStart = format(subDays(new Date(`${date}T12:00:00`), 6), 'yyyy-MM-dd')
-    const [targetRes, dayRes, weekRes, foodRes, favoriteRes, mealRes, mealItemRes, recipeRes, ingredientRes] = await Promise.all([
+    const historyStart = format(subDays(new Date(`${date}T12:00:00`), 89), 'yyyy-MM-dd')
+    const [targetRes, dayRes, historyRes, foodRes, portionRes, favoriteRes, mealRes, mealItemRes, recipeRes, ingredientRes] = await Promise.all([
       supabase.from('nutrition_targets').select('*').eq('user_id', userId).maybeSingle(),
       supabase.from('nutrition_entries').select('*').eq('user_id', userId).eq('entry_date', date).order('created_at'),
-      supabase.from('nutrition_entries').select('*').eq('user_id', userId).gte('entry_date', weekStart).lte('entry_date', date).order('entry_date'),
+      supabase.from('nutrition_entries').select('*').eq('user_id', userId).gte('entry_date', historyStart).lte('entry_date', date).order('entry_date', { ascending: false }),
       supabase.from('food_items').select('*').eq('user_id', userId).eq('is_archived', false).order('updated_at', { ascending: false }),
+      supabase.from('food_portions').select('*').order('is_default', { ascending: false }),
       supabase.from('food_favorites').select('*').eq('user_id', userId),
       supabase.from('saved_meals').select('*').eq('user_id', userId).order('updated_at', { ascending: false }),
       supabase.from('saved_meal_items').select('*').order('sort_order'),
       supabase.from('recipes').select('*').eq('user_id', userId).order('updated_at', { ascending: false }),
       supabase.from('recipe_ingredients').select('*').order('sort_order'),
     ])
-    const firstError = targetRes.error ?? dayRes.error ?? weekRes.error ?? foodRes.error ?? favoriteRes.error ?? mealRes.error ?? mealItemRes.error ?? recipeRes.error ?? ingredientRes.error
+    const firstError = targetRes.error ?? dayRes.error ?? historyRes.error ?? foodRes.error ?? portionRes.error ?? favoriteRes.error ?? mealRes.error ?? mealItemRes.error ?? recipeRes.error ?? ingredientRes.error
     if (firstError) setError(firstError.message)
     if (targetRes.data) setTargets(targetRes.data as NutritionTargetRow)
     setEntries((dayRes.data ?? []) as NutritionEntryRow[])
-    setWeekEntries((weekRes.data ?? []) as NutritionEntryRow[])
+    const history = (historyRes.data ?? []) as NutritionEntryRow[]
+    setHistoryEntries(history)
+    setWeekEntries(history.filter((entry) => entry.entry_date >= weekStart))
     setFoods((foodRes.data ?? []) as FoodItemRow[])
+    setPortions((portionRes.data ?? []) as FoodPortionRow[])
     setFavorites((favoriteRes.data ?? []) as FoodFavoriteRow[])
     setSavedMeals((mealRes.data ?? []) as SavedMealRow[])
     setSavedMealItems((mealItemRes.data ?? []) as SavedMealItemRow[])
@@ -126,7 +171,7 @@ export function NutritionHub({ userId, initialDate }: { userId: string; initialD
     })
   }
 
-  async function logFood(food: FoodItemRow, servingGrams: number, servingCount: number, mealType: MealType) {
+  async function logFood(food: FoodItemRow, servingGrams: number, servingCount: number, mealType: MealType, servingLabel?: string) {
     await execute(async () => {
       const nutrient = scaleNutrients(food, servingGrams, servingCount)
       const { error: insertError } = await supabase.from('nutrition_entries').insert({
@@ -138,7 +183,9 @@ export function NutritionHub({ userId, initialDate }: { userId: string; initialD
         food_item_id: food.id,
         serving_grams: servingGrams,
         serving_count: servingCount,
-        serving_label: `${servingCount} × ${servingGrams} g`,
+        serving_label: servingLabel
+          ? `${servingCount} × ${servingLabel}`
+          : `${servingCount} × ${servingGrams} g`,
         calories: Math.round(nutrient.calories),
         protein_g: nutrient.protein,
         carbs_g: nutrient.carbs,
@@ -158,25 +205,26 @@ export function NutritionHub({ userId, initialDate }: { userId: string; initialD
     event.preventDefault()
     if (!quick?.name.trim()) return
     await execute(async () => {
-      const payload = {
-        user_id: userId,
-        entry_date: date,
+      const editableSnapshot = buildSnapshotPreservingEdit({
         meal_type: quick.meal_type,
         name: quick.name.trim(),
-        entry_kind: 'quick_add',
-        calories: Math.round(Math.max(0, quick.calories)),
-        protein_g: Math.max(0, quick.protein_g),
-        carbs_g: Math.max(0, quick.carbs_g),
-        fat_g: Math.max(0, quick.fat_g),
-        fiber_g: Math.max(0, quick.fiber_g),
-        sugar_g: Math.max(0, quick.sugar_g),
-        sodium_mg: Math.max(0, quick.sodium_mg),
-        notes: quick.notes.trim() || null,
-        updated_at: new Date().toISOString(),
-      }
+        calories: quick.calories,
+        protein_g: quick.protein_g,
+        carbs_g: quick.carbs_g,
+        fat_g: quick.fat_g,
+        fiber_g: quick.fiber_g,
+        sugar_g: quick.sugar_g,
+        sodium_mg: quick.sodium_mg,
+        notes: quick.notes,
+      })
       const result = quick.id
-        ? await supabase.from('nutrition_entries').update(payload).eq('id', quick.id)
-        : await supabase.from('nutrition_entries').insert(payload)
+        ? await supabase.from('nutrition_entries').update(editableSnapshot).eq('id', quick.id).eq('user_id', userId)
+        : await supabase.from('nutrition_entries').insert({
+          ...editableSnapshot,
+          user_id: userId,
+          entry_date: date,
+          entry_kind: 'quick_add',
+        })
       if (result.error) throw result.error
       setQuick(null)
       await load()
@@ -199,15 +247,53 @@ export function NutritionHub({ userId, initialDate }: { userId: string; initialD
     })
   }
 
-  async function copyEntry(entry: NutritionEntryRow) {
-    const destination = window.prompt('Copy to date (YYYY-MM-DD)', date)
-    if (!destination || !/^\d{4}-\d{2}-\d{2}$/.test(destination)) return
+  async function copyEntry(entry: NutritionEntryRow, destination: string, mealType = entry.meal_type) {
     await execute(async () => {
-      const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...snapshot } = entry
-      void _id; void _createdAt; void _updatedAt
-      const { error: copyError } = await supabase.from('nutrition_entries').insert({ ...snapshot, entry_date: destination })
+      const snapshot = copyEntrySnapshot(entry, { entry_date: destination, meal_type: mealType })
+      const { error: copyError } = await supabase.from('nutrition_entries').insert(snapshot)
       if (copyError) throw copyError
       if (destination === date) await load()
+    })
+  }
+
+  async function copyMeal(sourceMeal: MealType, destination: string, destinationMeal = sourceMeal) {
+    const mealEntries = entries.filter((entry) => entry.meal_type === sourceMeal)
+    if (!mealEntries.length) return
+    await execute(async () => {
+      const snapshots = mealEntries.map((entry) => copyEntrySnapshot(entry, {
+        entry_date: destination,
+        meal_type: destinationMeal,
+      }))
+      const { error: copyError } = await supabase.from('nutrition_entries').insert(snapshots)
+      if (copyError) throw copyError
+      setMealTools(null)
+      if (destination === date) await load()
+    })
+  }
+
+  async function moveEntry(entry: NutritionEntryRow, destinationMeal: MealType) {
+    await execute(async () => {
+      const { error: moveError } = await supabase.from('nutrition_entries')
+        .update({ meal_type: destinationMeal, updated_at: new Date().toISOString() })
+        .eq('id', entry.id)
+        .eq('user_id', userId)
+      if (moveError) throw moveError
+      setEntryTools(null)
+      await load()
+    })
+  }
+
+  async function moveMeal(sourceMeal: MealType, destinationMeal: MealType) {
+    const ids = entries.filter((entry) => entry.meal_type === sourceMeal).map((entry) => entry.id)
+    if (!ids.length) return
+    await execute(async () => {
+      const { error: moveError } = await supabase.from('nutrition_entries')
+        .update({ meal_type: destinationMeal, updated_at: new Date().toISOString() })
+        .in('id', ids)
+        .eq('user_id', userId)
+      if (moveError) throw moveError
+      setMealTools(null)
+      await load()
     })
   }
 
@@ -319,44 +405,206 @@ export function NutritionHub({ userId, initialDate }: { userId: string; initialD
   const favoriteIds = new Set(favorites.map((favorite) => favorite.food_item_id))
 
   return <div className="mx-auto max-w-[92rem] space-y-7">
-    <AdminPageHeader eyebrow="Fuel and recovery" title="Nutrition tracker" description="Search real foods, scale servings, reuse meals, and judge consistency from reliable daily snapshots." actions={<div className="flex gap-2"><Button variant="outline" onClick={() => setShowTargets(true)}><Settings2 /> Targets</Button><Button onClick={() => { setFoodMealType('other'); setShowFood(true) }}><Plus /> Add food</Button></div>} />
+    <AdminPageHeader
+      eyebrow="Fuel and recovery"
+      title="Nutrition diary"
+      description="Log food quickly, keep reliable nutrient snapshots, and understand the balance of your day."
+      actions={<div className="grid grid-cols-2 gap-2 sm:flex">
+        <Button variant="outline" onClick={() => setShowPlans(true)}><BookOpen /> Meals</Button>
+        <Button variant="outline" onClick={() => setShowTargets(true)}><Settings2 /> Targets</Button>
+        <Button className="col-span-2" onClick={() => { setFoodMealType('other'); setShowFood(true) }}><Plus /> Add food</Button>
+      </div>}
+    />
     {error && <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"><span className="flex-1">{error}</span><Button size="sm" variant="ghost" onClick={() => load()}><RefreshCw /> Retry</Button></div>}
-    <nav className="flex rounded-2xl bg-muted/50 p-1">{([['diary', Apple], ['foods', Database], ['plans', BookOpen]] as const).map(([item, Icon]) => <button key={item} onClick={() => setView(item)} className={cn('flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm capitalize', view === item ? 'bg-card shadow-sm' : 'text-muted-foreground')}><Icon className="size-4" />{item}</button>)}</nav>
-    {showTargets && <TargetEditor targets={targets} setTargets={setTargets} onSave={saveTargets} onClose={() => setShowTargets(false)} />}
-    {showFood && <FoodSearchPanel foods={foods} favoriteIds={favoriteIds} initialMealType={foodMealType} onClose={() => setShowFood(false)} onLog={logFood} onFavorite={toggleFavorite} />}
-    {quick && <QuickEditor draft={quick} setDraft={setQuick} onSave={saveQuick} onClose={() => setQuick(null)} />}
+    <nav className="flex rounded-2xl bg-muted/50 p-1">{([['diary', Apple, 'Diary'], ['foods', Database, 'My foods']] as const).map(([item, Icon, label]) => <button key={item} onClick={() => setView(item)} className={cn('flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm', view === item ? 'bg-card shadow-sm' : 'text-muted-foreground')}><Icon className="size-4" />{label}</button>)}</nav>
+
+    <Dialog open={showTargets} onOpenChange={(open) => !working && setShowTargets(open)}>
+      <DialogContent className="bottom-0 top-auto max-h-[92svh] max-w-none translate-y-0 overflow-y-auto rounded-b-none rounded-t-3xl p-5 sm:bottom-auto sm:top-1/2 sm:max-w-3xl sm:-translate-y-1/2 sm:rounded-xl">
+        <DialogHeader><DialogTitle>Daily nutrition targets</DialogTitle><DialogDescription>Set the calorie and macro goals used throughout the diary.</DialogDescription></DialogHeader>
+        <TargetEditor targets={targets} setTargets={setTargets} onSave={saveTargets} onClose={() => setShowTargets(false)} />
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={showFood} onOpenChange={(open) => !working && setShowFood(open)}>
+      <DialogContent className="bottom-0 top-auto h-[94svh] max-h-[94svh] max-w-none translate-y-0 gap-0 overflow-hidden rounded-b-none rounded-t-3xl p-0 sm:bottom-auto sm:top-1/2 sm:h-auto sm:max-h-[88svh] sm:max-w-2xl sm:-translate-y-1/2 sm:rounded-xl" showCloseButton>
+        <DialogHeader className="sr-only"><DialogTitle>Add food</DialogTitle><DialogDescription>Search saved foods, provider foods, meals and recipes.</DialogDescription></DialogHeader>
+        <FoodSearchPanel
+          foods={foods}
+          portions={portions}
+          historyEntries={historyEntries}
+          favoriteIds={favoriteIds}
+          savedMeals={savedMeals}
+          recipes={recipes}
+          initialMealType={foodMealType}
+          onClose={() => setShowFood(false)}
+          onLog={logFood}
+          onLogSavedMeal={logSavedMeal}
+          onLogRecipe={logRecipe}
+          onFavorite={toggleFavorite}
+        />
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={quick !== null} onOpenChange={(open) => !working && !open && setQuick(null)}>
+      <DialogContent className="bottom-0 top-auto max-h-[92svh] max-w-none translate-y-0 overflow-y-auto rounded-b-none rounded-t-3xl p-5 sm:bottom-auto sm:top-1/2 sm:max-w-3xl sm:-translate-y-1/2 sm:rounded-xl">
+        <DialogHeader><DialogTitle>{quick?.id ? 'Edit diary entry' : 'Quick add'}</DialogTitle><DialogDescription>{quick?.id ? 'Adjust this saved snapshot without changing its food identity.' : 'Enter calories and macros without creating a food.'}</DialogDescription></DialogHeader>
+        {quick && <QuickEditor draft={quick} setDraft={setQuick} onSave={saveQuick} onClose={() => setQuick(null)} />}
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={showPlans} onOpenChange={(open) => !working && setShowPlans(open)}>
+      <DialogContent className="bottom-0 top-auto h-[94svh] max-h-[94svh] max-w-none translate-y-0 overflow-y-auto rounded-b-none rounded-t-3xl p-5 sm:bottom-auto sm:top-1/2 sm:h-auto sm:max-h-[88svh] sm:max-w-4xl sm:-translate-y-1/2 sm:rounded-xl">
+        <DialogHeader><DialogTitle>Saved meals & recipes</DialogTitle><DialogDescription>Build reusable combinations from the foods already in your library.</DialogDescription></DialogHeader>
+        <ReusableFoodPlans
+          foods={foods}
+          savedMeals={savedMeals}
+          savedMealItems={savedMealItems}
+          recipes={recipes}
+          recipeIngredients={recipeIngredients}
+          onCreateMeal={createSavedMeal}
+          onCreateRecipe={createRecipe}
+          onLogMeal={async (id, mealType) => { await logSavedMeal(id, mealType); setShowPlans(false) }}
+          onLogRecipe={async (id, servingCount, mealType) => { await logRecipe(id, servingCount, mealType); setShowPlans(false) }}
+          onDeleteMeal={deleteSavedMeal}
+          onDeleteRecipe={deleteRecipe}
+        />
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={mealTools !== null} onOpenChange={(open) => !working && !open && setMealTools(null)}>
+      <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl p-5 sm:bottom-auto sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 sm:rounded-xl">
+        <DialogHeader><DialogTitle>{mealTools ? `${mealLabels[mealTools]} quick tools` : 'Meal quick tools'}</DialogTitle><DialogDescription>Reuse or reorganize every diary item in this meal.</DialogDescription></DialogHeader>
+        {mealTools && <MealTools
+          mealType={mealTools}
+          date={date}
+          working={working}
+          onQuickAdd={() => { setQuick({ ...blankQuick, meal_type: mealTools }); setMealTools(null) }}
+          onDuplicate={() => copyMeal(mealTools, date)}
+          onMove={(destination) => moveMeal(mealTools, destination)}
+          onCopy={(destination) => copyMeal(mealTools, destination)}
+        />}
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={entryTools !== null} onOpenChange={(open) => !working && !open && setEntryTools(null)}>
+      <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl p-5 sm:bottom-auto sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 sm:rounded-xl">
+        <DialogHeader><DialogTitle>{entryTools?.name ?? 'Diary item'}</DialogTitle><DialogDescription>Edit, move, copy, duplicate or delete this saved nutrient snapshot.</DialogDescription></DialogHeader>
+        {entryTools && <EntryTools
+          entry={entryTools}
+          date={date}
+          working={working}
+          onEdit={() => { editEntry(entryTools); setEntryTools(null) }}
+          onDuplicate={async () => { await copyEntry(entryTools, date); setEntryTools(null) }}
+          onMove={(destination) => moveEntry(entryTools, destination)}
+          onCopy={async (destination) => { await copyEntry(entryTools, destination); setEntryTools(null) }}
+          onDelete={async () => { await deleteEntry(entryTools.id); setEntryTools(null) }}
+        />}
+      </DialogContent>
+    </Dialog>
+
     {loading ? <div className="grid min-h-64 place-items-center text-sm text-muted-foreground">Loading nutrition data…</div> : <>
-      {view === 'diary' && <Diary date={date} setDate={setDate} entries={entries} totals={totals} targets={targets} days={days} averageCalories={averageCalories} averageProtein={averageProtein} adherence={adherence} onAddFood={(type) => { setFoodMealType(type); setShowFood(true) }} onQuick={(type) => setQuick({ ...blankQuick, meal_type: type })} onEdit={editEntry} onCopy={copyEntry} onDelete={deleteEntry} />}
+      {view === 'diary' && <NutritionDiary
+        date={date}
+        setDate={setDate}
+        entries={entries}
+        totals={totals}
+        targets={targets}
+        days={days}
+        averageCalories={averageCalories}
+        averageProtein={averageProtein}
+        adherence={adherence}
+        working={working}
+        onAddFood={(type) => { setFoodMealType(type); setShowFood(true) }}
+        onQuick={(type) => setQuick({ ...blankQuick, meal_type: type })}
+        onEdit={editEntry}
+        onDuplicate={(entry) => copyEntry(entry, date)}
+        onEntryTools={setEntryTools}
+        onMealTools={setMealTools}
+      />}
       {view === 'foods' && <FoodLibrary foods={foods} favoriteIds={favoriteIds} onFavorite={toggleFavorite} onCreate={createCustomFood} />}
-      {view === 'plans' && <ReusableFoodPlans foods={foods} savedMeals={savedMeals} savedMealItems={savedMealItems} recipes={recipes} recipeIngredients={recipeIngredients} onCreateMeal={createSavedMeal} onCreateRecipe={createRecipe} onLogMeal={logSavedMeal} onLogRecipe={logRecipe} onDeleteMeal={deleteSavedMeal} onDeleteRecipe={deleteRecipe} />}
     </>}
   </div>
 }
 
-function Diary({ date, setDate, entries, totals, targets, days, averageCalories, averageProtein, adherence, onAddFood, onQuick, onEdit, onCopy, onDelete }: {
+function MealTools({ mealType, date, working, onQuickAdd, onDuplicate, onMove, onCopy }: {
+  mealType: MealType
   date: string
-  setDate: (date: string) => void
-  entries: NutritionEntryRow[]
-  totals: ReturnType<typeof sumNutrients>
-  targets: NutritionTargetRow
-  days: Array<{ date: string; calories: number; protein: number }>
-  averageCalories: number
-  averageProtein: number
-  adherence: number
-  onAddFood: (type: MealType) => void
-  onQuick: (type: MealType) => void
-  onEdit: (entry: NutritionEntryRow) => void
-  onCopy: (entry: NutritionEntryRow) => Promise<void>
-  onDelete: (id: string) => Promise<void>
+  working: boolean
+  onQuickAdd: () => void
+  onDuplicate: () => Promise<void>
+  onMove: (destination: MealType) => Promise<void>
+  onCopy: (destination: string) => Promise<void>
 }) {
-  return <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]"><div className="space-y-5">
-    <div className="rounded-[2rem] bg-card p-5 ring-1 ring-border sm:p-7"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm text-muted-foreground">Daily log</p><h2 className="text-xl font-semibold">{format(new Date(`${date}T12:00:00`), 'EEEE, d MMMM')}</h2></div><Input className="w-auto" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div><div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4"><MacroProgress label="Calories" value={totals.calories} target={targets.calories} unit="kcal" /><MacroProgress label="Protein" value={totals.protein} target={Number(targets.protein_g)} unit="g" /><MacroProgress label="Carbs" value={totals.carbs} target={Number(targets.carbs_g)} unit="g" /><MacroProgress label="Fat" value={totals.fat} target={Number(targets.fat_g)} unit="g" /></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs text-muted-foreground"><span>Fiber {Math.round(totals.fiber)}g</span><span>Sugar {Math.round(totals.sugar)}g</span><span>Sodium {Math.round(totals.sodium)}mg</span></div></div>
-    {mealTypes.map((type) => {
-      const mealEntries = entries.filter((entry) => entry.meal_type === type)
-      const calories = mealEntries.reduce((sum, entry) => sum + entry.calories, 0)
-      return <article key={type} className="rounded-2xl bg-card p-4 ring-1 ring-border sm:p-5"><div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold capitalize">{type}</h3><p className="text-xs text-muted-foreground">{calories} kcal</p></div><div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => onQuick(type)}>Quick add</Button><Button size="sm" variant="outline" onClick={() => onAddFood(type)}><Plus /> Food</Button></div></div><div className="mt-3 divide-y">{mealEntries.map((entry) => <div key={entry.id} className="flex items-center gap-2 py-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{entry.name}</p><p className="text-xs text-muted-foreground">{entry.serving_label || entry.entry_kind.replaceAll('_', ' ')} · {entry.calories} kcal · {Math.round(Number(entry.protein_g))}g protein</p></div><Button size="icon" variant="ghost" onClick={() => onEdit(entry)}><Pencil /></Button><Button size="icon" variant="ghost" onClick={() => onCopy(entry)}><Copy /></Button><Button size="icon" variant="ghost" onClick={() => onDelete(entry.id)}><Trash2 /></Button></div>)}{!mealEntries.length && <p className="py-4 text-center text-xs text-muted-foreground">Nothing logged</p>}</div></article>
-    })}
-  </div><aside className="space-y-5"><div className="rounded-[2rem] bg-primary p-6 text-primary-foreground"><p className="text-sm opacity-70">Remaining today</p><p className="mt-3 font-mono text-5xl font-semibold tracking-[-0.07em]">{Math.round(targets.calories - totals.calories)}</p><p className="text-sm opacity-70">kilocalories</p><div className="mt-8 grid grid-cols-3 gap-2 text-center"><Remaining label="Protein" value={Number(targets.protein_g) - totals.protein} /><Remaining label="Carbs" value={Number(targets.carbs_g) - totals.carbs} /><Remaining label="Fat" value={Number(targets.fat_g) - totals.fat} /></div></div><div className="rounded-[2rem] bg-card p-5 ring-1 ring-border"><h2 className="font-semibold">Seven-day view</h2><div className="mt-5 flex h-28 items-end gap-2">{days.map((day) => <div key={day.date} className="flex flex-1 flex-col items-center gap-2"><div className={cn('w-full rounded-t-md', day.calories > targets.calories * 1.1 ? 'bg-amber-500' : 'bg-primary/75')} style={{ height: `${Math.max(4, Math.min(88, day.calories / Math.max(1, targets.calories) * 72))}px` }} /><span className="text-[10px] text-muted-foreground">{format(new Date(`${day.date}T12:00:00`), 'EE')}</span></div>)}</div><div className="mt-5 grid grid-cols-3 gap-2"><WeeklyStat label="Avg kcal" value={averageCalories} /><WeeklyStat label="Avg protein" value={`${averageProtein}g`} /><WeeklyStat label="Adherence" value={`${adherence}%`} /></div></div></aside></section>
+  const [destinationMeal, setDestinationMeal] = useState<MealType>(mealType === 'other' ? 'snack' : 'other')
+  const [destinationDate, setDestinationDate] = useState(date)
+
+  return <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-2">
+      <Button variant="outline" className="h-12 justify-start" onClick={onQuickAdd}><Plus /> Quick add</Button>
+      <Button variant="outline" className="h-12 justify-start" disabled={working} onClick={onDuplicate}><Copy /> Duplicate meal</Button>
+    </div>
+    <div className="rounded-2xl bg-muted/45 p-4">
+      <label>
+        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Move all items to</span>
+        <select className="h-11 w-full rounded-xl border bg-background px-3 text-sm" value={destinationMeal} onChange={(event) => setDestinationMeal(event.target.value as MealType)}>
+          {mealTypes.filter((type) => type !== mealType).map((type) => <option key={type} value={type}>{mealLabels[type]}</option>)}
+        </select>
+      </label>
+      <Button className="mt-3 w-full" variant="secondary" disabled={working} onClick={() => onMove(destinationMeal)}><Utensils /> Move meal</Button>
+    </div>
+    <div className="rounded-2xl bg-muted/45 p-4">
+      <label>
+        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Copy all items to date</span>
+        <Input className="h-11 rounded-xl" type="date" value={destinationDate} onChange={(event) => setDestinationDate(event.target.value)} />
+      </label>
+      <Button className="mt-3 w-full" variant="secondary" disabled={working || !destinationDate} onClick={() => onCopy(destinationDate)}><CalendarDays /> Copy meal</Button>
+    </div>
+  </div>
+}
+
+function EntryTools({ entry, date, working, onEdit, onDuplicate, onMove, onCopy, onDelete }: {
+  entry: NutritionEntryRow
+  date: string
+  working: boolean
+  onEdit: () => void
+  onDuplicate: () => Promise<void>
+  onMove: (destination: MealType) => Promise<void>
+  onCopy: (destination: string) => Promise<void>
+  onDelete: () => Promise<void>
+}) {
+  const [destinationMeal, setDestinationMeal] = useState<MealType>(entry.meal_type === 'other' ? 'snack' : 'other')
+  const [destinationDate, setDestinationDate] = useState(date)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  return <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-2">
+      <Button variant="outline" className="h-12 justify-start" onClick={onEdit}><Pencil /> Edit snapshot</Button>
+      <Button variant="outline" className="h-12 justify-start" disabled={working} onClick={onDuplicate}><Copy /> Duplicate</Button>
+    </div>
+    <div className="rounded-2xl bg-muted/45 p-4">
+      <label>
+        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Move to meal</span>
+        <select className="h-11 w-full rounded-xl border bg-background px-3 text-sm" value={destinationMeal} onChange={(event) => setDestinationMeal(event.target.value as MealType)}>
+          {mealTypes.filter((type) => type !== entry.meal_type).map((type) => <option key={type} value={type}>{mealLabels[type]}</option>)}
+        </select>
+      </label>
+      <Button className="mt-3 w-full" variant="secondary" disabled={working} onClick={() => onMove(destinationMeal)}><Utensils /> Move item</Button>
+    </div>
+    <div className="rounded-2xl bg-muted/45 p-4">
+      <label>
+        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Copy to date</span>
+        <Input className="h-11 rounded-xl" type="date" value={destinationDate} onChange={(event) => setDestinationDate(event.target.value)} />
+      </label>
+      <Button className="mt-3 w-full" variant="secondary" disabled={working || !destinationDate} onClick={() => onCopy(destinationDate)}><CalendarDays /> Copy item</Button>
+    </div>
+    {!confirmDelete
+      ? <Button variant="ghost" className="w-full text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)}><Trash2 /> Delete item</Button>
+      : <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+        <p className="text-sm font-medium">Delete this diary item?</p>
+        <p className="mt-1 text-xs text-muted-foreground">This only removes the selected snapshot.</p>
+        <div className="mt-3 grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => setConfirmDelete(false)}>Keep</Button><Button variant="destructive" disabled={working} onClick={onDelete}>Delete</Button></div>
+      </div>}
+  </div>
 }
 
 function TargetEditor({ targets, setTargets, onSave, onClose }: { targets: NutritionTargetRow; setTargets: (targets: NutritionTargetRow) => void; onSave: () => Promise<void>; onClose: () => void }) {
@@ -381,6 +629,3 @@ function FoodLibrary({ foods, favoriteIds, onFavorite, onCreate }: { foods: Food
 function NumberField({ label, value, onChange, suffix }: { label: string; value: number; onChange: (value: number) => void; suffix: string }) {
   return <label><span className="mb-1 block text-xs capitalize text-muted-foreground">{label}</span><div className="relative"><Input className="pr-12 font-mono" type="number" min="0" step="0.1" value={value} onChange={(event) => onChange(Math.max(0, Number(event.target.value)))} /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{suffix}</span></div></label>
 }
-function MacroProgress({ label, value, target, unit }: { label: string; value: number; target: number; unit: string }) { const ratio = target ? value / target : 0; return <div className="rounded-2xl bg-muted/45 p-4"><div className="flex items-baseline justify-between gap-2"><p className="text-sm font-medium">{label}</p><p className={cn('font-mono text-xs', ratio > 1.1 && 'text-amber-600')}>{Math.round(value)}/{Math.round(target)} {unit}</p></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-background"><div className={cn('h-full rounded-full', ratio > 1.1 ? 'bg-amber-500' : 'bg-primary')} style={{ width: `${Math.min(100, ratio * 100)}%` }} /></div></div> }
-function Remaining({ label, value }: { label: string; value: number }) { return <div className="rounded-xl bg-primary-foreground/10 p-3"><p className="font-mono text-lg">{Math.round(value)}g</p><p className="text-[10px] opacity-65">{label}</p></div> }
-function WeeklyStat({ label, value }: { label: string; value: string | number }) { return <div><p className="font-mono text-lg font-semibold">{value}</p><p className="text-[10px] text-muted-foreground">{label}</p></div> }
