@@ -36,18 +36,20 @@ export async function upsertDayPlan(
     field_id?: string | null;
   }
 ): Promise<DayPlan> {
+  const row = {
+    user_id: userId,
+    plan_date: input.plan_date,
+    blocks: input.blocks,
+    updated_at: new Date().toISOString(),
+    ...(input.notes !== undefined ? { notes: input.notes } : {}),
+    ...(input.entry_id !== undefined ? { entry_id: input.entry_id } : {}),
+    ...(input.field_id !== undefined ? { field_id: input.field_id } : {}),
+  };
+
   const { data, error } = await supabase
     .from("day_plans")
     .upsert(
-      {
-        user_id: userId,
-        plan_date: input.plan_date,
-        blocks: input.blocks,
-        notes: input.notes ?? null,
-        entry_id: input.entry_id ?? null,
-        field_id: input.field_id ?? null,
-        updated_at: new Date().toISOString(),
-      },
+      row,
       { onConflict: "user_id,plan_date" }
     )
     .select("*")

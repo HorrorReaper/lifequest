@@ -26,6 +26,7 @@ function isJournalEntryRoute(pathname: string) {
 function isImmersiveRoute(pathname: string) {
   return (
     pathname.startsWith('/admin') ||
+    pathname === '/plan' ||
     (pathname.startsWith('/routines/') && pathname.endsWith('/run')) ||
     isJournalEntryRoute(pathname)
   )

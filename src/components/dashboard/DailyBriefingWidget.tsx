@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, ListTodo, Minus, Plus, Sparkles } from 'lucide-react'
+import { ArrowRight, BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, ListTodo, Sparkles, Target } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { upsertDayPlan } from '@/lib/day-plans'
-import type { DayPlanBlock, Goal } from '@/lib/types'
+import type { DayPlanMissionType, Goal } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
 import { supabaseInsert, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { toggleTask } from '@/lib/tasks'
@@ -14,7 +13,6 @@ import { useUserStore } from '@/lib/stores/user-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { TaskList } from '@/components/tasks/TaskList'
 import { HabitDashboardWidget } from '@/components/dashboard/HabitDashboardWidget'
@@ -49,6 +47,7 @@ interface BriefingPlanBlock {
   endTime: string
   title: string
   category: string
+  missionType: DayPlanMissionType | null
   isCurrent: boolean
   isPast: boolean
 }
@@ -61,6 +60,8 @@ interface DailyBriefingWidgetProps {
   tasks: BriefingTask[]
   journals: BriefingJournal[]
   planBlocks: BriefingPlanBlock[]
+  mainQuestTitle: string | null
+  planCommitted: boolean
   goals: Goal[]
   goalsEnabled?: boolean
   completedJournalCount: number
@@ -99,15 +100,6 @@ const priorityStyles = {
   low: 'text-blue-600 dark:text-blue-400',
 }
 
-const categoryLabels: Record<DayPlanBlock['category'], string> = {
-  deep_work: 'Deep Work',
-  meeting: 'Meeting',
-  break: 'Break',
-  personal: 'Personal',
-  exercise: 'Exercise',
-  other: 'Other',
-}
-
 export function DailyBriefingWidget({
   userId,
   todayDate,
@@ -116,6 +108,8 @@ export function DailyBriefingWidget({
   tasks,
   journals,
   planBlocks,
+  mainQuestTitle,
+  planCommitted,
   goals,
   goalsEnabled = false,
   completedJournalCount,
@@ -130,16 +124,9 @@ export function DailyBriefingWidget({
   const supabase = createClient()
   const router = useRouter()
   const addXp = useUserStore((state) => state.addXp)
-  const [blocks, setBlocks] = useState(planBlocks)
+  const [blocks] = useState(planBlocks)
   const [localHabits, setLocalHabits] = useState(habits)
   const [localTasks, setLocalTasks] = useState(tasks)
-  const [showAddPlan, setShowAddPlan] = useState(safeInitialOpenPanel === 'plan')
-  const [planTitle, setPlanTitle] = useState('')
-  const [startTime, setStartTime] = useState('09:00')
-  const [endTime, setEndTime] = useState('10:00')
-  const [category, setCategory] = useState<DayPlanBlock['category']>('deep_work')
-  const [savingPlan, setSavingPlan] = useState(false)
-  const [planError, setPlanError] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(safeInitialOpenPanel !== null)
   const [sheetTab, setSheetTab] = useState<FocusSheetTab>(
     safeInitialOpenPanel === 'task'
@@ -176,7 +163,6 @@ export function DailyBriefingWidget({
   const totalItems = localHabits.length + openTasks + activePlanBlocks + Math.max(journals.length > 0 ? 1 : 0, 0)
   const doneItems = completedHabits + completedJournalCount + blocks.filter((block) => block.isPast).length
   const allClear = totalItems > 0 && doneItems >= totalItems
-  const canSavePlan = planTitle.trim().length > 0 && startTime < endTime
   const currentBlock = blocks.find((block) => block.isCurrent)
   const nextPlanBlock = currentBlock ?? blocks.find((block) => !block.isPast) ?? null
   const nextHabit = localHabits.find((habit) => !habit.completed) ?? null
@@ -187,64 +173,13 @@ export function DailyBriefingWidget({
     return priorityRank[a.priority] - priorityRank[b.priority]
   })[0] ?? null
   const habitPct = localHabits.length > 0 ? Math.round((completedHabits / localHabits.length) * 100) : 0
-  const focusCopy = allClear
+  const focusCopy = mainQuestTitle
+    ? `Your Main Quest is “${mainQuestTitle}”. Protect its next block before reacting to everything else.`
+    : allClear
     ? 'Everything important is handled. Keep the day light or add a deliberate next block.'
     : completedJournalCount === 0
       ? 'Start with a quick journal entry, then move into the next concrete action.'
       : 'Journal is done. Keep momentum with the next plan block, task, or habit.'
-
-  function toPersistedBlock(block: BriefingPlanBlock): DayPlanBlock {
-    return {
-      id: block.id,
-      start_time: block.startTime,
-      end_time: block.endTime,
-      title: block.title,
-      category: block.category as DayPlanBlock['category'],
-    }
-  }
-
-  async function handleAddPlanBlock(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!canSavePlan) return
-
-    setSavingPlan(true)
-    setPlanError(null)
-
-    const nextBlock: BriefingPlanBlock = {
-      id: crypto.randomUUID(),
-      startTime,
-      endTime,
-      title: planTitle.trim(),
-      category,
-      isCurrent: false,
-      isPast: false,
-    }
-    const nextBlocks = [...blocks, nextBlock].sort((a, b) => a.startTime.localeCompare(b.startTime))
-
-    try {
-      await upsertDayPlan(supabase, userId, {
-        plan_date: todayDate,
-        blocks: nextBlocks.map(toPersistedBlock),
-      })
-      setBlocks(nextBlocks)
-      setPlanTitle('')
-      setStartTime(endTime)
-      const [endHour] = endTime.split(':').map(Number)
-      setEndTime(`${String(Math.min(endHour + 1, 23)).padStart(2, '0')}:00`)
-      setShowAddPlan(false)
-      router.refresh()
-    } catch (error) {
-      console.error('Failed to save daily plan:', error)
-      setPlanError('Could not save this plan block. Please try again.')
-    } finally {
-      setSavingPlan(false)
-    }
-  }
-
-  function openSheet(tab: FocusSheetTab = 'tasks') {
-    setSheetTab(tab)
-    setSheetOpen(true)
-  }
 
   async function handleQuickCompleteTask() {
     if (!topTask || quickActionId) return
@@ -374,23 +309,40 @@ export function DailyBriefingWidget({
               </Button>
             )}
             <Button
-              type="button"
+              asChild
               size="lg"
               variant="outline"
-              onClick={() => {
-                setShowAddPlan(true)
-                openSheet('plan')
-              }}
               className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
             >
-              <CalendarClock className="mr-1.5 size-5" />
-              Plan Today
+              <Link href="/plan">
+                <CalendarClock className="mr-1.5 size-5" />
+                {planCommitted ? 'Review Plan' : 'Plan Today'}
+              </Link>
             </Button>
           </div>
           {quickError && <p className="mt-3 text-xs text-destructive">{quickError}</p>}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
+          {mainQuestTitle && (
+            <section className="rounded-lg border border-primary/25 bg-primary/5 p-3 sm:col-span-2">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Target className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                    Main Quest
+                  </p>
+                  <p className="mt-1 text-sm font-semibold">{mainQuestTitle}</p>
+                </div>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/plan">Review</Link>
+                </Button>
+              </div>
+            </section>
+          )}
+
           <section className="rounded-lg border bg-background/70 p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -684,81 +636,40 @@ export function DailyBriefingWidget({
           )}
 
           {sheetTab === 'plan' && (
-            <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">Today&apos;s Plan</p>
-                <p className="text-xs text-muted-foreground">
-                  Shape the day with concrete time blocks.
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant={showAddPlan ? 'outline' : 'default'}
-                onClick={() => setShowAddPlan((open) => !open)}
-              >
-                {showAddPlan ? <Minus className="mr-1.5 size-4" /> : <Plus className="mr-1.5 size-4" />}
-                {showAddPlan ? 'Close' : 'Add Block'}
-              </Button>
-            </div>
-
-            {showAddPlan && (
-              <form onSubmit={handleAddPlanBlock} className="space-y-2 rounded-lg border bg-background/80 p-3">
-                <Input
-                  placeholder="What will you do?"
-                  value={planTitle}
-                  onChange={(event) => setPlanTitle(event.target.value)}
-                  disabled={savingPlan}
-                  autoFocus
-                />
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
-                  <Input
-                    type="time"
-                    value={startTime}
-                    onChange={(event) => setStartTime(event.target.value)}
-                    disabled={savingPlan}
-                    aria-label="Start time"
-                  />
-                  <Input
-                    type="time"
-                    value={endTime}
-                    onChange={(event) => setEndTime(event.target.value)}
-                    disabled={savingPlan}
-                    aria-label="End time"
-                  />
-                  <select
-                    value={category}
-                    onChange={(event) => setCategory(event.target.value as DayPlanBlock['category'])}
-                    disabled={savingPlan}
-                    className="col-span-2 flex h-10 rounded-lg border border-input bg-background px-3 text-sm sm:col-span-1 sm:h-8 sm:px-2 sm:text-xs"
-                    aria-label="Plan category"
-                  >
-                    {Object.entries(categoryLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={savingPlan || !canSavePlan}
-                    className="col-span-2 h-10 sm:col-span-1 sm:h-8"
-                  >
-                    {savingPlan ? 'Saving...' : 'Save'}
-                  </Button>
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Target className="size-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">
+                      {planCommitted ? 'Daily plan committed' : 'Guided daily planning'}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Choose a Main Quest, cap the day at three outcomes, protect your anchors, and reality-check the timeline.
+                    </p>
+                  </div>
                 </div>
-                {startTime >= endTime && (
-                  <p className="text-xs text-destructive">End time must be after start time.</p>
+                {mainQuestTitle && (
+                  <div className="mt-4 rounded-xl border bg-background/75 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                      Main Quest
+                    </p>
+                    <p className="mt-1 text-sm font-medium">{mainQuestTitle}</p>
+                  </div>
                 )}
-                {planError && <p className="text-xs text-destructive">{planError}</p>}
-              </form>
-            )}
+                <Button asChild className="mt-4 w-full">
+                  <Link href="/plan">
+                    <CalendarClock className="mr-1.5 size-4" />
+                    {planCommitted ? 'Review Today’s Plan' : 'Start Planning Ritual'}
+                  </Link>
+                </Button>
+              </div>
 
             {blocks.length === 0 ? (
-              <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                No plan blocks yet. Add one to make the next part of the day obvious.
+              <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+                No timeline yet. The planning ritual will build the first draft from your chosen outcomes.
               </p>
             ) : (
               <ul className="space-y-2">

@@ -36,9 +36,9 @@ const QUICK_ACTIONS = [
     icon: ListTodo,
   },
   {
-    href: '/dashboard?quick=plan',
-    title: 'Plan Block',
-    description: 'Add structure to today.',
+    href: '/plan',
+    title: 'Plan Today',
+    description: 'Choose your Top Three and shape the timeline.',
     icon: CalendarClock,
   },
   {

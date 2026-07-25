@@ -1,0 +1,1515 @@
+"use client";
+
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  CalendarClock,
+  Check,
+  CircleGauge,
+  Clock3,
+  Dumbbell,
+  Flame,
+  HeartPulse,
+  ListTodo,
+  MoonStar,
+  Plus,
+  Sparkles,
+  Target,
+  Trash2,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { createClient } from "@/lib/supabase/client";
+import { upsertDayPlan } from "@/lib/day-plans";
+import type {
+  DayPlanBlock,
+  DayPlanCategory,
+  DayPlanOutcomeRole,
+} from "@/lib/types";
+import {
+  buildTodayPlanSchedule,
+  calculateTodayPlanCapacity,
+  createDefaultTodayPlanMetadata,
+  findTodayPlanBlockProblems,
+  formatPlanMinutes,
+  minutesToTime,
+  parseTodayPlanNotes,
+  serializeTodayPlanNotes,
+  timeToMinutes,
+  type TodayPlanAnchor,
+  type TodayPlanMetadata,
+  type TodayPlanOutcome,
+} from "@/lib/today-plan";
+import { cn } from "@/lib/utils";
+
+export interface TodayPlannerTask {
+  id: string;
+  title: string;
+  dueDate: string | null;
+  priority: "low" | "medium" | "high";
+  isOverdue: boolean;
+  estimateMinutes: number | null;
+}
+
+export interface TodayPlannerHabit {
+  id: string;
+  name: string;
+  emoji: string;
+  completedToday: boolean;
+}
+
+export interface TodayPlannerJournal {
+  id: string;
+  name: string;
+  icon: string;
+  completedToday: boolean;
+}
+
+interface TodayPlannerProps {
+  userId: string;
+  date: string;
+  dateLabel: string;
+  initialBlocks: DayPlanBlock[];
+  initialNotes: string | null;
+  tasks: TodayPlannerTask[];
+  habits: TodayPlannerHabit[];
+  journals: TodayPlannerJournal[];
+  workoutsEnabled: boolean;
+}
+
+interface PlannerDraft {
+  metadata: TodayPlanMetadata;
+  blocks: DayPlanBlock[];
+}
+
+const STEPS = [
+  {
+    label: "Reset",
+    eyebrow: "Step back",
+    title: "Reset the board",
+    description: "Clear the noise and decide what a good day should feel like.",
+  },
+  {
+    label: "Top Three",
+    eyebrow: "Choose deliberately",
+    title: "Set your Top Three",
+    description: "One must-win, one progress move, and one health commitment.",
+  },
+  {
+    label: "Anchors",
+    eyebrow: "Protect the essentials",
+    title: "Add your daily anchors",
+    description: "Make room for habits, reflection, training, and shutdown.",
+  },
+  {
+    label: "Timeline",
+    eyebrow: "Make it real",
+    title: "Shape the timeline",
+    description: "Give each commitment a place, not just a priority.",
+  },
+  {
+    label: "Commit",
+    eyebrow: "Reality check",
+    title: "Commit to the day",
+    description: "Check capacity, resolve conflicts, and start with clarity.",
+  },
+] as const;
+
+const OUTCOME_META: Record<
+  DayPlanOutcomeRole,
+  {
+    label: string;
+    helper: string;
+    mission: string;
+    icon: typeof Target;
+    style: string;
+    defaultDuration: number;
+  }
+> = {
+  must_win: {
+    label: "Must Win",
+    helper: "If only one meaningful thing moves today, it is this.",
+    mission: "Main Quest",
+    icon: Target,
+    style:
+      "border-violet-500/35 bg-violet-500/8 text-violet-700 dark:text-violet-300",
+    defaultDuration: 90,
+  },
+  progress: {
+    label: "Progress",
+    helper: "A concrete move that compounds toward your bigger goals.",
+    mission: "Side Quest",
+    icon: Sparkles,
+    style:
+      "border-blue-500/35 bg-blue-500/8 text-blue-700 dark:text-blue-300",
+    defaultDuration: 60,
+  },
+  health: {
+    label: "Health",
+    helper: "The action that protects your body, energy, or recovery.",
+    mission: "Recovery Quest",
+    icon: HeartPulse,
+    style:
+      "border-emerald-500/35 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300",
+    defaultDuration: 45,
+  },
+};
+
+const CATEGORY_LABELS: Record<DayPlanCategory, string> = {
+  deep_work: "Deep Work",
+  meeting: "Meeting",
+  break: "Break",
+  personal: "Personal",
+  exercise: "Exercise",
+  other: "Other",
+};
+
+const MISSION_LABELS: Record<
+  NonNullable<DayPlanBlock["mission_type"]>,
+  string
+> = {
+  main_quest: "Main Quest",
+  side_quest: "Side Quest",
+  anchor: "Anchor",
+  recovery: "Recovery",
+};
+
+const DURATION_OPTIONS = [15, 25, 45, 60, 90, 120];
+
+function fingerprint(value: PlannerDraft) {
+  return JSON.stringify(value);
+}
+
+function draftKey(userId: string, date: string) {
+  return `lifequest:today-plan:${userId}:${date}`;
+}
+
+function normalizeDraft(value: unknown): PlannerDraft | null {
+  if (typeof value !== "object" || value === null) return null;
+  const candidate = value as Partial<PlannerDraft>;
+  if (!Array.isArray(candidate.blocks) || !candidate.metadata) return null;
+
+  const metadata = parseTodayPlanNotes(
+    serializeTodayPlanNotes(candidate.metadata)
+  ).metadata;
+  const blocks = candidate.blocks.filter((block): block is DayPlanBlock => {
+    if (typeof block !== "object" || block === null) return false;
+    const item = block as Partial<DayPlanBlock>;
+    return (
+      typeof item.id === "string" &&
+      typeof item.title === "string" &&
+      typeof item.start_time === "string" &&
+      typeof item.end_time === "string" &&
+      typeof item.category === "string"
+    );
+  });
+
+  return metadata ? { metadata, blocks } : null;
+}
+
+function roleOutcome(
+  metadata: TodayPlanMetadata,
+  role: DayPlanOutcomeRole
+) {
+  return metadata.outcomes.find((outcome) => outcome.role === role) ?? null;
+}
+
+function lastScheduledMinute(blocks: DayPlanBlock[], fallback: string) {
+  return blocks.reduce(
+    (latest, block) =>
+      Math.max(latest, timeToMinutes(block.end_time) || 0),
+    timeToMinutes(fallback) || 8 * 60
+  );
+}
+
+export function TodayPlanner({
+  userId,
+  date,
+  dateLabel,
+  initialBlocks,
+  initialNotes,
+  tasks,
+  habits,
+  journals,
+  workoutsEnabled,
+}: TodayPlannerProps) {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+  const parsedNotes = useMemo(
+    () => parseTodayPlanNotes(initialNotes),
+    [initialNotes]
+  );
+  const initialMetadata = useMemo(
+    () => parsedNotes.metadata ?? createDefaultTodayPlanMetadata(),
+    [parsedNotes.metadata]
+  );
+  const initialFingerprint = useRef(
+    fingerprint({ metadata: initialMetadata, blocks: initialBlocks })
+  );
+  const [metadata, setMetadata] =
+    useState<TodayPlanMetadata>(initialMetadata);
+  const [blocks, setBlocks] = useState<DayPlanBlock[]>(initialBlocks);
+  const [step, setStep] = useState(0);
+  const [activeRole, setActiveRole] =
+    useState<DayPlanOutcomeRole>("must_win");
+  const [stepError, setStepError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const [restoredDraft, setRestoredDraft] = useState(false);
+
+  const currentDraft = useMemo(
+    () => ({ metadata, blocks }),
+    [blocks, metadata]
+  );
+  const isDirty = fingerprint(currentDraft) !== initialFingerprint.current;
+  const mainOutcome = roleOutcome(metadata, "must_win");
+  const capacity = calculateTodayPlanCapacity(
+    blocks,
+    metadata.day_start,
+    metadata.day_end
+  );
+  const problems = findTodayPlanBlockProblems(blocks);
+  const canCommit =
+    Boolean(mainOutcome?.title.trim()) &&
+    problems.invalidBlockIds.length === 0 &&
+    problems.overlappingBlockIds.length === 0 &&
+    !saving;
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(draftKey(userId, date));
+      if (stored) {
+        const recovered = normalizeDraft(JSON.parse(stored));
+        if (recovered) {
+          setMetadata(recovered.metadata);
+          setBlocks(recovered.blocks);
+          setRestoredDraft(true);
+        } else {
+          sessionStorage.removeItem(draftKey(userId, date));
+        }
+      }
+    } catch {
+      sessionStorage.removeItem(draftKey(userId, date));
+    } finally {
+      setDraftReady(true);
+    }
+  }, [date, userId]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    if (!isDirty) {
+      sessionStorage.removeItem(draftKey(userId, date));
+      return;
+    }
+    sessionStorage.setItem(draftKey(userId, date), JSON.stringify(currentDraft));
+  }, [currentDraft, date, draftReady, isDirty, userId]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [isDirty]);
+
+  function updateMetadata(patch: Partial<TodayPlanMetadata>) {
+    setMetadata((current) => ({ ...current, ...patch }));
+    setStepError(null);
+  }
+
+  function updateOutcome(
+    role: DayPlanOutcomeRole,
+    patch: Partial<TodayPlanOutcome>
+  ) {
+    setMetadata((current) => {
+      const existing = roleOutcome(current, role) ?? {
+        id: `outcome-${role}`,
+        role,
+        title: "",
+        task_id: null,
+        duration_minutes: OUTCOME_META[role].defaultDuration,
+      };
+      const next = { ...existing, ...patch, role };
+      return {
+        ...current,
+        outcomes: [
+          ...current.outcomes.filter((outcome) => outcome.role !== role),
+          next,
+        ],
+      };
+    });
+    setStepError(null);
+  }
+
+  function assignTask(task: TodayPlannerTask) {
+    updateOutcome(activeRole, {
+      title: task.title,
+      task_id: task.id,
+      duration_minutes:
+        task.estimateMinutes ?? OUTCOME_META[activeRole].defaultDuration,
+    });
+  }
+
+  function toggleAnchor(anchor: TodayPlanAnchor) {
+    setMetadata((current) => {
+      const selected = current.anchors.some((item) => item.id === anchor.id);
+      return {
+        ...current,
+        anchors: selected
+          ? current.anchors.filter((item) => item.id !== anchor.id)
+          : [...current.anchors, anchor],
+      };
+    });
+  }
+
+  function updateBlock(id: string, patch: Partial<DayPlanBlock>) {
+    setBlocks((current) =>
+      current.map((block) =>
+        block.id === id ? { ...block, ...patch } : block
+      )
+    );
+    setStepError(null);
+  }
+
+  function addManualBlock(category: DayPlanCategory = "other") {
+    const start = Math.min(
+      lastScheduledMinute(blocks, metadata.day_start) + (blocks.length ? 10 : 0),
+      23 * 60
+    );
+    const end = Math.min(start + 30, 23 * 60 + 59);
+    setBlocks((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        start_time: minutesToTime(start),
+        end_time: minutesToTime(end),
+        title: category === "break" ? "Recovery break" : "New plan block",
+        category,
+        mission_type: category === "break" ? "recovery" : "side_quest",
+        source_type: "manual",
+      },
+    ]);
+  }
+
+  function validateCurrentStep() {
+    if (step === 1 && !mainOutcome?.title.trim()) {
+      return "Choose one Must Win before moving on.";
+    }
+    if (
+      step === 2 &&
+      timeToMinutes(metadata.day_end) <= timeToMinutes(metadata.day_start)
+    ) {
+      return "Your day must end after it starts.";
+    }
+    if (step === 3 && problems.invalidBlockIds.length > 0) {
+      return "Every block needs a title and an end time after its start.";
+    }
+    if (step === 3 && problems.overlappingBlockIds.length > 0) {
+      return "Resolve overlapping blocks before the final check.";
+    }
+    return null;
+  }
+
+  function goNext() {
+    const error = validateCurrentStep();
+    if (error) {
+      setStepError(error);
+      return;
+    }
+    if (step === 2) {
+      setBlocks((current) =>
+        buildTodayPlanSchedule({ blocks: current, metadata })
+      );
+    }
+    setStepError(null);
+    setStep((current) => Math.min(current + 1, STEPS.length - 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function goBack() {
+    setStepError(null);
+    setStep((current) => Math.max(current - 1, 0));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function requestClose() {
+    if (isDirty) setCloseOpen(true);
+    else router.push("/dashboard");
+  }
+
+  function discardDraft() {
+    sessionStorage.removeItem(draftKey(userId, date));
+    setCloseOpen(false);
+    router.push("/dashboard");
+  }
+
+  async function commitPlan() {
+    if (!canCommit) {
+      setStepError(
+        "Resolve the highlighted plan issues before committing the day."
+      );
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    const committedMetadata: TodayPlanMetadata = {
+      ...metadata,
+      outcomes: metadata.outcomes.filter((outcome) => outcome.title.trim()),
+      ritual_completed_at: new Date().toISOString(),
+    };
+
+    try {
+      await upsertDayPlan(supabase, userId, {
+        plan_date: date,
+        blocks,
+        notes: serializeTodayPlanNotes(
+          committedMetadata,
+          parsedNotes.legacyNotes
+        ),
+      });
+      sessionStorage.removeItem(draftKey(userId, date));
+      window.dispatchEvent(new CustomEvent("lifequest-data-updated"));
+      router.push("/dashboard");
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to commit today plan", error);
+      setSaveError(
+        "Your plan is still safe in this tab, but it could not be saved. Check your connection and retry."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const anchorOptions: TodayPlanAnchor[] = [
+    ...habits.map((habit) => ({
+      id: `habit-${habit.id}`,
+      source_type: "habit" as const,
+      source_id: habit.id,
+      title: habit.name,
+      emoji: habit.emoji,
+      duration_minutes: 15,
+    })),
+    ...journals.map((journal) => ({
+      id: `journal-${journal.id}`,
+      source_type: "journal" as const,
+      source_id: journal.id,
+      title: journal.name,
+      emoji: journal.icon,
+      duration_minutes: 10,
+    })),
+    ...(workoutsEnabled
+      ? [
+          {
+            id: "workout-daily-anchor",
+            source_type: "workout" as const,
+            source_id: null,
+            title: "Training session",
+            emoji: "🏋️",
+            duration_minutes: 75,
+          },
+        ]
+      : []),
+  ];
+
+  const sortedBlocks = blocks
+    .slice()
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+  return (
+    <main className="min-h-svh bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_38%),hsl(var(--background))] pb-28 sm:pb-10">
+      <header className="sticky top-0 z-30 border-b bg-background/92 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-8">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Close daily planning"
+            onClick={requestClose}
+          >
+            <X className="size-5" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">Today&apos;s Plan</p>
+            <p className="truncate text-xs text-muted-foreground">{dateLabel}</p>
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">
+            Step {step + 1} of {STEPS.length}
+          </span>
+        </div>
+        <div
+          className="grid h-1 gap-1 px-4 sm:px-8"
+          style={{ gridTemplateColumns: `repeat(${STEPS.length}, 1fr)` }}
+          aria-hidden
+        >
+          {STEPS.map((item, index) => (
+            <span
+              key={item.label}
+              className={cn(
+                "rounded-full transition-colors",
+                index <= step ? "bg-primary" : "bg-muted"
+              )}
+            />
+          ))}
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-10">
+        {restoredDraft && (
+          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-blue-500/25 bg-blue-500/8 p-3 text-sm">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-blue-600 dark:text-blue-300" />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Your unfinished plan was restored.</p>
+              <p className="text-xs text-muted-foreground">
+                Nothing was written to the database while you were planning.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => setRestoredDraft(false)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        <section aria-labelledby={`planner-step-${step}`}>
+          <div className="mb-7 max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              {STEPS[step].eyebrow}
+            </p>
+            <h1
+              id={`planner-step-${step}`}
+              className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
+            >
+              {STEPS[step].title}
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
+              {STEPS[step].description}
+            </p>
+          </div>
+
+          {step === 0 && (
+            <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+              <Card className="rounded-3xl">
+                <CardContent className="space-y-5 p-5 sm:p-6">
+                  <div>
+                    <label
+                      htmlFor="plan-intention"
+                      className="text-sm font-semibold"
+                    >
+                      What quality should guide today?
+                    </label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      A short intention helps you make better tradeoffs later.
+                    </p>
+                  </div>
+                  <Textarea
+                    id="plan-intention"
+                    value={metadata.intention}
+                    onChange={(event) =>
+                      updateMetadata({ intention: event.target.value })
+                    }
+                    maxLength={500}
+                    placeholder="Example: Move calmly, finish what matters, and leave energy for training."
+                    className="min-h-32 rounded-2xl bg-background/80 text-base"
+                  />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>This is your decision filter, not another task.</span>
+                    <span>{metadata.intention.length}/500</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-3">
+                <div className="rounded-3xl border bg-background/75 p-5">
+                  <div className="flex items-center gap-2">
+                    <ListTodo className="size-4 text-blue-500" />
+                    <h2 className="text-sm font-semibold">Open loops</h2>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Review, don&apos;t react. You will choose on the next step.
+                  </p>
+                  {tasks.length > 0 ? (
+                    <ul className="mt-4 space-y-2">
+                      {tasks.slice(0, 5).map((task) => (
+                        <li
+                          key={task.id}
+                          className="flex items-start gap-2 text-sm"
+                        >
+                          <span
+                            className={cn(
+                              "mt-1.5 size-1.5 shrink-0 rounded-full",
+                              task.isOverdue
+                                ? "bg-red-500"
+                                : task.priority === "high"
+                                  ? "bg-amber-500"
+                                  : "bg-muted-foreground/50"
+                            )}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2">{task.title}</span>
+                            {task.isOverdue && (
+                              <span className="text-xs text-red-600 dark:text-red-400">
+                                Overdue
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-4 rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
+                      No open tasks. Start from intention, not urgency.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-3xl border bg-background/75 p-5">
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="size-4 text-violet-500" />
+                    <h2 className="text-sm font-semibold">Existing shape</h2>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {blocks.length > 0
+                      ? `${blocks.length} time block${blocks.length === 1 ? "" : "s"} already on the board. We will preserve and refine them.`
+                      : "The timeline is empty. Your chosen commitments will create the first draft."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="space-y-4">
+                {(Object.keys(OUTCOME_META) as DayPlanOutcomeRole[]).map(
+                  (role) => {
+                    const outcome = roleOutcome(metadata, role);
+                    const item = OUTCOME_META[role];
+                    const Icon = item.icon;
+                    return (
+                      <Card
+                        key={role}
+                        className={cn(
+                          "rounded-3xl transition",
+                          activeRole === role && "ring-2 ring-primary/30"
+                        )}
+                        onClick={() => setActiveRole(role)}
+                      >
+                        <CardContent className="space-y-4 p-5 sm:p-6">
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={cn(
+                                "flex size-10 shrink-0 items-center justify-center rounded-2xl border",
+                                item.style
+                              )}
+                            >
+                              <Icon className="size-5" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h2 className="font-semibold">{item.label}</h2>
+                                <Badge
+                                  variant="outline"
+                                  className={cn("rounded-full", item.style)}
+                                >
+                                  {item.mission}
+                                </Badge>
+                              </div>
+                              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                {item.helper}
+                              </p>
+                            </div>
+                          </div>
+                          <Input
+                            aria-label={`${item.label} outcome`}
+                            value={outcome?.title ?? ""}
+                            onFocus={() => setActiveRole(role)}
+                            onChange={(event) =>
+                              updateOutcome(role, {
+                                title: event.target.value,
+                                task_id:
+                                  event.target.value === outcome?.title
+                                    ? outcome?.task_id ?? null
+                                    : null,
+                              })
+                            }
+                            maxLength={160}
+                            placeholder={
+                              role === "must_win"
+                                ? "What must move today?"
+                                : role === "progress"
+                                  ? "What creates forward momentum?"
+                                  : "What protects your energy?"
+                            }
+                            className="h-12 rounded-xl text-base"
+                          />
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              {outcome?.task_id
+                                ? "Linked to a task"
+                                : "Standalone outcome"}
+                            </span>
+                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                              Budget
+                              <select
+                                aria-label={`${item.label} time budget`}
+                                value={
+                                  outcome?.duration_minutes ??
+                                  item.defaultDuration
+                                }
+                                onChange={(event) =>
+                                  updateOutcome(role, {
+                                    duration_minutes: Number(
+                                      event.target.value
+                                    ),
+                                  })
+                                }
+                                className="h-9 rounded-lg border bg-background px-2 text-foreground"
+                              >
+                                {DURATION_OPTIONS.map((minutes) => (
+                                  <option key={minutes} value={minutes}>
+                                    {formatPlanMinutes(minutes)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+                )}
+              </div>
+
+              <aside className="h-fit rounded-3xl border bg-background/75 p-5 lg:sticky lg:top-24">
+                <div className="flex items-center gap-2">
+                  <ListTodo className="size-4 text-blue-500" />
+                  <h2 className="text-sm font-semibold">Pull from tasks</h2>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Assign a task to{" "}
+                  <span className="font-medium text-foreground">
+                    {OUTCOME_META[activeRole].label}
+                  </span>
+                  .
+                </p>
+                {tasks.length > 0 ? (
+                  <div className="mt-4 space-y-2">
+                    {tasks.slice(0, 10).map((task) => {
+                      const assignedRole = metadata.outcomes.find(
+                        (outcome) => outcome.task_id === task.id
+                      )?.role;
+                      const assignedElsewhere =
+                        assignedRole && assignedRole !== activeRole;
+                      return (
+                        <button
+                          key={task.id}
+                          type="button"
+                          disabled={Boolean(assignedElsewhere)}
+                          onClick={() => assignTask(task)}
+                          className={cn(
+                            "flex min-h-12 w-full items-start gap-3 rounded-xl border p-3 text-left transition",
+                            assignedRole === activeRole
+                              ? "border-primary bg-primary/8"
+                              : "hover:border-primary/35 hover:bg-primary/5",
+                            assignedElsewhere && "cursor-not-allowed opacity-45"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "mt-1 size-2 shrink-0 rounded-full",
+                              task.isOverdue
+                                ? "bg-red-500"
+                                : task.priority === "high"
+                                  ? "bg-amber-500"
+                                  : task.priority === "medium"
+                                    ? "bg-blue-500"
+                                    : "bg-muted-foreground/50"
+                            )}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2 text-sm font-medium">
+                              {task.title}
+                            </span>
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              {assignedElsewhere
+                                ? `Already used for ${OUTCOME_META[assignedRole].label}`
+                                : task.estimateMinutes
+                                  ? `${formatPlanMinutes(task.estimateMinutes)} estimate`
+                                  : `${task.priority} priority`}
+                            </span>
+                          </span>
+                          {assignedRole === activeRole && (
+                            <Check className="size-4 shrink-0 text-primary" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-4 rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
+                    No open tasks. Write outcomes directly.
+                  </p>
+                )}
+              </aside>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="grid gap-5 lg:grid-cols-[1fr_0.75fr]">
+              <div className="space-y-5">
+                <Card className="rounded-3xl">
+                  <CardContent className="p-5 sm:p-6">
+                    <div className="flex items-center gap-2">
+                      <Flame className="size-4 text-orange-500" />
+                      <h2 className="font-semibold">Daily anchors</h2>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Select only the rituals worth protecting today.
+                    </p>
+                    {anchorOptions.length > 0 ? (
+                      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                        {anchorOptions.map((anchor) => {
+                          const selected = metadata.anchors.some(
+                            (item) => item.id === anchor.id
+                          );
+                          const completed =
+                            anchor.source_type === "habit"
+                              ? habits.find(
+                                  (habit) => habit.id === anchor.source_id
+                                )?.completedToday
+                              : anchor.source_type === "journal"
+                                ? journals.find(
+                                    (journal) => journal.id === anchor.source_id
+                                  )?.completedToday
+                                : false;
+                          const Icon =
+                            anchor.source_type === "workout"
+                              ? Dumbbell
+                              : anchor.source_type === "journal"
+                                ? BookOpen
+                                : Flame;
+                          return (
+                            <button
+                              key={anchor.id}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => toggleAnchor(anchor)}
+                              className={cn(
+                                "flex min-h-16 items-center gap-3 rounded-2xl border p-3 text-left transition",
+                                selected
+                                  ? "border-primary bg-primary/8 ring-1 ring-primary/15"
+                                  : "hover:border-primary/30 hover:bg-primary/5"
+                              )}
+                            >
+                              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-lg">
+                                {anchor.emoji || <Icon className="size-4" />}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium">
+                                  {anchor.title}
+                                </span>
+                                <span className="mt-0.5 block text-xs text-muted-foreground">
+                                  {completed
+                                    ? "Already completed"
+                                    : `${formatPlanMinutes(anchor.duration_minutes)} anchor`}
+                                </span>
+                              </span>
+                              <span
+                                className={cn(
+                                  "flex size-6 shrink-0 items-center justify-center rounded-full border",
+                                  selected &&
+                                    "border-primary bg-primary text-primary-foreground"
+                                )}
+                              >
+                                {selected && <Check className="size-3.5" />}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-5 rounded-2xl border border-dashed p-5 text-center text-sm text-muted-foreground">
+                        Add habits or journal templates to turn them into
+                        protected anchors.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="h-fit rounded-3xl lg:sticky lg:top-24">
+                <CardContent className="space-y-5 p-5 sm:p-6">
+                  <div className="flex items-center gap-2">
+                    <Clock3 className="size-4 text-violet-500" />
+                    <h2 className="font-semibold">Day boundaries</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                      Day starts
+                      <Input
+                        type="time"
+                        value={metadata.day_start}
+                        onChange={(event) =>
+                          updateMetadata({ day_start: event.target.value })
+                        }
+                        className="h-11 rounded-xl text-foreground"
+                      />
+                    </label>
+                    <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                      Day ends
+                      <Input
+                        type="time"
+                        value={metadata.day_end}
+                        onChange={(event) =>
+                          updateMetadata({ day_end: event.target.value })
+                        }
+                        className="h-11 rounded-xl text-foreground"
+                      />
+                    </label>
+                  </div>
+                  <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
+                    Shutdown ritual
+                    <div className="relative">
+                      <MoonStar className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="time"
+                        value={metadata.shutdown_time}
+                        onChange={(event) =>
+                          updateMetadata({ shutdown_time: event.target.value })
+                        }
+                        className="h-11 rounded-xl pl-10 text-foreground"
+                      />
+                    </div>
+                  </label>
+                  <p className="rounded-2xl bg-muted/55 p-3 text-xs leading-relaxed text-muted-foreground">
+                    A shutdown time turns planning into a bounded commitment.
+                    Unused capacity is recovery, not failure.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="grid gap-5 lg:grid-cols-[1fr_17rem]">
+              <div className="space-y-3">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    Changes remain local until you commit on the next step.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addManualBlock("break")}
+                    >
+                      <HeartPulse className="mr-1.5 size-4" />
+                      Add break
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => addManualBlock()}
+                    >
+                      <Plus className="mr-1.5 size-4" />
+                      Add block
+                    </Button>
+                  </div>
+                </div>
+
+                {sortedBlocks.length === 0 ? (
+                  <div className="rounded-3xl border border-dashed bg-background/65 p-8 text-center">
+                    <CalendarClock className="mx-auto size-8 text-muted-foreground" />
+                    <p className="mt-3 font-medium">The timeline is empty.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Go back and choose commitments, or add a manual block.
+                    </p>
+                  </div>
+                ) : (
+                  <ol className="relative space-y-3 before:absolute before:bottom-6 before:left-[1.18rem] before:top-6 before:w-px before:bg-border sm:before:left-[2.18rem]">
+                    {sortedBlocks.map((block, index) => {
+                      const invalid = problems.invalidBlockIds.includes(
+                        block.id
+                      );
+                      const overlapping =
+                        problems.overlappingBlockIds.includes(block.id);
+                      return (
+                        <li
+                          key={block.id}
+                          className="relative grid grid-cols-[2.4rem_1fr] gap-2 sm:grid-cols-[4.4rem_1fr] sm:gap-3"
+                        >
+                          <div className="relative z-10 flex items-start justify-center pt-5">
+                            <span
+                              className={cn(
+                                "flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-semibold",
+                                block.mission_type === "main_quest" &&
+                                  "bg-primary text-primary-foreground",
+                                (invalid || overlapping) &&
+                                  "bg-destructive text-destructive-foreground"
+                              )}
+                            >
+                              {index + 1}
+                            </span>
+                          </div>
+                          <Card
+                            className={cn(
+                              "rounded-2xl",
+                              (invalid || overlapping) &&
+                                "border-destructive/55"
+                            )}
+                          >
+                            <CardContent className="space-y-3 p-4">
+                              <div className="flex items-start gap-2">
+                                <Input
+                                  aria-label={`Plan block ${index + 1} title`}
+                                  value={block.title}
+                                  onChange={(event) =>
+                                    updateBlock(block.id, {
+                                      title: event.target.value,
+                                    })
+                                  }
+                                  maxLength={160}
+                                  className="h-11 min-w-0 flex-1 rounded-xl font-medium"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`Delete ${block.title}`}
+                                  onClick={() =>
+                                    setBlocks((current) =>
+                                      current.filter(
+                                        (item) => item.id !== block.id
+                                      )
+                                    )
+                                  }
+                                  className="text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.25fr]">
+                                <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+                                  Start
+                                  <Input
+                                    type="time"
+                                    value={block.start_time}
+                                    onChange={(event) =>
+                                      updateBlock(block.id, {
+                                        start_time: event.target.value,
+                                      })
+                                    }
+                                    className="h-10 rounded-xl text-foreground"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+                                  End
+                                  <Input
+                                    type="time"
+                                    value={block.end_time}
+                                    onChange={(event) =>
+                                      updateBlock(block.id, {
+                                        end_time: event.target.value,
+                                      })
+                                    }
+                                    className="h-10 rounded-xl text-foreground"
+                                  />
+                                </label>
+                                <label className="col-span-2 space-y-1 text-[11px] font-medium text-muted-foreground sm:col-span-1">
+                                  Type
+                                  <select
+                                    value={block.category}
+                                    onChange={(event) =>
+                                      updateBlock(block.id, {
+                                        category: event.target
+                                          .value as DayPlanCategory,
+                                      })
+                                    }
+                                    className="h-10 w-full rounded-xl border bg-background px-3 text-sm text-foreground"
+                                  >
+                                    {Object.entries(CATEGORY_LABELS).map(
+                                      ([value, label]) => (
+                                        <option key={value} value={value}>
+                                          {label}
+                                        </option>
+                                      )
+                                    )}
+                                  </select>
+                                </label>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {block.mission_type && (
+                                  <Badge
+                                    variant="outline"
+                                    className="rounded-full text-[10px]"
+                                  >
+                                    {MISSION_LABELS[block.mission_type]}
+                                  </Badge>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {formatPlanMinutes(
+                                    Math.max(
+                                      0,
+                                      timeToMinutes(block.end_time) -
+                                        timeToMinutes(block.start_time)
+                                    )
+                                  )}
+                                </span>
+                                {invalid && (
+                                  <span className="text-xs text-destructive">
+                                    Check title and time
+                                  </span>
+                                )}
+                                {overlapping && (
+                                  <span className="text-xs text-destructive">
+                                    Overlaps another block
+                                  </span>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </div>
+
+              <aside className="h-fit rounded-3xl border bg-background/75 p-5 lg:sticky lg:top-24">
+                <CircleGauge className="size-5 text-primary" />
+                <p className="mt-3 text-2xl font-semibold">
+                  {formatPlanMinutes(capacity.plannedMinutes)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  planned inside {formatPlanMinutes(capacity.availableMinutes)}
+                </p>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      capacity.status === "over"
+                        ? "bg-destructive"
+                        : capacity.status === "full"
+                          ? "bg-amber-500"
+                          : "bg-primary"
+                    )}
+                    style={
+                      {
+                        width: `${Math.min(capacity.utilizationPercent, 100)}%`,
+                      } as CSSProperties
+                    }
+                  />
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                  {capacity.remainingMinutes >= 0
+                    ? `${formatPlanMinutes(capacity.remainingMinutes)} remains for transitions, interruptions, and recovery.`
+                    : `${formatPlanMinutes(capacity.remainingMinutes)} over capacity. Remove or shorten a block.`}
+                </p>
+              </aside>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
+              <div className="space-y-5">
+                <Card className="overflow-hidden rounded-3xl border-primary/25">
+                  <CardContent className="p-0">
+                    <div className="bg-primary/8 p-5 sm:p-6">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                        Main Quest
+                      </p>
+                      <h2 className="mt-2 text-xl font-semibold">
+                        {mainOutcome?.title || "Choose your Must Win"}
+                      </h2>
+                      {metadata.intention && (
+                        <p className="mt-2 text-sm italic text-muted-foreground">
+                          “{metadata.intention}”
+                        </p>
+                      )}
+                    </div>
+                    <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
+                      {metadata.outcomes
+                        .filter(
+                          (outcome) =>
+                            outcome.role !== "must_win" && outcome.title.trim()
+                        )
+                        .map((outcome) => (
+                          <div
+                            key={outcome.role}
+                            className="rounded-2xl border bg-background/70 p-4"
+                          >
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {OUTCOME_META[outcome.role].mission}
+                            </p>
+                            <p className="mt-1 text-sm font-medium">
+                              {outcome.title}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-3xl">
+                  <CardContent className="space-y-4 p-5 sm:p-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h2 className="font-semibold">Capacity check</h2>
+                        <p className="text-xs text-muted-foreground">
+                          Ambition is useful only when the day can hold it.
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "rounded-full",
+                          capacity.status === "over" &&
+                            "border-destructive/40 text-destructive",
+                          capacity.status === "full" &&
+                            "border-amber-500/40 text-amber-700 dark:text-amber-300",
+                          capacity.status === "balanced" &&
+                            "border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                        )}
+                      >
+                        {capacity.utilizationPercent}% planned
+                      </Badge>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          capacity.status === "over"
+                            ? "bg-destructive"
+                            : capacity.status === "full"
+                              ? "bg-amber-500"
+                              : "bg-primary"
+                        )}
+                        style={{
+                          width: `${Math.min(capacity.utilizationPercent, 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl bg-muted/55 p-3">
+                        <p className="text-sm font-semibold">
+                          {formatPlanMinutes(capacity.availableMinutes)}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          Available
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-muted/55 p-3">
+                        <p className="text-sm font-semibold">
+                          {formatPlanMinutes(capacity.plannedMinutes)}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          Planned
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-muted/55 p-3">
+                        <p
+                          className={cn(
+                            "text-sm font-semibold",
+                            capacity.remainingMinutes < 0 && "text-destructive"
+                          )}
+                        >
+                          {capacity.remainingMinutes < 0 ? "−" : ""}
+                          {formatPlanMinutes(capacity.remainingMinutes)}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          Buffer
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {(problems.invalidBlockIds.length > 0 ||
+                  problems.overlappingBlockIds.length > 0) && (
+                  <div className="flex items-start gap-3 rounded-2xl border border-destructive/35 bg-destructive/8 p-4 text-sm">
+                    <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
+                    <div>
+                      <p className="font-medium">Timeline needs attention</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Return to the timeline and fix invalid or overlapping
+                        blocks before committing.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <aside className="h-fit space-y-4 lg:sticky lg:top-24">
+                <Card className="rounded-3xl">
+                  <CardContent className="space-y-4 p-5 sm:p-6">
+                    <div className="flex items-center gap-2">
+                      <CalendarClock className="size-4 text-violet-500" />
+                      <h2 className="font-semibold">Day contract</h2>
+                    </div>
+                    <dl className="space-y-3 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-muted-foreground">Window</dt>
+                        <dd className="font-medium">
+                          {metadata.day_start}–{metadata.day_end}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-muted-foreground">Blocks</dt>
+                        <dd className="font-medium">{blocks.length}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-muted-foreground">Anchors</dt>
+                        <dd className="font-medium">
+                          {metadata.anchors.length}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-muted-foreground">Shutdown</dt>
+                        <dd className="font-medium">
+                          {metadata.shutdown_time}
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="rounded-2xl bg-muted/55 p-4 text-xs leading-relaxed text-muted-foreground">
+                      You are committing to direction, not perfection. Replan
+                      when reality changes.
+                    </div>
+                    <Button
+                      type="button"
+                      size="lg"
+                      className="hidden w-full rounded-xl sm:inline-flex"
+                      disabled={!canCommit}
+                      onClick={() => void commitPlan()}
+                    >
+                      {saving ? (
+                        "Committing..."
+                      ) : (
+                        <>
+                          <Check className="mr-1.5 size-5" />
+                          Commit Today&apos;s Plan
+                        </>
+                      )}
+                    </Button>
+                    {saveError && (
+                      <div className="space-y-2 rounded-xl border border-destructive/35 bg-destructive/8 p-3">
+                        <p className="text-xs text-destructive">{saveError}</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => void commitPlan()}
+                          disabled={saving}
+                        >
+                          Retry save
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </aside>
+            </div>
+          )}
+        </section>
+
+        {stepError && (
+          <div
+            role="alert"
+            className="mt-6 flex items-start gap-2 rounded-2xl border border-destructive/35 bg-destructive/8 p-4 text-sm text-destructive"
+          >
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+            {stepError}
+          </div>
+        )}
+      </div>
+
+      <footer className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/94 px-4 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 backdrop-blur-xl sm:static sm:border-0 sm:bg-transparent sm:px-8 sm:pb-8 sm:backdrop-blur-none">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            onClick={step === 0 ? requestClose : goBack}
+          >
+            <ArrowLeft className="mr-1.5 size-4" />
+            {step === 0 ? "Dashboard" : "Back"}
+          </Button>
+          {step < STEPS.length - 1 ? (
+            <Button type="button" size="lg" onClick={goNext}>
+              Next
+              <ArrowRight className="ml-1.5 size-4" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="lg"
+              onClick={() => void commitPlan()}
+              disabled={!canCommit}
+              className="sm:hidden"
+            >
+              {saving ? "Saving..." : "Commit Plan"}
+            </Button>
+          )}
+        </div>
+      </footer>
+
+      <Dialog open={closeOpen} onOpenChange={setCloseOpen}>
+        <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl sm:bottom-auto sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 sm:rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Leave daily planning?</DialogTitle>
+            <DialogDescription>
+              Your draft stays in this tab unless you explicitly discard it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 pt-2">
+            <Button type="button" onClick={() => setCloseOpen(false)}>
+              Continue planning
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setCloseOpen(false);
+                router.push("/dashboard");
+              }}
+            >
+              Leave and keep draft
+            </Button>
+            <Button type="button" variant="destructive" onClick={discardDraft}>
+              Discard draft
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </main>
+  );
+}
