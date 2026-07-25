@@ -66,6 +66,22 @@ interface TaskInsertClient {
   }
 }
 
+function isDuplicateTemplateHeading(field: TemplateField, template: JournalTemplate) {
+  if (field.field_type !== 'heading') return false
+
+  const heading = field.label.trim().toLocaleLowerCase()
+  const templateName = template.name.trim().toLocaleLowerCase()
+
+  if (heading === templateName) return true
+  if (!heading.endsWith(templateName)) return false
+
+  const prefix = heading.slice(0, -templateName.length).trim()
+  return (
+    prefix === template.icon.trim().toLocaleLowerCase() ||
+    (prefix.length > 0 && [...prefix].length <= 3 && !/[\p{L}\p{N}]/u.test(prefix))
+  )
+}
+
 function learningValueFromField(value: FieldValue | undefined): LearningFieldValue | null {
   if (!value?.value_json || typeof value.value_json !== 'object' || Array.isArray(value.value_json)) {
     return null
@@ -206,6 +222,9 @@ export function EntryForm({
     requiredFields.length > 0
       ? Math.round((completedRequiredFields / requiredFields.length) * 100)
       : 100
+  const visibleFields = fields.filter(
+    (field) => !isDuplicateTemplateHeading(field, template)
+  )
 
   function validate(): boolean {
     for (const field of fields) {
@@ -634,7 +653,7 @@ export function EntryForm({
       </section>
 
       <div className="space-y-4">
-        {fields.map((field, index) => (
+        {visibleFields.map((field, index) => (
           <motion.div
             key={field.id}
             initial={{ opacity: 0, y: 10 }}
