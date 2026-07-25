@@ -15,6 +15,7 @@ import { RoutinesDashboardWidget } from '@/components/dashboard/RoutinesDashboar
 import { isAdminUser } from '@/lib/admin'
 import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
+import { parseTodayPlanNotes } from '@/lib/today-plan'
 
 type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal' | 'routine'
 
@@ -71,6 +72,7 @@ function currentMinutesInTimezone(timezone: string) {
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = searchParams ? await searchParams : {}
   const quickAction = parseQuickAction(params.quick)
+  if (quickAction === 'plan') redirect('/plan')
   const supabase = await createClient()
   const {
     data: { user },
@@ -159,7 +161,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('is_complete', true),
     supabase
       .from('day_plans')
-      .select('blocks')
+      .select('blocks,notes')
       .eq('user_id', user.id)
       .eq('plan_date', today)
       .maybeSingle(),
@@ -206,7 +208,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     completedToday: completedTemplateIds.has(template.id),
   }))
   const nowMinutes = currentMinutesInTimezone(profile.timezone ?? 'UTC')
-  const planBlocks = (((dayPlanRes.data as { blocks?: DayPlanBlock[] } | null)?.blocks ?? [])
+  const dayPlan = dayPlanRes.data as {
+    blocks?: DayPlanBlock[]
+    notes?: string | null
+  } | null
+  const planMetadata = parseTodayPlanNotes(dayPlan?.notes).metadata
+  const mainQuestTitle =
+    planMetadata?.outcomes.find((outcome) => outcome.role === 'must_win')?.title ?? null
+  const planBlocks = ((dayPlan?.blocks ?? [])
     .slice()
     .sort((a, b) => a.start_time.localeCompare(b.start_time))
     .map((block) => {
@@ -218,6 +227,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         endTime: block.end_time,
         title: block.title,
         category: block.category,
+        missionType: block.mission_type ?? null,
         isCurrent: start <= nowMinutes && end > nowMinutes,
         isPast: end <= nowMinutes,
       }
@@ -260,6 +270,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           tasks={briefingTasks}
           journals={briefingJournals}
           planBlocks={planBlocks}
+          mainQuestTitle={mainQuestTitle}
+          planCommitted={Boolean(planMetadata?.ritual_completed_at)}
           goals={activeGoals}
           goalsEnabled={isAdmin}
           completedJournalCount={(todayEntriesRes.data ?? []).length}
@@ -269,7 +281,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               ? (isAdmin ? 'routine' : null)
               : quickAction === 'goal'
                 ? (isAdmin ? 'goal' : null)
-              : quickAction === 'plan' || quickAction === 'task' || quickAction === 'habit'
+              : quickAction === 'task' || quickAction === 'habit'
               ? quickAction
               : null
           }

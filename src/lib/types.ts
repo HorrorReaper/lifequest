@@ -225,12 +225,39 @@ export interface Goal {
   updated_at: string;
 }
 
+export type DayPlanCategory =
+  | "deep_work"
+  | "meeting"
+  | "break"
+  | "personal"
+  | "exercise"
+  | "other";
+
+export type DayPlanMissionType =
+  | "main_quest"
+  | "side_quest"
+  | "anchor"
+  | "recovery";
+
+export type DayPlanSourceType =
+  | "task"
+  | "habit"
+  | "journal"
+  | "workout"
+  | "manual";
+
+export type DayPlanOutcomeRole = "must_win" | "progress" | "health";
+
 export interface DayPlanBlock {
   id: string;
   start_time: string; // "HH:mm"
   end_time: string;   // "HH:mm"
   title: string;
-  category: "deep_work" | "meeting" | "break" | "personal" | "exercise" | "other";
+  category: DayPlanCategory;
+  mission_type?: DayPlanMissionType;
+  source_type?: DayPlanSourceType;
+  source_id?: string | null;
+  outcome_role?: DayPlanOutcomeRole;
 }
 
 export interface DayPlan {
