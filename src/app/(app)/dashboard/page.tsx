@@ -13,6 +13,8 @@ import { fetchGoals } from '@/lib/goals'
 import { calculateRoutineProgress, fetchRoutines } from '@/lib/routines'
 import { RoutinesDashboardWidget } from '@/components/dashboard/RoutinesDashboardWidget'
 import { isAdminUser } from '@/lib/admin'
+import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
+import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
 
 type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal' | 'routine'
 
@@ -118,6 +120,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     todayEntriesRes,
     dayPlanRes,
     routines,
+    dashboardLearnings,
   ] = await Promise.all([
     supabase
       .from('habits')
@@ -161,6 +164,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('plan_date', today)
       .maybeSingle(),
     isAdmin ? fetchRoutines(supabase, user.id, false) : Promise.resolve([]),
+    isAdmin ? fetchDashboardLearnings(supabase, user.id) : Promise.resolve([]),
   ])
 
   const completedHabitIds = new Set(
@@ -270,6 +274,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               : null
           }
         />
+
+        {isAdmin && (
+          <AdminLearningWidget
+            learnings={dashboardLearnings}
+            dailyKey={today}
+          />
+        )}
 
         {isAdmin && <RoutinesDashboardWidget routines={dashboardRoutines} />}
 
