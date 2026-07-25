@@ -74,10 +74,10 @@ export default async function ViewEntryPage({ params }: PageProps) {
   const entryDate = new Date(entry.entry_date)
 
   return (
-    <div className="min-h-svh bg-background px-4 pb-24 pt-5 sm:px-8 sm:pt-8">
+    <div className="min-h-svh bg-background px-4 pb-24 pt-5 max-md:p-0 sm:px-8 sm:pt-8">
       <div className="mx-auto max-w-3xl space-y-4">
         {/* Back + Date Header */}
-        <div className="flex items-center justify-between gap-3">
+        <div className="hidden items-center justify-between gap-3 md:flex">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/journal">← Back</Link>
           </Button>
@@ -99,6 +99,7 @@ export default async function ViewEntryPage({ params }: PageProps) {
         </div>
 
         <EntryForm
+          userId={user.id}
           template={template}
           fields={(fields as TemplateField[]) ?? []}
           existingEntryId={entry.id}

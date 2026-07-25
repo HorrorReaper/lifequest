@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -24,18 +24,35 @@ import {
 import { cleanLearningDraft, type LearningFieldValue } from '@/lib/learnings'
 import { normalizeInsightTags } from '@/lib/insights'
 import { calculateEntryBonusXp } from '@/lib/gamification'
-import { BookOpenCheck, CheckCircle2, Sparkles } from 'lucide-react'
+import {
+  BookOpenCheck,
+  CheckCircle2,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { DraftTask } from './TasksInput'
+import { MobileJournalDiscardDialog } from './mobile-journal-discard-dialog'
+import { MobileJournalNavigation } from './mobile-journal-navigation'
+import {
+  advanceMobileJournalStep,
+  buildMobileJournalSteps,
+  isDisplayOnlyJournalField,
+  isJournalFieldComplete,
+  journalDraftKey,
+  MobileJournalStepPanel,
+  removeStoredJournalDraft,
+  restoreJournalDraft,
+  serializeJournalDraft,
+} from './mobile-journal-wizard'
 
 interface EntryFormProps {
+  userId: string
   template: JournalTemplate
   fields: TemplateField[]
   existingEntryId?: string
   existingResponses?: Record<string, FieldValue>
   suggestedInsightTags?: string[]
 }
-
-const DISPLAY_ONLY_TYPES = ['divider', 'heading', 'prompt']
 
 type JournalResponseInsert = Database['public']['Tables']['journal_responses']['Insert']
 
@@ -99,46 +116,51 @@ function learningValueFromField(value: FieldValue | undefined): LearningFieldVal
   }
 }
 
-function isFieldComplete(field: TemplateField, value: FieldValue | undefined) {
-  if (DISPLAY_ONLY_TYPES.includes(field.field_type)) return true
-  if (!value) return false
+function createInitialValues(
+  fields: TemplateField[],
+  existingResponses?: Record<string, FieldValue>
+) {
+  if (existingResponses) return existingResponses
 
-  switch (field.field_type) {
-    case 'text':
-    case 'textarea':
-    case 'select':
-    case 'mood':
-      return Boolean(value.value_text?.trim())
-    case 'number':
-    case 'slider':
-    case 'rating':
-      return value.value_number !== null && value.value_number !== undefined
-    case 'checkbox':
-      return Boolean(value.value_boolean)
-    case 'checklist':
-      return Boolean(
-        value.value_json &&
-          (value.value_json as ChecklistItem[]).some((item) => item.checked)
-      )
-    case 'tasks':
-      return ((value.value_json as DraftTask[] | null) ?? []).some((task) => task.title.trim())
-    case 'day_planner':
-      return Boolean(
-        value.value_json &&
-          ((value.value_json as { blocks?: DayPlanBlock[] }).blocks?.length ?? 0) > 0
-      )
-    case 'habit_tracker':
-      return ((value.value_json as string[] | null) ?? []).length > 0
-    case 'learning': {
-      const learning = learningValueFromField(value)
-      return Boolean(learning?.title.trim() && learning.note.trim())
+  const initial: Record<string, FieldValue> = {}
+
+  for (const field of fields) {
+    if (isDisplayOnlyJournalField(field)) continue
+
+    const config = field.config as Record<string, unknown>
+    initial[field.id] = {
+      field_id: field.id,
+      value_text: null,
+      value_number:
+        field.field_type === 'slider'
+          ? (config?.min as number) ?? 1
+          : null,
+      value_boolean: field.field_type === 'checkbox' ? false : null,
+      value_json:
+        field.field_type === 'checklist'
+          ? ((config?.items as string[]) ?? []).map(
+              (label: string) => ({ label, checked: false } as ChecklistItem)
+            )
+          : field.field_type === 'learning'
+            ? {
+                title: '',
+                note: '',
+                tags: (config?.defaultTags as string[]) ?? [],
+                action_text: null,
+              }
+            : null,
+      insight_type: null,
+      topic_tags: [],
+      insight_marked_at: null,
+      insight_is_favorite: false,
     }
-    default:
-      return false
   }
+
+  return initial
 }
 
 export function EntryForm({
+  userId,
   template,
   fields,
   existingEntryId,
@@ -149,53 +171,20 @@ export function EntryForm({
   const supabase = createClient()
   const { addXp, updateStreak } = useUserStore()
 
-  // Initialize field values
-  const [values, setValues] = useState<Record<string, FieldValue>>(() => {
-    if (existingResponses) return existingResponses
-
-    const initial: Record<string, FieldValue> = {}
-    for (const field of fields) {
-      if (DISPLAY_ONLY_TYPES.includes(field.field_type)) continue
-
-      const config = field.config as Record<string, unknown>
-      initial[field.id] = {
-        field_id: field.id,
-        value_text: null,
-        value_number:
-          field.field_type === 'slider'
-            ? (config?.min as number) ?? 1
-            : null,
-        value_boolean: field.field_type === 'checkbox' ? false : null,
-        value_json:
-          field.field_type === 'checklist'
-            ? ((config?.items as string[]) ?? []).map(
-                (label: string) => ({ label, checked: false } as ChecklistItem)
-              )
-            : field.field_type === 'learning'
-              ? {
-                  title: '',
-                  note: '',
-                  tags: (config?.defaultTags as string[]) ?? [],
-                  action_text: null,
-                }
-            : null,
-        insight_type: null,
-        topic_tags: [],
-        insight_marked_at: null,
-        insight_is_favorite: false,
-      }
-    }
-    return initial
-  })
-
+  const initialValues = useMemo(
+    () => createInitialValues(fields, existingResponses),
+    [existingResponses, fields]
+  )
+  const initialValuesSnapshot = useRef(JSON.stringify(initialValues))
+  const [values, setValues] = useState<Record<string, FieldValue>>(initialValues)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [xpEarned, setXpEarned] = useState(0)
   const [error, setError] = useState<string | null>(null)
-
-  function updateValue(fieldId: string, value: FieldValue) {
-    setValues((prev) => ({ ...prev, [fieldId]: value }))
-  }
+  const [fieldErrorId, setFieldErrorId] = useState<string | null>(null)
+  const [activeStep, setActiveStep] = useState(0)
+  const [draftReady, setDraftReady] = useState(false)
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false)
 
   const previewBonusXp = useMemo(() => {
     try {
@@ -214,10 +203,12 @@ export function EntryForm({
   }, [fields, values])
 
   const requiredFields = useMemo(
-    () => fields.filter((field) => field.is_required && !DISPLAY_ONLY_TYPES.includes(field.field_type)),
+    () => fields.filter((field) => field.is_required && !isDisplayOnlyJournalField(field)),
     [fields]
   )
-  const completedRequiredFields = requiredFields.filter((field) => isFieldComplete(field, values[field.id])).length
+  const completedRequiredFields = requiredFields.filter((field) =>
+    isJournalFieldComplete(field, values[field.id])
+  ).length
   const progressPercent =
     requiredFields.length > 0
       ? Math.round((completedRequiredFields / requiredFields.length) * 100)
@@ -225,19 +216,117 @@ export function EntryForm({
   const visibleFields = fields.filter(
     (field) => !isDuplicateTemplateHeading(field, template)
   )
+  const mobileSteps = useMemo(
+    () => buildMobileJournalSteps(visibleFields),
+    [visibleFields]
+  )
+  const draftStorageKey = useMemo(
+    () => journalDraftKey({ userId, templateId: template.id, existingEntryId }),
+    [existingEntryId, template.id, userId]
+  )
+  const dirty = JSON.stringify(values) !== initialValuesSnapshot.current
+
+  useEffect(() => {
+    try {
+      const rawDraft = window.sessionStorage.getItem(draftStorageKey)
+      const draft = restoreJournalDraft(rawDraft, fields, mobileSteps.length)
+
+      if (draft) {
+        setValues((currentValues) => ({ ...currentValues, ...draft.values }))
+        setActiveStep(draft.activeStep)
+      } else if (rawDraft) {
+        window.sessionStorage.removeItem(draftStorageKey)
+      }
+    } catch {
+      // Storage can be unavailable in hardened/private browser contexts.
+    } finally {
+      setDraftReady(true)
+    }
+  }, [draftStorageKey, fields, mobileSteps.length])
+
+  useEffect(() => {
+    if (!draftReady) return
+
+    try {
+      if (dirty) {
+        window.sessionStorage.setItem(
+          draftStorageKey,
+          serializeJournalDraft({ activeStep, values })
+        )
+      } else {
+        window.sessionStorage.removeItem(draftStorageKey)
+      }
+    } catch {
+      // Draft persistence is best-effort; the reflection remains in React state.
+    }
+  }, [activeStep, draftReady, draftStorageKey, dirty, values])
+
+  function clearDraft() {
+    try {
+      removeStoredJournalDraft(window.sessionStorage, draftStorageKey)
+    } catch {
+      // Ignore storage access failures while still allowing navigation.
+    }
+  }
+
+  function updateValue(fieldId: string, value: FieldValue) {
+    setValues((prev) => ({ ...prev, [fieldId]: value }))
+    if (fieldErrorId === fieldId) setFieldErrorId(null)
+    setError(null)
+  }
 
   function validate(): boolean {
     for (const field of fields) {
       if (!field.is_required) continue
-      if (DISPLAY_ONLY_TYPES.includes(field.field_type)) continue
-      if (!isFieldComplete(field, values[field.id])) return false
+      if (isDisplayOnlyJournalField(field)) continue
+      if (!isJournalFieldComplete(field, values[field.id])) return false
     }
     return true
+  }
+
+  function requestClose() {
+    if (dirty) {
+      setCloseDialogOpen(true)
+      return
+    }
+
+    router.back()
+  }
+
+  function discardDraft() {
+    clearDraft()
+    setCloseDialogOpen(false)
+    router.back()
+  }
+
+  function handleNextStep() {
+    const advance = advanceMobileJournalStep({
+      activeStep,
+      steps: mobileSteps,
+      values,
+    })
+
+    if (advance.blockedFieldId) {
+      setFieldErrorId(advance.blockedFieldId)
+      return
+    }
+
+    setFieldErrorId(null)
+    setActiveStep(advance.nextStep)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) {
+      const firstIncompleteField = requiredFields.find(
+        (field) => !isJournalFieldComplete(field, values[field.id])
+      )
+      const firstIncompleteStep = firstIncompleteField
+        ? mobileSteps.findIndex((step) => step.answerField?.id === firstIncompleteField.id)
+        : -1
+
+      if (firstIncompleteField) setFieldErrorId(firstIncompleteField.id)
+      if (firstIncompleteStep >= 0) setActiveStep(firstIncompleteStep)
       setError('Please fill in all required fields.')
       return
     }
@@ -551,6 +640,7 @@ export function EntryForm({
         setXpEarned(totalXpEarned + streakBonus)
       }
 
+      clearDraft()
       setSubmitted(true)
     } catch (err) {
       console.error('Submit error:', err)
@@ -566,7 +656,7 @@ export function EntryForm({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="mx-auto flex max-w-xl flex-col items-center gap-6 rounded-[2rem] border bg-card p-8 text-center shadow-sm sm:p-10"
+        className="mx-auto flex max-w-xl flex-col items-center gap-6 rounded-[2rem] border bg-card p-8 text-center shadow-sm max-md:min-h-svh max-md:justify-center max-md:rounded-none max-md:border-0 sm:p-10"
       >
         <motion.div
           initial={{ scale: 0.92, opacity: 0 }}
@@ -605,115 +695,200 @@ export function EntryForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <section className="overflow-hidden rounded-[2rem] border bg-card shadow-sm">
-        <div className="relative p-5 sm:p-7">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-primary/8 to-transparent" />
-          <div className="relative space-y-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-              <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-3xl">
-                {template.icon}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  Reflection ritual
-                </p>
-                <h1 className="mt-1 font-heading text-2xl font-semibold tracking-tight">
-                  {template.name}
-                </h1>
-                {template.description && (
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                    {template.description}
-                  </p>
-                )}
-              </div>
-              <span className="w-fit rounded-full border bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
-                +{template.xp_reward} XP
-              </span>
+    <>
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-5 max-md:flex max-md:min-h-svh max-md:flex-col max-md:space-y-0"
+      >
+        <header className="sticky top-0 z-40 border-b bg-background/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur md:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={requestClose}
+              aria-label="Close reflection"
+              className="-ml-2 rounded-full"
+            >
+              <X className="size-5" />
+            </Button>
+            <div className="min-w-0 text-center">
+              <p className="truncate text-sm font-semibold">{template.name}</p>
+              <p className="text-xs text-muted-foreground">
+                Step {Math.min(activeStep + 1, Math.max(mobileSteps.length, 1))} of{' '}
+                {Math.max(mobileSteps.length, 1)}
+              </p>
             </div>
+            <span className="min-w-11 text-right text-xs font-semibold text-primary">
+              +{template.xp_reward} XP
+            </span>
+          </div>
+          <div
+            className="mt-3 flex gap-1.5"
+            aria-hidden="true"
+            data-testid="journal-step-progress"
+          >
+            {Array.from({ length: Math.max(mobileSteps.length, 1) }).map((_, index) => (
+              <span
+                key={index}
+                className={`h-1.5 min-w-0 flex-1 rounded-full transition-colors ${
+                  index <= activeStep ? 'bg-primary' : 'bg-muted'
+                }`}
+              />
+            ))}
+          </div>
+          <span className="sr-only" aria-live="polite">
+            Step {Math.min(activeStep + 1, Math.max(mobileSteps.length, 1))} of{' '}
+            {Math.max(mobileSteps.length, 1)}
+          </span>
+        </header>
 
-            <div className="rounded-2xl border bg-background/70 p-3">
-              <div className="mb-2 flex items-center justify-between gap-3 text-xs">
-                <span className="font-medium text-muted-foreground">
-                  {requiredFields.length > 0
-                    ? `${completedRequiredFields}/${requiredFields.length} required fields`
-                    : 'Optional reflection'}
+        <section className="hidden overflow-hidden rounded-[2rem] border bg-card shadow-sm md:block">
+          <div className="relative p-5 sm:p-7">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-primary/8 to-transparent" />
+            <div className="relative space-y-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-3xl">
+                  {template.icon}
                 </span>
-                <span className="font-semibold text-primary">{progressPercent}%</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Reflection ritual
+                  </p>
+                  <h1 className="mt-1 font-heading text-2xl font-semibold tracking-tight">
+                    {template.name}
+                  </h1>
+                  {template.description && (
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                      {template.description}
+                    </p>
+                  )}
+                </div>
+                <span className="w-fit rounded-full border bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
+                  +{template.xp_reward} XP
+                </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${progressPercent}%` }}
-                />
+
+              <div className="rounded-2xl border bg-background/70 p-3">
+                <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+                  <span className="font-medium text-muted-foreground">
+                    {requiredFields.length > 0
+                      ? `${completedRequiredFields}/${requiredFields.length} required fields`
+                      : 'Optional reflection'}
+                  </span>
+                  <span className="font-semibold text-primary">{progressPercent}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>
+        </section>
+
+        <main className="flex-1 overflow-y-auto px-5 pb-8 pt-6 md:space-y-4 md:overflow-visible md:p-0">
+          {mobileSteps.map((step, stepIndex) => (
+            <MobileJournalStepPanel
+              key={step.id}
+              active={stepIndex === activeStep}
+            >
+              {step.fields.map((field, fieldIndex) => (
+                <motion.div
+                  key={field.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: fieldIndex * 0.04 }}
+                >
+                  <FieldRenderer
+                    field={field}
+                    value={
+                      values[field.id] ?? {
+                        field_id: field.id,
+                        value_text: null,
+                        value_number: null,
+                        value_boolean: null,
+                        value_json: null,
+                      }
+                    }
+                    onChange={(val) => updateValue(field.id, val)}
+                    disabled={false}
+                    suggestedInsightTags={suggestedInsightTags}
+                  />
+                  {fieldErrorId === field.id && (
+                    <p
+                      role="alert"
+                      className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive"
+                    >
+                      This prompt is required before you continue.
+                    </p>
+                  )}
+                </motion.div>
+              ))}
+            </MobileJournalStepPanel>
+          ))}
+
+          {error && (
+            <p
+              role="alert"
+              className="mt-4 rounded-2xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive md:mt-0"
+            >
+              {error}
+            </p>
+          )}
+
+          {previewBonusXp > 0 && (
+            <div className="hidden items-center gap-2 rounded-2xl border bg-primary/5 p-3 text-sm md:flex">
+              <Sparkles className="size-4 text-primary" />
+              <span className="font-medium text-primary">
+                +{previewBonusXp} bonus XP is ready when you save this reflection.
+              </span>
+            </div>
+          )}
+        </main>
+
+        <div className="sticky bottom-0 z-40 border-t bg-background/95 p-3 pb-[calc(var(--safe-area-bottom)+0.75rem)] shadow-[0_-12px_32px_-24px_rgba(0,0,0,0.45)] backdrop-blur md:hidden">
+          <MobileJournalNavigation
+            activeStep={activeStep}
+            stepCount={mobileSteps.length}
+            submitting={submitting}
+            onBack={() => {
+                setFieldErrorId(null)
+                setActiveStep((current) => Math.max(current - 1, 0))
+            }}
+            onNext={handleNextStep}
+          />
         </div>
-      </section>
 
-      <div className="space-y-4">
-        {visibleFields.map((field, index) => (
-          <motion.div
-            key={field.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.04 }}
-          >
-            <FieldRenderer
-              field={field}
-              value={
-                values[field.id] ?? {
-                  field_id: field.id,
-                  value_text: null,
-                  value_number: null,
-                  value_boolean: null,
-                  value_json: null,
-                }
-              }
-              onChange={(val) => updateValue(field.id, val)}
-              disabled={!!existingEntryId && false}
-              suggestedInsightTags={suggestedInsightTags}
-            />
-          </motion.div>
-        ))}
-      </div>
-
-      {error && (
-        <p className="rounded-2xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      {previewBonusXp > 0 && (
-        <div className="flex items-center gap-2 rounded-2xl border bg-primary/5 p-3 text-sm">
-          <Sparkles className="size-4 text-primary" />
-          <span className="font-medium text-primary">
-            +{previewBonusXp} bonus XP is ready when you save this reflection.
-          </span>
+        <div className="sticky bottom-[calc(var(--safe-area-bottom)+0.75rem)] z-40 hidden rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur md:block">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
+              disabled={submitting}
+            >
+              <BookOpenCheck className="mr-1.5 size-5" />
+              {submitting ? 'Saving...' : 'Save Reflection'}
+            </Button>
+          </div>
         </div>
-      )}
+      </form>
 
-      <div className="sticky bottom-[calc(var(--safe-area-bottom)+0.75rem)] z-40 rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
-            disabled={submitting}
-          >
-            <BookOpenCheck className="mr-1.5 size-5" />
-            {submitting ? 'Saving...' : 'Save Reflection'}
-          </Button>
-        </div>
-      </div>
-    </form>
+      <MobileJournalDiscardDialog
+        open={closeDialogOpen}
+        onOpenChange={setCloseDialogOpen}
+        onDiscard={discardDraft}
+      />
+    </>
   )
 }
