@@ -24,9 +24,11 @@ function isJournalEntryRoute(pathname: string) {
 }
 
 function isImmersiveRoute(pathname: string) {
+  const segments = pathname.split('/').filter(Boolean)
   return (
     pathname.startsWith('/admin') ||
     pathname === '/plan' ||
+    (segments[0] === 'learn' && segments.length === 2) ||
     (pathname.startsWith('/routines/') && pathname.endsWith('/run')) ||
     isJournalEntryRoute(pathname)
   )
