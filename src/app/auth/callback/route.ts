@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseInsert } from '@/lib/supabase/helpers'
+import { safeNextPath } from '@/lib/auth-redirect'
 
 interface AuthProfileState {
   id: string
@@ -12,7 +13,7 @@ interface AuthProfileState {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const explicitNext = searchParams.get('next')
+  const explicitNext = safeNextPath(searchParams.get('next'))
 
   if (code) {
     // Exchange the authorization code for a session
