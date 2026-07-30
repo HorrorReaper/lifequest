@@ -56,12 +56,13 @@ Supabase
 
 ## Authentication lifecycle
 
-1. Email/password or Google OAuth begins in the browser.
+1. Email/password, Google OAuth, or a password-reset recovery link begins in the browser.
 2. `/auth/callback` exchanges the Supabase code for a cookie-backed session.
-3. A profile is created if one does not exist.
-4. Incomplete profiles are sent to `/onboarding`.
-5. `src/proxy.ts` runs `updateSession` for protected route groups and API routes.
-6. Server pages independently call `supabase.auth.getUser()` before loading data.
+3. A profile is created (inserted) if one does not exist.
+4. Incomplete profiles are sent to `/onboarding`; a recovery session is sent to `/reset-password`.
+5. Onboarding completion upserts the profile rather than updating it, so a session that reached `/onboarding` without going through step 3 (for example sign-up with email confirmation disabled) still gets a row instead of silently affecting zero rows and looping back to onboarding forever.
+6. `src/proxy.ts` runs `updateSession` for every authenticated route group and API routes — see [Authentication and security](./backend/auth-security.md) for the current list.
+7. Server pages independently call `supabase.auth.getUser()` before loading data.
 
 ## Supabase clients
 

@@ -21,24 +21,7 @@ import { Switch } from '@/components/ui/switch'
 import { Loader2, Trash2 } from 'lucide-react'
 import { useTheme, type Theme } from '@/components/providers/theme-provider'
 import { cn } from '@/lib/utils'
-
-const TIMEZONES = [
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Anchorage',
-  'Pacific/Honolulu',
-  'Europe/London',
-  'Europe/Berlin',
-  'Europe/Paris',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Kolkata',
-  'Australia/Sydney',
-  'Pacific/Auckland',
-  'UTC',
-]
+import { formatTimezoneLabel, groupedTimezoneOptions } from '@/lib/timezones'
 
 const APPEARANCE_OPTIONS: { value: Theme; title: string; description: string }[] = [
   {
@@ -83,6 +66,7 @@ export function SettingsForm({
 
   const [username, setUsername] = useState(initialUsername)
   const [timezone, setTimezone] = useState(initialTimezone)
+  const timezoneGroups = groupedTimezoneOptions(timezone)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -292,10 +276,14 @@ export function SettingsForm({
               onChange={(e) => setTimezone(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz.replace(/_/g, ' ')}
-                </option>
+              {timezoneGroups.map((group) => (
+                <optgroup key={group.region} label={group.region}>
+                  {group.zones.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {formatTimezoneLabel(tz)}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>

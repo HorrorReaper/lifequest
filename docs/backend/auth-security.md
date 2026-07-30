@@ -8,15 +8,20 @@ Supported entry flows include:
 
 - Email/password sign-in and sign-up.
 - Google OAuth.
-- Email/OAuth callback at `/auth/callback`.
+- Password reset (`resetPasswordForEmail` from `/login`, completed at `/reset-password`).
+- Email/OAuth/recovery callback at `/auth/callback`.
 
-The callback exchanges the code, ensures a profile exists, and routes the user to onboarding or the dashboard.
+The callback exchanges the code, ensures a profile exists, and routes the user to onboarding, the dashboard, or an explicit `next` target (used by the password-reset link to land on `/reset-password`).
+
+`next` is attacker-controllable input, since it comes straight from the URL. `src/lib/auth-redirect.ts` (`safeNextPath`) only accepts a same-origin absolute path and rejects protocol-relative values such as `//evil.com` or the `/\evil.com` variant browsers normalize into one, so the callback cannot be turned into an open redirect.
+
+`/reset-password` itself requires a live Supabase session (the one the recovery link establishes). Without one it redirects to `/login?error=reset_link_invalid`; it does not accept or validate a token directly.
 
 ## Session middleware
 
-`src/proxy.ts` applies Supabase session handling to:
+`src/proxy.ts` applies Supabase session handling to every authenticated route group:
 
-- `/dashboard`
+- `/dashboard`, `/dashboard2`
 - `/admin`
 - `/journal`
 - `/plan`
@@ -24,7 +29,14 @@ The callback exchanges the code, ensures a profile exists, and routes the user t
 - `/settings`
 - `/routines`
 - `/onboarding`
+- `/tasks`
+- `/habits`
+- `/quests`
+- `/learn`, `/learnings`
+- `/analytics`
 - `/api`
+
+A route left out of this matcher does not get its Supabase session refreshed (an expired access token sends the user to `/login` even though the refresh token is still valid) and the onboarding gate does not apply to it. Any new top-level authenticated route must be added here.
 
 The middleware:
 

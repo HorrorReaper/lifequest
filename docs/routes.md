@@ -13,8 +13,9 @@
 | --- | --- | --- |
 | `/` | Public | Primary marketing page; MVP or waitlist calls to action |
 | `/landing2` | Public | Alternate landing page experiment |
-| `/login` | Public | Email/password login, sign-up, and Google OAuth |
-| `/auth/callback` | Public callback | Exchanges Supabase auth code, creates profile, redirects to onboarding/dashboard |
+| `/login` | Public | Email/password login, sign-up, Google OAuth, and password reset request |
+| `/auth/callback` | Public callback | Exchanges Supabase auth code, creates profile, redirects to onboarding/dashboard/reset-password |
+| `/reset-password` | Public callback target | Reached only via a valid Supabase recovery session forwarded by `/auth/callback`; sets a new password. No session redirects to `/login?error=reset_link_invalid` |
 | `/terms` | Public | Terms of Service |
 | `/privacy` | Public | Privacy Policy |
 
@@ -97,5 +98,5 @@ The standard bottom navigation contains:
 - City → `/city`
 - Settings → `/settings`
 
-The quick action opens direct paths into tasks, habits, journaling, Today Plan, and admin-only tools. Bottom navigation and the admin chatbot are hidden on immersive routes.
+The quick action opens direct paths into tasks, habits, journaling, Today Plan, and admin-only tools. Trusted/route-allowlisted admins additionally see a "LifeQuest Labs" entry in the quick action sheet linking to `/admin`, since the standard bottom navigation has no persistent admin entry point. Bottom navigation and the admin chatbot are hidden on immersive routes.
 

@@ -56,7 +56,12 @@ npx vitest run -t "flushes dirty sets"
 
 ## Current automated coverage
 
-The repository currently contains 30 test files.
+The repository currently contains 32 test files.
+
+### Auth
+
+- Timezone option list always includes the active/stored zone, including one absent from the runtime-supported set (`src/lib/timezones.test.ts`).
+- Auth callback redirect-target validation rejects protocol-relative and backslash-normalized open-redirect payloads (`src/lib/auth-redirect.test.ts`).
 
 ### Planning, tasks, and habits
 
@@ -134,7 +139,7 @@ Test in white, system, and dark themes.
 
 ### Critical user flows
 
-- Register/sign in, onboarding, refresh, sign out.
+- Register/sign in, password reset, onboarding, refresh, sign out.
 - Commit and recover a Today Plan.
 - Create/edit/complete/reopen/defer/delete tasks.
 - Create/edit/reorder/check/history/archive/restore habits.

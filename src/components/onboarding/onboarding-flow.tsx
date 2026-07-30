@@ -37,8 +37,13 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
+import { supabaseFrom } from '@/lib/supabase/helpers'
 import { fetchCityState } from '@/lib/city/city'
+import {
+  detectTimezone,
+  formatTimezoneLabel,
+  groupedTimezoneOptions,
+} from '@/lib/timezones'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,24 +63,6 @@ interface OnboardingFlowProps {
   currentName: string
   templates: Template[]
 }
-
-const TIMEZONES = [
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Anchorage',
-  'Pacific/Honolulu',
-  'Europe/London',
-  'Europe/Berlin',
-  'Europe/Paris',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Kolkata',
-  'Australia/Sydney',
-  'Pacific/Auckland',
-  'UTC',
-]
 
 const intentOptions = [
   {
@@ -285,9 +272,8 @@ export function OnboardingFlow({
   const [step, setStep] = useState(0)
   const [direction, setDirection] = useState(0)
   const [name, setName] = useState(currentName)
-  const [timezone, setTimezone] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone
-  )
+  const [timezone, setTimezone] = useState(detectTimezone)
+  const timezoneGroups = groupedTimezoneOptions(timezone)
   const [intent, setIntent] = useState<string | null>(null)
   const [rhythm, setRhythm] = useState<string | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
@@ -381,10 +367,14 @@ export function OnboardingFlow({
             onChange={(e) => setTimezone(e.target.value)}
             className="flex h-12 w-full rounded-2xl border border-white/70 bg-white/70 px-4 py-2 text-sm shadow-sm backdrop-blur ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-white/10 dark:bg-white/10"
           >
-            {TIMEZONES.map((tz) => (
-              <option key={tz} value={tz}>
-                {tz.replace(/_/g, ' ')}
-              </option>
+            {timezoneGroups.map((group) => (
+              <optgroup key={group.region} label={group.region}>
+                {group.zones.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {formatTimezoneLabel(tz)}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -547,28 +537,41 @@ export function OnboardingFlow({
     setError(null)
 
     try {
-      const { error: updateError } = await supabaseUpdateWhere(
-        supabase,
-        'profiles',
-        {
-          username: name.trim(),
-          timezone,
-          onboarding_complete: true,
-          updated_at: new Date().toISOString(),
-        },
-        'id',
-        userId
-      )
+      // Upsert rather than update: the profile row is created only by the auth
+      // callback, so a sign-up that never passed through it (email confirmation
+      // disabled) would update zero rows without erroring, leaving
+      // onboarding_complete false and bouncing the user back here forever.
+      const { data, error: saveError } = await supabaseFrom(supabase, 'profiles')
+        .upsert(
+          {
+            id: userId,
+            username: name.trim(),
+            timezone,
+            onboarding_complete: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        )
+        .select('id')
 
-      if (updateError) throw updateError
+      if (saveError) throw saveError
+      if (!data || data.length === 0) {
+        throw new Error('Profile was not written during onboarding')
+      }
 
-      await fetchCityState(supabase, userId)
+      // Seeding the city is a convenience; it is created lazily on /city too.
+      // A failure here must not report an onboarding that already succeeded as
+      // failed, or the retry would just repeat the same misleading error.
+      try {
+        await fetchCityState(supabase, userId)
+      } catch (cityError) {
+        console.error('City bootstrap failed after onboarding:', cityError)
+      }
 
       router.push(`/journal/new/${selectedTemplate}`)
     } catch (err) {
       console.error('Onboarding error:', err)
       setError('Something went wrong. Please try again.')
-    } finally {
       setLoading(false)
     }
   }

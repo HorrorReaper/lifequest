@@ -23,6 +23,10 @@ The primary implementation is in:
 - Initial journaling preference/template.
 - A final confirmation before entering the app.
 
+The timezone picker (shared with Settings via `src/lib/timezones.ts`) is generated from `Intl.supportedValuesOf('timeZone')` at render time and grouped by IANA region, rather than a curated list. The active value is always guaranteed a matching option, so the control cannot display a zone different from what is actually stored.
+
+Completing the final step upserts the profile instead of updating it, since a session that reaches onboarding without an existing profile row (for example sign-up with email confirmation disabled) would otherwise update zero rows without erroring and loop back to onboarding indefinitely.
+
 The authenticated layout and Supabase session middleware redirect incomplete profiles to onboarding. Pages should not independently invent a second onboarding state.
 
 ## Dashboard composition
@@ -81,6 +85,8 @@ The center navigation action opens shortcuts to common creation flows. The dashb
 
 `plan` redirects to the immersive planner. Goal and routine actions are admin-only in the current product.
 
+Trusted/route-allowlisted admins additionally see a "LifeQuest Labs" entry at the top of the quick action sheet linking to `/admin`. The standard bottom navigation has no persistent admin entry point, so this is currently the only in-app way to reach the admin workspace on mobile without typing the URL.
+
 ## Navigation
 
 The standard mobile navigation contains:
@@ -98,7 +104,7 @@ The standard shell is hidden on immersive workflows, including Today Plan, journ
 `/settings` supports:
 
 - Profile name.
-- Profile timezone.
+- Profile timezone (same grouped, runtime-derived picker as onboarding).
 - White, system, or dark appearance.
 - AI assistant consent.
 - Routine management where authorized.
