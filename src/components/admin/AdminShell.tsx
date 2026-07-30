@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, BookOpenText, Dumbbell, FlaskConical, FolderKanban, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
+import { ArrowLeft, BookOpenText, Dumbbell, FlaskConical, FolderKanban, GraduationCap, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const sections = [
   { href: '/admin/productivity', label: 'Productivity', icon: LayoutDashboard },
   { href: '/admin/workouts', label: 'Training', icon: Dumbbell },
   { href: '/admin/nutrition', label: 'Nutrition', icon: Salad },
+  { href: '/admin/learning', label: 'Learning', icon: GraduationCap },
   { href: '/admin/challenges', label: 'Challenges', icon: BookOpenText },
   { href: '/admin/notes', label: 'Knowledge', icon: NotebookPen },
   { href: '/admin/projects', label: 'Projects', icon: FolderKanban },

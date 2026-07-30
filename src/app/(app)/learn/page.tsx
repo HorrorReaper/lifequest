@@ -2,8 +2,13 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { annotateLessons } from '@/lib/lessons'
-import { LearnPageClient } from '@/components/learn/LearnPageClient'
+import { LearningPathLibrary } from '@/components/learn/LearningPathLibrary'
 import { BookOpenCheck } from 'lucide-react'
+import { fetchLearningExperience } from '@/lib/learning-api'
+import {
+  DEFAULT_LEARNING_CATALOG,
+  EMPTY_LEARNING_PROGRESS,
+} from '@/lib/learning-paths'
 
 interface LessonCompletion {
   lesson_id: string
@@ -36,15 +41,27 @@ export default async function LearnPage() {
   )
 
   const lessons = annotateLessons(completedIds, completionTimes)
+  let catalog = DEFAULT_LEARNING_CATALOG
+  let progress = EMPTY_LEARNING_PROGRESS
+  let backendEnabled = false
+  try {
+    const learning = await fetchLearningExperience(supabase)
+    catalog = learning.catalog
+    progress = learning.progress
+    backendEnabled = true
+  } catch (error) {
+    console.error('Could not load the learning backend; using the authored fallback.', error)
+  }
 
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="mx-auto max-w-5xl space-y-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Learn</h1>
-            <p className="text-sm text-muted-foreground">
-              Short lessons on journaling and personal growth. Finish the quiz to earn XP &amp; coins.
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">LifeQuest Academy</p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.045em]">Learn by doing</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+              Build social confidence, founder judgment, and fitness knowledge through short interactive paths.
             </p>
           </div>
           <Link
@@ -55,7 +72,12 @@ export default async function LearnPage() {
             Journal Insights
           </Link>
         </div>
-        <LearnPageClient lessons={lessons} />
+        <LearningPathLibrary
+          catalog={catalog}
+          progress={progress}
+          backendEnabled={backendEnabled}
+          legacyLessons={lessons}
+        />
       </div>
     </div>
   )

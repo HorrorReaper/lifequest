@@ -832,6 +832,39 @@ export interface Database {
       }
     }
     Functions: {
+      get_published_learning_catalog: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      get_learning_progress: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      submit_learning_exercise: {
+        Args: {
+          p_lesson_slug: string
+          p_exercise_slug: string
+          p_response: Json
+        }
+        Returns: Json
+      }
+      admin_get_learning_catalog: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      admin_save_learning_catalog: {
+        Args: {
+          p_catalog: Json
+          p_change_summary?: string | null
+        }
+        Returns: Json
+      }
+      admin_publish_learning_catalog: {
+        Args: {
+          p_change_summary?: string | null
+        }
+        Returns: Json
+      }
       admin_app_stats: {
         Args: Record<PropertyKey, never>
         Returns: { total_users: number }[]

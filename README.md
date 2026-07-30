@@ -1,78 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LifeQuest
 
-## Getting Started
+LifeQuest is a mobile-first personal operating system built around journaling, daily planning, tasks, habits, learning, quests, and a virtual city. The repository also contains a private LifeQuest Labs workspace for workout, nutrition, knowledge, project, challenge, and productivity experiments.
 
-## Admin workspace
+## Documentation
 
-Set one or both of these server-side environment variables to expose admin-only testing tools:
+The canonical product and engineering guide starts at [docs/README.md](docs/README.md).
 
-```bash
-ADMIN_EMAILS=patrick@example.com
-ADMIN_USER_IDS=00000000-0000-0000-0000-000000000000
-```
+It covers:
 
-Use comma-separated values for multiple admins. Do not prefix these with `NEXT_PUBLIC_`; they must stay server-only.
-Allowlisted users can open `/admin` as a temporary route-level fallback. The productivity, workout, and nutrition tables additionally require a trusted Supabase admin claim.
+- Product scope and every browser/API route.
+- Local setup and environment variables.
+- Architecture, state, date handling, and transactions.
+- Every user and admin feature.
+- Supabase data model, RLS, RPCs, and privacy.
+- Testing, deployment, repository ownership, and known constraints.
 
-After the admin-hubs migration has been applied, assign the role once in the Supabase SQL editor:
+## Local development
 
-```sql
-update auth.users
-set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
-  || '{"role":"admin"}'::jsonb
-where email = 'patrick.egi04@gmail.com';
-```
+Requirements:
 
-Sign out and sign in again after running the command so Supabase issues a fresh JWT. The admin workspace then provides:
-
-- `/admin/productivity`
-- `/admin/workouts`
-- `/admin/nutrition`
-- `/admin/tools`
-
-Do not place the admin role in `raw_user_meta_data`; users can edit that field themselves and it is not safe for authorization.
-
-## Account deletion
-
-The Settings danger zone uses Supabase's server-only Admin API to permanently delete the signed-in user and cascade-delete owned application data. Configure one of these server-only variables in local development and Vercel:
+- Node.js 20.9 or newer.
+- npm.
+- A configured Supabase project.
 
 ```bash
-SUPABASE_SECRET_KEY=sb_secret_...
-# Legacy alternative:
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-```
-
-Never prefix either key with `NEXT_PUBLIC_` or expose it to browser code.
-
-First, run the development server:
-
-```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The default URL is [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Required local environment:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+```
 
-## Learn More
+See [Getting started](docs/getting-started.md) for admin claims, optional AI/nutrition providers, account deletion, and migration requirements.
 
-To learn more about Next.js, take a look at the following resources:
+## Quality checks
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run test
+npx tsc --noEmit
+npm run lint
+git diff --check
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+See [Testing and quality checks](docs/operations/testing.md) for targeted tests and authenticated QA.
 
-## Deploy on Vercel
+## Important boundary
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Workout, nutrition, knowledge, projects, and other LifeQuest Labs tools remain private admin experiments. Opening the admin route through a server allowlist does not replace the trusted Supabase `app_metadata.role = admin` claim required by protected RLS and RPCs.

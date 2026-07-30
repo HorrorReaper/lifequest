@@ -53,6 +53,10 @@ Recommended direction: centralize all user date keys around the profile IANA tim
 
 Impact: waitlist submissions are not durable.
 
+## Password recovery
+
+The login UI does not currently provide a complete password-reset flow.
+
 ## PWA/offline behavior
 
 - A web manifest exists.
