@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
-import { Loader2, Trash2 } from 'lucide-react'
+import { Loader2, ShieldCheck, Trash2 } from 'lucide-react'
 import { useTheme, type Theme } from '@/components/providers/theme-provider'
 import { cn } from '@/lib/utils'
 import { formatTimezoneLabel, groupedTimezoneOptions } from '@/lib/timezones'
@@ -49,6 +49,7 @@ interface SettingsFormProps {
   aiAssistantEnabled: boolean
   aiConsentAt: string | null
   aiAccessEnabled: boolean
+  isAdmin: boolean
 }
 
 export function SettingsForm({
@@ -59,6 +60,7 @@ export function SettingsForm({
   aiAssistantEnabled: initialAiAssistantEnabled,
   aiConsentAt: initialAiConsentAt,
   aiAccessEnabled,
+  isAdmin,
 }: SettingsFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -202,6 +204,27 @@ export function SettingsForm({
           </div>
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center justify-between gap-4 pt-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+                <ShieldCheck className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">LifeQuest Labs</p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Open the private admin workspace.
+                </p>
+              </div>
+            </div>
+            <Button asChild variant="outline" size="sm" className="shrink-0">
+              <Link href="/admin">Open admin</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {aiAccessEnabled && (
         <Card className="border-border/50">

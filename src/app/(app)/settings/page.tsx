@@ -31,6 +31,7 @@ export default async function SettingsPage() {
           aiAssistantEnabled={profile?.ai_assistant_enabled ?? false}
           aiConsentAt={profile?.ai_consent_at ?? null}
           aiAccessEnabled={isAdminUser(user)}
+          isAdmin={isAdminUser(user)}
         />
       </div>
     </div>
