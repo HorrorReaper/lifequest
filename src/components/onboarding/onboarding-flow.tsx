@@ -13,25 +13,16 @@ import {
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  BookOpenCheckIcon,
-  BrainIcon,
   Building2Icon,
-  CalendarCheckIcon,
   CastleIcon,
   CheckIcon,
   ClipboardListIcon,
   CoinsIcon,
-  CompassIcon,
-  FlameIcon,
   GraduationCapIcon,
   Loader2Icon,
   MapIcon,
-  MedalIcon,
   PencilLineIcon,
-  RepeatIcon,
-  SparklesIcon,
   TargetIcon,
-  TrophyIcon,
   UserRoundIcon,
   ZapIcon,
   type LucideIcon,
@@ -63,54 +54,6 @@ interface OnboardingFlowProps {
   currentName: string
   templates: Template[]
 }
-
-const intentOptions = [
-  {
-    id: 'consistency',
-    title: 'Build consistency',
-    description: 'Turn journaling, habits, and tasks into a daily rhythm.',
-    icon: FlameIcon,
-  },
-  {
-    id: 'clarity',
-    title: 'Understand myself better',
-    description: 'Reflect on patterns, moods, decisions, and personal growth.',
-    icon: BrainIcon,
-  },
-  {
-    id: 'planning',
-    title: 'Plan my days',
-    description: 'Use your daily briefing to make today feel less scattered.',
-    icon: CalendarCheckIcon,
-  },
-  {
-    id: 'progress',
-    title: 'Track visible progress',
-    description: 'Earn XP, complete quests, and grow your city as proof.',
-    icon: TrophyIcon,
-  },
-]
-
-const rhythmOptions = [
-  {
-    id: 'new',
-    title: 'New to this',
-    description: 'I want a simple way to begin.',
-    icon: SparklesIcon,
-  },
-  {
-    id: 'waves',
-    title: 'Hot and cold',
-    description: 'I journal in waves and want more consistency.',
-    icon: RepeatIcon,
-  },
-  {
-    id: 'regular',
-    title: 'Regular practice',
-    description: 'I already reflect and want to go deeper.',
-    icon: MedalIcon,
-  },
-]
 
 const loopItems = [
   {
@@ -181,56 +124,6 @@ function IconOrb({
   )
 }
 
-function ChoiceButton({
-  title,
-  description,
-  icon: Icon,
-  selected,
-  onClick,
-}: {
-  title: string
-  description: string
-  icon: LucideIcon
-  selected: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'group flex w-full items-center gap-4 rounded-2xl border border-white/60 bg-white/55 p-4 text-left shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-white/80 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15',
-        selected && 'border-primary bg-primary/10 ring-2 ring-primary/20 dark:bg-primary/15'
-      )}
-    >
-      <span
-        className={cn(
-          'flex size-11 shrink-0 items-center justify-center rounded-xl bg-white text-muted-foreground shadow-sm transition-colors dark:bg-white/10',
-          selected && 'bg-primary text-primary-foreground'
-        )}
-      >
-        <Icon className="size-5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-foreground sm:text-base">
-          {title}
-        </span>
-        <span className="mt-1 block text-xs leading-relaxed text-muted-foreground sm:text-sm">
-          {description}
-        </span>
-      </span>
-      <span
-        className={cn(
-          'flex size-6 shrink-0 items-center justify-center rounded-full border border-muted-foreground/30 text-transparent transition-colors',
-          selected && 'border-primary bg-primary text-primary-foreground'
-        )}
-      >
-        <CheckIcon className="size-3.5" />
-      </span>
-    </button>
-  )
-}
-
 function StepHeader({
   eyebrow,
   title,
@@ -274,8 +167,6 @@ export function OnboardingFlow({
   const [name, setName] = useState(currentName)
   const [timezone, setTimezone] = useState(detectTimezone)
   const timezoneGroups = groupedTimezoneOptions(timezone)
-  const [intent, setIntent] = useState<string | null>(null)
-  const [rhythm, setRhythm] = useState<string | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -305,10 +196,7 @@ export function OnboardingFlow({
         }),
       }
 
-  const stepLabels = ['Start', 'Name', 'Intent', 'Rhythm', 'Loop', 'First entry']
-
-  const selectedIntent = intentOptions.find((option) => option.id === intent)
-  const selectedRhythm = rhythmOptions.find((option) => option.id === rhythm)
+  const stepLabels = ['Start', 'Name', 'Loop', 'First entry']
 
   const steps = [
     <div key="welcome" className="space-y-9">
@@ -381,51 +269,9 @@ export function OnboardingFlow({
       </div>
     </div>,
 
-    <div key="intent" className="space-y-7">
-      <StepHeader
-        eyebrow={name.trim() ? `Good to meet you, ${name.trim()}` : 'Good to meet you'}
-        title="What brings you here?"
-        description="Pick the reason that feels closest. LifeQuest will still give you the full toolkit."
-        icon={CompassIcon}
-      />
-
-      <div className="grid gap-3">
-        {intentOptions.map((option) => (
-          <ChoiceButton
-            key={option.id}
-            {...option}
-            selected={intent === option.id}
-            onClick={() => setIntent(option.id)}
-          />
-        ))}
-      </div>
-    </div>,
-
-    <div key="rhythm" className="space-y-7">
-      <StepHeader
-        eyebrow={selectedIntent ? 'That makes sense' : 'Your rhythm'}
-        title="How familiar are you with journaling?"
-        description="This helps us set the right tone for you"
-        icon={BookOpenCheckIcon}
-      />
-
-      <div className="grid gap-3">
-        {rhythmOptions.map((option) => (
-          <ChoiceButton
-            key={option.id}
-            {...option}
-            selected={rhythm === option.id}
-            onClick={() => setRhythm(option.id)}
-          />
-        ))}
-      </div>
-    </div>,
-
     <div key="loop" className="space-y-8">
       <StepHeader
-        eyebrow={
-          selectedRhythm ? `For someone who is ${selectedRhythm.title.toLowerCase()}` : 'The loop'
-        }
+        eyebrow={name.trim() ? `Good to meet you, ${name.trim()}` : 'The loop'}
         title="Small actions become visible progress."
         description="LifeQuest is built around a simple loop that turns reflection and planning into momentum."
         icon={TargetIcon}
@@ -517,10 +363,7 @@ export function OnboardingFlow({
 
   const isLastStep = step === steps.length - 1
   const primaryDisabled =
-    (step === 1 && !name.trim()) ||
-    (step === 2 && !intent) ||
-    (step === 3 && !rhythm) ||
-    (isLastStep && (!selectedTemplate || loading))
+    (step === 1 && !name.trim()) || (isLastStep && (!selectedTemplate || loading))
 
   async function handlePrimary() {
     if (isLastStep) {
@@ -568,7 +411,7 @@ export function OnboardingFlow({
         console.error('City bootstrap failed after onboarding:', cityError)
       }
 
-      router.push(`/journal/new/${selectedTemplate}`)
+      router.push(`/journal/new/${selectedTemplate}?firstEntry=1`)
     } catch (err) {
       console.error('Onboarding error:', err)
       setError('Something went wrong. Please try again.')

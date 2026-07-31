@@ -26,7 +26,10 @@ import { normalizeInsightTags } from '@/lib/insights'
 import { calculateEntryBonusXp } from '@/lib/gamification'
 import {
   BookOpenCheck,
+  Building2,
   CheckCircle2,
+  Flame,
+  ListChecks,
   Sparkles,
   X,
 } from 'lucide-react'
@@ -52,6 +55,8 @@ interface EntryFormProps {
   existingEntryId?: string
   existingResponses?: Record<string, FieldValue>
   suggestedInsightTags?: string[]
+  /** True when this is the entry onboarding routed the user into. */
+  firstEntry?: boolean
 }
 
 type JournalResponseInsert = Database['public']['Tables']['journal_responses']['Insert']
@@ -166,6 +171,7 @@ export function EntryForm({
   existingEntryId,
   existingResponses,
   suggestedInsightTags = [],
+  firstEntry = false,
 }: EntryFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -667,9 +673,13 @@ export function EntryForm({
           <CheckCircle2 className="size-8" />
         </motion.div>
         <div>
-          <h2 className="font-heading text-2xl font-semibold tracking-tight">Reflection saved</h2>
+          <h2 className="font-heading text-2xl font-semibold tracking-tight">
+            {firstEntry ? 'Your first reflection is saved' : 'Reflection saved'}
+          </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Your journal entry is stored. Take the next useful action when you&apos;re ready.
+            {firstEntry
+              ? "That's the loop: reflect, act, grow. Here's where the rest of it lives."
+              : "Your journal entry is stored. Take the next useful action when you're ready."}
           </p>
         </div>
         <motion.div
@@ -682,13 +692,57 @@ export function EntryForm({
             +{xpEarned} XP
           </span>
         </motion.div>
+
+        {firstEntry && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="grid w-full gap-2 text-left sm:grid-cols-3"
+          >
+            {[
+              {
+                icon: ListChecks,
+                title: 'Tasks & habits',
+                description: 'Add what you want to keep showing up for.',
+              },
+              {
+                icon: Flame,
+                title: 'Come back tomorrow',
+                description: 'Journaling daily is what builds your streak.',
+              },
+              {
+                icon: Building2,
+                title: 'Your city',
+                description: 'XP and coins from today are already waiting there.',
+              },
+            ].map(({ icon: Icon, title, description }) => (
+              <div key={title} className="rounded-xl border bg-muted/30 p-3">
+                <Icon className="size-4 text-primary" />
+                <p className="mt-2 text-xs font-semibold">{title}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {description}
+                </p>
+              </div>
+            ))}
+          </motion.div>
+        )}
+
         <div className="flex w-full flex-col gap-3 pt-2 sm:flex-row">
-          <Button variant="outline" onClick={() => router.push('/journal')}>
-            Back to Journal
-          </Button>
-          <Button onClick={() => router.push('/dashboard')}>
-            Dashboard
-          </Button>
+          {firstEntry ? (
+            <Button className="w-full" onClick={() => router.push('/dashboard?welcome=1')}>
+              See your dashboard
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => router.push('/journal')}>
+                Back to Journal
+              </Button>
+              <Button onClick={() => router.push('/dashboard')}>
+                Dashboard
+              </Button>
+            </>
+          )}
         </div>
       </motion.div>
     )

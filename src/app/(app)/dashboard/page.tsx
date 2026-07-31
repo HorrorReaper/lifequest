@@ -16,12 +16,14 @@ import { isAdminUser } from '@/lib/admin'
 import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
 import { parseTodayPlanNotes } from '@/lib/today-plan'
+import { FirstRunWelcome } from '@/components/dashboard/FirstRunWelcome'
 
 type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal' | 'routine'
 
 interface DashboardPageProps {
   searchParams?: Promise<{
     quick?: string | string[]
+    welcome?: string
   }>
 }
 
@@ -72,6 +74,7 @@ function currentMinutesInTimezone(timezone: string) {
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = searchParams ? await searchParams : {}
   const quickAction = parseQuickAction(params.quick)
+  const showWelcome = params.welcome === '1'
   if (quickAction === 'plan') redirect('/plan')
   const supabase = await createClient()
   const {
@@ -260,6 +263,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           coins={coins}
           streak={profile.current_streak}
         />
+
+        <FirstRunWelcome show={showWelcome} />
 
         <DailyBriefingWidget
           key={`briefing-${quickAction ?? 'default'}`}

@@ -9,10 +9,12 @@ import { fetchInsightTagSuggestions } from '@/lib/insights'
 
 interface PageProps {
   params: Promise<{ templateId: string }>
+  searchParams: Promise<{ firstEntry?: string }>
 }
 
-export default async function NewEntryPage({ params }: PageProps) {
+export default async function NewEntryPage({ params, searchParams }: PageProps) {
   const { templateId } = await params
+  const { firstEntry } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -53,6 +55,7 @@ export default async function NewEntryPage({ params }: PageProps) {
           template={template as JournalTemplate}
           fields={(fields as TemplateField[]) ?? []}
           suggestedInsightTags={suggestedInsightTags}
+          firstEntry={firstEntry === '1'}
         />
       </div>
     </div>
