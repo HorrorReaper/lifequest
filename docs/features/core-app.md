@@ -14,14 +14,7 @@ The primary implementation is in:
 
 ## Onboarding
 
-`/onboarding` is a six-step first-run flow. It captures:
-
-- Display name.
-- The user's primary intention for LifeQuest.
-- Preferred daily rhythm.
-- IANA timezone.
-- Initial journaling preference/template.
-- A final confirmation before entering the app.
+`/onboarding` is a four-step first-run flow: a welcome step, display name and IANA timezone, a short explanation of the app's Plan/Act/Grow loop, and picking an initial journal template. Earlier steps asking for the user's intention and journaling rhythm were removed — that data was collected but never persisted or used anywhere, so it was pure friction. Completing the flow redirects into a first journal entry (`?firstEntry=1`), whose success screen and a matching dashboard welcome card (`?welcome=1`, dismissal in `localStorage`) orient a brand-new user instead of dropping them onto an unfamiliar dashboard.
 
 The timezone picker (shared with Settings via `src/lib/timezones.ts`) is generated from `Intl.supportedValuesOf('timeZone')` at render time and grouped by IANA region, rather than a curated list. The active value is always guaranteed a matching option, so the control cannot display a zone different from what is actually stored.
 
