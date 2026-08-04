@@ -15,6 +15,8 @@ import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
 import { parseTodayPlanNotes } from '@/lib/today-plan'
 import { FirstRunWelcome } from '@/components/dashboard/FirstRunWelcome'
+import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
+import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 
 type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal' | 'routine'
 
@@ -111,6 +113,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ? await fetchGoals(supabase, user.id, { status: 'active' })
     : []
   const today = dateInTimezone(profile.timezone ?? 'UTC')
+
+  const trackedMetrics = await fetchTrackedMetrics(supabase, user.id)
+  const trackedMetricSeries = await Promise.all(
+    trackedMetrics.map((metric) => fetchMetricSeries(supabase, user.id, metric.fieldId))
+  )
+  // Prefer a metric that actually has data over the first one alphabetically/
+  // by creation order, so a brand-new, still-empty metric doesn't bump one
+  // the user is already filling in off the dashboard.
+  const primaryMetricIndex = trackedMetricSeries.findIndex((series) => series.length > 0)
+  const primaryMetric =
+    primaryMetricIndex >= 0 ? trackedMetrics[primaryMetricIndex] : trackedMetrics[0] ?? null
+  const primaryMetricSeries =
+    primaryMetricIndex >= 0 ? trackedMetricSeries[primaryMetricIndex] : []
 
   const [
     briefingHabitsRes,
@@ -286,6 +301,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               : null
           }
         />
+
+        {primaryMetric && (
+          <MetricDashboardWidget
+            label={primaryMetric.label}
+            unit={primaryMetric.unit}
+            data={primaryMetricSeries}
+            hasMoreMetrics={trackedMetrics.length > 1}
+          />
+        )}
 
         {isAdmin && (
           <AdminLearningWidget

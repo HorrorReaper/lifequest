@@ -50,6 +50,7 @@
 | `/journal/templates` | System and custom template list |
 | `/journal/templates/new` | Create a custom template |
 | `/journal/templates/[id]/edit` | Edit an owned template; system templates remain protected |
+| `/journal/metrics` | Charts for `number` fields flagged `track_as_metric` in their template config |
 
 ## Routine pages
 

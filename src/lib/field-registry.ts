@@ -53,7 +53,7 @@ export const FIELD_REGISTRY: FieldTypeDefinition[] = [ //welche verschiedenen Ar
     icon: '🔢',
     description: 'Numeric input',
     hasConfig: true,
-    defaultConfig: { min: 1, max: 100, step: 1 },
+    defaultConfig: { min: 1, max: 100, step: 1, track_as_metric: false, metric_unit: '' },
     isDisplayOnly: false,
   },
   {
