@@ -8,6 +8,7 @@ import {
   CircleAlert,
   Lightbulb,
   Tag,
+  Trophy,
 } from 'lucide-react'
 import type { InsightType } from '@/lib/types'
 import { INSIGHT_TYPES, insightTypeLabel, normalizeInsightTags } from '@/lib/insights'
@@ -30,6 +31,7 @@ const TYPE_ICONS = {
   problem: CircleAlert,
   idea: Lightbulb,
   decision: CheckCircle2,
+  win: Trophy,
 } satisfies Record<InsightType, typeof BookOpenCheck>
 
 const TYPE_STYLES = {
@@ -37,6 +39,7 @@ const TYPE_STYLES = {
   problem: 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   idea: 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
   decision: 'border-primary/25 bg-primary/10 text-primary',
+  win: 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
 } satisfies Record<InsightType, string>
 
 interface InsightMarkerProps {

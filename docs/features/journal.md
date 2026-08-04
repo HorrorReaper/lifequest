@@ -122,6 +122,9 @@ Responses can be marked as:
 - Problem.
 - Idea.
 - Decision.
+- Win.
+
+The insight type vocabulary is defined once, in `INSIGHT_TYPES` (`src/lib/insights.ts`), and consumed by both the marker dialog and the insights list. The one exception is `src/components/journal/mobile-journal-wizard.tsx`, which validates a restored sessionStorage draft against its own hardcoded copy of the valid values — not type-checked against `InsightType`, so a new type added there without updating that Set fails validation silently and the whole draft is discarded on restore.
 
 Marked responses appear in `/journal/insights`. Users can add up to five normalized tags and favorite important items.
 

@@ -10,6 +10,7 @@ import {
   Lightbulb,
   Search,
   Star,
+  Trophy,
   X,
 } from 'lucide-react'
 import type { InsightType } from '@/lib/types'
@@ -56,6 +57,7 @@ const TYPE_ICONS = {
   problem: CircleAlert,
   idea: Lightbulb,
   decision: CheckCircle2,
+  win: Trophy,
 } satisfies Record<InsightType, typeof BookOpenCheck>
 
 const TYPE_STYLES = {
@@ -63,6 +65,7 @@ const TYPE_STYLES = {
   problem: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
   idea: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
   decision: 'bg-primary/10 text-primary',
+  win: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
 } satisfies Record<InsightType, string>
 
 function formatDate(date: string) {

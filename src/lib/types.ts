@@ -63,7 +63,7 @@ export type FieldType =
   | 'learning'
 //Die verschiedenen Arten von Template-Feldern
 
-export type InsightType = 'learning' | 'problem' | 'idea' | 'decision'
+export type InsightType = 'learning' | 'problem' | 'idea' | 'decision' | 'win'
 
 export interface FieldValue {
   field_id: string
