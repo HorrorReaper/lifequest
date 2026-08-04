@@ -1,10 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
-import { getLockedBuildings } from '@/lib/city'
 import type { Database } from '@/lib/supabase/database.types'
 import { DashboardHero } from '@/components/dashboard/DashboardHero'
-import { NextRewardCard } from '@/components/dashboard/NextRewardCard'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
 import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
@@ -105,9 +103,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .eq('user_id', user.id)
     .single()
   const coins = (cityRowData as { coins: number } | null)?.coins ?? 0
-
-  const lockedBuildings = getLockedBuildings(profile.total_xp)
-  const nextBuilding = [...lockedBuildings].sort((a, b) => a.xpRequired - b.xpRequired)[0] ?? null
 
   const { annotated, customQuests } = await fetchQuestPageData(supabase, user.id)
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
@@ -300,8 +295,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         )}
 
         {isAdmin && <RoutinesDashboardWidget routines={dashboardRoutines} />}
-
-        <NextRewardCard building={nextBuilding} currentXp={profile.total_xp} />
 
         <QuestDashboardWidget
           claimable={claimableQuests}

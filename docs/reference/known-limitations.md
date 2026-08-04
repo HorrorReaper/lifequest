@@ -87,9 +87,10 @@ Impact: failures are primarily found through browser, Vercel, Supabase, and prov
 ## Experimental duplicate surfaces
 
 - `/landing2` and `/dashboard2` remain available beside canonical versions.
-- `src/lib/city.ts` and `src/lib/city/city.ts` both contain city-related logic.
 
 Impact: behavior can drift and future contributors may update the wrong implementation.
+
+`src/lib/city.ts` and `src/lib/city/city.ts` used to duplicate the entire building catalog and XP/unlock logic — the dashboard's "next unlock" preview read one copy while `/city` read the other, so an edit to one would silently desync from the other. Resolved by moving the "next unlock" display itself onto `/city` (`NextUnlockCard`, next to the building picker it's describing) and deleting `src/lib/city.ts`; every consumer now reads `src/lib/city/city.ts`.
 
 ## Knowledge scaling
 
