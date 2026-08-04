@@ -5,6 +5,7 @@ import type {
   DayPlanOutcomeRole,
   DayPlanSourceType,
 } from "@/lib/types";
+import { isValidMoodValue } from "@/lib/mood";
 
 export const TODAY_PLAN_NOTES_PREFIX = "LIFEQUEST_TODAY_PLAN_V1:";
 
@@ -41,6 +42,8 @@ export interface TodayPlanAnchor {
 export interface TodayPlanMetadata {
   version: 1;
   intention: string;
+  /** How the user said they felt when starting today's ritual; one of the shared mood vocabulary values, or null if skipped. */
+  mood: string | null;
   outcomes: TodayPlanOutcome[];
   anchors: TodayPlanAnchor[];
   day_start: string;
@@ -71,6 +74,7 @@ export function createDefaultTodayPlanMetadata(): TodayPlanMetadata {
   return {
     version: 1,
     intention: "",
+    mood: null,
     outcomes: [],
     anchors: [],
     day_start: "08:00",
@@ -168,6 +172,7 @@ function normalizeMetadata(value: unknown): TodayPlanMetadata | null {
       typeof value.intention === "string"
         ? value.intention.trim().slice(0, 500)
         : "",
+    mood: isValidMoodValue(value.mood) ? value.mood : null,
     outcomes,
     anchors,
     day_start: dayStart,

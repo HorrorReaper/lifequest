@@ -15,6 +15,7 @@ import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
 import { parseTodayPlanNotes } from '@/lib/today-plan'
 import { FirstRunWelcome } from '@/components/dashboard/FirstRunWelcome'
+import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 
@@ -226,6 +227,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     notes?: string | null
   } | null
   const planMetadata = parseTodayPlanNotes(dayPlan?.notes).metadata
+  const planCommitted = Boolean(planMetadata?.ritual_completed_at)
   const mainQuestTitle =
     planMetadata?.outcomes.find((outcome) => outcome.role === 'must_win')?.title ?? null
   const planBlocks = ((dayPlan?.blocks ?? [])
@@ -275,6 +277,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         />
 
         <FirstRunWelcome show={showWelcome} />
+        <DailyPlanPrompt today={today} planCommitted={planCommitted} username={profile.username} />
 
         <DailyBriefingWidget
           key={`briefing-${quickAction ?? 'default'}`}
@@ -286,7 +289,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           journals={briefingJournals}
           planBlocks={planBlocks}
           mainQuestTitle={mainQuestTitle}
-          planCommitted={Boolean(planMetadata?.ritual_completed_at)}
+          planCommitted={planCommitted}
           goals={activeGoals}
           goalsEnabled={isAdmin}
           completedJournalCount={(todayEntriesRes.data ?? []).length}

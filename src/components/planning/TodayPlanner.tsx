@@ -42,6 +42,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { upsertDayPlan } from "@/lib/day-plans";
+import { MoodSelector } from "@/components/journal/mood-selector";
+import { DEFAULT_MOOD_OPTIONS } from "@/lib/mood";
 import type {
   DayPlanBlock,
   DayPlanCategory,
@@ -618,6 +620,22 @@ export function TodayPlanner({
             <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
               <Card className="rounded-3xl">
                 <CardContent className="space-y-5 p-5 sm:p-6">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      How are you feeling right now?
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Optional, but useful context for the intention below.
+                    </p>
+                    <div className="mt-3">
+                      <MoodSelector
+                        options={DEFAULT_MOOD_OPTIONS}
+                        value={metadata.mood}
+                        onChange={(mood) => updateMetadata({ mood })}
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label
                       htmlFor="plan-intention"
