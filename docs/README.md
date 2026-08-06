@@ -17,6 +17,7 @@ Last verified: 2026-07-26 against application commit `edb6610`.
 - [Journal and insights](./features/journal.md)
 - [Today planning, tasks, habits, and routines](./features/planning-tasks-habits.md)
 - [Gamification, quests, learning, and city](./features/gamification.md)
+- [Self-improvement tools](./features/tools.md)
 - [Admin workspace](./features/admin-workspace.md)
 - [Workout tracker](./features/workouts.md)
 - [Nutrition tracker](./features/nutrition.md)

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { annotateLessons } from '@/lib/lessons'
 import { LearningPathLibrary } from '@/components/learn/LearningPathLibrary'
-import { BookOpenCheck } from 'lucide-react'
+import { BookOpenCheck, Wrench } from 'lucide-react'
 import { fetchLearningExperience } from '@/lib/learning-api'
 import {
   DEFAULT_LEARNING_CATALOG,
@@ -64,13 +64,22 @@ export default async function LearnPage() {
               Build social confidence, founder judgment, and fitness knowledge through short interactive paths.
             </p>
           </div>
-          <Link
-            href="/journal/insights"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-          >
-            <BookOpenCheck className="size-3.5" />
-            Journal Insights
-          </Link>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Link
+              href="/learn/tools"
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+            >
+              <Wrench className="size-3.5" />
+              Toolbox
+            </Link>
+            <Link
+              href="/journal/insights"
+              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+            >
+              <BookOpenCheck className="size-3.5" />
+              Journal Insights
+            </Link>
+          </div>
         </div>
         <LearningPathLibrary
           catalog={catalog}
