@@ -44,6 +44,25 @@ describe('learning path catalog', () => {
     expect(validateLearningCatalog(invalidAnswer)).toBe(false)
   })
 
+  it('accepts a tool exercise and rejects one without a toolId', () => {
+    const withTool = structuredClone(DEFAULT_LEARNING_CATALOG)
+    withTool.paths[0].units[0].lessons[0].exercises.push({
+      id: 'define-your-vision',
+      type: 'tool',
+      toolId: 'vision',
+      prompt: 'Write your first version now.',
+    })
+    expect(validateLearningCatalog(withTool)).toBe(true)
+
+    // A tool exercise is only a pointer, so an empty pointer is the one thing
+    // that must not get through — it would render as an unresolvable tool.
+    const missingToolId = structuredClone(withTool)
+    const added = missingToolId.paths[0].units[0].lessons[0].exercises.at(-1)
+    if (added?.type !== 'tool') throw new Error('Expected the appended tool exercise')
+    added.toolId = '   '
+    expect(validateLearningCatalog(missingToolId)).toBe(false)
+  })
+
   it('unlocks lessons sequentially within each path', () => {
     const path = DEFAULT_LEARNING_CATALOG.paths[0]
     const lessons = getPathLessons(path)

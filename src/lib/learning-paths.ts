@@ -43,12 +43,27 @@ export interface ReflectionExercise {
   placeholder: string
 }
 
+/**
+ * Embeds a registered self-improvement tool as a lesson step. Deliberately
+ * one exercise type for all tools rather than one per tool: the toolId is
+ * resolved against TOOL_REGISTRY at render time, so a new tool never needs a
+ * new exercise type, a migration, or catalog-validation changes.
+ */
+export interface ToolExercise {
+  id: string
+  type: 'tool'
+  /** Must match a ToolManifest id in src/lib/tools/registry.ts. */
+  toolId: string
+  prompt: string
+}
+
 export type LearningExercise =
   | ConceptExercise
   | ChoiceExercise
   | ScenarioExercise
   | OrderExercise
   | ReflectionExercise
+  | ToolExercise
 
 export interface PathLesson {
   id: string
@@ -633,6 +648,12 @@ export function validateLearningCatalog(
               break
             case 'reflection':
               if (!exercise.prompt || !exercise.placeholder) return false
+              break
+            case 'tool':
+              // Only the shape is checked here. Whether toolId resolves is
+              // decided at render time against TOOL_REGISTRY, so that adding
+              // a tool never requires touching catalog validation.
+              if (!exercise.prompt || !exercise.toolId?.trim()) return false
               break
             default:
               return false

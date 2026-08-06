@@ -33,6 +33,8 @@
 | `/quests` | Default quests, custom quests, daily challenges, and challenge programs |
 | `/learn` | Lesson library |
 | `/learn/[lessonId]` | Lesson reader and completion quiz |
+| `/learn/tools` | Toolbox: library of self-improvement tools |
+| `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
 | `/city` | Virtual city view/build mode |
 | `/settings` | Appearance, profile, timezone, AI consent, sign-out, account deletion |
 | `/analytics` | Currently redirects to `/dashboard` |

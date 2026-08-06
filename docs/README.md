@@ -17,6 +17,7 @@ Last verified: 2026-07-26 against application commit `edb6610`.
 - [Journal and insights](./features/journal.md)
 - [Today planning, tasks, habits, and routines](./features/planning-tasks-habits.md)
 - [Gamification, quests, learning, and city](./features/gamification.md)
+- [Self-improvement tools](./features/tools.md)
 - [Admin workspace](./features/admin-workspace.md)
 - [Workout tracker](./features/workouts.md)
 - [Nutrition tracker](./features/nutrition.md)
@@ -33,6 +34,7 @@ Last verified: 2026-07-26 against application commit `edb6610`.
 - [Testing and quality checks](./operations/testing.md)
 - [Deployment and production](./operations/deployment.md)
 - [Production readiness and UX plan](./operations/production-readiness-plan-2026-07-26.md) — evidence-backed audit, priorities, milestones, and release gates.
+- [Open work and handover](./operations/open-work-2026-08-04.md) — branch status, applied migrations, and what has not been verified.
 - [Repository map](./reference/repository-map.md)
 - [Known constraints and technical debt](./reference/known-limitations.md)
 - [Documentation maintenance](./reference/maintenance.md)
