@@ -29,6 +29,11 @@ export interface ToolProps {
    * can do this without knowing anything about a specific tool.
    */
   initialEntries: ToolEntry[]
+  /**
+   * Called after the tool saves something. A lesson uses this to unlock the
+   * Continue button; on the standalone tool page it is simply absent.
+   */
+  onUsed?: () => void
 }
 
 export interface ToolManifest {

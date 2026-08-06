@@ -53,6 +53,23 @@ That covers every shape encountered so far:
 
 The tool route (`/learn/tools/[toolId]`) fetches the tool's entries server-side through the generic storage layer and passes them in as `initialEntries`. Tools therefore need no on-mount fetch effect — which also keeps them clear of the `react-hooks/set-state-in-effect` rule — and render without a loading flash. Writes happen client-side from event handlers, which then refetch.
 
+## Tools inside lessons
+
+A lesson can embed a tool as an exercise:
+
+```ts
+{ id: 'define-your-vision', type: 'tool', toolId: 'vision',
+  prompt: 'Write your first version now.' }
+```
+
+This is **one** exercise type for all tools, not one per tool. Adding an exercise type to the learning-path system is expensive — the `exercise_type` CHECK constraint, the catalog validation function, the submission scoring, the TypeScript union, catalog validation, and the player. Paying that once and resolving `toolId` against `TOOL_REGISTRY` at render time keeps every future tool at one component plus one registry entry.
+
+The lesson step is only complete once the learner has actually used the tool. The client gates the Continue button on the tool reporting a save through `ToolProps.onUsed`, and `submit_learning_exercise` independently confirms a `tool_entries` row exists for that `tool_id`. Unlike the reflection branch, this cannot be satisfied by submitting arbitrary text.
+
+Authoring happens in the Learning Studio (`/admin`), which offers registered tools as a dropdown rather than free text, because the database validates the shape of a tool exercise but knows nothing about the registry. A lesson referencing a tool that no longer exists renders a visible warning instead of failing silently.
+
+`LessonToolExercise` loads the tool's entries with React's `use()` rather than a fetch effect: the lesson page is a client component, so entries cannot be passed down from the server the way the standalone tool route does it.
+
 ## Unlocking
 
 `ToolManifest.introducedBy` optionally names a lesson that introduces the tool. It is deliberately optional and non-blocking: a tool whose lesson has not been written yet must still be usable, so lessons introduce tools rather than gate them.

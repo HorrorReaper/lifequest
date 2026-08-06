@@ -46,7 +46,7 @@ function formatDate(iso: string) {
   })
 }
 
-export function VisionTool({ userId, initialEntries }: ToolProps) {
+export function VisionTool({ userId, initialEntries, onUsed }: ToolProps) {
   const supabase = useMemo(() => createClient(), [])
   const [revisions, setRevisions] = useState(() => toVisionRevisions(initialEntries))
   const [draft, setDraft] = useState('')
@@ -72,6 +72,7 @@ export function VisionTool({ userId, initialEntries }: ToolProps) {
       setRevisions(toVisionRevisions(entries))
       setEditing(false)
       setDraft('')
+      onUsed?.()
     } catch {
       setError('Your vision could not be saved. Please try again.')
     }

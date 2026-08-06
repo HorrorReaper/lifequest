@@ -33,6 +33,7 @@ import {
   type ExerciseSubmissionResult,
 } from '@/lib/learning-api'
 import { createClient } from '@/lib/supabase/client'
+import { LessonToolExercise } from '@/components/learn/LessonToolExercise'
 
 const ACCENTS = {
   violet: {
@@ -67,6 +68,7 @@ function exerciseLabel(exercise: LearningExercise) {
     case 'scenario': return 'Apply it'
     case 'order': return 'Build the sequence'
     case 'reflection': return 'Make it yours'
+    case 'tool': return 'Use the tool'
   }
 }
 
@@ -95,6 +97,8 @@ export function InteractiveLessonPlayer({
   const [orderChecked, setOrderChecked] = useState(false)
   const [mistakes, setMistakes] = useState(0)
   const [reflections, setReflections] = useState<Record<string, string>>(progress.reflections)
+  /** Exercise ids whose embedded tool reported a save during this session. */
+  const [usedTools, setUsedTools] = useState<Set<string>>(() => new Set())
   const [complete, setComplete] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submissionError, setSubmissionError] = useState<string | null>(null)
@@ -197,6 +201,10 @@ export function InteractiveLessonPlayer({
       case 'scenario': return answerCorrect === true
       case 'order': return answerCorrect === true
       case 'reflection': return (reflections[exercise.id] ?? '').trim().length >= 3
+      // Gated on the tool reporting that it saved something, so the lesson
+      // cannot be clicked past without actually doing the exercise. The
+      // server re-checks this against tool_entries rather than trusting us.
+      case 'tool': return usedTools.has(exercise.id)
     }
   }
 
@@ -205,22 +213,35 @@ export function InteractiveLessonPlayer({
     setSubmissionError(null)
 
     let serverResult: ExerciseSubmissionResult | null = null
-    if (backendEnabled && exercise.type === 'reflection') {
+    if (backendEnabled && (exercise.type === 'reflection' || exercise.type === 'tool')) {
+      const isTool = exercise.type === 'tool'
       setSubmitting(true)
       try {
         serverResult = await submitLearningExercise(
           createClient(),
           lesson.id,
           exercise.id,
-          { text: reflections[exercise.id] ?? '' }
+          // A tool exercise carries no answer: the server decides by looking
+          // for a tool_entries row, so there is nothing meaningful to send.
+          isTool ? {} : { text: reflections[exercise.id] ?? '' }
         )
         setMistakes(serverResult.mistakes)
         if (!serverResult.correct) {
-          setSubmissionError('Add a more specific reflection before continuing.')
+          setSubmissionError(
+            isTool
+              ? 'Save something in the tool before continuing.'
+              : 'Add a more specific reflection before continuing.'
+          )
           return
         }
       } catch (error) {
-        setSubmissionError(error instanceof Error ? error.message : 'Could not save your reflection.')
+        setSubmissionError(
+          error instanceof Error
+            ? error.message
+            : isTool
+              ? 'Could not record your progress.'
+              : 'Could not save your reflection.'
+        )
         return
       } finally {
         setSubmitting(false)
@@ -478,6 +499,16 @@ export function InteractiveLessonPlayer({
                     {backendEnabled ? 'Saved securely when you complete the lesson.' : 'Saved on this device when you complete the lesson.'}
                   </p>
                 </div>
+              )}
+
+              {exercise.type === 'tool' && (
+                <LessonToolExercise
+                  exercise={exercise}
+                  accentSoft={accent.soft}
+                  onUsed={() =>
+                    setUsedTools((current) => new Set(current).add(exercise.id))
+                  }
+                />
               )}
             </motion.section>
           </AnimatePresence>
