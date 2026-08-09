@@ -75,7 +75,8 @@ describe("TodayPlanner", () => {
     render(<TodayPlanner {...defaultProps} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("button", { name: /Write launch brief/ }));
+    fireEvent.focus(screen.getByLabelText("Must Win outcome"));
+    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     fireEvent.click(screen.getByRole("button", { name: /Read/ }));
@@ -94,6 +95,19 @@ describe("TodayPlanner", () => {
       plan_date: "2026-07-25",
     });
     expect(push).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("gives Progress and Health their own task combobox instead of a shared sidebar", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(screen.queryByText("Pull from tasks")).toBeNull();
+
+    fireEvent.focus(screen.getByLabelText("Progress outcome"));
+    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
+
+    expect(screen.getByDisplayValue("Write launch brief")).toBeTruthy();
+    expect(screen.getByLabelText("Health outcome")).toHaveProperty("value", "");
   });
 
   it("restores an unfinished tab-local draft", async () => {
