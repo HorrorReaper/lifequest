@@ -106,7 +106,10 @@ describe("TodayPlanner", () => {
     fireEvent.focus(screen.getByLabelText("Progress outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
 
-    expect(screen.getByDisplayValue("Write launch brief")).toBeTruthy();
+    expect(screen.getByLabelText("Progress outcome")).toHaveProperty(
+      "value",
+      "Write launch brief"
+    );
     expect(screen.getByLabelText("Health outcome")).toHaveProperty("value", "");
   });
 
