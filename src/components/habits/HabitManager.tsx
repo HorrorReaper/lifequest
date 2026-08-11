@@ -516,6 +516,10 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
                     new Date(habit.created_at),
                     timezone
                   );
+                  const isDisabled = (checkDate: string) =>
+                    busyKeys.has(habitLogKey(habit.id, checkDate)) ||
+                    checkDate > today ||
+                    checkDate < createdDate;
                   return (
                     <SortableHabitCard
                       key={habit.id}
@@ -525,11 +529,7 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
                       today={today}
                       date={visibleDate}
                       completed={existingLog?.completed ?? false}
-                      disabled={
-                        busyKeys.has(habitLogKey(habit.id, visibleDate)) ||
-                        visibleDate > today ||
-                        visibleDate < createdDate
-                      }
+                      isDisabled={isDisabled}
                       reorderDisabled={view !== "today" || busyKeys.has("reorder")}
                       canMoveUp={index > 0}
                       canMoveDown={index < activeHabits.length - 1}
@@ -544,14 +544,14 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
                       onEdit={() => startEdit(habit)}
                       onArchive={() => setArchiveTarget(habit)}
                       onMove={(offset) => moveWithButton(habit.id, offset)}
-                      onSelectDate={(date) => {
-                        if (date === today) {
-                          setView("today");
-                        } else {
-                          setHistoryDate(date);
-                          setView("history");
-                        }
-                      }}
+                      onToggleDate={(toggleDate, completed) =>
+                        void saveCompletion(
+                          habit,
+                          toggleDate,
+                          completed,
+                          logIndex.get(habitLogKey(habit.id, toggleDate))
+                        )
+                      }
                     />
                   );
                 })}
@@ -729,7 +729,7 @@ interface SortableHabitCardProps {
   today: string;
   date: string;
   completed: boolean;
-  disabled: boolean;
+  isDisabled: (date: string) => boolean;
   reorderDisabled: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -737,7 +737,7 @@ interface SortableHabitCardProps {
   onEdit: () => void;
   onArchive: () => void;
   onMove: (offset: -1 | 1) => void;
-  onSelectDate: (date: string) => void;
+  onToggleDate: (date: string, completed: boolean) => void;
 }
 
 function SortableHabitCard({
@@ -747,7 +747,7 @@ function SortableHabitCard({
   today,
   date,
   completed,
-  disabled,
+  isDisabled,
   reorderDisabled,
   canMoveUp,
   canMoveDown,
@@ -755,7 +755,7 @@ function SortableHabitCard({
   onEdit,
   onArchive,
   onMove,
-  onSelectDate,
+  onToggleDate,
 }: SortableHabitCardProps) {
   const {
     attributes,
@@ -796,7 +796,7 @@ function SortableHabitCard({
         <button
           type="button"
           onClick={() => onToggle(!completed)}
-          disabled={disabled}
+          disabled={isDisabled(date)}
           aria-pressed={completed}
           aria-label={`Mark ${habit.name} ${completed ? "incomplete" : "complete"} for ${date}`}
           className={cn(
@@ -812,6 +812,7 @@ function SortableHabitCard({
             <div className="min-w-0">
               <Link
                 href={`/habits/${habit.id}`}
+                title={habit.name}
                 className={cn(
                   "block truncate font-medium hover:text-primary",
                   completed && isToday && "text-muted-foreground"
@@ -853,28 +854,27 @@ function SortableHabitCard({
           <div className="mt-4 grid grid-cols-7 gap-1.5" aria-label={`${habit.name} last seven days`}>
             {week.map((day) => {
               const dayCompleted = summary.completionDates.has(day);
+              // Skip rendering today's dot when viewing today, since the main button handles it
+              if (day === today && date === today) return null;
               return (
                 <button
                   key={day}
                   type="button"
+                  disabled={isDisabled(day)}
                   title={formatDateOnly(day, {
                     weekday: "long",
                     month: "short",
                     day: "numeric",
                   })}
-                  aria-label={`${formatDateOnly(day, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}: ${dayCompleted ? "completed" : "not completed"}`}
-                  aria-pressed={date === day}
-                  onClick={() => onSelectDate(day)}
+                  aria-pressed={dayCompleted}
+                  aria-label={`Mark ${habit.name} ${dayCompleted ? "incomplete" : "complete"} for ${day}`}
+                  onClick={() => onToggleDate(day, !dayCompleted)}
                   className={cn(
-                    "aspect-square rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "aspect-square rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45",
                     dayCompleted
                       ? cn("border-transparent", habitColorClass(habit.color))
                       : "border-border bg-muted/45",
-                    date === day && "ring-2 ring-foreground/40 ring-offset-2 ring-offset-card"
+                    day === today && "ring-2 ring-foreground/40 ring-offset-2 ring-offset-card"
                   )}
                 />
               );
