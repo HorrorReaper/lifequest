@@ -90,7 +90,7 @@ describe("HabitManager", () => {
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Mark Meditation complete for 2026-08-06" })
+      screen.getByRole("button", { name: /Mark Meditation (complete|incomplete) for \w+, Aug 6/ })
     );
 
     await waitFor(() =>
@@ -108,8 +108,13 @@ describe("HabitManager", () => {
       screen.getByRole("tab", { name: "Today" }).getAttribute("aria-selected")
     ).toBe("true");
     expect(screen.queryByLabelText("History date")).toBeNull();
+    // Verify icon button for today still exists
     expect(
       screen.getByRole("button", { name: "Mark Journaling complete for 2026-08-09" })
+    ).toBeTruthy();
+    // Verify today's day-dot still exists and is distinct (formatted date in aria-label)
+    expect(
+      screen.getByRole("button", { name: /Mark Journaling complete for Sunday, Aug 9/ })
     ).toBeTruthy();
   });
 
@@ -125,7 +130,7 @@ describe("HabitManager", () => {
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
     const mondayButton = screen.getByRole("button", {
-      name: "Mark Meditation complete for 2026-08-03",
+      name: /Mark Meditation (complete|incomplete) for \w+, Aug 3/,
     });
     fireEvent.click(mondayButton);
 
@@ -133,7 +138,7 @@ describe("HabitManager", () => {
     expect(mondayButton.hasAttribute("disabled")).toBe(true);
 
     const tuesdayButton = screen.getByRole("button", {
-      name: "Mark Meditation complete for 2026-08-04",
+      name: /Mark Meditation (complete|incomplete) for \w+, Aug 4/,
     });
     expect(tuesdayButton.hasAttribute("disabled")).toBe(false);
 

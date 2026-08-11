@@ -854,20 +854,19 @@ function SortableHabitCard({
           <div className="mt-4 grid grid-cols-7 gap-1.5" aria-label={`${habit.name} last seven days`}>
             {week.map((day) => {
               const dayCompleted = summary.completionDates.has(day);
-              // Skip rendering today's dot when viewing today, since the main button handles it
-              if (day === today && date === today) return null;
+              const dayLabel = formatDateOnly(day, {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              });
               return (
                 <button
                   key={day}
                   type="button"
                   disabled={isDisabled(day)}
-                  title={formatDateOnly(day, {
-                    weekday: "long",
-                    month: "short",
-                    day: "numeric",
-                  })}
+                  title={dayLabel}
                   aria-pressed={dayCompleted}
-                  aria-label={`Mark ${habit.name} ${dayCompleted ? "incomplete" : "complete"} for ${day}`}
+                  aria-label={`Mark ${habit.name} ${dayCompleted ? "incomplete" : "complete"} for ${dayLabel}`}
                   onClick={() => onToggleDate(day, !dayCompleted)}
                   className={cn(
                     "aspect-square rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45",
