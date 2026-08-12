@@ -113,9 +113,22 @@ describe("HabitManager", () => {
       screen.getByRole("button", { name: "Mark Journaling complete for 2026-08-09" })
     ).toBeTruthy();
     // Verify today's day-dot still exists and is distinct (formatted date in aria-label)
-    expect(
-      screen.getByRole("button", { name: /Mark Journaling complete for Sunday, Aug 9/ })
-    ).toBeTruthy();
+    const todaysDot = screen.getByRole("button", { name: /Mark Journaling complete for Sunday, Aug 9/ });
+    expect(todaysDot).toBeTruthy();
+
+    // Verify clicking today's day-dot actually calls the save function
+    setHabitLogCompletion.mockClear();
+    fireEvent.click(todaysDot);
+    await waitFor(() =>
+      expect(setHabitLogCompletion).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          habitId: "habit-b",
+          date: "2026-08-09",
+          completed: true,
+        })
+      )
+    );
   });
 
   it("a pending toggle for one date does not disable a different date's dot on the same habit", async () => {
