@@ -157,6 +157,10 @@ function reflection(id: string, prompt: string, placeholder: string): Reflection
   return { id, type: 'reflection', prompt, placeholder }
 }
 
+function tool(id: string, toolId: string, prompt: string): ToolExercise {
+  return { id, type: 'tool', toolId, prompt }
+}
+
 export const DEFAULT_LEARNING_CATALOG: LearningCatalog = {
   version: 1,
   paths: [
@@ -370,6 +374,45 @@ export const DEFAULT_LEARNING_CATALOG: LearningCatalog = {
                 choice('leading-metric', 'If the bottleneck is too few qualified conversations, which is the best weekly leading metric?', ['Total lifetime revenue', 'Number of targeted outreach messages and booked conversations', 'Website font size', 'Company valuation'], 1, 'It measures controllable actions close to the bottleneck and can change within the week.'),
                 scenario('too-many-priorities', 'Your team has twelve “top priorities” this week.', 'What is the best operator move?', ['Work longer on all twelve', 'Choose the bottleneck, define one outcome, and explicitly defer lower-leverage work', 'Add more dashboards', 'Avoid making a choice'], 1, 'Strategy requires tradeoffs. A visible not-now list protects the work that matters most.'),
                 reflection('weekly-scorecard', 'Design your next weekly founder scorecard.', 'One bottleneck, one outcome, three leading actions, one review time.'),
+              ],
+            }),
+          ],
+        },
+        {
+          id: 'business-mindset',
+          title: 'Founder mindset',
+          description: 'The internal blockers that quietly cap what you attempt, and how to work through them.',
+          lessons: [
+            makeLesson({
+              id: 'business-limiting-beliefs',
+              title: 'Find the belief that is capping you',
+              description: 'Spot a limiting belief before it quietly picks your next move for you.',
+              icon: '🔓',
+              exercises: [
+                concept(
+                  'limiting-belief-concept',
+                  'A limiting belief is a rule, not a fact',
+                  'Most limiting beliefs were formed once, from a single experience or an offhand comment, and then quietly generalized into a rule you never re-examined — “I am not a numbers person,” “people like me do not raise money.” They feel like facts because you have never argued with them. They are actually just old conclusions.',
+                  'The moment you can state a limiting belief in one sentence, you can start checking whether it still holds up.'
+                ),
+                scenario(
+                  'limiting-belief-scenario',
+                  'A founder tells you, “I’ve never been good at sales, so I let my co-founder handle every customer call.”',
+                  'What is the most useful next question for them to ask themselves?',
+                  ['“What if I’m just bad at sales?”', '“What specific evidence made me conclude I can’t sell?”', '“Should I find a different co-founder?”', '“Is my co-founder better than me at everything?”'],
+                  1,
+                  'Naming the actual evidence behind a belief is what turns a vague self-judgment into something you can actually test and challenge.'
+                ),
+                reflection(
+                  'limiting-belief-reflection',
+                  'Where have you noticed a belief like this showing up for you personally?',
+                  'Name the belief and one recent moment it quietly influenced a decision.'
+                ),
+                tool(
+                  'limiting-belief-tool',
+                  'limiting-beliefs',
+                  'Name one limiting belief that has been shaping your decisions lately, and work through it below.'
+                ),
               ],
             }),
           ],

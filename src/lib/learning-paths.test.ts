@@ -19,10 +19,10 @@ describe('learning path catalog', () => {
     ])
 
     const lessons = DEFAULT_LEARNING_CATALOG.paths.flatMap(getPathLessons)
-    expect(lessons).toHaveLength(18)
+    expect(lessons).toHaveLength(19)
     expect(lessons.every((lesson) => lesson.exercises.length >= 4)).toBe(true)
     expect(new Set(lessons.flatMap((lesson) => lesson.exercises.map((exercise) => exercise.type)))).toEqual(
-      new Set(['concept', 'choice', 'scenario', 'order', 'reflection'])
+      new Set(['concept', 'choice', 'scenario', 'order', 'reflection', 'tool'])
     )
   })
 

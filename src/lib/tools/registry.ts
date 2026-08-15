@@ -1,8 +1,9 @@
 import type { ComponentType } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Compass } from 'lucide-react'
+import { Compass, Unlock } from 'lucide-react'
 import type { ToolEntry } from '@/lib/tools/storage'
 import { VisionTool } from '@/components/tools/vision/VisionTool'
+import { LimitingBeliefsTool } from '@/components/tools/limiting-beliefs/LimitingBeliefsTool'
 
 // The extension point for self-improvement tools (vision, cookie jar, wheel
 // of life, time audit, ...).
@@ -59,6 +60,13 @@ export const TOOL_REGISTRY: ToolManifest[] = [
     description: 'Write down where you are headed, and revisit how it has changed.',
     icon: Compass,
     Component: VisionTool,
+  },
+  {
+    id: 'limiting-beliefs',
+    title: 'Limiting Beliefs',
+    description: "Name a belief that's holding you back, challenge it, and write a better one.",
+    icon: Unlock,
+    Component: LimitingBeliefsTool,
   },
 ]
 
