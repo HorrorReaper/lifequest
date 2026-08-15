@@ -18,6 +18,7 @@ import {
   claimRewards,
   fetchCityState,
   getDefaultCityState,
+  getLockedBuildings,
   isCellOccupied,
   placeBuilding,
 } from '@/lib/city/city'
@@ -25,6 +26,7 @@ import { CityGrid, type CityCell } from '@/components/city/CityGrid'
 import { BuildingPicker } from '@/components/city/BuildingPicker'
 import { BuildingSprite } from '@/components/city/BuildingSprite'
 import { RewardsClaimer } from '@/components/city/RewardsClaimer'
+import { NextUnlockCard } from '@/components/city/NextUnlockCard'
 import { Button } from '@/components/ui/button'
 import { useUserStore } from '@/lib/stores/user-store'
 import { cn } from '@/lib/utils'
@@ -162,6 +164,9 @@ export default function CityPage() {
     )
   }
 
+  const lockedBuildings = getLockedBuildings(city.xp)
+  const nextBuilding = [...lockedBuildings].sort((a, b) => a.xpRequired - b.xpRequired)[0] ?? null
+
   return (
     <main className="h-[calc(100svh-var(--bottom-nav-height)-var(--safe-area-bottom))] min-h-[30rem] overflow-hidden">
       <section className="relative h-full w-full overflow-hidden bg-[linear-gradient(180deg,#b9dde1_0%,#d8ebdc_38%,#9fc487_100%)] dark:bg-[linear-gradient(180deg,#183744_0%,#24483d_42%,#193a29_100%)]">
@@ -234,6 +239,8 @@ export default function CityPage() {
               </Button>
             </div>
           )}
+
+          <NextUnlockCard building={nextBuilding} currentXp={city.xp} />
 
           {userId && (
             <RewardsClaimer

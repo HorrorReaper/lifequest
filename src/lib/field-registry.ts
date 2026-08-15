@@ -1,4 +1,5 @@
 import { FieldType } from '@/lib/types'
+import { DEFAULT_MOOD_OPTIONS } from '@/lib/mood'
 
 export interface FieldTypeDefinition {
   type: FieldType
@@ -53,7 +54,7 @@ export const FIELD_REGISTRY: FieldTypeDefinition[] = [ //welche verschiedenen Ar
     icon: '🔢',
     description: 'Numeric input',
     hasConfig: true,
-    defaultConfig: { min: 1, max: 100, step: 1 },
+    defaultConfig: { min: 1, max: 100, step: 1, track_as_metric: false, metric_unit: '' },
     isDisplayOnly: false,
   },
   {
@@ -81,13 +82,7 @@ export const FIELD_REGISTRY: FieldTypeDefinition[] = [ //welche verschiedenen Ar
     description: 'Emoji-based mood selector',
     hasConfig: true,
     defaultConfig: {
-      options: [
-        { value: 'great', emoji: '😊' },
-        { value: 'good', emoji: '🙂' },
-        { value: 'okay', emoji: '😐' },
-        { value: 'low', emoji: '😔' },
-        { value: 'struggling', emoji: '😢' },
-      ],
+      options: DEFAULT_MOOD_OPTIONS,
     },
     isDisplayOnly: false,
   },

@@ -1,10 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
-import { getLockedBuildings } from '@/lib/city'
 import type { Database } from '@/lib/supabase/database.types'
 import { DashboardHero } from '@/components/dashboard/DashboardHero'
-import { NextRewardCard } from '@/components/dashboard/NextRewardCard'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
 import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
@@ -17,6 +15,9 @@ import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
 import { parseTodayPlanNotes } from '@/lib/today-plan'
 import { FirstRunWelcome } from '@/components/dashboard/FirstRunWelcome'
+import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
+import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
+import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 
 type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal' | 'routine'
 
@@ -106,9 +107,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .single()
   const coins = (cityRowData as { coins: number } | null)?.coins ?? 0
 
-  const lockedBuildings = getLockedBuildings(profile.total_xp)
-  const nextBuilding = [...lockedBuildings].sort((a, b) => a.xpRequired - b.xpRequired)[0] ?? null
-
   const { annotated, customQuests } = await fetchQuestPageData(supabase, user.id)
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
@@ -116,6 +114,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ? await fetchGoals(supabase, user.id, { status: 'active' })
     : []
   const today = dateInTimezone(profile.timezone ?? 'UTC')
+
+  const trackedMetrics = await fetchTrackedMetrics(supabase, user.id)
+  const trackedMetricSeries = await Promise.all(
+    trackedMetrics.map((metric) => fetchMetricSeries(supabase, user.id, metric.fieldId))
+  )
+  // Prefer a metric that actually has data over the first one alphabetically/
+  // by creation order, so a brand-new, still-empty metric doesn't bump one
+  // the user is already filling in off the dashboard.
+  const primaryMetricIndex = trackedMetricSeries.findIndex((series) => series.length > 0)
+  const primaryMetric =
+    primaryMetricIndex >= 0 ? trackedMetrics[primaryMetricIndex] : trackedMetrics[0] ?? null
+  const primaryMetricSeries =
+    primaryMetricIndex >= 0 ? trackedMetricSeries[primaryMetricIndex] : []
 
   const [
     briefingHabitsRes,
@@ -216,6 +227,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     notes?: string | null
   } | null
   const planMetadata = parseTodayPlanNotes(dayPlan?.notes).metadata
+  const planCommitted = Boolean(planMetadata?.ritual_completed_at)
   const mainQuestTitle =
     planMetadata?.outcomes.find((outcome) => outcome.role === 'must_win')?.title ?? null
   const planBlocks = ((dayPlan?.blocks ?? [])
@@ -265,6 +277,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         />
 
         <FirstRunWelcome show={showWelcome} />
+        <DailyPlanPrompt today={today} planCommitted={planCommitted} username={profile.username} />
 
         <DailyBriefingWidget
           key={`briefing-${quickAction ?? 'default'}`}
@@ -276,7 +289,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           journals={briefingJournals}
           planBlocks={planBlocks}
           mainQuestTitle={mainQuestTitle}
-          planCommitted={Boolean(planMetadata?.ritual_completed_at)}
+          planCommitted={planCommitted}
           goals={activeGoals}
           goalsEnabled={isAdmin}
           completedJournalCount={(todayEntriesRes.data ?? []).length}
@@ -292,6 +305,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           }
         />
 
+        {primaryMetric && (
+          <MetricDashboardWidget
+            label={primaryMetric.label}
+            unit={primaryMetric.unit}
+            data={primaryMetricSeries}
+            hasMoreMetrics={trackedMetrics.length > 1}
+          />
+        )}
+
         {isAdmin && (
           <AdminLearningWidget
             learnings={dashboardLearnings}
@@ -300,8 +322,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         )}
 
         {isAdmin && <RoutinesDashboardWidget routines={dashboardRoutines} />}
-
-        <NextRewardCard building={nextBuilding} currentXp={profile.total_xp} />
 
         <QuestDashboardWidget
           claimable={claimableQuests}

@@ -1,6 +1,6 @@
 "use client";
 
-import { getLevelProgress, getLevel } from "@/lib/city";
+import { getLevelProgress, getLevel } from "@/lib/city/city";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, Coins } from "lucide-react";
 

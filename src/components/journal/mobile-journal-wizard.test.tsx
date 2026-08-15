@@ -169,6 +169,40 @@ describe('journal drafts', () => {
     })
   })
 
+  it('restores a draft where the answer was marked as a win', () => {
+    // insight_type is validated against a hardcoded Set in this module (kept
+    // in sync with InsightType by hand, not by the type checker), so this
+    // guards against 'win' being valid everywhere else but silently
+    // rejected here, which would discard the whole draft on restore.
+    const known = field('known', 'textarea')
+    const rawDraft = JSON.stringify({
+      version: 1,
+      activeStep: 0,
+      values: {
+        known: {
+          field_id: 'known',
+          value_text: 'Shipped the feature end to end',
+          insight_type: 'win',
+          topic_tags: ['launch'],
+          insight_marked_at: '2026-08-03T09:00:00.000Z',
+        },
+      },
+    })
+
+    expect(restoreJournalDraft(rawDraft, [known], 1)).toEqual({
+      activeStep: 0,
+      values: {
+        known: {
+          field_id: 'known',
+          value_text: 'Shipped the feature end to end',
+          insight_type: 'win',
+          topic_tags: ['launch'],
+          insight_marked_at: '2026-08-03T09:00:00.000Z',
+        },
+      },
+    })
+  })
+
   it('rejects malformed drafts instead of partially applying them', () => {
     const known = field('known', 'number')
     const malformed = JSON.stringify({

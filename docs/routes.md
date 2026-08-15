@@ -23,7 +23,7 @@
 
 | Route | Purpose |
 | --- | --- |
-| `/onboarding` | Six-step first-run experience, profile name, intent, rhythm, timezone, and initial template |
+| `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
 | `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, quests, and admin-only widgets |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
 | `/plan` | Five-step Today Plan ritual |
@@ -33,6 +33,8 @@
 | `/quests` | Default quests, custom quests, daily challenges, and challenge programs |
 | `/learn` | Lesson library |
 | `/learn/[lessonId]` | Lesson reader and completion quiz |
+| `/learn/tools` | Toolbox: library of self-improvement tools |
+| `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
 | `/city` | Virtual city view/build mode |
 | `/settings` | Appearance, profile, timezone, AI consent, sign-out, account deletion |
 | `/analytics` | Currently redirects to `/dashboard` |
@@ -50,6 +52,7 @@
 | `/journal/templates` | System and custom template list |
 | `/journal/templates/new` | Create a custom template |
 | `/journal/templates/[id]/edit` | Edit an owned template; system templates remain protected |
+| `/journal/metrics` | Charts for `number` fields flagged `track_as_metric` in their template config |
 
 ## Routine pages
 

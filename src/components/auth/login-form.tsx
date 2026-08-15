@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { AuthLoadingOverlay } from '@/components/auth/auth-loading-overlay'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -70,6 +71,10 @@ export function LoginForm({
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  // Set right before a successful router.push and deliberately never cleared
+  // afterward — the overlay must stay up for the whole gap until the new
+  // route actually paints, which unmounts this component for us.
+  const [navigatingLabel, setNavigatingLabel] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(
     accountDeleted ? 'Your account and LifeQuest data were deleted.' : null
   )
@@ -85,62 +90,66 @@ export function LoginForm({
     setError(null)
     setMessage(null)
 
-    try {
-      if (mode === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-        })
-
-        if (error) setError(error.message)
-        else {
-          // Deliberately not revealing whether the address has an account.
-          setMessage(
-            'If an account exists for that email, a reset link is on its way.'
-          )
-        }
-        return
-      }
-
-      if (mode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        })
-
-        if (error) {
-          setError(error.message)
-          return
-        }
-
-        // With email confirmation disabled, Supabase returns a live session and
-        // no mail is ever sent — telling the user to check their inbox would
-        // strand them on this page while already signed in.
-        if (data.session) {
-          router.push('/onboarding')
-          router.refresh()
-          return
-        }
-
-        setMessage('Check your email for a confirmation link.')
-        return
-      }
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+    if (mode === 'reset') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
       })
 
       if (error) setError(error.message)
       else {
-        router.push('/dashboard')
-        router.refresh()
+        // Deliberately not revealing whether the address has an account.
+        setMessage(
+          'If an account exists for that email, a reset link is on its way.'
+        )
       }
-    } finally {
       setLoading(false)
+      return
     }
+
+    if (mode === 'signup') {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+        return
+      }
+
+      // With email confirmation disabled, Supabase returns a live session and
+      // no mail is ever sent — telling the user to check their inbox would
+      // strand them on this page while already signed in.
+      if (data.session) {
+        setNavigatingLabel('Setting up your account…')
+        router.push('/onboarding')
+        router.refresh()
+        return
+      }
+
+      setMessage('Check your email for a confirmation link.')
+      setLoading(false)
+      return
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
+    }
+
+    setNavigatingLabel('Signing you in…')
+    router.push('/dashboard')
+    router.refresh()
   }
 
   async function handleGoogleAuth() {
@@ -347,6 +356,8 @@ export function LoginForm({
         </Link>
         .
       </FieldDescription>
+
+      {navigatingLabel && <AuthLoadingOverlay label={navigatingLabel} />}
     </div>
   )
 }

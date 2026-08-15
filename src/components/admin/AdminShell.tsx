@@ -16,8 +16,14 @@ const sections = [
   { href: '/admin/tools', label: 'Tools', icon: FlaskConical },
 ]
 
+function isChromelessRoute(pathname: string) {
+  return pathname === '/admin/productivity/focus'
+}
+
 export function AdminShell({ children, trusted, userCount }: { children: React.ReactNode; trusted: boolean; userCount: number | null }) {
   const pathname = usePathname()
+
+  if (isChromelessRoute(pathname)) return <>{children}</>
 
   return (
     <div className="min-h-dvh bg-background lg:grid lg:grid-cols-[15rem_1fr]">

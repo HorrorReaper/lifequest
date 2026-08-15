@@ -33,6 +33,25 @@ describe("today plan notes", () => {
     expect(parsed.legacyNotes).toBe("Original journal note");
   });
 
+  it("keeps a valid mood value and drops one outside the shared vocabulary", () => {
+    const withValidMood = {
+      ...createDefaultTodayPlanMetadata(),
+      mood: "good",
+    };
+    expect(
+      parseTodayPlanNotes(serializeTodayPlanNotes(withValidMood)).metadata?.mood
+    ).toBe("good");
+
+    const withInvalidMood = {
+      ...createDefaultTodayPlanMetadata(),
+      mood: "ecstatic",
+    };
+    expect(
+      parseTodayPlanNotes(serializeTodayPlanNotes(withInvalidMood)).metadata
+        ?.mood
+    ).toBeNull();
+  });
+
   it("treats unstructured notes as legacy content", () => {
     expect(parseTodayPlanNotes("Keep the afternoon light.")).toEqual({
       metadata: null,

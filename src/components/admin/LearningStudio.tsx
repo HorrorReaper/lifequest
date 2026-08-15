@@ -38,6 +38,7 @@ import {
   writeLocalLearningCatalog,
 } from '@/lib/learning-local'
 import { createClient } from '@/lib/supabase/client'
+import { TOOL_REGISTRY } from '@/lib/tools/registry'
 import {
   fetchAdminLearningCatalog,
   publishAdminLearningCatalog,
@@ -85,6 +86,13 @@ function newExercise(type: LearningExercise['type']): LearningExercise {
       return { id, type, prompt: 'Put these steps in order.', items: ['First step', 'Second step'], explanation: 'Explain the sequence.' }
     case 'reflection':
       return { id, type, prompt: 'How will you apply this?', placeholder: 'Write a specific next action.' }
+    case 'tool':
+      return {
+        id,
+        type,
+        toolId: TOOL_REGISTRY[0]?.id ?? '',
+        prompt: 'Use the tool to put this into practice.',
+      }
   }
 }
 
@@ -571,6 +579,28 @@ function ExerciseEditor({ exercise, index, onChange, onDelete }: { exercise: Lea
         <div className="grid gap-3">
           <Field label="Reflection prompt"><Textarea value={exercise.prompt} onChange={(event) => onChange({ ...exercise, prompt: event.target.value })} /></Field>
           <Field label="Answer placeholder"><Input value={exercise.placeholder} onChange={(event) => onChange({ ...exercise, placeholder: event.target.value })} /></Field>
+        </div>
+      )}
+
+      {exercise.type === 'tool' && (
+        <div className="grid gap-3">
+          <Field label="Prompt"><Textarea value={exercise.prompt} onChange={(event) => onChange({ ...exercise, prompt: event.target.value })} /></Field>
+          <Field label="Tool">
+            {/* A select rather than free text: the id must match a registered
+                tool, and the database cannot check that for us. */}
+            <select
+              value={exercise.toolId}
+              onChange={(event) => onChange({ ...exercise, toolId: event.target.value })}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {TOOL_REGISTRY.map((tool) => (
+                <option key={tool.id} value={tool.id}>{tool.title}</option>
+              ))}
+            </select>
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            The learner must save something in this tool before the lesson can be completed.
+          </p>
         </div>
       )}
     </article>

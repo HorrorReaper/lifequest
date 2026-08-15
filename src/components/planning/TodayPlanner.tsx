@@ -19,7 +19,6 @@ import {
   Dumbbell,
   Flame,
   HeartPulse,
-  ListTodo,
   MoonStar,
   Plus,
   Sparkles,
@@ -42,6 +41,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { upsertDayPlan } from "@/lib/day-plans";
+import { createTask } from "@/lib/tasks";
+import { MoodSelector } from "@/components/journal/mood-selector";
+import { DEFAULT_MOOD_OPTIONS } from "@/lib/mood";
+import { TaskCombobox } from "@/components/planning/TaskCombobox";
 import type {
   DayPlanBlock,
   DayPlanCategory,
@@ -271,8 +274,17 @@ export function TodayPlanner({
     useState<TodayPlanMetadata>(initialMetadata);
   const [blocks, setBlocks] = useState<DayPlanBlock[]>(initialBlocks);
   const [step, setStep] = useState(0);
-  const [activeRole, setActiveRole] =
-    useState<DayPlanOutcomeRole>("must_win");
+  // Seeded from the server-loaded prop, then grown locally so a task created
+  // inline from any outcome's combobox shows up immediately in the other
+  // two comboboxes without a round trip back to the server.
+  const [taskList, setTaskList] = useState<TodayPlannerTask[]>(tasks);
+  const [creatingRole, setCreatingRole] = useState<DayPlanOutcomeRole | null>(
+    null
+  );
+  const [createTaskError, setCreateTaskError] = useState<{
+    role: DayPlanOutcomeRole;
+    message: string;
+  } | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -365,13 +377,42 @@ export function TodayPlanner({
     setStepError(null);
   }
 
-  function assignTask(task: TodayPlannerTask) {
-    updateOutcome(activeRole, {
+  function assignTaskToRole(role: DayPlanOutcomeRole, task: TodayPlannerTask) {
+    updateOutcome(role, {
       title: task.title,
       task_id: task.id,
       duration_minutes:
-        task.estimateMinutes ?? OUTCOME_META[activeRole].defaultDuration,
+        task.estimateMinutes ?? OUTCOME_META[role].defaultDuration,
     });
+  }
+
+  async function createAndAssignTask(role: DayPlanOutcomeRole, title: string) {
+    const trimmed = title.trim();
+    if (!trimmed || creatingRole) return;
+
+    setCreatingRole(role);
+    setCreateTaskError(null);
+    try {
+      const created = await createTask(supabase, userId, { title: trimmed });
+      const plannerTask: TodayPlannerTask = {
+        id: created.id,
+        title: created.title,
+        dueDate: created.due_date,
+        priority: created.priority,
+        isOverdue: false,
+        estimateMinutes: null,
+      };
+      setTaskList((current) => [plannerTask, ...current]);
+      assignTaskToRole(role, plannerTask);
+    } catch (error) {
+      console.error("Failed to create task from Today Plan", error);
+      setCreateTaskError({
+        role,
+        message: "Could not create the task. Please try again.",
+      });
+    } finally {
+      setCreatingRole(null);
+    }
   }
 
   function toggleAnchor(anchor: TodayPlanAnchor) {
@@ -615,9 +656,25 @@ export function TodayPlanner({
           </div>
 
           {step === 0 && (
-            <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="mx-auto grid w-full max-w-2xl gap-5">
               <Card className="rounded-3xl">
                 <CardContent className="space-y-5 p-5 sm:p-6">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      How are you feeling right now?
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Optional, but useful context for the intention below.
+                    </p>
+                    <div className="mt-3">
+                      <MoodSelector
+                        options={DEFAULT_MOOD_OPTIONS}
+                        value={metadata.mood}
+                        onChange={(mood) => updateMetadata({ mood })}
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label
                       htmlFor="plan-intention"
@@ -646,239 +703,111 @@ export function TodayPlanner({
                 </CardContent>
               </Card>
 
-              <div className="space-y-3">
-                <div className="rounded-3xl border bg-background/75 p-5">
-                  <div className="flex items-center gap-2">
-                    <ListTodo className="size-4 text-blue-500" />
-                    <h2 className="text-sm font-semibold">Open loops</h2>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Review, don&apos;t react. You will choose on the next step.
-                  </p>
-                  {tasks.length > 0 ? (
-                    <ul className="mt-4 space-y-2">
-                      {tasks.slice(0, 5).map((task) => (
-                        <li
-                          key={task.id}
-                          className="flex items-start gap-2 text-sm"
-                        >
-                          <span
-                            className={cn(
-                              "mt-1.5 size-1.5 shrink-0 rounded-full",
-                              task.isOverdue
-                                ? "bg-red-500"
-                                : task.priority === "high"
-                                  ? "bg-amber-500"
-                                  : "bg-muted-foreground/50"
-                            )}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="line-clamp-2">{task.title}</span>
-                            {task.isOverdue && (
-                              <span className="text-xs text-red-600 dark:text-red-400">
-                                Overdue
-                              </span>
-                            )}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-4 rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-                      No open tasks. Start from intention, not urgency.
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-3xl border bg-background/75 p-5">
-                  <div className="flex items-center gap-2">
-                    <CalendarClock className="size-4 text-violet-500" />
-                    <h2 className="text-sm font-semibold">Existing shape</h2>
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {blocks.length > 0
-                      ? `${blocks.length} time block${blocks.length === 1 ? "" : "s"} already on the board. We will preserve and refine them.`
-                      : "The timeline is empty. Your chosen commitments will create the first draft."}
-                  </p>
-                </div>
-              </div>
             </div>
           )}
 
           {step === 1 && (
-            <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="space-y-4">
-                {(Object.keys(OUTCOME_META) as DayPlanOutcomeRole[]).map(
-                  (role) => {
-                    const outcome = roleOutcome(metadata, role);
-                    const item = OUTCOME_META[role];
-                    const Icon = item.icon;
-                    return (
-                      <Card
-                        key={role}
-                        className={cn(
-                          "rounded-3xl transition",
-                          activeRole === role && "ring-2 ring-primary/30"
-                        )}
-                        onClick={() => setActiveRole(role)}
-                      >
-                        <CardContent className="space-y-4 p-5 sm:p-6">
-                          <div className="flex items-start gap-3">
-                            <span
-                              className={cn(
-                                "flex size-10 shrink-0 items-center justify-center rounded-2xl border",
-                                item.style
-                              )}
-                            >
-                              <Icon className="size-5" />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h2 className="font-semibold">{item.label}</h2>
-                                <Badge
-                                  variant="outline"
-                                  className={cn("rounded-full", item.style)}
-                                >
-                                  {item.mission}
-                                </Badge>
-                              </div>
-                              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                {item.helper}
-                              </p>
-                            </div>
-                          </div>
-                          <Input
-                            aria-label={`${item.label} outcome`}
-                            value={outcome?.title ?? ""}
-                            onFocus={() => setActiveRole(role)}
-                            onChange={(event) =>
-                              updateOutcome(role, {
-                                title: event.target.value,
-                                task_id:
-                                  event.target.value === outcome?.title
-                                    ? outcome?.task_id ?? null
-                                    : null,
-                              })
-                            }
-                            maxLength={160}
-                            placeholder={
-                              role === "must_win"
-                                ? "What must move today?"
-                                : role === "progress"
-                                  ? "What creates forward momentum?"
-                                  : "What protects your energy?"
-                            }
-                            className="h-12 rounded-xl text-base"
-                          />
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-xs text-muted-foreground">
-                              {outcome?.task_id
-                                ? "Linked to a task"
-                                : "Standalone outcome"}
-                            </span>
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                              Budget
-                              <select
-                                aria-label={`${item.label} time budget`}
-                                value={
-                                  outcome?.duration_minutes ??
-                                  item.defaultDuration
-                                }
-                                onChange={(event) =>
-                                  updateOutcome(role, {
-                                    duration_minutes: Number(
-                                      event.target.value
-                                    ),
-                                  })
-                                }
-                                className="h-9 rounded-lg border bg-background px-2 text-foreground"
-                              >
-                                {DURATION_OPTIONS.map((minutes) => (
-                                  <option key={minutes} value={minutes}>
-                                    {formatPlanMinutes(minutes)}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  }
-                )}
-              </div>
-
-              <aside className="h-fit rounded-3xl border bg-background/75 p-5 lg:sticky lg:top-24">
-                <div className="flex items-center gap-2">
-                  <ListTodo className="size-4 text-blue-500" />
-                  <h2 className="text-sm font-semibold">Pull from tasks</h2>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Assign a task to{" "}
-                  <span className="font-medium text-foreground">
-                    {OUTCOME_META[activeRole].label}
-                  </span>
-                  .
-                </p>
-                {tasks.length > 0 ? (
-                  <div className="mt-4 space-y-2">
-                    {tasks.slice(0, 10).map((task) => {
-                      const assignedRole = metadata.outcomes.find(
-                        (outcome) => outcome.task_id === task.id
-                      )?.role;
-                      const assignedElsewhere =
-                        assignedRole && assignedRole !== activeRole;
-                      return (
-                        <button
-                          key={task.id}
-                          type="button"
-                          disabled={Boolean(assignedElsewhere)}
-                          onClick={() => assignTask(task)}
-                          className={cn(
-                            "flex min-h-12 w-full items-start gap-3 rounded-xl border p-3 text-left transition",
-                            assignedRole === activeRole
-                              ? "border-primary bg-primary/8"
-                              : "hover:border-primary/35 hover:bg-primary/5",
-                            assignedElsewhere && "cursor-not-allowed opacity-45"
-                          )}
-                        >
+            <div className="space-y-4">
+              {(Object.keys(OUTCOME_META) as DayPlanOutcomeRole[]).map(
+                (role) => {
+                  const outcome = roleOutcome(metadata, role);
+                  const item = OUTCOME_META[role];
+                  const Icon = item.icon;
+                  return (
+                    <Card
+                      key={role}
+                      // Card clips overflow by default for rounded image
+                      // corners; every role renders a TaskCombobox whose
+                      // dropdown needs to escape that clip.
+                      className="overflow-visible rounded-3xl transition"
+                    >
+                      <CardContent className="space-y-4 p-5 sm:p-6">
+                        <div className="flex items-start gap-3">
                           <span
                             className={cn(
-                              "mt-1 size-2 shrink-0 rounded-full",
-                              task.isOverdue
-                                ? "bg-red-500"
-                                : task.priority === "high"
-                                  ? "bg-amber-500"
-                                  : task.priority === "medium"
-                                    ? "bg-blue-500"
-                                    : "bg-muted-foreground/50"
+                              "flex size-10 shrink-0 items-center justify-center rounded-2xl border",
+                              item.style
                             )}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="line-clamp-2 text-sm font-medium">
-                              {task.title}
-                            </span>
-                            <span className="mt-1 block text-xs text-muted-foreground">
-                              {assignedElsewhere
-                                ? `Already used for ${OUTCOME_META[assignedRole].label}`
-                                : task.estimateMinutes
-                                  ? `${formatPlanMinutes(task.estimateMinutes)} estimate`
-                                  : `${task.priority} priority`}
-                            </span>
+                          >
+                            <Icon className="size-5" />
                           </span>
-                          {assignedRole === activeRole && (
-                            <Check className="size-4 shrink-0 text-primary" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="mt-4 rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-                    No open tasks. Write outcomes directly.
-                  </p>
-                )}
-              </aside>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h2 className="font-semibold">{item.label}</h2>
+                              <Badge
+                                variant="outline"
+                                className={cn("rounded-full", item.style)}
+                              >
+                                {item.mission}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                              {item.helper}
+                            </p>
+                          </div>
+                        </div>
+                        <TaskCombobox
+                          ariaLabel={`${item.label} outcome`}
+                          tasks={taskList}
+                          linkedTaskId={outcome?.task_id ?? null}
+                          value={outcome?.title ?? ""}
+                          onChangeText={(text) =>
+                            updateOutcome(role, { title: text, task_id: null })
+                          }
+                          onSelectTask={(task) => assignTaskToRole(role, task)}
+                          onCreateTask={(title) =>
+                            void createAndAssignTask(role, title)
+                          }
+                          creating={creatingRole === role}
+                          placeholder={
+                            role === "must_win"
+                              ? "What must move today? Search or create a task…"
+                              : role === "progress"
+                                ? "What creates forward momentum? Search or create a task…"
+                                : "What protects your energy? Search or create a task…"
+                          }
+                        />
+                        {createTaskError?.role === role && (
+                          <p role="alert" className="text-xs text-destructive">
+                            {createTaskError.message}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-muted-foreground">
+                            {outcome?.task_id
+                              ? "Linked to a task"
+                              : "Standalone outcome"}
+                          </span>
+                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            Budget
+                            <select
+                              aria-label={`${item.label} time budget`}
+                              value={
+                                outcome?.duration_minutes ??
+                                item.defaultDuration
+                              }
+                              onChange={(event) =>
+                                updateOutcome(role, {
+                                  duration_minutes: Number(
+                                    event.target.value
+                                  ),
+                                })
+                              }
+                              className="h-9 rounded-lg border bg-background px-2 text-foreground"
+                            >
+                              {DURATION_OPTIONS.map((minutes) => (
+                                <option key={minutes} value={minutes}>
+                                  {formatPlanMinutes(minutes)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+              )}
             </div>
           )}
 

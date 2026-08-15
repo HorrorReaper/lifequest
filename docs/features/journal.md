@@ -122,10 +122,19 @@ Responses can be marked as:
 - Problem.
 - Idea.
 - Decision.
+- Win.
+
+The insight type vocabulary is defined once, in `INSIGHT_TYPES` (`src/lib/insights.ts`), and consumed by both the marker dialog and the insights list. The one exception is `src/components/journal/mobile-journal-wizard.tsx`, which validates a restored sessionStorage draft against its own hardcoded copy of the valid values — not type-checked against `InsightType`, so a new type added there without updating that Set fails validation silently and the whole draft is discarded on restore.
 
 Marked responses appear in `/journal/insights`. Users can add up to five normalized tags and favorite important items.
 
 The structured learning library provides a longer-lived view of captured lessons. Legacy `learning` fields synchronize into this library so older templates remain useful.
+
+## Metrics
+
+Any `number` field can be flagged as a tracked metric from the template builder (`config.track_as_metric = true`, optional `config.metric_unit`). No dedicated table: the flag lives on the existing `template_fields.config` JSON column, and the values are the same `journal_responses.value_number` rows already written by ordinary entry submission.
+
+`/journal/metrics` (`src/lib/metrics.ts`) lists every tracked field the user can see (their own templates plus active system templates) and charts its value history — one point per journal entry, not aggregated per day, since the right aggregation for something like daily revenue vs. a single weigh-in is a per-metric modeling choice this feature doesn't make yet. Slider and rating fields are intentionally out of scope: their bounded scales don't need the same free-range charting `number` fields do.
 
 ## Archive and editing
 

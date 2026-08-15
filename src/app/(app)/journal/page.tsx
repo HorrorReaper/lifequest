@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { TemplatePicker } from '@/components/journal/template-picker'
 import { EntryTimeline } from '@/components/journal/entry-timeline'
 import { JournalTemplate, JournalEntry } from '@/lib/types'
-import { ArrowRight, BookOpen, BookOpenCheck, LayoutList, LayoutTemplate } from 'lucide-react'
+import { ArrowRight, BookOpen, BookOpenCheck, LayoutList, LayoutTemplate, LineChart } from 'lucide-react'
 
 type EntryTypeJoin = { entry_type: string } | { entry_type: string }[] | null
 
@@ -146,6 +146,13 @@ export default async function JournalPage() {
             >
               <LayoutTemplate className="size-3.5" />
               Templates
+            </Link>
+            <Link
+              href="/journal/metrics"
+              className="flex items-center gap-1.5 rounded-full border bg-background/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+            >
+              <LineChart className="size-3.5" />
+              Metrics
             </Link>
           </nav>
         </header>

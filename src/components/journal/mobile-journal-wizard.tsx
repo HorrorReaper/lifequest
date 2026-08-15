@@ -5,7 +5,12 @@ import type { ChecklistItem, DayPlanBlock, FieldValue, TemplateField } from '@/l
 export const DISPLAY_ONLY_JOURNAL_FIELD_TYPES = ['divider', 'heading', 'prompt'] as const
 
 const DRAFT_VERSION = 1
-const INSIGHT_TYPES = new Set(['learning', 'problem', 'idea', 'decision'])
+// Kept in sync with InsightType (src/lib/types.ts) by hand — this Set exists
+// only to validate a deserialized sessionStorage draft, so TypeScript can't
+// catch a missed value here the way it does for the `satisfies Record<InsightType, ...>`
+// icon/style maps elsewhere. A value missing from this Set doesn't error, it
+// silently fails validation and the whole draft gets discarded on restore.
+const INSIGHT_TYPES = new Set(['learning', 'problem', 'idea', 'decision', 'win'])
 
 export interface MobileJournalStep {
   id: string

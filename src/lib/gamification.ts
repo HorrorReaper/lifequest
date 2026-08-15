@@ -1,4 +1,4 @@
-import { xpForLevel } from "./city";
+import { xpForLevel } from "./city/city";
 import { XpRule, FieldType } from "./types";
 
 /*export function getLevel(xp: number): number {

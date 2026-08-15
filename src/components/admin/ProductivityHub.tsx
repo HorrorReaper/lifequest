@@ -1,12 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { addDays, format } from 'date-fns'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ArrowDown, ArrowUp, Check, Clock3, Flame, ListTodo, Pause, Play, Plus, RotateCcw, Target, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { FocusSessionRow, ProductivityPriorityRow } from '@/lib/supabase/database.types'
 import type { DayPlanBlock, Goal, Task } from '@/lib/types'
+import { secondsLabel } from '@/lib/focus-session'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AdminPageHeader } from './AdminPageHeader'
@@ -15,13 +17,9 @@ import { cn } from '@/lib/utils'
 type HabitSummary = { id: string; name: string; emoji: string; done: boolean }
 type RoutineSummary = { id: string; name: string; emoji: string }
 
-function secondsLabel(seconds: number) {
-  const safe = Math.max(0, seconds)
-  return `${String(Math.floor(safe / 60)).padStart(2, '0')}:${String(safe % 60).padStart(2, '0')}`
-}
-
 export function ProductivityHub({ userId, today }: { userId: string; today: string }) {
   const supabase = useMemo(() => createClient() as unknown as SupabaseClient, [])
+  const router = useRouter()
   const [tasks, setTasks] = useState<Task[]>([])
   const [priorities, setPriorities] = useState<ProductivityPriorityRow[]>([])
   const [activeFocus, setActiveFocus] = useState<FocusSessionRow | null>(null)
@@ -82,7 +80,7 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
   async function addPriority(taskId: string) { if (priorities.length >= 3 || priorities.some((item) => item.task_id === taskId)) return; await supabase.from('productivity_daily_priorities').insert({ user_id: userId, priority_date: today, task_id: taskId, sort_order: priorities.length }); await load() }
   async function removePriority(id: string) { await supabase.from('productivity_daily_priorities').delete().eq('id', id); await Promise.all(priorities.filter((p) => p.id !== id).map((p, index) => supabase.from('productivity_daily_priorities').update({ sort_order: index }).eq('id', p.id))); await load() }
   async function movePriority(index: number, direction: -1 | 1) { const next = index + direction; if (next < 0 || next >= priorities.length) return; const current = priorities[index]; const target = priorities[next]; await supabase.from('productivity_daily_priorities').update({ sort_order: 99 }).eq('id', current.id); await supabase.from('productivity_daily_priorities').update({ sort_order: index }).eq('id', target.id); await supabase.from('productivity_daily_priorities').update({ sort_order: next }).eq('id', current.id); await load() }
-  async function startFocus(taskId?: string) { const { data, error: startError } = await supabase.from('focus_sessions').insert({ user_id: userId, task_id: taskId ?? null, planned_minutes: duration }).select('*').single(); if (startError) setError(startError.message); else { setActiveFocus(data as FocusSessionRow); setNow(Date.now()) } }
+  async function startFocus(taskId?: string) { const { data, error: startError } = await supabase.from('focus_sessions').insert({ user_id: userId, task_id: taskId ?? null, planned_minutes: duration }).select('*').single(); if (startError) setError(startError.message); else { setActiveFocus(data as FocusSessionRow); setNow(Date.now()); router.push('/admin/productivity/focus') } }
   async function endFocus(status: 'completed' | 'cancelled') { if (!activeFocus) return; const actual = Math.max(0, Math.floor((Date.now() - new Date(activeFocus.started_at).getTime()) / 1000)); await supabase.from('focus_sessions').update({ status, ended_at: new Date().toISOString(), actual_seconds: actual, updated_at: new Date().toISOString() }).eq('id', activeFocus.id); setActiveFocus(null); await load() }
 
   return <div className="mx-auto max-w-[92rem] space-y-7">

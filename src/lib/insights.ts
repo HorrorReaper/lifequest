@@ -26,6 +26,11 @@ export const INSIGHT_TYPES: Array<{
     label: 'Decision',
     description: 'A choice or commitment you made.',
   },
+  {
+    value: 'win',
+    label: 'Win',
+    description: 'A win worth remembering, for when you need the reminder.',
+  },
 ]
 
 export function isInsightType(value: unknown): value is InsightType {
