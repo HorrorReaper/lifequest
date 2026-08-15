@@ -70,68 +70,123 @@ afterEach(() => {
 });
 
 describe("HabitManager", () => {
-  it("toggling a non-today day-dot marks only that day for that habit, without switching views or affecting other habits", async () => {
+  it("shows exactly one check-today action per habit, with no day-dot week strip", async () => {
+    const habitA = habit({ id: "habit-a", name: "Meditation" });
+    fetchHabits.mockResolvedValue([habitA]);
+
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
+
+    expect(
+      screen.getByRole("button", { name: "Mark Meditation complete for 2026-08-09" })
+    ).toBeTruthy();
+    // No per-day dots: none of the week's other formatted-date labels should exist.
+    expect(
+      screen.queryByRole("button", {
+        name: /Mark Meditation (complete|incomplete) for \w+, Aug/,
+      })
+    ).toBeNull();
+  });
+
+  it("checking a habit calls the save function for today, independently per habit", async () => {
     const habitA = habit({ id: "habit-a", name: "Meditation" });
     const habitB = habit({ id: "habit-b", name: "Journaling" });
     fetchHabits.mockResolvedValue([habitA, habitB]);
-    const savedLog: HabitLog = {
+    setHabitLogCompletion.mockResolvedValue({
       id: "log-1",
       user_id: "user-1",
       habit_id: "habit-a",
       entry_id: null,
-      log_date: "2026-08-06",
+      log_date: TODAY,
       completed: true,
-      created_at: "2026-08-06T12:00:00.000Z",
-    };
-    setHabitLogCompletion.mockResolvedValue(savedLog);
+      created_at: "2026-08-09T12:00:00.000Z",
+    });
 
     render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
-
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Mark Meditation complete for Thursday, Aug 6" })
+      screen.getByRole("button", { name: "Mark Meditation complete for 2026-08-09" })
     );
 
     await waitFor(() =>
       expect(setHabitLogCompletion).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({
-          habitId: "habit-a",
-          date: "2026-08-06",
-          completed: true,
-        })
+        expect.objectContaining({ habitId: "habit-a", date: TODAY, completed: true })
       )
     );
 
-    expect(
-      screen.getByRole("tab", { name: "Today" }).getAttribute("aria-selected")
-    ).toBe("true");
-    expect(screen.queryByLabelText("History date")).toBeNull();
-    // Verify icon button for today still exists
+    // Journaling's own checkbox is untouched and independently actionable.
     expect(
       screen.getByRole("button", { name: "Mark Journaling complete for 2026-08-09" })
     ).toBeTruthy();
-    // Verify today's day-dot still exists and is distinct (formatted date in aria-label)
-    const todaysDot = screen.getByRole("button", { name: /Mark Journaling complete for Sunday, Aug 9/ });
-    expect(todaysDot).toBeTruthy();
+  });
 
-    // Verify clicking today's day-dot actually calls the save function
-    setHabitLogCompletion.mockClear();
-    fireEvent.click(todaysDot);
+  it("the icon chip always shows the habit's own emoji, never a checkmark override", async () => {
+    const habitA = habit({ id: "habit-a", name: "Meditation", emoji: "🧘" });
+    fetchHabits.mockResolvedValue([habitA]);
+    habitLogRows = [
+      {
+        id: "log-1",
+        user_id: "user-1",
+        habit_id: "habit-a",
+        entry_id: null,
+        log_date: TODAY,
+        completed: true,
+        created_at: "2026-08-09T12:00:00.000Z",
+      },
+    ];
+
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
+
+    expect(screen.getByText("🧘")).toBeTruthy();
+  });
+
+  it("un-toggles a completed habit back to incomplete", async () => {
+    const habitA = habit({ id: "habit-a", name: "Meditation" });
+    fetchHabits.mockResolvedValue([habitA]);
+    habitLogRows = [
+      {
+        id: "log-1",
+        user_id: "user-1",
+        habit_id: "habit-a",
+        entry_id: null,
+        log_date: TODAY,
+        completed: true,
+        created_at: "2026-08-09T12:00:00.000Z",
+      },
+    ];
+    setHabitLogCompletion.mockResolvedValue({
+      id: "log-1",
+      user_id: "user-1",
+      habit_id: "habit-a",
+      entry_id: null,
+      log_date: TODAY,
+      completed: false,
+      created_at: "2026-08-09T12:00:00.000Z",
+    });
+
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
+
+    const checkbox = screen.getByRole("button", {
+      name: "Mark Meditation incomplete for 2026-08-09",
+    });
+    expect(checkbox.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(checkbox);
+
     await waitFor(() =>
       expect(setHabitLogCompletion).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({
-          habitId: "habit-b",
-          date: "2026-08-09",
-          completed: true,
-        })
+        expect.objectContaining({ habitId: "habit-a", date: TODAY, completed: false })
       )
     );
+    await waitFor(() => expect(checkbox.getAttribute("aria-pressed")).toBe("false"));
   });
 
-  it("a pending toggle for one date does not disable a different date's dot on the same habit", async () => {
+  it("disables the checkbox while a save is pending", async () => {
     const habitA = habit({ id: "habit-a", name: "Meditation" });
     fetchHabits.mockResolvedValue([habitA]);
     let resolveSave: (log: HabitLog) => void = () => {};
@@ -142,29 +197,24 @@ describe("HabitManager", () => {
     render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
-    const mondayButton = screen.getByRole("button", {
-      name: "Mark Meditation complete for Monday, Aug 3",
+    const checkbox = screen.getByRole("button", {
+      name: "Mark Meditation complete for 2026-08-09",
     });
-    fireEvent.click(mondayButton);
+    fireEvent.click(checkbox);
 
     await waitFor(() => expect(setHabitLogCompletion).toHaveBeenCalledTimes(1));
-    expect(mondayButton.hasAttribute("disabled")).toBe(true);
-
-    const tuesdayButton = screen.getByRole("button", {
-      name: "Mark Meditation complete for Tuesday, Aug 4",
-    });
-    expect(tuesdayButton.hasAttribute("disabled")).toBe(false);
+    expect(checkbox.hasAttribute("disabled")).toBe(true);
 
     resolveSave({
       id: "log-1",
       user_id: "user-1",
       habit_id: "habit-a",
       entry_id: null,
-      log_date: "2026-08-03",
+      log_date: TODAY,
       completed: true,
-      created_at: "2026-08-03T12:00:00.000Z",
+      created_at: "2026-08-09T12:00:00.000Z",
     });
-    await waitFor(() => expect(mondayButton.hasAttribute("disabled")).toBe(false));
+    await waitFor(() => expect(checkbox.hasAttribute("disabled")).toBe(false));
   });
 
   it("shows the full habit name as a tooltip when it is truncated in the list", async () => {
@@ -180,65 +230,6 @@ describe("HabitManager", () => {
       expect(
         screen.getByTitle("Enjoy five minutes of quiet before the day starts")
       ).toBeTruthy()
-    );
-  });
-
-  it("clicking a completed day-dot un-toggles completion (complete -> incomplete)", async () => {
-    const habitA = habit({ id: "habit-a", name: "Meditation" });
-    fetchHabits.mockResolvedValue([habitA]);
-
-    // Seed with a completed log for Aug 6
-    habitLogRows = [
-      {
-        id: "log-1",
-        user_id: "user-1",
-        habit_id: "habit-a",
-        entry_id: null,
-        log_date: "2026-08-06",
-        completed: true,
-        created_at: "2026-08-06T12:00:00.000Z",
-      },
-    ];
-
-    const untoggledLog: HabitLog = {
-      id: "log-1",
-      user_id: "user-1",
-      habit_id: "habit-a",
-      entry_id: null,
-      log_date: "2026-08-06",
-      completed: false,
-      created_at: "2026-08-06T12:00:00.000Z",
-    };
-    setHabitLogCompletion.mockResolvedValue(untoggledLog);
-
-    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
-    await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
-
-    // Assert the completed dot renders with "incomplete" label (aria-label describes the toggle action)
-    const completedDot = screen.getByRole("button", {
-      name: "Mark Meditation incomplete for Thursday, Aug 6",
-    });
-    expect(completedDot).toBeTruthy();
-    expect(completedDot.getAttribute("aria-pressed")).toBe("true");
-
-    // Click it to un-toggle
-    fireEvent.click(completedDot);
-
-    // Verify the save was called with completed: false
-    await waitFor(() =>
-      expect(setHabitLogCompletion).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          habitId: "habit-a",
-          date: "2026-08-06",
-          completed: false,
-        })
-      )
-    );
-
-    // Verify optimistic update: aria-pressed flips to "false" after save resolves
-    await waitFor(() =>
-      expect(completedDot.getAttribute("aria-pressed")).toBe("false")
     );
   });
 });

@@ -544,14 +544,6 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
                       onEdit={() => startEdit(habit)}
                       onArchive={() => setArchiveTarget(habit)}
                       onMove={(offset) => moveWithButton(habit.id, offset)}
-                      onToggleDate={(toggleDate, completed) =>
-                        void saveCompletion(
-                          habit,
-                          toggleDate,
-                          completed,
-                          logIndex.get(habitLogKey(habit.id, toggleDate))
-                        )
-                      }
                     />
                   );
                 })}
@@ -737,7 +729,6 @@ interface SortableHabitCardProps {
   onEdit: () => void;
   onArchive: () => void;
   onMove: (offset: -1 | 1) => void;
-  onToggleDate: (date: string, completed: boolean) => void;
 }
 
 function SortableHabitCard({
@@ -755,7 +746,6 @@ function SortableHabitCard({
   onEdit,
   onArchive,
   onMove,
-  onToggleDate,
 }: SortableHabitCardProps) {
   const {
     attributes,
@@ -766,7 +756,6 @@ function SortableHabitCard({
     isDragging,
   } = useSortable({ id: habit.id, disabled: reorderDisabled });
   const summary = buildHabitSummary({ habit, logs, today, timezone });
-  const week = buildDateWindow(today, 7);
   const isToday = date === today;
 
   return (
@@ -800,13 +789,23 @@ function SortableHabitCard({
           aria-pressed={completed}
           aria-label={`Mark ${habit.name} ${completed ? "incomplete" : "complete"} for ${date}`}
           className={cn(
-            "grid size-12 shrink-0 place-items-center rounded-2xl text-xl text-white shadow-sm transition-transform focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45",
-            habitColorClass(habit.color),
-            completed && "scale-[0.96]"
+            "mt-2 grid size-8 shrink-0 place-items-center rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45",
+            completed
+              ? cn("border-transparent text-white", habitColorClass(habit.color))
+              : "border-border bg-transparent"
           )}
         >
-          {completed ? <Check className="size-5" /> : habit.emoji}
+          {completed && <Check className="size-4" />}
         </button>
+        <span
+          aria-hidden
+          className={cn(
+            "grid size-12 shrink-0 place-items-center rounded-2xl text-xl text-white shadow-sm",
+            habitColorClass(habit.color)
+          )}
+        >
+          {habit.emoji}
+        </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -849,35 +848,6 @@ function SortableHabitCard({
                 <Archive className="size-3.5" />
               </Button>
             </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-7 gap-1.5" aria-label={`${habit.name} last seven days`}>
-            {week.map((day) => {
-              const dayCompleted = summary.completionDates.has(day);
-              const dayLabel = formatDateOnly(day, {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              });
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  disabled={isDisabled(day)}
-                  title={dayLabel}
-                  aria-pressed={dayCompleted}
-                  aria-label={`Mark ${habit.name} ${dayCompleted ? "incomplete" : "complete"} for ${dayLabel}`}
-                  onClick={() => onToggleDate(day, !dayCompleted)}
-                  className={cn(
-                    "aspect-square rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45",
-                    dayCompleted
-                      ? cn("border-transparent", habitColorClass(habit.color))
-                      : "border-border bg-muted/45",
-                    day === today && "ring-2 ring-foreground/40 ring-offset-2 ring-offset-card"
-                  )}
-                />
-              );
-            })}
           </div>
 
           <div className="mt-3 flex items-center justify-between border-t pt-3 sm:hidden">
