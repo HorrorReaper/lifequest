@@ -16,6 +16,7 @@ import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
 import { parseTodayPlanNotes } from '@/lib/today-plan'
 import { FirstRunWelcome } from '@/components/dashboard/FirstRunWelcome'
 import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
+import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 
@@ -57,6 +58,12 @@ function dayLabel(timezone: string) {
 function minutesFromTime(time: string) {
   const [hours, minutes] = time.split(':').map(Number)
   return hours * 60 + minutes
+}
+
+function nextDate(dateKey: string) {
+  const next = new Date(`${dateKey}T00:00:00Z`)
+  next.setUTCDate(next.getUTCDate() + 1)
+  return next.toISOString().slice(0, 10)
 }
 
 function currentMinutesInTimezone(timezone: string) {
@@ -137,6 +144,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     dayPlanRes,
     routines,
     dashboardLearnings,
+    tasksCompletedTodayRes,
   ] = await Promise.all([
     supabase
       .from('habits')
@@ -181,6 +189,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .maybeSingle(),
     isAdmin ? fetchRoutines(supabase, user.id, false) : Promise.resolve([]),
     isAdmin ? fetchDashboardLearnings(supabase, user.id) : Promise.resolve([]),
+    supabase
+      .from('tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_completed', true)
+      .gte('completed_at', `${today}T00:00:00`)
+      .lt('completed_at', `${nextDate(today)}T00:00:00`),
   ])
 
   const completedHabitIds = new Set(
@@ -222,6 +237,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     completedToday: completedTemplateIds.has(template.id),
   }))
   const nowMinutes = currentMinutesInTimezone(profile.timezone ?? 'UTC')
+  const isEvening = nowMinutes >= 20 * 60
+  // journal_templates has no stable slug/key, only a DB id and a human name,
+  // so this matches on name — if the system template is ever renamed or
+  // removed, the prompt just stays hidden rather than erroring.
+  const eveningReviewTemplate =
+    briefingJournals.find((template) => template.name === 'Evening Review') ?? null
+  const eveningReviewTemplateId = eveningReviewTemplate?.id ?? null
+  const eveningReviewDone = eveningReviewTemplate?.completedToday ?? false
+  const habitsCompletedToday = briefingHabits.filter((habit) => habit.completed).length
+  const tasksCompletedToday = tasksCompletedTodayRes.count ?? 0
   const dayPlan = dayPlanRes.data as {
     blocks?: DayPlanBlock[]
     notes?: string | null
@@ -278,6 +303,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         <FirstRunWelcome show={showWelcome} />
         <DailyPlanPrompt today={today} planCommitted={planCommitted} username={profile.username} />
+        <EveningReviewPrompt
+          today={today}
+          isEvening={isEvening}
+          reviewDone={eveningReviewDone}
+          templateId={eveningReviewTemplateId}
+          username={profile.username}
+          habitsCompleted={habitsCompletedToday}
+          habitsTotal={briefingHabits.length}
+          tasksCompletedToday={tasksCompletedToday}
+        />
 
         <DailyBriefingWidget
           key={`briefing-${quickAction ?? 'default'}`}
