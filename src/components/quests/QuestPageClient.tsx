@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BookOpenText, Coins, Plus, Sparkles, Trophy, ScrollText, CheckCircle, Zap } from 'lucide-react'
+import { BookOpenText, Coins, Compass, Plus, Sparkles, Trophy, ScrollText, CheckCircle, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,9 +19,11 @@ import {
   type DefaultQuestWithStatus,
   type CustomQuest,
 } from '@/lib/quests'
+import type { QuestIdea } from '@/lib/quest-ideas'
 import { useUserStore } from '@/lib/stores/user-store'
 import { SystemQuestCard, CustomQuestCard } from '@/components/quests/QuestCard'
 import { ChallengeProgramCard } from '@/components/quests/ChallengeProgramCard'
+import { QuestIdeaPicker } from '@/components/quests/QuestIdeaPicker'
 
 type Tab = 'achievements' | 'challenges' | 'my-quests' | 'completed'
 
@@ -79,6 +81,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
   const [formCoins, setFormCoins] = useState(20)
   const [creating, setCreating] = useState(false)
   const [completionReward, setCompletionReward] = useState<QuestCompletionReward | null>(null)
+  const [showIdeaPicker, setShowIdeaPicker] = useState(false)
 
   const claimable = systemQuests.filter((q) => q.status === 'claimable')
   const locked = systemQuests.filter((q) => q.status === 'locked')
@@ -207,6 +210,16 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
     }
   }
 
+  async function handleAddIdea(idea: QuestIdea) {
+    const newQuest = await createCustomQuest(supabase, userId, {
+      title: idea.title,
+      description: idea.description,
+      xp_reward: idea.xpReward,
+      coin_reward: idea.coinReward,
+    })
+    setCustomQuests((prev) => [newQuest, ...prev])
+  }
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode; count?: number }[] = [
     { id: 'achievements', label: 'Achievements', icon: <Trophy className="size-4" />, count: claimable.length || undefined },
     { id: 'challenges', label: 'Challenges', icon: <BookOpenText className="size-4" />, count: challengePrograms.filter((program) => program.enrollment?.status === 'active').length || undefined },
@@ -296,10 +309,16 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
       {tab === 'my-quests' && (
         <div className="space-y-4">
           {!showForm ? (
-            <Button variant="outline" className="w-full" onClick={() => setShowForm(true)}>
-              <Plus className="size-4 mr-2" />
-              Create Quest
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowForm(true)}>
+                <Plus className="size-4 mr-2" />
+                Create Quest
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setShowIdeaPicker(true)}>
+                <Compass className="size-4 mr-2" />
+                Browse Ideas
+              </Button>
+            </div>
           ) : (
             <form onSubmit={handleCreate} className="rounded-xl border p-4 space-y-3">
               <p className="text-sm font-semibold">New Quest</p>
@@ -375,6 +394,12 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
               />
             ))}
           </div>
+
+          <QuestIdeaPicker
+            open={showIdeaPicker}
+            onOpenChange={setShowIdeaPicker}
+            onAdd={handleAddIdea}
+          />
         </div>
       )}
 
