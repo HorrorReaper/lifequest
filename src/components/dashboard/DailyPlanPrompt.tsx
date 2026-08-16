@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useSyncExternalStore } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { CalendarClock } from 'lucide-react'
+import { ArrowRight, CalendarClock } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -57,14 +57,16 @@ export function DailyPlanPrompt({ today, planCommitted, username }: DailyPlanPro
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss() }}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
+      <DialogContent className="overflow-hidden border-2 border-primary/20 shadow-2xl sm:max-w-sm">
+        <div className="pointer-events-none absolute -top-24 -right-24 h-48 w-48 rounded-full bg-linear-to-br from-primary/30 to-purple-500/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-linear-to-tr from-purple-500/20 to-primary/20 blur-3xl" />
+        <DialogHeader className="relative">
           <motion.span
-            className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"
+            className="flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-primary to-purple-500 text-primary-foreground"
             animate={reduceMotion ? undefined : { y: [0, -6, 0], rotate: [0, 1.5, 0] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <CalendarClock className="size-6" />
+            <CalendarClock className="size-7" />
           </motion.span>
           <motion.div
             className="space-y-2"
@@ -72,19 +74,24 @@ export function DailyPlanPrompt({ today, planCommitted, username }: DailyPlanPro
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.3 }}
           >
-            <DialogTitle>Welcome back, {username ?? 'Adventurer'} 👋</DialogTitle>
+            <DialogTitle className="text-2xl font-bold tracking-tight">
+              Welcome back, {username ?? 'Adventurer'} 👋
+            </DialogTitle>
             <DialogDescription>
               Want to start with your daily briefing? A few minutes now to set your Top
               Three makes the rest of the day easier to navigate.
             </DialogDescription>
           </motion.div>
         </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={dismiss}>
+        <DialogFooter className="relative">
+          <Button variant="ghost" onClick={dismiss}>
             Not now
           </Button>
-          <Button asChild onClick={dismiss}>
-            <Link href="/plan">Start briefing</Link>
+          <Button asChild onClick={dismiss} className="group">
+            <Link href="/plan">
+              Start briefing
+              <ArrowRight className="ml-1 size-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </Button>
         </DialogFooter>
       </DialogContent>
