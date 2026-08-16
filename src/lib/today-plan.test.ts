@@ -7,6 +7,7 @@ import {
   findTodayPlanBlockProblems,
   parseTodayPlanNotes,
   serializeTodayPlanNotes,
+  shiftEndTime,
 } from "@/lib/today-plan";
 
 describe("today plan notes", () => {
@@ -207,5 +208,27 @@ describe("today plan capacity and validation", () => {
 
     expect(problems.invalidBlockIds).toEqual(["invalid"]);
     expect(problems.overlappingBlockIds.sort()).toEqual(["one", "two"]);
+  });
+});
+
+describe("shiftEndTime", () => {
+  it("moves the end time by the same amount as the start time, preserving duration", () => {
+    expect(shiftEndTime("08:00", "18:00", "09:00")).toBe("19:00");
+    expect(shiftEndTime("09:00", "09:30", "09:15")).toBe("09:45");
+  });
+
+  it("clamps the shifted end time to the last minute of the day", () => {
+    expect(shiftEndTime("22:00", "23:30", "23:00")).toBe("23:59");
+  });
+
+  it("leaves the end time untouched when the existing span is zero or negative", () => {
+    expect(shiftEndTime("10:00", "10:00", "11:00")).toBe("10:00");
+    expect(shiftEndTime("10:00", "09:00", "11:00")).toBe("09:00");
+  });
+
+  it("leaves the end time untouched when any input is not a valid time", () => {
+    expect(shiftEndTime("", "18:00", "09:00")).toBe("18:00");
+    expect(shiftEndTime("08:00", "18:00", "")).toBe("18:00");
+    expect(shiftEndTime("08:00", "", "09:00")).toBe("");
   });
 });

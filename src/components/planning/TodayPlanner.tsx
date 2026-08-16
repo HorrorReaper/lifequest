@@ -59,6 +59,7 @@ import {
   minutesToTime,
   parseTodayPlanNotes,
   serializeTodayPlanNotes,
+  shiftEndTime,
   timeToMinutes,
   type TodayPlanAnchor,
   type TodayPlanMetadata,
@@ -907,7 +908,14 @@ export function TodayPlanner({
                         type="time"
                         value={metadata.day_start}
                         onChange={(event) =>
-                          updateMetadata({ day_start: event.target.value })
+                          updateMetadata({
+                            day_start: event.target.value,
+                            day_end: shiftEndTime(
+                              metadata.day_start,
+                              metadata.day_end,
+                              event.target.value
+                            ),
+                          })
                         }
                         className="h-11 rounded-xl text-foreground"
                       />
@@ -1055,6 +1063,11 @@ export function TodayPlanner({
                                     onChange={(event) =>
                                       updateBlock(block.id, {
                                         start_time: event.target.value,
+                                        end_time: shiftEndTime(
+                                          block.start_time,
+                                          block.end_time,
+                                          event.target.value
+                                        ),
                                       })
                                     }
                                     className="h-10 rounded-xl text-foreground"

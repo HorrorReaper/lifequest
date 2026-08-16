@@ -236,6 +236,34 @@ export function minutesToTime(totalMinutes: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
+/**
+ * Moves an end time by the same offset as its paired start time, so nudging
+ * when something starts doesn't silently shrink or inflate how long it runs.
+ * One-directional by design: editing the end time never touches the start.
+ */
+export function shiftEndTime(
+  previousStart: string,
+  previousEnd: string,
+  nextStart: string
+): string {
+  const previousStartMinutes = timeToMinutes(previousStart);
+  const previousEndMinutes = timeToMinutes(previousEnd);
+  const nextStartMinutes = timeToMinutes(nextStart);
+
+  if (
+    !Number.isFinite(previousStartMinutes) ||
+    !Number.isFinite(previousEndMinutes) ||
+    !Number.isFinite(nextStartMinutes)
+  ) {
+    return previousEnd;
+  }
+
+  const span = previousEndMinutes - previousStartMinutes;
+  if (span <= 0) return previousEnd;
+
+  return minutesToTime(nextStartMinutes + span);
+}
+
 export function blockDurationMinutes(block: DayPlanBlock): number {
   const start = timeToMinutes(block.start_time);
   const end = timeToMinutes(block.end_time);
