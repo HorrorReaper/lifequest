@@ -9,8 +9,8 @@ type RoadmapItem = {
 
 const items: RoadmapItem[] = [
   { quarter: "Q2 2026", title: "Landing Page", desc: "Waitlist, landing page.", status: "Live" },
-  { quarter: "Q3 2026", title: "Functional MVP", desc: "Core functionality (6 default journal templates, create your own templates, city builder), user onboarding.", status: "Work in Progress" },
-  { quarter: "Q4 2026", title: "Habit Tracker, Tasks, Daily Planner", desc: "Integrate habit tracking, task management, and daily planning features.", status: "Planned" },
+  { quarter: "Q3 2026", title: "Functional MVP", desc: "Core functionality (6 default journal templates, create your own templates, city builder), user onboarding.", status: "Live" },
+  { quarter: "Q4 2026", title: "Habit Tracker, Tasks, Daily Planner", desc: "Integrate habit tracking, task management, and daily planning features.", status: "Live" },
   { quarter: "Q2 2027", title: "Mobile Apps & Social", desc: "iOS & Android app, friend leaderboards, communities.", status: "Planned" },
   { quarter: "Q4 2027", title: "AI Coach & Personalization", desc: "AI-powered journaling prompts, insights, and personalized recommendations.", status: "Planned" },
   { quarter: "Q2 2028", title: "Integrations & Expansion", desc: "Integrate with popular health and productivity apps, expand to new platforms.", status: "Planned" },

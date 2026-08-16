@@ -507,14 +507,27 @@ export default function LandingPage() {
             Join the players turning daily journaling into the most addictive habit they've ever had.
           </p>
           <div className="mt-6">
-            <Button
-              size="lg"
-              variant="default"
-              onClick={() => setWaitlistOpen(true)}
-              className="mt-4 group-hover:scale-102 transform transition-transform duration-150 inline-flex items-center justify-center hover:cursor-pointer"
-            >
-              Join the waitlist now <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            {is_MVP ? (
+              <Button
+                size="lg"
+                variant="default"
+                asChild
+                className="mt-4 group-hover:scale-102 transform transition-transform duration-150 inline-flex items-center justify-center"
+              >
+                <Link href="/login">
+                  Start your quest <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                variant="default"
+                onClick={() => setWaitlistOpen(true)}
+                className="mt-4 group-hover:scale-102 transform transition-transform duration-150 inline-flex items-center justify-center hover:cursor-pointer"
+              >
+                Join the waitlist now <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
           </div>
         </motion.div>
       </section>
