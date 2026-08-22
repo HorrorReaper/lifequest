@@ -265,13 +265,13 @@ export default function LandingPage() {
 
       {/* Our Mission */}
       <section className="container mx-auto px-4 py-24 max-w-4xl text-center">
-        <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+        <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">
           My mission.
         </h2>
-        <p className="text-lg text-muted-foreground mt-4">
+        <p className="text-lg text-[#93a3c4] mt-4">
           I believe that journaling and self-reflection are the most powerful tools for personal growth, but they only work if you actually do them. So I made a game out of it that holds you accountable and makes it fun to show up every day. My mission is to help millions of people turn journaling into the most addictive, rewarding habit they've ever had, and in doing so, become the best versions of themselves.
         </p>
-        <p className="text-sm text-muted-foreground mt-6">
+        <p className="text-sm text-[#93a3c4] mt-6">
           - Patrick Eger, Founder of LifeQuest
         </p>
         <Roadmap />
@@ -297,10 +297,10 @@ export default function LandingPage() {
       {/* PRICING */}
       <section id="pricing" className="container mx-auto px-4 py-24 max-w-4xl">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">
             Free to start. Forever.
           </h2>
-          <p className="text-lg text-muted-foreground mt-4">
+          <p className="text-lg text-[#93a3c4] mt-4">
             We believe great habits shouldn't be paywalled.
           </p>
         </div>
@@ -311,11 +311,11 @@ export default function LandingPage() {
             whileInView={{ x: 0, opacity: 1 }}
             viewport={{ once: true, amount: 0.35 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="rounded-2xl border p-8"
+            className="rounded-2xl border border-white/[0.08] bg-[#0d1626] p-8"
           >
-            <h3 className="text-xl font-bold">Free</h3>
-            <p className="text-muted-foreground text-sm mt-1">For everyone</p>
-            <p className="text-4xl font-bold mt-6">$0<span className="text-base font-normal text-muted-foreground">/forever</span></p>
+            <h3 className="text-xl font-bold text-[#f3f5fb]">Free</h3>
+            <p className="text-[#93a3c4] text-sm mt-1">For everyone</p>
+            <p className="text-4xl font-extrabold mt-6 text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">$0<span className="text-base font-normal text-[#93a3c4]">/forever</span></p>
             <ul className="space-y-3 mt-6 text-sm">
               {[
                 "Unlimited journal entries",
@@ -324,16 +324,16 @@ export default function LandingPage() {
                 "Streaks, XP & analytics",
                 "Day planner & tasks",
               ].map((f) => (
-                <li key={f} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-primary" /> {f}
+                <li key={f} className="flex items-center gap-2 text-[#f3f5fb]">
+                  <Check className="h-4 w-4 text-[#f7b955]" /> {f}
                 </li>
               ))}
             </ul>
             {is_MVP ? (
-            <Button className="w-full mt-8" asChild>
+            <Button className="w-full mt-8 bg-[linear-gradient(180deg,#ffc873,#f7b955)] text-[#1a1204] hover:opacity-90" asChild>
               <Link href="/login">Get started for free</Link>
             </Button>):(
-              <Button variant="outline" className="w-full mt-8" onClick={() => setWaitlistOpen(true)}>
+              <Button variant="outline" className="w-full mt-8 border-white/[0.08] text-[#f3f5fb] hover:bg-white/10" onClick={() => setWaitlistOpen(true)}>
                 Join the waitlist
               </Button>
             )}
@@ -344,14 +344,14 @@ export default function LandingPage() {
             whileInView={{ x: 0, opacity: 1 }}
             viewport={{ once: true, amount: 0.35 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="rounded-2xl border-2 border-primary p-8 relative bg-primary/5"
+            className="rounded-2xl border-2 border-[rgba(143,160,255,0.35)] p-8 relative bg-[linear-gradient(180deg,#0d1626,rgba(143,160,255,0.14))]"
           >
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#8fa0ff] text-[#0c1230] text-xs font-semibold px-3 py-1 rounded-full">
               COMING SOON
             </div>
-            <h3 className="text-xl font-bold">Pro</h3>
-            <p className="text-muted-foreground text-sm mt-1">For the real ones.</p>
-            <p className="text-4xl font-bold mt-6">$5<span className="text-base font-normal text-muted-foreground">/month</span></p>
+            <h3 className="text-xl font-bold text-[#f3f5fb]">Pro</h3>
+            <p className="text-[#93a3c4] text-sm mt-1">For the real ones.</p>
+            <p className="text-4xl font-extrabold mt-6 text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">$5<span className="text-base font-normal text-[#93a3c4]">/month</span></p>
             <ul className="space-y-3 mt-6 text-sm">
               {[
                 "Everything in Free",
@@ -360,12 +360,12 @@ export default function LandingPage() {
                 "Custom city themes",
                 "Priority support",
               ].map((f) => (
-                <li key={f} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-primary" /> {f}
+                <li key={f} className="flex items-center gap-2 text-[#f3f5fb]">
+                  <Check className="h-4 w-4 text-[#8fa0ff]" /> {f}
                 </li>
               ))}
             </ul>
-            <Button variant="outline" className="w-full mt-8" disabled>
+            <Button variant="outline" className="w-full mt-8 border-white/[0.08] text-[#93a3c4]" disabled>
               Join the waitlist
             </Button>
           </motion.div>
@@ -379,21 +379,20 @@ export default function LandingPage() {
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: true, amount: 0.3 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="rounded-2xl border p-8 bg-card group transform-gpu hover:scale-103 hover:-translate-y-1 hover:shadow-xl transition-all duration-200 ease-out mx-auto max-w-3xl"
+          className="rounded-2xl border border-white/[0.08] p-8 bg-[#0d1626] group transform-gpu hover:scale-103 hover:-translate-y-1 hover:shadow-xl transition-all duration-200 ease-out mx-auto max-w-3xl overflow-hidden"
         >
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
+          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2 text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">
             Your future self is waiting.
           </h2>
-          <p className="text-base text-muted-foreground mt-2 max-w-xl mx-auto">
+          <p className="text-base text-[#93a3c4] mt-2 max-w-xl mx-auto">
             Join the players turning daily journaling into the most addictive habit they've ever had.
           </p>
           <div className="mt-6">
             {is_MVP ? (
               <Button
                 size="lg"
-                variant="default"
                 asChild
-                className="mt-4 group-hover:scale-102 transform transition-transform duration-150 inline-flex items-center justify-center"
+                className="mt-4 group-hover:scale-102 transform transition-transform duration-150 inline-flex items-center justify-center bg-[linear-gradient(180deg,#ffc873,#f7b955)] text-[#1a1204] hover:opacity-90"
               >
                 <Link href="/login">
                   Start your quest <ArrowRight className="ml-2 h-4 w-4" />
@@ -402,20 +401,28 @@ export default function LandingPage() {
             ) : (
               <Button
                 size="lg"
-                variant="default"
                 onClick={() => setWaitlistOpen(true)}
-                className="mt-4 group-hover:scale-102 transform transition-transform duration-150 inline-flex items-center justify-center hover:cursor-pointer"
+                className="mt-4 group-hover:scale-102 transform transition-transform duration-150 inline-flex items-center justify-center hover:cursor-pointer bg-[linear-gradient(180deg,#ffc873,#f7b955)] text-[#1a1204] hover:opacity-90"
               >
                 Join the waitlist now <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
           </div>
+          <div className="mt-10 flex items-end justify-center gap-1 h-[70px] opacity-70" aria-hidden="true">
+            {[18, 30, 22, 38, 16, 44, 26].map((h, i) => (
+              <span
+                key={i}
+                className="w-4 rounded-t-[3px] bg-[linear-gradient(180deg,#1a2740,#0d1626)]"
+                style={{ height: h }}
+              />
+            ))}
+          </div>
         </motion.div>
       </section>
 
       {/* FOOTER */}
-      <footer className="border-t">
-        <div className="container mx-auto px-4 py-8 max-w-6xl flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+      <footer className="border-t border-white/[0.08]">
+        <div className="container mx-auto px-4 py-8 max-w-6xl flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-[#93a3c4]">
           <div className="flex items-center gap-2">
             <Link href="/" className="flex  gap-2 font-bold ">
             <Image src="/images/logo2.png" alt="LifeQuest logo" width={170} height={80} className="rounded-sm" />
@@ -423,9 +430,9 @@ export default function LandingPage() {
             <span>© 2026 LifeQuest</span>
           </div>
           <div className="flex gap-6">
-            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link href="/terms" className="hover:text-foreground">Terms</Link>
-            <Link href="/contact" className="hover:text-foreground">Contact</Link>
+            <Link href="/privacy" className="hover:text-[#f3f5fb]">Privacy</Link>
+            <Link href="/terms" className="hover:text-[#f3f5fb]">Terms</Link>
+            <Link href="/contact" className="hover:text-[#f3f5fb]">Contact</Link>
           </div>
         </div>
       </footer>
