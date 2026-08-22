@@ -24,7 +24,8 @@ export function NightfallHero({ isMvp, onWaitlistOpen }: NightfallHeroProps) {
   const shrubs = buildParkShrubs();
 
   return (
-    <header
+    <section
+      aria-label="Hero"
       className="relative overflow-hidden bg-[#060a14] [font-family:var(--font-nightfall-body)]"
       style={{ minHeight: "max(92vh, 720px)" }}
     >
@@ -224,10 +225,10 @@ export function NightfallHero({ isMvp, onWaitlistOpen }: NightfallHeroProps) {
             </a>
           </div>
           <p className="mt-10 text-xs uppercase tracking-wider text-[#93a3c4]">
-            The skyline grows &mdash; and lights up &mdash; as you scroll through the page
+            Every entry adds another lit window to your skyline
           </p>
         </div>
       </div>
-    </header>
+    </section>
   );
 }

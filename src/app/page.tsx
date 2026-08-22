@@ -19,7 +19,7 @@ export default function LandingPage() {
   const [waitlistOpen, setWaitlistOpen] = useState(false);
 
   return (
-    <div className={`${nightfallDisplay.variable} ${nightfallBody.variable} min-h-svh bg-[#060a14]`}>
+    <div className={`${nightfallDisplay.variable} ${nightfallBody.variable} min-h-svh bg-[#060a14] [font-family:var(--font-nightfall-body)]`}>
       {/* NAV */}
       <Navbar is_MVP={is_MVP} setWaitlistOpen={setWaitlistOpen} />
 
@@ -333,7 +333,7 @@ export default function LandingPage() {
             <Button className="w-full mt-8 bg-[linear-gradient(180deg,#ffc873,#f7b955)] text-[#1a1204] hover:opacity-90" asChild>
               <Link href="/login">Get started for free</Link>
             </Button>):(
-              <Button variant="outline" className="w-full mt-8 border-white/[0.08] text-[#f3f5fb] hover:bg-white/10" onClick={() => setWaitlistOpen(true)}>
+              <Button variant="outline" className="w-full mt-8 border-white/[0.08] dark:border-white/[0.08] text-[#f3f5fb] hover:bg-white/10 bg-transparent" onClick={() => setWaitlistOpen(true)}>
                 Join the waitlist
               </Button>
             )}
@@ -365,7 +365,7 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
-            <Button variant="outline" className="w-full mt-8 border-white/[0.08] text-[#93a3c4]" disabled>
+            <Button variant="outline" className="w-full mt-8 border-white/[0.08] dark:border-white/[0.08] text-[#93a3c4] bg-transparent" disabled>
               Join the waitlist
             </Button>
           </motion.div>
