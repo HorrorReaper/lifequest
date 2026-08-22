@@ -561,3 +561,95 @@
     transform: translateX(-50%) scale(1.15);
   }
 }
+
+/* Nightfall City landing-page hero atmosphere (src/components/marketing/NightfallHero.tsx).
+   Deliberately separate from the login-* keyframes above: same technique, but kept
+   independent so changes to one surface can never regress the other. */
+@keyframes nc-day-cycle {
+  0%, 20% { opacity: 1; }
+  38%, 78% { opacity: 0; }
+  94%, 100% { opacity: 1; }
+}
+@keyframes nc-sunset-cycle {
+  0%, 10% { opacity: 0.35; }
+  28%, 42% { opacity: 1; }
+  55%, 76% { opacity: 0; }
+  91%, 100% { opacity: 0.65; }
+}
+@keyframes nc-night-cycle {
+  0%, 34% { opacity: 0; }
+  52%, 78% { opacity: 1; }
+  94%, 100% { opacity: 0; }
+}
+@keyframes nc-stars-cycle {
+  0%, 40% { opacity: 0; }
+  54%, 78% { opacity: 0.85; }
+  91%, 100% { opacity: 0; }
+}
+@keyframes nc-star-glimmer {
+  0%, 100% { opacity: 0.3; transform: scale(0.75); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+@keyframes nc-sun-orbit {
+  0% { opacity: 0; transform: translate3d(-8vw, 12vh, 0) scale(0.85); }
+  6% { opacity: 0.9; }
+  22% { opacity: 0.9; transform: translate3d(46vw, -6vh, 0) scale(1); }
+  33% { opacity: 0.9; }
+  42% { opacity: 0; transform: translate3d(96vw, 14vh, 0) scale(1.05); }
+  100% { opacity: 0; transform: translate3d(96vw, 14vh, 0) scale(1.05); }
+}
+@keyframes nc-moon-orbit {
+  0%, 40% { opacity: 0; transform: translate3d(-7vw, 12vh, 0) scale(0.85); }
+  48% { opacity: 0.88; }
+  65% { opacity: 0.88; transform: translate3d(46vw, -5vh, 0) scale(1); }
+  79% { opacity: 0.88; }
+  88% { opacity: 0; transform: translate3d(96vw, 13vh, 0) scale(1.02); }
+  100% { opacity: 0; transform: translate3d(96vw, 13vh, 0) scale(1.02); }
+}
+@keyframes nc-cloud-drift {
+  0% { transform: translate3d(-24vw, 0, 0); }
+  100% { transform: translate3d(124vw, 0, 0); }
+}
+@keyframes nc-flight-crossing {
+  0%, 18% { opacity: 0; transform: translate3d(-10vw, 0, 0); }
+  24%, 74% { opacity: 0.55; }
+  82%, 100% { opacity: 0; transform: translate3d(96vw, -3vh, 0); }
+}
+@keyframes nc-sky-breathe {
+  0% { opacity: 0.6; transform: translate3d(-2%, -1%, 0) scale(0.96); }
+  100% { opacity: 1; transform: translate3d(4%, 2%, 0) scale(1.08); }
+}
+@keyframes nc-windows-cycle {
+  0%, 28%, 100% { opacity: 0.3; }
+  48%, 82% { opacity: 0.95; }
+}
+@keyframes nc-window-twinkle {
+  0%, 32%, 100% { opacity: 0.55; filter: brightness(0.85); }
+  45%, 68% { opacity: 1; filter: brightness(1.35); }
+}
+@keyframes nc-tree-sway {
+  0%, 28%, 100% { transform: translateX(-50%) rotate(-1deg) skewX(-0.5deg); }
+  38% { transform: translateX(-50%) rotate(1.5deg) skewX(1deg); }
+  44% { transform: translateX(-50%) rotate(-2.8deg) skewX(-1.5deg); }
+  53% { transform: translateX(-50%) rotate(1.8deg) skewX(0.8deg); }
+  70% { transform: translateX(-50%) rotate(0.4deg); }
+}
+@keyframes nc-trunk-flex {
+  0%, 28%, 100% { transform: translateX(-50%) rotate(-0.25deg); }
+  38% { transform: translateX(-50%) rotate(0.5deg); }
+  44% { transform: translateX(-50%) rotate(-0.9deg); }
+  53% { transform: translateX(-50%) rotate(0.55deg); }
+  70% { transform: translateX(-50%) rotate(0deg); }
+}
+@keyframes nc-shrub-breathe {
+  0% { transform: scaleX(0.97); }
+  100% { transform: scaleX(1.03); }
+}
+@keyframes nc-sea-glint {
+  0%, 100% { opacity: 0.25; transform: scaleX(0.85); }
+  50% { opacity: 0.85; transform: scaleX(1.1); }
+}
+@keyframes nc-beacon-pulse {
+  0%, 55%, 100% { opacity: 0.35; transform: scale(0.75); }
+  12% { opacity: 1; transform: scale(1.25); }
+}
