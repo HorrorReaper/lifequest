@@ -1,156 +1,37 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
-  Building2,
-  Sparkles,
-  Flame,
   ArrowRight,
   Check,
 } from "lucide-react";
 import WaitlistModal from "@/components/waitlist/WaitlistModal";
 import Roadmap from "@/components/marketing/Roadmap";
 import Navbar from "@/components/layout/Navbar";
-
-function TypewriterText({
-  text = "",
-  speed = 35,
-  className = "",
-  start = true,
-  onComplete,
-  hideCursorAfter = 5000,
-}: {
-  text?: string
-  speed?: number
-  className?: string
-  start?: boolean
-  onComplete?: () => void
-  hideCursorAfter?: number
-}) {
-  const [pos, setPos] = useState(0);
-  const [showCursor, setShowCursor] = useState(true);
-
-  useEffect(() => {
-    if (!start) return;
-    if (pos >= text.length) {
-      // when complete, schedule cursor hide
-      const h = setTimeout(() => setShowCursor(false), hideCursorAfter);
-      if (onComplete) onComplete();
-      return () => clearTimeout(h);
-    }
-    const t = setTimeout(() => setPos((p) => p + 1), speed);
-    return () => clearTimeout(t);
-  }, [pos, text, speed, start, hideCursorAfter, onComplete]);
-
-  useEffect(() => {
-    // reset if text or start changes
-    setPos(0);
-    setShowCursor(true);
-  }, [text, start]);
-
-  return (
-    <span className={className}>
-      {text.slice(0, pos)}
-      {showCursor && <span className="ml-1 opacity-80 inline-block"></span>}
-    </span>
-  );
-}
-
-function HeroTitle() {
-  const [firstDone, setFirstDone] = useState(false);
-  return (
-    <>
-      <TypewriterText text={"Your life is a game."} className="block" onComplete={() => setFirstDone(true)} />
-      <TypewriterText
-        text={"Time to start playing."}
-        className="block bg-linear-to-r from-primary to-green-500 bg-clip-text text-transparent"
-        start={firstDone}
-      />
-    </>
-  );
-}
+import { NightfallHero } from "@/components/marketing/NightfallHero";
+import { nightfallBody, nightfallDisplay } from "@/lib/marketing-fonts";
 
 export default function LandingPage() {
   const is_MVP = process.env.NEXT_PUBLIC_IS_MVP === "true";
   const [waitlistOpen, setWaitlistOpen] = useState(false);
 
   return (
-    <div className="min-h-svh bg-linear-to-b from-background via-background to-primary/5">
+    <div className={`${nightfallDisplay.variable} ${nightfallBody.variable} min-h-svh bg-[#060a14]`}>
       {/* NAV */}
       <Navbar is_MVP={is_MVP} setWaitlistOpen={setWaitlistOpen} />
 
-      {/* HERO */}
-      <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="container mx-auto px-4 pt-20 pb-24 max-w-6xl text-center">
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-tight">
-          <HeroTitle />
-        </h1>
-        <p className="text-lg md:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto">
-          Earn XP and coins for every journal entry, task and habit you complete. Spend them building a city that grows as you grow. Journaling has never been this addictive.
-        </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
-              <Button size="lg" asChild className="w-full sm:w-auto">
-                {is_MVP ? (<Link href="/login">
-                  Start your quest <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>) : (
-                  <Button size="sm" variant="outline" 
-                    onClick={() => setWaitlistOpen(true)}
-                    className="px-5 py-3 rounded-lg bg-black text-white cursor-pointer"
-                  >
-                    Join the waitlist
-                  </Button>
-                )}
-              </Button>
-            </motion.div>
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
-              <Button size="lg" variant="outline" asChild className="w-full sm:w-auto">
-                <a href="#how-it-works">See how it works</a>
-              </Button>
-            </motion.div>
-          </div>
-        <WaitlistModal
-  open={waitlistOpen}
-  onClose={() => setWaitlistOpen(false)}
-  source="hero"
-/>
-        {/* Hero visual */}
-        <div className="mt-16 relative">
-          <div className="absolute inset-0 bg-linear-to-t from-background to-transparent z-10 h-1/3 bottom-0 top-auto" />
-          <div className="rounded-2xl border-2 border-primary/20 shadow-2xl bg-card p-6 max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-3 gap-4 text-left">
-              <div className="rounded-lg border p-4 bg-linear-to-br from-orange-50 to-yellow-50 dark:from-orange-950/30 dark:to-yellow-950/30">
-                <Flame className="h-6 w-6 text-orange-500 mb-2" />
-                <p className="text-2xl font-bold">12 days</p>
-                <p className="text-xs text-muted-foreground">Current streak</p>
-              </div>
-              <div className="rounded-lg border p-4 bg-linear-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">
-                <Sparkles className="h-6 w-6 text-purple-500 mb-2" />
-                <p className="text-2xl font-bold">Level 4</p>
-                <p className="text-xs text-muted-foreground">325 / 500 XP</p>
-              </div>
-              <div className="rounded-lg border p-4 bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30">
-                <Building2 className="h-6 w-6 text-green-500 mb-2" />
-                <p className="text-2xl font-bold">23 buildings</p>
-                <p className="text-xs text-muted-foreground">Population: 184</p>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-10 gap-1 max-w-md mx-auto">
-              {["🏠","🌳","🏪","🌷","☕","🌳","🏫","⛲","📚","🏢",
-                "🌳","🏥","🏞️","🍽️","🎭","🏨","🗽","🏟️","🏙️","🏰"].map((e, i) => (
-                <div key={i} className="aspect-square rounded bg-white dark:bg-gray-800 flex items-center justify-center text-lg shadow-sm">
-                  {e}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </motion.section>
+      <NightfallHero isMvp={is_MVP} onWaitlistOpen={() => setWaitlistOpen(true)} />
+      <WaitlistModal
+        open={waitlistOpen}
+        onClose={() => setWaitlistOpen(false)}
+        source="hero"
+      />
 
       {/* SOCIAL PROOF */}
-      
+
 
       {/* FEATURES */}
       {/*<section id="features" className="container mx-auto px-4 py-24 max-w-6xl">
@@ -190,10 +71,10 @@ export default function LandingPage() {
       <section id="features" className="container mx-auto px-4 py-24 max-w-6xl">
   <div className="text-left md:text-center mb-14">
 
-    <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+    <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">
       A journal that gives something back
     </h2>
-    <p className="text-lg text-muted-foreground mt-4 max-w-2xl md:mx-auto">
+    <p className="text-lg text-[#93a3c4] mt-4 max-w-2xl md:mx-auto">
       LifeQuest turns small daily check-ins into visible progress with XP, streaks,
       coins, and your virtual city that grows with you.
     </p>
@@ -240,19 +121,19 @@ export default function LandingPage() {
       <div
         key={f.title}
         className={`
-          group relative overflow-hidden rounded-2xl border border-white/10 bg-card/70 p-6
-          transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-card
+          group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0d1626] p-6
+          transition-all duration-300 hover:-translate-y-1 hover:border-[rgba(247,185,85,0.35)]
           ${f.className}
         `}
       >
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(247,185,85,0.6)] to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
-        <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border bg-background/70 text-2xl shadow-inner">
+        <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-[#111d33] text-2xl shadow-inner">
           {f.tile}
         </div>
 
-        <h3 className="font-semibold text-xl mb-2">{f.title}</h3>
-        <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
+        <h3 className="font-semibold text-xl mb-2 text-[#f3f5fb]">{f.title}</h3>
+        <p className="text-sm text-[#93a3c4] leading-relaxed max-w-xl">
           {f.desc}
         </p>
 
@@ -262,7 +143,7 @@ export default function LandingPage() {
               "", "🌷", "", "", "☕", "", "🏢", "", "", ""].map((tile, i) => (
               <div
                 key={i}
-                className="aspect-square rounded bg-muted/40 border border-white/5 flex items-center justify-center text-sm"
+                className="aspect-square rounded bg-[#111d33] border border-white/[0.06] flex items-center justify-center text-sm"
               >
                 {tile}
               </div>
@@ -277,8 +158,8 @@ export default function LandingPage() {
                 key={`${d}-${i}`}
                 className={`flex h-8 w-8 items-center justify-center rounded-md text-xs font-semibold ${
                   i < 5
-                    ? "bg-orange-500/15 text-orange-400 border border-orange-500/20"
-                    : "bg-muted/40 text-muted-foreground border border-white/5"
+                    ? "bg-[rgba(247,185,85,0.14)] text-[#f7b955] border border-[rgba(247,185,85,0.3)]"
+                    : "bg-[#111d33] text-[#93a3c4] border border-white/[0.06]"
                 }`}
               >
                 {d}
@@ -289,13 +170,13 @@ export default function LandingPage() {
 
         {f.preview === "xp" && (
           <div className="mt-6 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+            <span className="rounded-full border border-[rgba(247,185,85,0.25)] bg-[rgba(247,185,85,0.14)] px-2.5 py-1 text-[#f7b955]">
               +25 XP
             </span>
-            <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2.5 py-1 text-yellow-400">
+            <span className="rounded-full border border-[rgba(247,185,85,0.25)] bg-[rgba(247,185,85,0.14)] px-2.5 py-1 text-[#f7b955]">
               +10 coins
             </span>
-            <span className="rounded-full border border-purple-500/20 bg-purple-500/10 px-2.5 py-1 text-purple-400">
+            <span className="rounded-full border border-[rgba(143,160,255,0.25)] bg-[rgba(143,160,255,0.14)] px-2.5 py-1 text-[#8fa0ff]">
               Level progress
             </span>
           </div>
@@ -306,7 +187,7 @@ export default function LandingPage() {
             {["07:30 Morning review", "18:00 Gym", "21:30 Evening quest"].map((item) => (
               <div
                 key={item}
-                className="rounded-lg border border-white/5 bg-muted/30 px-3 py-2 text-muted-foreground"
+                className="rounded-lg border border-white/[0.06] bg-[#111d33] px-3 py-2 text-[#93a3c4]"
               >
                 {item}
               </div>
@@ -319,7 +200,7 @@ export default function LandingPage() {
             {[35, 52, 44, 70, 58, 82, 64].map((h, i) => (
               <div
                 key={i}
-                className="w-6 rounded-t bg-primary/30 border border-primary/20"
+                className="w-6 rounded-t bg-[rgba(247,185,85,0.14)] border border-[rgba(247,185,85,0.25)]"
                 style={{ height: `${h}%` }}
               />
             ))}
@@ -332,10 +213,10 @@ export default function LandingPage() {
 
 
       {/* HOW IT WORKS */}
-      <section id="how-it-works" className="bg-muted/30 py-24">
+      <section id="how-it-works" className="bg-[#0d1626] py-24">
         <div className="container mx-auto px-4 max-w-5xl">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">
               How it works
             </h2>
           </div>
@@ -359,7 +240,7 @@ export default function LandingPage() {
                   transition={{ duration: 0.6, ease: "easeOut" }}
                   className="w-full md:w-1/2 mt-10"
                 >
-                  <Image src={s.image} alt={s.title} width={900} height={506} className="object-cover rounded-2xl border shadow-md" />
+                  <Image src={s.image} alt={s.title} width={900} height={506} className="object-cover rounded-2xl border border-white/[0.08] shadow-md" />
                 </motion.div>
 
                 <motion.div
@@ -369,11 +250,11 @@ export default function LandingPage() {
                   transition={{ duration: 0.6, ease: "easeOut" }}
                   className="w-full md:w-1/2 text-left"
                 >
-                  <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground font-bold text-sm mb-4">
+                  <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-[rgba(247,185,85,0.14)] text-[#f7b955] font-bold text-sm mb-4">
                     {s.step}
                   </div>
-                  <h3 className="font-semibold text-2xl mb-3">{s.title}</h3>
-                  <p className="text-sm text-muted-foreground">{s.desc}</p>
+                  <h3 className="font-semibold text-2xl mb-3 text-[#f3f5fb]">{s.title}</h3>
+                  <p className="text-sm text-[#93a3c4]">{s.desc}</p>
                 </motion.div>
               </div>
             )})}
