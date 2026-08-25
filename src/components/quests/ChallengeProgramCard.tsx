@@ -6,33 +6,23 @@ import type { ChallengeProgram } from '@/lib/quests'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { getProgramDayState } from '@/lib/challenges'
 
-function todayKey() {
-  const today = new Date()
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-}
-
-function utcDayDifference(later: string, earlier: string) {
-  return Math.floor((Date.parse(`${later}T00:00:00Z`) - Date.parse(`${earlier}T00:00:00Z`)) / 86400000)
-}
-
-export function ChallengeProgramCard({ program, onStart, onRestart, onCompleteDay }: {
+export function ChallengeProgramCard({ program, onStart, onRestart, onCompleteDay, today }: {
   program: ChallengeProgram
   onStart: (program: ChallengeProgram) => Promise<void>
   onRestart: (program: ChallengeProgram) => Promise<void>
   onCompleteDay: (program: ChallengeProgram, note: string) => Promise<void>
+  /** The user's current day, resolved from their profile timezone. */
+  today: string
 }) {
   const [note, setNote] = useState('')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { template, enrollment, progress } = program
-  const completedDays = new Set(progress.map((item) => item.day_number)).size
-  const complete = enrollment?.status === 'completed'
-  const currentDayNumber = Math.min(completedDays + 1, template.duration_days)
+  const { template, enrollment } = program
+  const { completedDays, currentDayNumber, checkedToday, strictMissed, percent, complete } =
+    getProgramDayState(program, today)
   const currentDay = program.days.find((day) => day.day_number === currentDayNumber)
-  const checkedToday = progress.some((item) => item.completed_on === todayKey())
-  const strictMissed = Boolean(enrollment && template.schedule_mode === 'strict' && !complete && utcDayDifference(todayKey(), enrollment.start_date) + 1 > currentDayNumber)
-  const percent = Math.round((completedDays / template.duration_days) * 100)
 
   async function run(action: () => Promise<void>) {
     setWorking(true); setError(null)

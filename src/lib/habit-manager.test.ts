@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { addDays, dateInTimezone, formatDateOnly } from "@/lib/dates";
 import {
-  addDays,
   buildDateWindow,
   buildHabitSummary,
-  dateInTimezone,
-  formatDateOnly,
   indexHabitLogs,
   moveHabit,
   moveHabitByOffset,

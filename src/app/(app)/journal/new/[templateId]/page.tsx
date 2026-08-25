@@ -38,14 +38,16 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
     redirect('/journal')
   }
 
-  const [{ data: fields }, suggestedInsightTags] = await Promise.all([
+  const [{ data: fields }, suggestedInsightTags, { data: profileData }] = await Promise.all([
     supabase
       .from('template_fields')
       .select('*')
       .eq('template_id', templateId)
       .order('sort_order'),
     fetchInsightTagSuggestions(supabase, user.id),
+    supabase.from('profiles').select('timezone').eq('id', user.id).maybeSingle(),
   ])
+  const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
 
   return (
     <div className="min-h-svh bg-background px-4 pb-24 pt-5 max-md:p-0 sm:px-8 sm:pt-8">
@@ -55,6 +57,7 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
           template={template as JournalTemplate}
           fields={(fields as TemplateField[]) ?? []}
           suggestedInsightTags={suggestedInsightTags}
+          timezone={timezone}
           firstEntry={firstEntry === '1'}
         />
       </div>

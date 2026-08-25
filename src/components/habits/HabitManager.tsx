@@ -45,12 +45,10 @@ import {
   setHabitLogCompletion,
   updateHabit,
 } from "@/lib/habits";
+import { addDays, dateInTimezone, formatDateOnly } from "@/lib/dates";
 import {
-  addDays,
   buildDateWindow,
   buildHabitSummary,
-  dateInTimezone,
-  formatDateOnly,
   habitLogKey,
   indexHabitLogs,
   moveHabit,

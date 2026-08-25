@@ -8,6 +8,7 @@ import { EntryForm } from '@/components/journal/entry-form'
 import { JournalTemplate, TemplateField, FieldValue } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { fetchInsightTagSuggestions, isInsightType } from '@/lib/insights'
+import { formatDateOnly } from '@/lib/dates'
 
 interface PageProps {
   params: Promise<{ entryId: string }>
@@ -41,7 +42,12 @@ export default async function ViewEntryPage({ params }: PageProps) {
 
   const template = entry.journal_templates as unknown as JournalTemplate
 
-  const [{ data: fields }, { data: responsesData }, suggestedInsightTags] = await Promise.all([
+  const [
+    { data: fields },
+    { data: responsesData },
+    suggestedInsightTags,
+    { data: profileData },
+  ] = await Promise.all([
     supabase
       .from('template_fields')
       .select('*')
@@ -52,7 +58,9 @@ export default async function ViewEntryPage({ params }: PageProps) {
       .select('*')
       .eq('entry_id', entryId),
     fetchInsightTagSuggestions(supabase, user.id),
+    supabase.from('profiles').select('timezone').eq('id', user.id).maybeSingle(),
   ])
+  const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
   const responses = responsesData as Database['public']['Tables']['journal_responses']['Row'][] | null
 
   // Map responses to field values
@@ -71,7 +79,6 @@ export default async function ViewEntryPage({ params }: PageProps) {
     }
   }
 
-  const entryDate = new Date(entry.entry_date)
 
   return (
     <div className="min-h-svh bg-background px-4 pb-24 pt-5 max-md:p-0 sm:px-8 sm:pt-8">
@@ -83,7 +90,7 @@ export default async function ViewEntryPage({ params }: PageProps) {
           </Button>
           <div className="text-right">
             <p className="text-sm text-muted-foreground">
-              {entryDate.toLocaleDateString('en-US', {
+              {formatDateOnly(entry.entry_date, {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
@@ -105,6 +112,7 @@ export default async function ViewEntryPage({ params }: PageProps) {
           existingEntryId={entry.id}
           existingResponses={existingResponses}
           suggestedInsightTags={suggestedInsightTags}
+          timezone={timezone}
         />
       </div>
     </div>

@@ -66,7 +66,9 @@ The editor uses a full-height sheet on mobile and a centered dialog on desktop.
 
 ### Dates
 
-Task due dates are stored as `YYYY-MM-DD`. Helpers parse date-only values at local noon to prevent an accidental shift to the previous day in negative UTC offsets.
+Task due dates are stored as `YYYY-MM-DD`. Helpers parse date-only values at local noon so that neither a positive nor a negative UTC offset can shift them into an adjacent day.
+
+`taskViewForDate`, `filterTasks`, and `countTaskViews` take the current day as a required argument, and `TaskManager` receives it as a prop resolved from the profile timezone on the server. Do not reintroduce a `localDateKey()` default: it silently swaps the profile day for the device day, which is how the Today column used to roll over at a different moment than the dashboard and habits.
 
 ### Mutation behavior and XP
 

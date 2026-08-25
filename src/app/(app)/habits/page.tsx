@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { ArrowLeft, Flame } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { HabitManager } from '@/components/habits/HabitManager'
-import { dateInTimezone } from '@/lib/habit-manager'
+import { dateInTimezone } from '@/lib/dates'
 
 export default async function HabitsPage() {
   const supabase = await createClient()

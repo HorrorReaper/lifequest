@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
 import { format, parseISO } from 'date-fns'
+import { localDateKey } from '@/lib/dates'
 
 interface DatePickerProps {
   value: string | null
@@ -86,8 +87,10 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', class
                 onChange(null)
                 return
               }
-              const iso = d.toISOString().split('T')[0]
-              onChange(iso)
+              // react-day-picker hands back local midnight. toISOString() on
+              // that lands on the previous day everywhere east of Greenwich,
+              // so read the calendar fields directly instead.
+              onChange(localDateKey(d))
               setOpen(false)
             }}
             pagedNavigation={false}
