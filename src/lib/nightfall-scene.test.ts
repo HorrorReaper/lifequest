@@ -7,9 +7,9 @@ import {
 } from "./nightfall-scene";
 
 describe("buildSkylineBuildings", () => {
-  it("returns 15 buildings with a positive number of windows each", () => {
+  it("returns enough buildings to span a wide viewport, each with windows", () => {
     const buildings = buildSkylineBuildings();
-    expect(buildings).toHaveLength(15);
+    expect(buildings.length).toBeGreaterThanOrEqual(24);
     for (const building of buildings) {
       expect(building.height).toBeGreaterThan(0);
       expect(building.windows.length).toBeGreaterThan(0);

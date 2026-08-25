@@ -3,12 +3,18 @@ export interface SkylineBuilding {
   windows: boolean[];
 }
 
-const BUILDING_HEIGHTS = [70, 110, 90, 150, 80, 130, 170, 100, 140, 75, 120, 95, 160, 85, 105];
+// Wide enough that the skyline bleeds past both edges of a desktop viewport
+// instead of sitting as an island in the middle: 27 * 52px + 26 * 8px gap.
+const BUILDING_HEIGHTS = [
+  112, 168, 138, 205, 126, 190, 232, 152, 214, 118, 178, 145, 246, 130,
+  160, 198, 122, 172, 264, 140, 186, 128, 220, 150, 194, 116, 164,
+];
 
 export function buildSkylineBuildings(): SkylineBuilding[] {
   return BUILDING_HEIGHTS.map((height, index) => {
-    const rows = Math.floor((height - 12) / 11);
-    const windowCount = rows * 3;
+    // Matches the rendered window grid: 6px window + 4px gap, 7px padding.
+    const rows = Math.floor((height - 14) / 10);
+    const windowCount = rows * 4;
     const windows: boolean[] = [];
     for (let i = 0; i < windowCount; i++) {
       windows.push((i + index) % 3 === 0);

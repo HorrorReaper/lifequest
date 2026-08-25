@@ -13,7 +13,7 @@ interface NightfallHeroProps {
   onWaitlistOpen: () => void;
 }
 
-const CITY_TREE_AFTER = [3, 9, 12];
+const CITY_TREE_AFTER = [4, 11, 17, 23];
 const MOUNTAIN_CLIP =
   "polygon(0% 100%, 0% 58%, 9% 32%, 18% 50%, 27% 16%, 36% 44%, 47% 8%, 58% 40%, 67% 20%, 78% 46%, 88% 24%, 100% 54%, 100% 100%)";
 
@@ -84,7 +84,7 @@ export function NightfallHero({ isMvp, onWaitlistOpen }: NightfallHeroProps) {
           ))}
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 h-[220px]">
+        <div className="absolute inset-x-0 bottom-0 h-[330px]">
           <svg
             className="absolute bottom-0 left-0 h-full w-full"
             viewBox="0 0 800 220"
@@ -113,15 +113,15 @@ export function NightfallHero({ isMvp, onWaitlistOpen }: NightfallHeroProps) {
             {trees.map((tree, i) => (
               <div
                 key={`tree-${i}`}
-                className="absolute bottom-[34px]"
+                className="absolute bottom-[38px]"
                 style={{ [tree.side]: `${tree.pct}%` }}
               >
                 <span
-                  className="absolute bottom-0 left-1/2 h-[22px] w-1 origin-bottom -translate-x-1/2 animate-[nc-trunk-flex_9s_ease-in-out_infinite] rounded-[3px] bg-[#263f30]"
+                  className="absolute bottom-0 left-1/2 h-[30px] w-[5px] origin-bottom -translate-x-1/2 animate-[nc-trunk-flex_9s_ease-in-out_infinite] rounded-[3px] bg-[#263f30]"
                   style={{ animationDelay: tree.alt ? "-5.5s" : "0s" }}
                 />
                 <span
-                  className="absolute left-1/2 top-0 size-[34px] origin-bottom -translate-x-1/2 animate-[nc-tree-sway_9s_ease-in-out_infinite] rounded-[52%_48%_46%_54%]"
+                  className="absolute left-1/2 top-0 size-[46px] origin-bottom -translate-x-1/2 animate-[nc-tree-sway_9s_ease-in-out_infinite] rounded-[52%_48%_46%_54%]"
                   style={{
                     backgroundColor: tree.alt ? "#3d6a4a" : "#315b43",
                     animationDelay: tree.alt ? "-5.5s" : "0s",
@@ -132,7 +132,7 @@ export function NightfallHero({ isMvp, onWaitlistOpen }: NightfallHeroProps) {
             {shrubs.map((shrub, i) => (
               <span
                 key={`shrub-${i}`}
-                className="absolute bottom-[30px] h-[14px] animate-[nc-shrub-breathe_8s_ease-in-out_infinite_alternate] rounded-[70%_70%_20%_20%] bg-[#2f513d]"
+                className="absolute bottom-[32px] h-[18px] animate-[nc-shrub-breathe_8s_ease-in-out_infinite_alternate] rounded-[70%_70%_20%_20%] bg-[#2f513d]"
                 style={{
                   [shrub.side]: `${shrub.pct}%`,
                   width: shrub.width,
@@ -142,32 +142,34 @@ export function NightfallHero({ isMvp, onWaitlistOpen }: NightfallHeroProps) {
             ))}
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 flex h-[190px] items-end justify-center gap-[5px]">
+          {/* The row is ~1610px wide, so it still bleeds past both viewport edges
+              even at the smallest scale — only the apparent building size changes. */}
+          <div className="absolute inset-x-0 bottom-0 flex h-[280px] origin-bottom scale-[0.62] items-end justify-center gap-[8px] sm:scale-[0.75] md:scale-[0.88] lg:scale-100">
             {buildings.map((building, index) => (
-              <div key={index} className="flex flex-col items-stretch">
+              <div key={index} className="flex shrink-0 flex-col items-stretch">
                 <div
-                  className="grid animate-[nc-windows-cycle_46s_ease-in-out_infinite] grid-cols-3 gap-[3px] rounded-t-[4px] bg-[linear-gradient(180deg,#1a2740,#0d1626)] p-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                  style={{ width: 34, height: building.height }}
+                  className="grid animate-[nc-windows-cycle_46s_ease-in-out_infinite] grid-cols-4 gap-[4px] rounded-t-[5px] bg-[linear-gradient(180deg,#1a2740,#0d1626)] p-[7px] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                  style={{ width: 52, height: building.height }}
                 >
                   {building.windows.map((lit, i) => (
                     <div
                       key={i}
                       className={
                         lit
-                          ? "size-[5px] animate-[nc-window-twinkle_6s_ease-in-out_infinite] rounded-[1px] bg-[#f7b955] shadow-[0_0_4px_1px_rgba(247,185,85,0.7)]"
-                          : "size-[5px] rounded-[1px] bg-white/[0.06]"
+                          ? "size-[6px] animate-[nc-window-twinkle_6s_ease-in-out_infinite] rounded-[1px] bg-[#f7b955] shadow-[0_0_5px_1px_rgba(247,185,85,0.7)]"
+                          : "size-[6px] rounded-[1px] bg-white/[0.06]"
                       }
                     />
                   ))}
                 </div>
                 {CITY_TREE_AFTER.includes(index) && (
-                  <div className="relative mt-[3px] h-[32px] w-[20px]">
+                  <div className="relative mt-[4px] h-[44px] w-[28px]">
                     <span
-                      className="absolute bottom-0 left-1/2 h-[10px] w-1 origin-bottom -translate-x-1/2 animate-[nc-trunk-flex_9s_ease-in-out_infinite] rounded-[3px] bg-[#263f30]"
+                      className="absolute bottom-0 left-1/2 h-[14px] w-[5px] origin-bottom -translate-x-1/2 animate-[nc-trunk-flex_9s_ease-in-out_infinite] rounded-[3px] bg-[#263f30]"
                       style={{ animationDelay: `-${(index * 1.7).toFixed(1)}s` }}
                     />
                     <span
-                      className="absolute left-1/2 top-0 size-[22px] origin-bottom -translate-x-1/2 animate-[nc-tree-sway_9s_ease-in-out_infinite] rounded-[52%_48%_46%_54%]"
+                      className="absolute left-1/2 top-0 size-[30px] origin-bottom -translate-x-1/2 animate-[nc-tree-sway_9s_ease-in-out_infinite] rounded-[52%_48%_46%_54%]"
                       style={{
                         backgroundColor: index % 2 === 1 ? "#3d6a4a" : "#315b43",
                         animationDelay: `-${(index * 1.7).toFixed(1)}s`,
@@ -179,15 +181,15 @@ export function NightfallHero({ isMvp, onWaitlistOpen }: NightfallHeroProps) {
             ))}
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 h-[70px] bg-[linear-gradient(180deg,transparent_0%,rgba(4,7,14,0.88)_55%,#04070e_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-[88px] bg-[linear-gradient(180deg,transparent_0%,rgba(4,7,14,0.88)_55%,#04070e_100%)]" />
         </div>
 
         <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(5,8,17,0.92)_0%,rgba(5,8,17,0.62)_42%,rgba(5,8,17,0.12)_78%)]" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-[1180px] px-6 pb-20 pt-24">
-        <div className="max-w-[640px]">
-          <h1 className="max-w-[15ch] text-[clamp(2.4rem,6vw,4.2rem)] font-extrabold leading-[1.03] text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">
+      <div className="relative z-10 mx-auto max-w-[1180px] px-6 pb-20 pt-24 text-center">
+        <div className="max-w-[640px] mx-auto">
+          <h1 className="mx-auto max-w-[15ch] text-[clamp(2.4rem,6vw,4.2rem)] font-extrabold leading-[1.03] text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">
             Your life is a game.
             <br />
             Time to start{" "}
@@ -196,11 +198,11 @@ export function NightfallHero({ isMvp, onWaitlistOpen }: NightfallHeroProps) {
             </em>
             .
           </h1>
-          <p className="mt-5 max-w-[42ch] text-[1.08rem] leading-relaxed text-[#93a3c4]">
+          <p className="mx-auto mt-5 max-w-[42ch] text-[1.08rem] leading-relaxed text-[#93a3c4]">
             Earn XP and coins for every journal entry, task and habit you complete. Spend them
             building a city that grows as you grow.
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
             {isMvp ? (
               <Link
                 href="/login"
