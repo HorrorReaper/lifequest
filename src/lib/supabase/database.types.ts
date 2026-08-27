@@ -351,7 +351,7 @@ export interface Database {
           color: string
           is_archived: boolean
           sort_order: number
-          skill_category: string | null
+          skill_category: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
           created_at: string
         }
         Insert: {
@@ -362,7 +362,7 @@ export interface Database {
           color?: string
           is_archived?: boolean
           sort_order?: number
-          skill_category?: string | null
+          skill_category?: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
           created_at?: string
         }
         Update: {
@@ -373,7 +373,7 @@ export interface Database {
           color?: string
           is_archived?: boolean
           sort_order?: number
-          skill_category?: string | null
+          skill_category?: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
           created_at?: string
         }
       }
@@ -506,7 +506,7 @@ export interface Database {
           source_id: string | null
           xp_amount: number
           description: string
-          skill_category: string | null
+          skill_category: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
           created_at: string
         }
         Insert: {
@@ -516,7 +516,7 @@ export interface Database {
           source_id?: string | null
           xp_amount: number
           description: string
-          skill_category?: string | null
+          skill_category?: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
           created_at?: string
         }
         Update: {
@@ -526,7 +526,7 @@ export interface Database {
           source_id?: string | null
           xp_amount?: number
           description?: string
-          skill_category?: string | null
+          skill_category?: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
           created_at?: string
         }
       }
@@ -706,7 +706,7 @@ export interface Database {
           challenge_start_date: string | null
           is_completed: boolean
           completed_at: string | null
-          skill_category: string | null
+          skill_category: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
           created_at: string
           updated_at: string
         }
@@ -723,7 +723,7 @@ export interface Database {
           challenge_start_date?: string | null
           is_completed?: boolean
           completed_at?: string | null
-          skill_category?: string | null
+          skill_category?: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
           created_at?: string
           updated_at?: string
         }
@@ -740,7 +740,7 @@ export interface Database {
           challenge_start_date?: string | null
           is_completed?: boolean
           completed_at?: string | null
-          skill_category?: string | null
+          skill_category?: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
           created_at?: string
           updated_at?: string
         }
