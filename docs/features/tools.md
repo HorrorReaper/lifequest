@@ -44,8 +44,8 @@ That covers every shape encountered so far:
 | --- | --- | --- |
 | Singleton with history | Vision | One row per revision, newest is current |
 | Collection | Cookie jar, affirmations | Many rows, `run_id` null |
-| Repeated snapshot | Wheel of life | One row per measurement |
-| Bounded run | Time audit | Many rows sharing a `run_id` |
+| Repeated snapshot | Wheel of life, time audit | One row per measurement or per calendar day |
+| Bounded run | None yet | Many rows sharing a `run_id` |
 
 `payload` is intentionally unvalidated in SQL. Encoding per-tool shapes as CHECK constraints would reintroduce exactly the per-tool migration cost the table exists to avoid, so **each tool validates its own payload in TypeScript** — see `isVisionPayload`/`toVisionRevisions`. Because the table is shared, a tool must assume it can read rows written by a different tool and filter them out rather than trusting the shape.
 
@@ -83,3 +83,6 @@ Before adding a tool, check whether the app already records the same thing. A co
 | Tool | Shape | Notes |
 | --- | --- | --- |
 | Vision (`vision`) | Singleton with history | Each save inserts a new revision instead of updating, so earlier versions stay readable |
+| Limiting beliefs (`limiting-beliefs`) | Collection | One row per belief, `run_id` null |
+| Time audit (`time-audit`) | Repeated snapshot | One row per calendar day, keyed by `payload.date`. Since `tool_entries` has no unique constraint on that date, re-logging a day resolves to an update in the client rather than a second row. Each day snapshots the category palette it was painted with, so a day stays truthful after the palette is edited; the summary merges days by category `id` and displays the newest label, which lets a rename reach the summary without splitting its history |
+| Goal breakdown (`goal-breakdown`) | Collection | One row per life goal, `run_id` null. Three fixed levels — goal, sub-goal, action — held in a single payload so a save is atomic and one goal can never clobber another. Completion lives only here: leaf actions carry a `done` flag and progress rolls up, deliberately without touching `tasks`. Ticking an action writes the whole working copy, pending text edits included, so the stored row cannot disagree with what is on screen |

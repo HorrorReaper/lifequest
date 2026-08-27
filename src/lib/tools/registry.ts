@@ -1,9 +1,11 @@
 import type { ComponentType } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Compass, Unlock } from 'lucide-react'
+import { Clock, Compass, Target, Unlock } from 'lucide-react'
 import type { ToolEntry } from '@/lib/tools/storage'
 import { VisionTool } from '@/components/tools/vision/VisionTool'
 import { LimitingBeliefsTool } from '@/components/tools/limiting-beliefs/LimitingBeliefsTool'
+import { TimeAuditTool } from '@/components/tools/time-audit/TimeAuditTool'
+import { GoalBreakdownTool } from '@/components/tools/goal-breakdown/GoalBreakdownTool'
 
 // The extension point for self-improvement tools (vision, cookie jar, wheel
 // of life, time audit, ...).
@@ -67,6 +69,20 @@ export const TOOL_REGISTRY: ToolManifest[] = [
     description: "Name a belief that's holding you back, challenge it, and write a better one.",
     icon: Unlock,
     Component: LimitingBeliefsTool,
+  },
+  {
+    id: 'time-audit',
+    title: 'Time Audit',
+    description: 'Log a day in 15-minute blocks and see where the time actually goes.',
+    icon: Clock,
+    Component: TimeAuditTool,
+  },
+  {
+    id: 'goal-breakdown',
+    title: 'Goal Breakdown',
+    description: 'Take a life goal apart into sub-goals and the actions that get you there.',
+    icon: Target,
+    Component: GoalBreakdownTool,
   },
 ]
 
