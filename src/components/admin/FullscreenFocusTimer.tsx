@@ -6,7 +6,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { Check, Pause } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { FocusSessionRow } from '@/lib/supabase/database.types'
-import { secondsLabel } from '@/lib/focus-session'
+import { awardFocusSessionXp, secondsLabel } from '@/lib/focus-session'
+import { useUserStore } from '@/lib/stores/user-store'
 import { pickFocusQuote } from '@/lib/focus-quotes'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,7 +20,9 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
   // rejects this shape (see ProductivityHub.tsx, which does the same).
   const supabase = useMemo(() => createClient() as unknown as SupabaseClient, [])
   const router = useRouter()
+  const addXp = useUserStore((state) => state.addXp)
   const [session, setSession] = useState<FocusSessionRow | null>(null)
+  const [endError, setEndError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(() => Date.now())
   const [controlsVisible, setControlsVisible] = useState(false)
@@ -117,10 +120,29 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
   async function end(status: 'completed' | 'cancelled') {
     if (!session) return
     const actual = Math.max(0, Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000))
-    await supabase
+    setEndError(null)
+    const { error } = await supabase
       .from('focus_sessions')
       .update({ status, ended_at: new Date().toISOString(), actual_seconds: actual, updated_at: new Date().toISOString() })
       .eq('id', session.id)
+
+    // Leaving for the hub on an unchecked failure would strand an active row,
+    // and the partial unique index then blocks every future session on it.
+    if (error) {
+      setEndError('That session could not be closed. Check your connection and try again.')
+      return
+    }
+
+    if (status === 'completed') {
+      try {
+        const result = await awardFocusSessionXp(supabase, userId, { ...session, status, actual_seconds: actual })
+        if (result.awarded) addXp(result.xpAwarded, result.previousTotal)
+      } catch (xpError) {
+        // A failed XP write must never cost the session it was paying for.
+        console.error('Failed to award focus XP', xpError)
+      }
+    }
+
     router.push('/admin/productivity')
   }
 
@@ -142,6 +164,14 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
         </p>
         <p className="mt-4 max-w-sm text-sm text-white/75 drop-shadow">{quote}</p>
       </div>
+      {endError && (
+        <p
+          role="alert"
+          className="absolute bottom-[max(7rem,calc(env(safe-area-inset-bottom)+4rem))] max-w-xs px-6 text-center text-sm text-red-200 drop-shadow"
+        >
+          {endError}
+        </p>
+      )}
       <div
         className={cn(
           'absolute bottom-[max(3rem,env(safe-area-inset-bottom))] flex gap-3 transition-opacity duration-300',

@@ -8,7 +8,7 @@ The admin workspace:
 
 - Uses a separate responsive shell.
 - Does not show the standard bottom navigation.
-- Does not award XP or coins for admin-only work.
+- Awards XP only for completed focus sessions (see [Focus sessions](#focus-sessions)); no other admin work awards XP, and nothing here awards coins.
 - Keeps workouts and nutrition private.
 - Hosts the knowledge and project experiments.
 
@@ -64,6 +64,44 @@ The public `/tasks`, `/habits`, and `/plan` pages remain the user-facing focused
 
 Saving challenge definitions uses an admin RPC. User execution occurs on `/quests`.
 
+## Focus sessions
+
+Focus sessions are started from the Productivity Hub and run either inline or
+on the chromeless `/admin/productivity/focus` screen. Both paths write to
+`focus_sessions`: a row on start, then `status`, `ended_at` and
+`actual_seconds` on end.
+
+### XP
+
+A **completed** session awards **one XP per whole minute actually focused**,
+via `awardFocusSessionXp`. This is the single exception to the rule that admin
+work earns nothing.
+
+The rule defends itself against farming without needing a separate guard:
+"completed" only means the Complete button was pressed, not that the planned
+time was served, so a session ended immediately is worth zero minutes and
+writes nothing at all. Cancelled sessions never pay.
+
+The award is idempotent on `(source_type, source_id) = ('focus_session', session.id)`
+in `xp_events`, so a retry or a double-tapped Complete cannot pay twice. It is
+also best-effort: a failed XP write is logged and swallowed, because it must
+never cost the user the session it was paying for.
+
+### Ending a session
+
+Both end paths check the update error before navigating. This matters more
+than it looks: `focus_sessions_one_active_per_user` is a partial unique index
+on `status = 'active'`, so a silently failed end strands an active row that
+then blocks every future session.
+
+### Today's analytics
+
+`FocusAnalytics` renders focused minutes, XP earned, adherence
+(served against planned) and a per-task breakdown, all derived by the pure
+`summarizeFocusDay`. Only completed sessions count towards focused time;
+cancelled ones are reported separately rather than hidden, and a session still
+running is left out of the totals.
+
 ## Contextual AI assistant
 
 The chatbot is visible only to admins on non-immersive authenticated pages. It requires:
@@ -87,6 +125,6 @@ When extending the admin workspace:
 - Add server-side route guards and database policies.
 - Use the publishable browser client; never send a service-role key to the browser.
 - Do not reuse an admin-only component in the public app unless its query and mutation paths are also safe for a normal user.
-- Treat XP/coins as out of scope unless the feature is explicitly promoted to the user application.
+- Treat XP/coins as out of scope unless the feature is explicitly promoted to the user application. Completed focus sessions are the one deliberate exception; adding a second one should be a decision, not a precedent.
 - Preserve the LifeQuest visual system even when using another product as a UX reference.
 

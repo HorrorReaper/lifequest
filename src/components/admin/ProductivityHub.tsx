@@ -8,7 +8,9 @@ import { ArrowDown, ArrowUp, Check, Clock3, Flame, ListTodo, Pause, Play, Plus, 
 import { createClient } from '@/lib/supabase/client'
 import type { FocusSessionRow, ProductivityPriorityRow } from '@/lib/supabase/database.types'
 import type { DayPlanBlock, Goal, Task } from '@/lib/types'
-import { secondsLabel } from '@/lib/focus-session'
+import { awardFocusSessionXp, secondsLabel } from '@/lib/focus-session'
+import { useUserStore } from '@/lib/stores/user-store'
+import { FocusAnalytics } from './FocusAnalytics'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AdminPageHeader } from './AdminPageHeader'
@@ -20,6 +22,7 @@ type RoutineSummary = { id: string; name: string; emoji: string }
 export function ProductivityHub({ userId, today }: { userId: string; today: string }) {
   const supabase = useMemo(() => createClient() as unknown as SupabaseClient, [])
   const router = useRouter()
+  const addXp = useUserStore((state) => state.addXp)
   const [tasks, setTasks] = useState<Task[]>([])
   const [priorities, setPriorities] = useState<ProductivityPriorityRow[]>([])
   const [activeFocus, setActiveFocus] = useState<FocusSessionRow | null>(null)
@@ -28,6 +31,8 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
   const [routines, setRoutines] = useState<RoutineSummary[]>([])
   const [plan, setPlan] = useState<DayPlanBlock[]>([])
   const [weekMinutes, setWeekMinutes] = useState<{ date: string; minutes: number }[]>([])
+  const [todaySessions, setTodaySessions] = useState<FocusSessionRow[]>([])
+  const [taskTitles, setTaskTitles] = useState<Map<string, string>>(new Map())
   const [newTask, setNewTask] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
@@ -39,7 +44,7 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     const weekStart = format(addDays(new Date(`${today}T12:00:00`), -6), 'yyyy-MM-dd')
-    const [taskRes, priorityRes, focusRes, habitRes, habitLogRes, goalRes, routineRes, planRes, weekRes] = await Promise.all([
+    const [taskRes, priorityRes, focusRes, habitRes, habitLogRes, goalRes, routineRes, planRes, weekRes, todayRes] = await Promise.all([
       supabase.from('tasks').select('*').eq('user_id', userId).eq('is_completed', false).order('priority', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('productivity_daily_priorities').select('*').eq('user_id', userId).eq('priority_date', today).order('sort_order'),
       supabase.from('focus_sessions').select('*').eq('user_id', userId).eq('status', 'active').maybeSingle(),
@@ -49,8 +54,9 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
       supabase.from('routines').select('id,name,emoji').eq('user_id', userId).eq('is_archived', false).order('sort_order').limit(4),
       supabase.from('day_plans').select('blocks').eq('user_id', userId).eq('plan_date', today).maybeSingle(),
       supabase.from('focus_sessions').select('started_at,actual_seconds').eq('user_id', userId).eq('status', 'completed').gte('started_at', `${weekStart}T00:00:00`),
+      supabase.from('focus_sessions').select('*').eq('user_id', userId).gte('started_at', `${today}T00:00:00`).lt('started_at', `${format(addDays(new Date(`${today}T12:00:00`), 1), 'yyyy-MM-dd')}T00:00:00`).order('started_at'),
     ])
-    const firstError = [taskRes, priorityRes, focusRes, habitRes, habitLogRes, goalRes, routineRes, planRes, weekRes].find((result) => result.error)?.error
+    const firstError = [taskRes, priorityRes, focusRes, habitRes, habitLogRes, goalRes, routineRes, planRes, weekRes, todayRes].find((result) => result.error)?.error
     if (firstError) setError(firstError.message)
     const doneIds = new Set((habitLogRes.data ?? []).map((row) => row.habit_id))
     setTasks((taskRes.data ?? []) as Task[])
@@ -62,7 +68,19 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
     setPlan((((planRes.data as { blocks?: DayPlanBlock[] } | null)?.blocks) ?? []).sort((a, b) => a.start_time.localeCompare(b.start_time)))
     const values = Array.from({ length: 7 }, (_, index) => ({ date: format(addDays(new Date(`${today}T12:00:00`), index - 6), 'yyyy-MM-dd'), minutes: 0 }))
     for (const session of weekRes.data ?? []) { const key = session.started_at.slice(0, 10); const item = values.find((value) => value.date === key); if (item) item.minutes += Math.round((session.actual_seconds ?? 0) / 60) }
-    setWeekMinutes(values); setLoading(false)
+    setWeekMinutes(values)
+    const sessions = (todayRes.data ?? []) as FocusSessionRow[]
+    setTodaySessions(sessions)
+    // A session outlives the task it was started for, and the list above only
+    // holds open tasks, so the titles cannot simply be read back from there.
+    const sessionTaskIds = [...new Set(sessions.map((item) => item.task_id).filter((id): id is string => Boolean(id)))]
+    if (sessionTaskIds.length) {
+      const { data: titleRows } = await supabase.from('tasks').select('id,title').in('id', sessionTaskIds)
+      setTaskTitles(new Map((titleRows ?? []).map((row) => [row.id as string, row.title as string])))
+    } else {
+      setTaskTitles(new Map())
+    }
+    setLoading(false)
   }, [supabase, today, userId])
 
   useEffect(() => { queueMicrotask(() => void load()) }, [load])
@@ -81,7 +99,27 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
   async function removePriority(id: string) { await supabase.from('productivity_daily_priorities').delete().eq('id', id); await Promise.all(priorities.filter((p) => p.id !== id).map((p, index) => supabase.from('productivity_daily_priorities').update({ sort_order: index }).eq('id', p.id))); await load() }
   async function movePriority(index: number, direction: -1 | 1) { const next = index + direction; if (next < 0 || next >= priorities.length) return; const current = priorities[index]; const target = priorities[next]; await supabase.from('productivity_daily_priorities').update({ sort_order: 99 }).eq('id', current.id); await supabase.from('productivity_daily_priorities').update({ sort_order: index }).eq('id', target.id); await supabase.from('productivity_daily_priorities').update({ sort_order: next }).eq('id', current.id); await load() }
   async function startFocus(taskId?: string) { const { data, error: startError } = await supabase.from('focus_sessions').insert({ user_id: userId, task_id: taskId ?? null, planned_minutes: duration }).select('*').single(); if (startError) setError(startError.message); else { setActiveFocus(data as FocusSessionRow); setNow(Date.now()); router.push('/admin/productivity/focus') } }
-  async function endFocus(status: 'completed' | 'cancelled') { if (!activeFocus) return; const actual = Math.max(0, Math.floor((Date.now() - new Date(activeFocus.started_at).getTime()) / 1000)); await supabase.from('focus_sessions').update({ status, ended_at: new Date().toISOString(), actual_seconds: actual, updated_at: new Date().toISOString() }).eq('id', activeFocus.id); setActiveFocus(null); await load() }
+  async function grantFocusXp(session: FocusSessionRow) {
+    try {
+      const result = await awardFocusSessionXp(supabase, userId, session)
+      if (result.awarded) addXp(result.xpAwarded, result.previousTotal)
+    } catch (xpError) {
+      // A failed XP write must never cost the session it was paying for.
+      console.error('Failed to award focus XP', xpError)
+    }
+  }
+
+  async function endFocus(status: 'completed' | 'cancelled') {
+    if (!activeFocus) return
+    const actual = Math.max(0, Math.floor((Date.now() - new Date(activeFocus.started_at).getTime()) / 1000))
+    const { error: endError } = await supabase.from('focus_sessions').update({ status, ended_at: new Date().toISOString(), actual_seconds: actual, updated_at: new Date().toISOString() }).eq('id', activeFocus.id)
+    // Navigating on unchecked failure would strand an active row, and the
+    // partial unique index then blocks every future session on it.
+    if (endError) { setError(endError.message); return }
+    if (status === 'completed') await grantFocusXp({ ...activeFocus, status, actual_seconds: actual })
+    setActiveFocus(null)
+    await load()
+  }
 
   return <div className="mx-auto max-w-[92rem] space-y-7">
     <AdminPageHeader eyebrow={format(new Date(`${today}T12:00:00`), 'EEEE, d MMMM')} title="Productivity hub" description="Choose the work that matters, protect time for it, and keep the rest of your LifeQuest system in view." />
@@ -110,6 +148,7 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
       </div>
 
       <div className="space-y-5">
+        <FocusAnalytics sessions={todaySessions} taskTitles={taskTitles} />
         <div className="rounded-[2rem] bg-card p-5 ring-1 ring-border"><div className="flex items-center justify-between"><h2 className="font-semibold">Seven-day focus</h2><span className="font-mono text-sm">{weekMinutes.reduce((sum, day) => sum + day.minutes, 0)} min</span></div><div className="mt-5 flex h-24 items-end gap-2">{weekMinutes.map((day) => { const max = Math.max(1, ...weekMinutes.map((item) => item.minutes)); return <div key={day.date} className="flex flex-1 flex-col items-center gap-2"><div className="w-full rounded-t-md bg-primary/75" style={{ height: `${Math.max(4, day.minutes / max * 72)}px` }} /><span className="text-[10px] text-muted-foreground">{format(new Date(`${day.date}T12:00:00`), 'EE')}</span></div> })}</div><p className="mt-3 text-sm text-muted-foreground">{focusedToday} focused minutes today.</p></div>
         <div className="grid grid-cols-2 gap-3"><MiniStat icon={Flame} label="Habits" value={`${habits.filter((h) => h.done).length}/${habits.length}`} /><MiniStat icon={RotateCcw} label="Routines" value={String(routines.length)} /><MiniStat icon={Target} label="Goals" value={String(goals.length)} /><MiniStat icon={ListTodo} label="Plan blocks" value={String(plan.length)} /></div>
       </div>
