@@ -39,6 +39,7 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
   const [duration, setDuration] = useState(25)
   const [now, setNow] = useState(() => Date.now())
   const [loading, setLoading] = useState(true)
+  const [ending, setEnding] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -110,15 +111,19 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
   }
 
   async function endFocus(status: 'completed' | 'cancelled') {
-    if (!activeFocus) return
+    // Guards the same double-press that could close the session twice from
+    // the fullscreen timer; these are the same two controls.
+    if (!activeFocus || ending) return
+    setEnding(true)
     const actual = Math.max(0, Math.floor((Date.now() - new Date(activeFocus.started_at).getTime()) / 1000))
     const { error: endError } = await supabase.from('focus_sessions').update({ status, ended_at: new Date().toISOString(), actual_seconds: actual, updated_at: new Date().toISOString() }).eq('id', activeFocus.id)
     // Navigating on unchecked failure would strand an active row, and the
     // partial unique index then blocks every future session on it.
-    if (endError) { setError(endError.message); return }
+    if (endError) { setError(endError.message); setEnding(false); return }
     if (status === 'completed') await grantFocusXp({ ...activeFocus, status, actual_seconds: actual })
     setActiveFocus(null)
     await load()
+    setEnding(false)
   }
 
   return <div className="mx-auto max-w-[92rem] space-y-7">
@@ -135,7 +140,7 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
       <div className="relative overflow-hidden rounded-[2rem] bg-primary p-6 text-primary-foreground sm:p-7">
         <Clock3 className="absolute -right-7 -top-7 size-36 opacity-10" />
         <p className="text-sm opacity-70">Focus session</p>
-        {activeFocus ? <div className="mt-7"><p className="font-mono text-6xl font-semibold tracking-[-0.08em] tabular-nums">{secondsLabel(remaining)}</p><p className="mt-3 text-sm opacity-75">{tasks.find((task) => task.id === activeFocus.task_id)?.title ?? 'Open focus session'}</p><div className="mt-8 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => endFocus('completed')}><Check /> Complete</Button><Button variant="outline" className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => endFocus('cancelled')}><Pause /> Cancel</Button></div></div> : <div className="mt-6"><div className="flex gap-2">{[25, 50].map((value) => <button key={value} onClick={() => setDuration(value)} className={cn('rounded-xl px-4 py-2 text-sm', duration === value ? 'bg-primary-foreground text-primary' : 'bg-primary-foreground/10')}>{value} min</button>)}<input aria-label="Custom focus minutes" type="number" min="1" max="240" value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="w-20 rounded-xl bg-primary-foreground/10 px-3 text-sm outline-none" /></div><Button variant="secondary" className="mt-8 w-full" onClick={() => startFocus(priorityTasks[0]?.id)}><Play /> Start with top priority</Button></div>}
+        {activeFocus ? <div className="mt-7"><p className="font-mono text-6xl font-semibold tracking-[-0.08em] tabular-nums">{secondsLabel(remaining)}</p><p className="mt-3 text-sm opacity-75">{tasks.find((task) => task.id === activeFocus.task_id)?.title ?? 'Open focus session'}</p><div className="mt-8 grid grid-cols-2 gap-2"><Button variant="secondary" disabled={ending} onClick={() => endFocus('completed')}><Check /> Complete</Button><Button variant="outline" className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" disabled={ending} onClick={() => endFocus('cancelled')}><Pause /> Cancel</Button></div></div> : <div className="mt-6"><div className="flex gap-2">{[25, 50].map((value) => <button key={value} onClick={() => setDuration(value)} className={cn('rounded-xl px-4 py-2 text-sm', duration === value ? 'bg-primary-foreground text-primary' : 'bg-primary-foreground/10')}>{value} min</button>)}<input aria-label="Custom focus minutes" type="number" min="1" max="240" value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="w-20 rounded-xl bg-primary-foreground/10 px-3 text-sm outline-none" /></div><Button variant="secondary" className="mt-8 w-full" onClick={() => startFocus(priorityTasks[0]?.id)}><Play /> Start with top priority</Button></div>}
       </div>
     </section>
 

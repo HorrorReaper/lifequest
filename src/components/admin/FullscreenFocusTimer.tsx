@@ -25,7 +25,12 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
   const [endError, setEndError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(() => Date.now())
-  const [controlsVisible, setControlsVisible] = useState(false)
+  // A counter, not a boolean: re-setting a boolean to the value it already
+  // holds does not change the effect's dependency, so the auto-hide timeout
+  // was never rescheduled and the controls vanished four seconds after the
+  // FIRST tap no matter how many times you tapped afterwards.
+  const [interactions, setInteractions] = useState(0)
+  const [ending, setEnding] = useState(false)
   const [quote] = useState(() => pickFocusQuote())
 
   const load = useCallback(async () => {
@@ -52,10 +57,10 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
   }, [loading, session, router])
 
   useEffect(() => {
-    if (!controlsVisible) return
-    const timeout = window.setTimeout(() => setControlsVisible(false), CONTROLS_VISIBLE_MS)
+    if (interactions === 0) return
+    const timeout = window.setTimeout(() => setInteractions(0), CONTROLS_VISIBLE_MS)
     return () => window.clearTimeout(timeout)
-  }, [controlsVisible])
+  }, [interactions])
 
   // Installed as a PWA, manifest.json locks the whole app to portrait.
   // Free rotation just for this page (Chrome/Android only — Safari has no
@@ -118,7 +123,10 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
   }, [])
 
   async function end(status: 'completed' | 'cancelled') {
-    if (!session) return
+    // Nothing else stops a second press landing while the write is in
+    // flight, which would close the session twice and navigate twice.
+    if (!session || ending) return
+    setEnding(true)
     const actual = Math.max(0, Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000))
     setEndError(null)
     const { error } = await supabase
@@ -130,6 +138,7 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
     // and the partial unique index then blocks every future session on it.
     if (error) {
       setEndError('That session could not be closed. Check your connection and try again.')
+      setEnding(false)
       return
     }
 
@@ -154,7 +163,7 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center overflow-hidden text-white"
-      onClick={() => setControlsVisible(true)}
+      onClick={() => setInteractions((count) => count + 1)}
     >
       <NatureBackdrop />
       <div className="absolute inset-0 bg-black/35" />
@@ -175,15 +184,16 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
       <div
         className={cn(
           'absolute bottom-[max(3rem,env(safe-area-inset-bottom))] flex gap-3 transition-opacity duration-300',
-          controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+          interactions > 0 ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
       >
-        <Button variant="secondary" onClick={() => void end('completed')}>
+        <Button variant="secondary" disabled={ending} onClick={() => void end('completed')}>
           <Check /> Complete
         </Button>
         <Button
           variant="outline"
           className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white"
+          disabled={ending}
           onClick={() => void end('cancelled')}
         >
           <Pause /> Cancel
