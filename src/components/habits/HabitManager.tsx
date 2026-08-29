@@ -218,37 +218,41 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         ),
         savedLog,
       ]);
-      const wasCompleted = previousLog?.completed ?? false;
-      if (completed && !wasCompleted) {
-        const summary = buildHabitSummary({
-          habit,
-          logs: [
-            ...logs.filter((log) => log.habit_id === habit.id),
-            savedLog,
-          ],
-          today,
-          timezone,
-        });
-        const { xp } = calculateHabitCheckInXp(summary.currentStreak);
-        const result = await checkInHabitReward(supabase, {
-          habitId: habit.id,
-          date,
-          xp,
-          skillCategory: habit.skill_category ?? null,
-        });
-        if (result.awarded) {
-          addXp(xp, result.totalXp - xp);
-          setCoins(result.coins);
+      try {
+        const wasCompleted = previousLog?.completed ?? false;
+        if (completed && !wasCompleted) {
+          const summary = buildHabitSummary({
+            habit,
+            logs: [
+              ...logs.filter((log) => log.habit_id === habit.id),
+              savedLog,
+            ],
+            today,
+            timezone,
+          });
+          const { xp } = calculateHabitCheckInXp(summary.currentStreak);
+          const result = await checkInHabitReward(supabase, {
+            habitId: habit.id,
+            date,
+            xp,
+            skillCategory: habit.skill_category ?? null,
+          });
+          if (result.awarded) {
+            addXp(xp, result.totalXp - xp);
+            setCoins(result.coins);
+          }
+        } else if (!completed && wasCompleted) {
+          const result = await undoHabitCheckInReward(supabase, {
+            habitId: habit.id,
+            date,
+          });
+          if (result.reversed) {
+            setCoins(result.coins);
+            addXp(0, result.totalXp);
+          }
         }
-      } else if (!completed && wasCompleted) {
-        const result = await undoHabitCheckInReward(supabase, {
-          habitId: habit.id,
-          date,
-        });
-        if (result.reversed) {
-          setCoins(result.coins);
-          addXp(0, result.totalXp);
-        }
+      } catch (rewardError) {
+        console.error("Failed to apply habit check-in reward", rewardError);
       }
       notifyUpdated();
     } catch (error) {

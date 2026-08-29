@@ -27,6 +27,24 @@ function habitLogsQuery() {
   return query;
 }
 
+const rpc = vi.fn();
+
+function defaultRpcImplementation(name: string) {
+  if (name === "check_in_habit_reward") {
+    return Promise.resolve({
+      data: [{ total_xp: 10, coins: 3, awarded: true }],
+      error: null,
+    });
+  }
+  if (name === "undo_habit_check_in_reward") {
+    return Promise.resolve({
+      data: [{ total_xp: 0, coins: 0, reversed: true }],
+      error: null,
+    });
+  }
+  throw new Error(`Unexpected rpc in test: ${name}`);
+}
+
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     from: (table: string) => {
@@ -35,21 +53,7 @@ vi.mock("@/lib/supabase/client", () => ({
       }
       return habitLogsQuery();
     },
-    rpc: (name: string) => {
-      if (name === "check_in_habit_reward") {
-        return Promise.resolve({
-          data: [{ total_xp: 10, coins: 3, awarded: true }],
-          error: null,
-        });
-      }
-      if (name === "undo_habit_check_in_reward") {
-        return Promise.resolve({
-          data: [{ total_xp: 0, coins: 0, reversed: true }],
-          error: null,
-        });
-      }
-      throw new Error(`Unexpected rpc in test: ${name}`);
-    },
+    rpc: (...args: Parameters<typeof defaultRpcImplementation>) => rpc(...args),
   }),
 }));
 
@@ -78,6 +82,8 @@ beforeEach(() => {
   habitLogRows = [];
   fetchHabits.mockReset();
   setHabitLogCompletion.mockReset();
+  rpc.mockReset();
+  rpc.mockImplementation(defaultRpcImplementation);
 });
 
 afterEach(() => {
@@ -200,6 +206,66 @@ describe("HabitManager", () => {
       )
     );
     await waitFor(() => expect(checkbox.getAttribute("aria-pressed")).toBe("false"));
+  });
+
+  it("keeps the saved checkbox state and shows no error banner when the reward RPC fails after the log save succeeds", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const habitA = habit({ id: "habit-a", name: "Meditation" });
+    fetchHabits.mockResolvedValue([habitA]);
+    habitLogRows = [
+      {
+        id: "log-1",
+        user_id: "user-1",
+        habit_id: "habit-a",
+        entry_id: null,
+        log_date: TODAY,
+        completed: true,
+        created_at: "2026-08-09T12:00:00.000Z",
+      },
+    ];
+    setHabitLogCompletion.mockResolvedValue({
+      id: "log-1",
+      user_id: "user-1",
+      habit_id: "habit-a",
+      entry_id: null,
+      log_date: TODAY,
+      completed: false,
+      created_at: "2026-08-09T12:00:00.000Z",
+    });
+    rpc.mockImplementation((name: string) => {
+      if (name === "undo_habit_check_in_reward") {
+        return Promise.reject(new Error("network blip"));
+      }
+      return defaultRpcImplementation(name);
+    });
+
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
+
+    const checkbox = screen.getByRole("button", {
+      name: "Mark Meditation incomplete for 2026-08-09",
+    });
+    expect(checkbox.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(checkbox);
+
+    await waitFor(() =>
+      expect(setHabitLogCompletion).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ habitId: "habit-a", date: TODAY, completed: false })
+      )
+    );
+
+    // The log write succeeded, so the checkbox reflects the saved (unchecked) state...
+    await waitFor(() => expect(checkbox.getAttribute("aria-pressed")).toBe("false"));
+    // ...and stays that way rather than being rolled back by the reward failure.
+    expect(checkbox.getAttribute("aria-pressed")).toBe("false");
+
+    // No "Could not update" error banner, since the log save itself succeeded.
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await waitFor(() => expect(consoleErrorSpy).toHaveBeenCalled());
+    consoleErrorSpy.mockRestore();
   });
 
   it("disables the checkbox while a save is pending", async () => {

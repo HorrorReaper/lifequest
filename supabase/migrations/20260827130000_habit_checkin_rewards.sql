@@ -1,3 +1,7 @@
+-- Habit check-ins write composite "habit_id:date" keys into source_id, so widen it to text.
+alter table public.xp_events
+  alter column source_id type text using source_id::text;
+
 create unique index if not exists xp_events_habit_dedup_idx
   on public.xp_events (user_id, source_id)
   where source_type = 'habit';
