@@ -42,3 +42,6 @@ next-env.d.ts
 
 # superpowers scratch workspace
 .superpowers/
+
+# Claude Code local state, skills, and nested git worktrees
+.claude/

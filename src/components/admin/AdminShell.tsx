@@ -50,7 +50,7 @@ export function AdminShell({ children, trusted, userCount }: { children: React.R
             return <Link key={href} href={href} className={cn('flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all', active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}><Icon className="size-4" />{label}</Link>
           })}
         </nav>
-        <p className="mt-auto text-xs leading-relaxed text-muted-foreground">Private tools. No activity here awards XP or coins.</p>
+        <p className="mt-auto text-xs leading-relaxed text-muted-foreground">Private tools. Only completed focus sessions award XP; nothing here awards coins.</p>
       </aside>
 
       <div className="min-w-0">
