@@ -1,3 +1,4 @@
+import type { SkillCategory } from "./skill-categories";
 
 export interface Profile {
   id: string
@@ -282,6 +283,7 @@ export interface Habit {
   name: string;
   emoji: string;
   color: string;
+  skill_category: SkillCategory | null;
   is_archived: boolean;
   sort_order: number;
   created_at: string;

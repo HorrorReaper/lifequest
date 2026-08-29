@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Habit, HabitLog } from "./types";
+import type { SkillCategory } from "./skill-categories";
 
 export class DuplicateHabitError extends Error {
   constructor() {
@@ -48,7 +49,13 @@ export async function fetchHabits(
 export async function createHabit(
   supabase: SupabaseClient,
   userId: string,
-  input: { name: string; emoji?: string; color?: string; sortOrder?: number }
+  input: {
+    name: string;
+    emoji?: string;
+    color?: string;
+    sortOrder?: number;
+    skillCategory?: SkillCategory | null;
+  }
 ): Promise<Habit> {
   const name = input.name.trim().replace(/\s+/g, " ");
   const { data: existing, error: existingError } = await supabase
@@ -70,6 +77,7 @@ export async function createHabit(
       emoji: input.emoji ?? "✅",
       color: input.color ?? "blue",
       sort_order: input.sortOrder,
+      skill_category: input.skillCategory ?? null,
     })
     .select("*")
     .single();
@@ -81,7 +89,10 @@ export async function updateHabit(
   supabase: SupabaseClient,
   habitId: string,
   patch: Partial<
-    Pick<Habit, "name" | "emoji" | "color" | "is_archived" | "sort_order">
+    Pick<
+      Habit,
+      "name" | "emoji" | "color" | "skill_category" | "is_archived" | "sort_order"
+    >
   >
 ) {
   const { error } = await supabase.from("habits").update(patch).eq("id", habitId);

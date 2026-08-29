@@ -18,6 +18,7 @@ const habits: Habit[] = ["read", "train", "sleep"].map((name, index) => ({
   name,
   emoji: "✅",
   color: "blue",
+  skill_category: null,
   is_archived: false,
   sort_order: index,
   created_at: "2026-07-01T12:00:00.000Z",

@@ -234,7 +234,7 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
           habitId: habit.id,
           date,
           xp,
-          skillCategory: null,
+          skillCategory: habit.skill_category ?? null,
         });
         if (result.awarded) {
           addXp(xp, result.totalXp - xp);
@@ -284,6 +284,7 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
           name: value.name.trim().replace(/\s+/g, " "),
           emoji: value.emoji,
           color: value.color,
+          skill_category: value.skillCategory,
         };
         const transaction = patchHabitOptimistically(habits, next.id, next);
         setHabits(transaction.next);
@@ -292,6 +293,7 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
             name: next.name,
             emoji: next.emoji,
             color: next.color,
+            skill_category: next.skill_category,
           });
         } catch (error) {
           setHabits(transaction.rollback);
@@ -300,6 +302,7 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
       } else {
         const created = await createHabit(supabase, userId, {
           ...value,
+          skillCategory: value.skillCategory,
           sortOrder: activeHabits.length,
         });
         setHabits((current) => [...current, created]);

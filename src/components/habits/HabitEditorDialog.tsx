@@ -16,6 +16,8 @@ import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { SKILL_CATEGORIES } from "@/lib/skill-categories";
+import type { SkillCategory } from "@/lib/skill-categories";
 
 export const HABIT_COLORS = [
   { value: "blue", label: "Ocean", className: "bg-sky-500" },
@@ -37,6 +39,7 @@ export interface HabitEditorValue {
   name: string;
   emoji: string;
   color: string;
+  skillCategory: SkillCategory | null;
 }
 
 interface HabitEditorDialogProps {
@@ -104,11 +107,14 @@ function HabitEditorForm({
   const [name, setName] = useState(habit?.name ?? "");
   const [emoji, setEmoji] = useState(habit?.emoji ?? "✅");
   const [color, setColor] = useState(habit?.color ?? "blue");
+  const [skillCategory, setSkillCategory] = useState<SkillCategory | null>(
+    habit?.skill_category ?? null
+  );
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim() || busy) return;
-    void onSubmit({ name, emoji, color });
+    void onSubmit({ name, emoji, color, skillCategory });
   }
 
   return (
@@ -153,6 +159,32 @@ function HabitEditorForm({
                   )}
                 >
                   <span className={cn("size-3 rounded-full", option.className)} />
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="space-y-2" disabled={busy}>
+            <legend className="text-sm font-medium">Skill (optional)</legend>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Habit skill category">
+              {SKILL_CATEGORIES.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={skillCategory === option.id}
+                  onClick={() =>
+                    setSkillCategory(skillCategory === option.id ? null : option.id)
+                  }
+                  className={cn(
+                    "flex min-h-11 items-center gap-2 rounded-xl border px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                    skillCategory === option.id
+                      ? "border-foreground/30 bg-muted"
+                      : "border-border/60 hover:bg-muted/50"
+                  )}
+                >
+                  <span aria-hidden="true">{option.emoji}</span>
                   {option.label}
                 </button>
               ))}

@@ -64,6 +64,7 @@ function habit(overrides: Partial<Habit> = {}): Habit {
     name: "Meditation",
     emoji: "🧘",
     color: "blue",
+    skill_category: null,
     is_archived: false,
     sort_order: 0,
     created_at: "2026-07-01T00:00:00.000Z",
