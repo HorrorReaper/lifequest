@@ -20,6 +20,7 @@ import {
   type CustomQuest,
 } from '@/lib/quests'
 import type { QuestIdea } from '@/lib/quest-ideas'
+import { SKILL_CATEGORIES, type SkillCategory } from '@/lib/skill-categories'
 import { useUserStore } from '@/lib/stores/user-store'
 import { SystemQuestCard, CustomQuestCard } from '@/components/quests/QuestCard'
 import { ChallengeProgramCard } from '@/components/quests/ChallengeProgramCard'
@@ -79,6 +80,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
   const [formDesc, setFormDesc] = useState('')
   const [formXp, setFormXp] = useState(50)
   const [formCoins, setFormCoins] = useState(20)
+  const [formSkillCategory, setFormSkillCategory] = useState<SkillCategory | null>(null)
   const [creating, setCreating] = useState(false)
   const [completionReward, setCompletionReward] = useState<QuestCompletionReward | null>(null)
   const [showIdeaPicker, setShowIdeaPicker] = useState(false)
@@ -198,12 +200,14 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
         description: formDesc.trim() || '',
         xp_reward: formXp,
         coin_reward: formCoins,
+        skill_category: formSkillCategory,
       })
       setCustomQuests((prev) => [newQuest, ...prev])
       setFormTitle('')
       setFormDesc('')
       setFormXp(50)
       setFormCoins(20)
+      setFormSkillCategory(null)
       setShowForm(false)
     } finally {
       setCreating(false)
@@ -364,6 +368,32 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
                     value={formCoins}
                     onChange={(e) => setFormCoins(Number(e.target.value))}
                   />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Skill (optional)</Label>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Quest skill category">
+                  {SKILL_CATEGORIES.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={formSkillCategory === option.id}
+                      onClick={() =>
+                        setFormSkillCategory(
+                          formSkillCategory === option.id ? null : option.id
+                        )
+                      }
+                      className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 text-left text-xs font-medium transition-colors ${
+                        formSkillCategory === option.id
+                          ? 'border-foreground/30 bg-muted'
+                          : 'border-border/60 hover:bg-muted/50'
+                      }`}
+                    >
+                      <span aria-hidden="true">{option.emoji}</span>
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div className="flex gap-2">
