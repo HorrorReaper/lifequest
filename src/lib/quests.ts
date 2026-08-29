@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getLevel } from '@/lib/gamification'
 import type { ChallengeDayProgressRow, ChallengeDayRow, ChallengeEnrollmentRow, ChallengeTemplateRow } from '@/lib/supabase/database.types'
+import type { SkillCategory } from './skill-categories'
 
 interface SupabaseResult<T> {
   data: T | null
@@ -96,6 +97,7 @@ export interface CustomQuest {
   challenge_days: number | null
   challenge_task: string | null
   challenge_start_date: string | null
+  skill_category: SkillCategory | null
   is_completed: boolean
   completed_at: string | null
   created_at: string
@@ -411,6 +413,7 @@ export async function createCustomQuest(
     challenge_days?: number | null
     challenge_task?: string | null
     challenge_start_date?: string | null
+    skill_category?: SkillCategory | null
   }
 ): Promise<CustomQuest> {
   const client = questClient(supabase)

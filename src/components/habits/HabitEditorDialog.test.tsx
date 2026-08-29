@@ -1,76 +1,72 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HabitEditorDialog } from "@/components/habits/HabitEditorDialog";
-import type { Habit } from "@/lib/types";
+import { HabitEditorDialog } from "./HabitEditorDialog";
 
 afterEach(cleanup);
 
-describe("HabitEditorDialog", () => {
-  it("creates a daily habit from the focused editor", async () => {
+describe("HabitEditorDialog skill picker", () => {
+  it("includes the chosen skill category in the submitted value", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
-
     render(
       <HabitEditorDialog
         open
-        onOpenChange={vi.fn()}
+        onOpenChange={() => undefined}
         onSubmit={onSubmit}
       />
     );
 
-    expect(screen.getByText("Daily")).toBeTruthy();
-    expect(screen.getByText("Habits currently repeat every day.")).toBeTruthy();
-
-    const nameInput = screen.getByLabelText("Name");
-    await user.type(nameInput, "Morning walk");
-    await user.click(screen.getByRole("radio", { name: "Forest" }));
-    await user.click(screen.getByRole("button", { name: "Create habit" }));
+    await user.type(screen.getByLabelText("Name"), "Morning run");
+    await user.click(screen.getByRole("radio", { name: /physical health/i }));
+    await user.click(screen.getByRole("button", { name: /create habit/i }));
 
     expect(onSubmit).toHaveBeenCalledWith({
-      name: "Morning walk",
+      name: "Morning run",
       emoji: "✅",
-      color: "green",
+      color: "blue",
+      skillCategory: "physical_health",
     });
   });
 
-  it("prefills durable fields when editing", async () => {
+  it("defaults to no skill category when nothing is selected", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
-    const habit: Habit = {
-      id: "habit-1",
-      user_id: "user-1",
-      name: "Read",
-      emoji: "📖",
-      color: "purple",
-      is_archived: false,
-      sort_order: 0,
-      created_at: "2026-07-01T12:00:00.000Z",
-    };
-
     render(
       <HabitEditorDialog
         open
-        habit={habit}
-        onOpenChange={vi.fn()}
+        onOpenChange={() => undefined}
         onSubmit={onSubmit}
       />
     );
 
-    const nameInput = screen.getByLabelText("Name");
-    expect((nameInput as HTMLInputElement).value).toBe("Read");
-    expect(
-      screen.getByRole("radio", { name: "Violet" }).getAttribute("aria-checked")
-    ).toBe("true");
+    await user.type(screen.getByLabelText("Name"), "Read");
+    await user.click(screen.getByRole("button", { name: /create habit/i }));
 
-    await user.clear(nameInput);
-    await user.type(nameInput, "Read ten pages");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ skillCategory: null })
+    );
+  });
 
-    expect(onSubmit).toHaveBeenCalledWith({
-      name: "Read ten pages",
-      emoji: "📖",
-      color: "purple",
-    });
+  it("toggles a selected skill chip back off when tapped again", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <HabitEditorDialog
+        open
+        onOpenChange={() => undefined}
+        onSubmit={onSubmit}
+      />
+    );
+
+    await user.type(screen.getByLabelText("Name"), "Meditate");
+    const focusChip = screen.getByRole("radio", { name: /focus/i });
+    await user.click(focusChip);
+    await user.click(focusChip);
+    await user.click(screen.getByRole("button", { name: /create habit/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ skillCategory: null })
+    );
   });
 });

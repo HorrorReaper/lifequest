@@ -1,3 +1,5 @@
+import type { SkillCategory } from "./skill-categories";
+
 export type QuestIdeaCategory =
   | "Skills & Learning"
   | "Creative & Technical"
@@ -277,3 +279,18 @@ export const QUEST_IDEAS: QuestIdea[] = [
     category: "Relationships & Community",
   },
 ];
+
+const QUEST_IDEA_CATEGORY_TO_SKILL: Record<QuestIdeaCategory, SkillCategory> = {
+  "Skills & Learning": "learning",
+  "Creative & Technical": "focus",
+  "Adventure & Travel": "mental_health",
+  "Health & Fitness": "physical_health",
+  "Money & Career": "career",
+  "Relationships & Community": "relationships",
+};
+
+export function skillCategoryForQuestIdeaCategory(
+  category: QuestIdeaCategory
+): SkillCategory {
+  return QUEST_IDEA_CATEGORY_TO_SKILL[category];
+}
