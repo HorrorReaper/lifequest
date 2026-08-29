@@ -46,6 +46,12 @@ import {
   updateHabit,
 } from "@/lib/habits";
 import {
+  calculateHabitCheckInXp,
+  checkInHabitReward,
+  undoHabitCheckInReward,
+} from "@/lib/habit-xp";
+import { useUserStore } from "@/lib/stores/user-store";
+import {
   addDays,
   buildDateWindow,
   buildHabitSummary,
@@ -108,6 +114,8 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Habit | null>(null);
+  const addXp = useUserStore((state) => state.addXp);
+  const setCoins = useUserStore((state) => state.setCoins);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -210,6 +218,38 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         ),
         savedLog,
       ]);
+      const wasCompleted = previousLog?.completed ?? false;
+      if (completed && !wasCompleted) {
+        const summary = buildHabitSummary({
+          habit,
+          logs: [
+            ...logs.filter((log) => log.habit_id === habit.id),
+            savedLog,
+          ],
+          today,
+          timezone,
+        });
+        const { xp } = calculateHabitCheckInXp(summary.currentStreak);
+        const result = await checkInHabitReward(supabase, {
+          habitId: habit.id,
+          date,
+          xp,
+          skillCategory: null,
+        });
+        if (result.awarded) {
+          addXp(xp, result.totalXp - xp);
+          setCoins(result.coins);
+        }
+      } else if (!completed && wasCompleted) {
+        const result = await undoHabitCheckInReward(supabase, {
+          habitId: habit.id,
+          date,
+        });
+        if (result.reversed) {
+          setCoins(result.coins);
+          addXp(0, result.totalXp);
+        }
+      }
       notifyUpdated();
     } catch (error) {
       setLogs((current) => {

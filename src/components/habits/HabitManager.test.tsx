@@ -35,6 +35,21 @@ vi.mock("@/lib/supabase/client", () => ({
       }
       return habitLogsQuery();
     },
+    rpc: (name: string) => {
+      if (name === "check_in_habit_reward") {
+        return Promise.resolve({
+          data: [{ total_xp: 10, coins: 3, awarded: true }],
+          error: null,
+        });
+      }
+      if (name === "undo_habit_check_in_reward") {
+        return Promise.resolve({
+          data: [{ total_xp: 0, coins: 0, reversed: true }],
+          error: null,
+        });
+      }
+      throw new Error(`Unexpected rpc in test: ${name}`);
+    },
   }),
 }));
 
