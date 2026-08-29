@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { SKILL_CATEGORIES, SKILL_CATEGORY_LABELS, type SkillCategory } from "./skill-categories";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  SKILL_CATEGORIES,
+  SKILL_CATEGORY_LABELS,
+  fetchSkillXpTotals,
+  type SkillCategory,
+} from "./skill-categories";
 
 describe("skill categories", () => {
   it("has exactly 6 categories with unique ids", () => {
@@ -33,5 +39,46 @@ describe("skill categories", () => {
         "career",
       ])
     );
+  });
+});
+
+describe("fetchSkillXpTotals", () => {
+  it("sums xp_amount per skill_category and defaults untouched categories to 0", async () => {
+    const rows = [
+      { skill_category: "physical_health", xp_amount: 10 },
+      { skill_category: "physical_health", xp_amount: 15 },
+      { skill_category: "focus", xp_amount: 20 },
+      { skill_category: null, xp_amount: 5 },
+    ];
+    const client = {
+      from: () => ({
+        select: () => ({
+          eq: async () => ({ data: rows, error: null }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    const totals = await fetchSkillXpTotals(client, "user-1");
+
+    expect(totals).toEqual({
+      physical_health: 25,
+      mental_health: 0,
+      focus: 20,
+      learning: 0,
+      relationships: 0,
+      career: 0,
+    });
+  });
+
+  it("throws when the query errors", async () => {
+    const client = {
+      from: () => ({
+        select: () => ({
+          eq: async () => ({ data: null, error: new Error("boom") }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(fetchSkillXpTotals(client, "user-1")).rejects.toThrow("boom");
   });
 });

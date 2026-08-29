@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 export type SkillCategory =
   | "physical_health"
   | "mental_health"
@@ -25,3 +27,27 @@ export const SKILL_CATEGORY_LABELS: Record<SkillCategory, string> =
   Object.fromEntries(
     SKILL_CATEGORIES.map((category) => [category.id, category.label])
   ) as Record<SkillCategory, string>;
+
+export async function fetchSkillXpTotals(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<Record<SkillCategory, number>> {
+  const totals = Object.fromEntries(
+    SKILL_CATEGORIES.map((category) => [category.id, 0])
+  ) as Record<SkillCategory, number>;
+
+  const { data, error } = await supabase
+    .from("xp_events")
+    .select("skill_category, xp_amount")
+    .eq("user_id", userId);
+  if (error) throw error;
+
+  for (const row of data ?? []) {
+    const category = row.skill_category as SkillCategory | null;
+    if (category && category in totals) {
+      totals[category] += row.xp_amount as number;
+    }
+  }
+
+  return totals;
+}
