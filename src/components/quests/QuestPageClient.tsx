@@ -19,7 +19,7 @@ import {
   type DefaultQuestWithStatus,
   type CustomQuest,
 } from '@/lib/quests'
-import type { QuestIdea } from '@/lib/quest-ideas'
+import { skillCategoryForQuestIdeaCategory, type QuestIdea } from '@/lib/quest-ideas'
 import { SKILL_CATEGORIES, type SkillCategory } from '@/lib/skill-categories'
 import { useUserStore } from '@/lib/stores/user-store'
 import { SystemQuestCard, CustomQuestCard } from '@/components/quests/QuestCard'
@@ -220,6 +220,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
       description: idea.description,
       xp_reward: idea.xpReward,
       coin_reward: idea.coinReward,
+      skill_category: skillCategoryForQuestIdeaCategory(idea.category),
     })
     setCustomQuests((prev) => [newQuest, ...prev])
   }

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { QUEST_IDEA_CATEGORIES, QUEST_IDEAS } from "@/lib/quest-ideas";
+import {
+  QUEST_IDEA_CATEGORIES,
+  QUEST_IDEAS,
+  skillCategoryForQuestIdeaCategory,
+} from "@/lib/quest-ideas";
 
 describe("quest ideas", () => {
   it("has 30 ideas", () => {
@@ -30,6 +34,23 @@ describe("quest ideas", () => {
       expect(idea.description.trim().length).toBeGreaterThan(0);
       expect(idea.xpReward).toBeGreaterThan(0);
       expect(idea.coinReward).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("skillCategoryForQuestIdeaCategory", () => {
+  it("maps each quest-idea category to the expected skill category", () => {
+    expect(skillCategoryForQuestIdeaCategory("Skills & Learning")).toBe("learning");
+    expect(skillCategoryForQuestIdeaCategory("Creative & Technical")).toBe("focus");
+    expect(skillCategoryForQuestIdeaCategory("Adventure & Travel")).toBe("mental_health");
+    expect(skillCategoryForQuestIdeaCategory("Health & Fitness")).toBe("physical_health");
+    expect(skillCategoryForQuestIdeaCategory("Money & Career")).toBe("career");
+    expect(skillCategoryForQuestIdeaCategory("Relationships & Community")).toBe("relationships");
+  });
+
+  it("covers every category in QUEST_IDEA_CATEGORIES with no gaps", () => {
+    for (const category of QUEST_IDEA_CATEGORIES) {
+      expect(() => skillCategoryForQuestIdeaCategory(category)).not.toThrow();
     }
   });
 });
