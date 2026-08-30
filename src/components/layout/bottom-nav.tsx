@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, NotebookPen, Building2, Settings } from 'lucide-react'
+import { Home, NotebookPen, Settings } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { createClient } from '@/lib/supabase/client'
@@ -14,7 +14,9 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/journal', label: 'Journal', icon: NotebookPen },
   // { label: "Analytics", href: "/analytics", icon: BarChart3 },
-  { href: '/city', label: 'City', icon: Building2 },
+  // City is retired as a reachable feature for now; see
+  // docs/superpowers/specs/2026-08-30-avatar-nature-redesign-design.md.
+  // This slot is expected to become an Avatar/Profile entry later.
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -109,7 +111,7 @@ export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
             {LEFT_NAV_ITEMS.map(renderNavItem)}
           </div>
           <QuickActionButton isAdmin={isAdmin} />
-          <div className="grid grid-cols-2 items-end gap-1">
+          <div className="grid grid-cols-1 items-end gap-1">
             {RIGHT_NAV_ITEMS.map(renderNavItem)}
           </div>
         </div>
