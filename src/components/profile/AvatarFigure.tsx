@@ -166,8 +166,16 @@ const PACK_STRAPS = (
   </g>
 )
 
-/** The bare hiker. Shared so a thumbnail's silhouette can never drift from the figure. */
-function BaseBody({ showFeet }: { showFeet: boolean }) {
+/**
+ * The bare hiker. Shared so a thumbnail's silhouette can never drift from the
+ * figure.
+ *
+ * `headOnly` genuinely omits the body rather than relying on a tighter
+ * viewBox to hide it: an SVG's viewport does not reliably clip what falls
+ * outside it here, which left the torso's top curve floating under an
+ * otherwise bodiless head.
+ */
+function BaseBody({ showFeet, headOnly = false }: { showFeet: boolean; headOnly?: boolean }) {
   return (
     <g
       fill="var(--muted)"
@@ -183,15 +191,19 @@ function BaseBody({ showFeet }: { showFeet: boolean }) {
         <circle cx="65" cy="33" r="0.6" fill="currentColor" fillOpacity="0.85" />
         <path d="M 54.5 40 Q 60 45 65.5 40" fill="none" />
       </g>
-      <path d="M 45 58 Q 60 53 75 58 L 73 99 Q 60 103 47 99 Z" />
-      <path d="M 46 63 L 35 89" fill="none" />
-      <path d="M 74 63 L 85 89" fill="none" />
-      <path d="M 54 101 L 52 134" fill="none" />
-      <path d="M 66 101 L 68 134" fill="none" />
-      {showFeet && (
+      {!headOnly && (
         <>
-          <ellipse cx="50" cy="137" rx="7" ry="4" />
-          <ellipse cx="70" cy="137" rx="7" ry="4" />
+          <path d="M 45 58 Q 60 53 75 58 L 73 99 Q 60 103 47 99 Z" />
+          <path d="M 46 63 L 35 89" fill="none" />
+          <path d="M 74 63 L 85 89" fill="none" />
+          <path d="M 54 101 L 52 134" fill="none" />
+          <path d="M 66 101 L 68 134" fill="none" />
+          {showFeet && (
+            <>
+              <ellipse cx="50" cy="137" rx="7" ry="4" />
+              <ellipse cx="70" cy="137" rx="7" ry="4" />
+            </>
+          )}
         </>
       )}
     </g>
@@ -237,8 +249,14 @@ export function AvatarFigure({ equippedItems, className }: AvatarFigureProps) {
   )
 }
 
-/** The head region of the shared coordinate space -- face plus whatever hat is worn. */
-const HEAD_BOX = '32 8 56 46'
+/**
+ * The head region of the shared coordinate space -- face plus whatever hat is
+ * worn. Ends at y=52.5: the head's own stroke reaches 52.25, while the torso
+ * path's top curve peaks at 53, so this keeps the whole head and excludes the
+ * body. Cropping mid-curve instead left a stray line under a headshot that has
+ * no body attached to explain it.
+ */
+const HEAD_BOX = '32 6 56 46.5'
 
 interface AvatarHeadProps {
   equippedItems: Record<AvatarSlot, string | null>
@@ -271,7 +289,7 @@ export function AvatarHead({ equippedItems, className, x, y, width, height }: Av
       aria-label="Your avatar"
       data-testid="avatar-head"
     >
-      <BaseBody showFeet={false} />
+      <BaseBody showFeet={false} headOnly />
       {hatArt && <g data-avatar-item={hatId}>{hatArt}</g>}
     </svg>
   )

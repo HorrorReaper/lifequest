@@ -41,7 +41,7 @@ const TRAIL_TREES: ReadonlyArray<{ x: number; height: number }> = [
 // Colors are literal (not theme CSS variables): this component only ever
 // renders while the Trail theme is active (see ThemedDashboardHero), so
 // there is nothing for them to react to.
-function TrailScene({ equippedItems }: { equippedItems: Record<AvatarSlot, string | null> }) {
+function TrailScene() {
   return (
     <svg
       viewBox="0 0 400 130"
@@ -61,6 +61,8 @@ function TrailScene({ equippedItems }: { equippedItems: Record<AvatarSlot, strin
         strokeDasharray="3 7"
         strokeLinecap="round"
       />
+      <circle cx="190" cy="109" r="4.5" fill="hsl(152 38% 24%)" />
+      <circle cx="190" cy="109" r="8" fill="none" stroke="hsl(152 38% 24%)" strokeOpacity="0.35" strokeWidth="1.5" />
 
       {TRAIL_TREES.map((tree) => (
         <g key={tree.x}>
@@ -72,9 +74,6 @@ function TrailScene({ equippedItems }: { equippedItems: Record<AvatarSlot, strin
           <rect x={tree.x - 2} y={118} width={4} height={8} fill="hsl(152 38% 24%)" fillOpacity="0.4" />
         </g>
       ))}
-
-      {/* Stands on the trail at x=190, where the path sits at y=110. */}
-      <AvatarHead equippedItems={equippedItems} x={168} y={68} width={44} height={44} />
     </svg>
   )
 }
@@ -96,27 +95,36 @@ export function TrailDashboardHero({
       transition={{ duration: 0.4 }}
       className="overflow-hidden rounded-2xl border border-border/60 bg-card ring-1 ring-foreground/5"
     >
-      <TrailScene equippedItems={equippedItems} />
-      <div className="space-y-3 p-5">
-        <h1 className={`${fraunces.className} text-2xl leading-snug text-foreground sm:text-3xl`}>
-          Welcome back, {username ?? 'Adventurer'}.
-        </h1>
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Badge variant="secondary" className="gap-1">
-            <Coins className="size-3.5 text-yellow-600 dark:text-yellow-400" />
-            {coins} coins
-          </Badge>
-          <Badge variant="secondary" className="gap-1">
-            <Flame className="size-3.5 text-orange-600 dark:text-orange-400" />
-            {streak} {streak === 1 ? 'day' : 'days'} streak
-          </Badge>
+      <TrailScene />
+      <div className="flex items-start gap-4 p-5">
+        <div className="min-w-0 flex-1 space-y-3">
+          <h1 className={`${fraunces.className} text-2xl leading-snug text-foreground sm:text-3xl`}>
+            Welcome back, {username ?? 'Adventurer'}.
+          </h1>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Badge variant="secondary" className="gap-1">
+              <Coins className="size-3.5 text-yellow-600 dark:text-yellow-400" />
+              {coins} coins
+            </Badge>
+            <Badge variant="secondary" className="gap-1">
+              <Flame className="size-3.5 text-orange-600 dark:text-orange-400" />
+              {streak} {streak === 1 ? 'day' : 'days'} streak
+            </Badge>
+          </div>
+          <div className="flex items-center gap-3 pt-1">
+            <XpRing pct={pct} level={level} size={56} />
+            <p className="text-xs text-muted-foreground">
+              {Math.max(0, xpNext - totalXp)} XP to Level {level + 1}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-3 pt-1">
-          <XpRing pct={pct} level={level} size={56} />
-          <p className="text-xs text-muted-foreground">
-            {Math.max(0, xpNext - totalXp)} XP to Level {level + 1}
-          </p>
-        </div>
+
+        {/* Top-aligned so it sits beside the name rather than floating
+            against the badges below it. */}
+        <AvatarHead
+          equippedItems={equippedItems}
+          className="size-20 shrink-0 sm:size-24"
+        />
       </div>
     </motion.div>
   )
