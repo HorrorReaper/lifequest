@@ -195,9 +195,6 @@ export function AdminTestingTools({ userId, onboardingComplete }: AdminTestingTo
           <Button asChild variant="outline">
             <Link href="/learn">Learn</Link>
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/city">City</Link>
-          </Button>
         </div>
       </section>
     </div>
