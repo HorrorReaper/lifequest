@@ -44,12 +44,15 @@ A new, independent feature — not a reuse or migration of City's code or table:
 - Social features of any kind (sharing, feeds, followers, party accountability). The user wants these later, once there is a user base — no design work for them belongs in this plan.
 - Renaming or reframing XP, level, streak, or coins.
 
+## Resolved
+
+**`/profile` and Avatar are unified, not two separate screens.** The user decided the existing (uncommitted) `src/app/(app)/profile/page.tsx` — level, streak, coins, city tier, per-skill XP — and the new Avatar customization screen become one surface: stats and customization live together, reached from the single nav slot freed up by removing City. `SkillLevels`/`fetchSkillXpTotals` and the rest of `/profile`'s current content carry over into that merged screen rather than being duplicated or discarded.
+
 ## Open questions — must be resolved before a task-by-task implementation plan is written
 
-1. **Overlap with `src/app/(app)/profile/page.tsx`.** A profile screen (level, streak, coins, city tier, per-skill XP via `fetchSkillXpTotals`/`SkillLevels`) already exists in the working tree, uncommitted, from a separate in-progress branch of work. It is not yet linked from navigation. This has real overlap with an Avatar screen — both are "here's your character's stats" surfaces. Before building anything, decide with the user whether Avatar *replaces* `/profile`, *absorbs* it as a section, or the two stay deliberately separate (e.g. `/profile` = stats, Avatar = customization). Building past this without a decision risks the exact duplicate-surface problem this codebase has hit before.
-2. **Equipment slots and starting catalog.** Only the general shape (coin cost + XP threshold per item) is agreed; the actual slot list (e.g. jacket / boots / backpack / hat) and the first catalog of items are not yet drafted.
-3. **Exact `avatar_states` column shape** (JSON structure for `equipped_items`/`unlocked_items` vs. normalized rows) is a sketch, not a finalized schema — a normal implementation-time decision, not a product one, but worth resolving alongside question 1 since the profile-overlap decision may affect what an "avatar state" even needs to hold (e.g. if it also has to represent per-skill data from question 1).
+1. **Equipment slots and starting catalog.** Only the general shape (coin cost + XP threshold per item) is agreed; the actual slot list (e.g. jacket / boots / backpack / hat) and the first catalog of items are not yet drafted.
+2. **Exact `avatar_states` column shape** (JSON structure for `equipped_items`/`unlocked_items` vs. normalized rows, and how it sits alongside the existing `profiles`/skill-XP data the merged screen also reads) is a sketch, not a finalized schema — a normal implementation-time decision, not a product one.
 
 ## Next step
 
-Once questions 1–2 are resolved with the user, follow up with a dated implementation plan under `docs/superpowers/plans/` (task-by-task, matching `docs/superpowers/plans/2026-08-21-landing-page-nightfall-city.md`'s format) before any code is written.
+Once question 1 is drafted, follow up with a dated implementation plan under `docs/superpowers/plans/` (task-by-task, matching `docs/superpowers/plans/2026-08-21-landing-page-nightfall-city.md`'s format) before any code is written.
