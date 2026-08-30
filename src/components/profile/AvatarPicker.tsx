@@ -12,6 +12,7 @@ import {
   type AvatarSlot,
   type AvatarState,
 } from '@/lib/avatar'
+import { AvatarFigure, AvatarItemArt } from '@/components/profile/AvatarFigure'
 import { createClient } from '@/lib/supabase/client'
 import { useUserStore } from '@/lib/stores/user-store'
 import { cn } from '@/lib/utils'
@@ -82,9 +83,12 @@ export function AvatarPicker({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Coins className="size-4 text-yellow-600 dark:text-yellow-400" />
-        <span>{coins} coins</span>
+      <div className="flex flex-col items-center gap-2 rounded-2xl border border-border/60 bg-muted/30 p-4">
+        <AvatarFigure equippedItems={avatarState.equippedItems} className="h-44 w-auto" />
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Coins className="size-4 text-yellow-600 dark:text-yellow-400" />
+          <span>{coins} coins</span>
+        </div>
       </div>
 
       {AVATAR_SLOTS.map((slot) => (
@@ -114,10 +118,10 @@ export function AvatarPicker({
                   )}
                   aria-pressed={equipped}
                 >
-                  <span className="relative text-2xl" aria-hidden="true">
-                    {item.emoji}
+                  <span className="relative flex size-10 items-center justify-center">
+                    <AvatarItemArt item={item} className="size-10 text-2xl" />
                     {equipped && (
-                      <Check className="absolute -right-2 -top-1 size-3.5 rounded-full bg-primary p-0.5 text-primary-foreground" />
+                      <Check className="absolute -right-1 -top-1 size-3.5 rounded-full bg-primary p-0.5 text-primary-foreground" />
                     )}
                   </span>
                   <span className="text-xs font-medium leading-tight">{item.name}</span>
