@@ -5,6 +5,7 @@
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant white-mode (&:is(.white-mode *));
+@custom-variant trail-mode (&:is(.trail-mode *));
 
 :root {
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -92,6 +93,41 @@
   --chart-3: hsl(204 25% 48%);
   --chart-4: hsl(84 24% 48%);
   --chart-5: hsl(12 35% 54%);
+}
+
+/*
+ * Trail — warm parchment background with a deep forest-green primary,
+ * evoking a trail journal rather than a plain light UI. A token-only theme
+ * for now: see docs/superpowers/specs/2026-08-30-avatar-nature-redesign-design.md
+ * for the illustrated dashboard treatment this may grow into later.
+ */
+.trail-mode {
+  color-scheme: light;
+  --background: hsl(42 46% 92%);
+  --foreground: hsl(28 22% 15%);
+  --card: hsl(44 40% 96%);
+  --card-foreground: hsl(28 22% 15%);
+  --popover: hsl(44 40% 96%);
+  --popover-foreground: hsl(28 22% 15%);
+  --primary: hsl(152 38% 24%);
+  --primary-foreground: hsl(45 40% 96%);
+  --secondary: hsl(38 32% 87%);
+  --secondary-foreground: hsl(28 20% 20%);
+  --muted: hsl(40 30% 88%);
+  --muted-foreground: hsl(30 14% 40%);
+  --accent: hsl(142 24% 88%);
+  --accent-foreground: hsl(152 34% 20%);
+  --destructive: hsl(8 55% 42%);
+  --destructive-foreground: hsl(45 40% 96%);
+  --border: hsl(36 24% 80%);
+  --input: hsl(36 24% 83%);
+  --ring: hsl(152 34% 32%);
+
+  --chart-1: hsl(152 32% 34%);
+  --chart-2: hsl(35 55% 52%);
+  --chart-3: hsl(202 22% 46%);
+  --chart-4: hsl(88 26% 42%);
+  --chart-5: hsl(14 48% 50%);
 }
 
 @theme inline {
@@ -186,6 +222,36 @@
 .white-mode [class*="to-amber"],
 .white-mode [class*="to-yellow"] {
   --tw-gradient-to: hsl(42 36% 92%) var(--tw-gradient-to-position) !important;
+}
+
+.trail-mode body {
+  background:
+    radial-gradient(circle at top left, hsl(38 40% 88% / 0.8), transparent 34rem),
+    linear-gradient(180deg, hsl(44 40% 96%), hsl(42 46% 92%));
+}
+
+.trail-mode .sparkle-particle {
+  display: none;
+}
+
+.trail-mode [class*="shadow-2xl"],
+.trail-mode [class*="shadow-xl"] {
+  box-shadow: 0 20px 70px hsl(28 22% 15% / 0.12) !important;
+}
+
+.trail-mode [class*="shadow-lg"] {
+  box-shadow: 0 14px 45px hsl(28 22% 15% / 0.09) !important;
+}
+
+.trail-mode [class*="from-primary"] {
+  --tw-gradient-from: hsl(152 30% 68%) var(--tw-gradient-from-position) !important;
+}
+
+.trail-mode [class*="to-purple"],
+.trail-mode [class*="to-chart"],
+.trail-mode [class*="to-amber"],
+.trail-mode [class*="to-yellow"] {
+  --tw-gradient-to: hsl(40 36% 88%) var(--tw-gradient-to-position) !important;
 }
 
 /* Custom scrollbar for dark mode */

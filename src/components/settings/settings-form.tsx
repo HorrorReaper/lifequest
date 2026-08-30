@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
-import { Loader2, ShieldCheck, Trash2 } from 'lucide-react'
+import { Loader2, ShieldCheck, Trash2, UserCircle2 } from 'lucide-react'
 import { useTheme, type Theme } from '@/components/providers/theme-provider'
 import { cn } from '@/lib/utils'
 import { formatTimezoneLabel, groupedTimezoneOptions } from '@/lib/timezones'
@@ -28,6 +28,11 @@ const APPEARANCE_OPTIONS: { value: Theme; title: string; description: string }[]
     value: 'white',
     title: 'White Mode',
     description: 'Calm, bright, and lower intensity.',
+  },
+  {
+    value: 'trail',
+    title: 'Trail',
+    description: 'Warm parchment and forest green, like a trail journal.',
   },
   {
     value: 'system',
@@ -170,6 +175,25 @@ export function SettingsForm({
   return (
     <div className="space-y-6">
       <Card className="border-border/50">
+        <CardContent className="flex items-center justify-between gap-4 pt-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+              <UserCircle2 className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Your profile</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Level, XP, streaks, and skill progress.
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link href="/profile">View profile</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
         <CardHeader>
           <CardTitle>Appearance</CardTitle>
           <CardDescription>
@@ -177,7 +201,7 @@ export function SettingsForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {APPEARANCE_OPTIONS.map((option) => {
               const selected = theme === option.value
 

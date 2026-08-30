@@ -2,8 +2,15 @@
 
 import * as React from 'react'
 
-const THEMES = ['light', 'dark', 'system', 'white'] as const
+const THEMES = ['light', 'dark', 'system', 'white', 'trail'] as const
 export type Theme = (typeof THEMES)[number]
+
+/**
+ * The mutually-exclusive looks a theme can resolve to. "system" and "light"
+ * are not modes themselves — {@link resolveMode} turns every {@link Theme}
+ * into one of these before it reaches the DOM.
+ */
+export type Mode = 'dark' | 'white' | 'trail' | 'light'
 
 interface ThemeProviderProps {
   children: React.ReactNode
@@ -28,6 +35,38 @@ function getStoredTheme() {
   return isTheme(stored) ? stored : null
 }
 
+/** Resolves a stored/selected theme to the mode that should actually be applied. */
+export function resolveMode(theme: Theme): Mode {
+  if (theme === 'white' || theme === 'trail' || theme === 'dark') return theme
+  if (theme === 'system') {
+    return typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light'
+  }
+  return 'light'
+}
+
+/**
+ * Applies a resolved mode to `<html>`. Each mode is its own class so a new
+ * one (e.g. adding `trail`) only means toggling one more class here, not a
+ * new chain of `isX` booleans — that chain was already duplicated once
+ * between the initial-load effect and `setTheme` below, and a third mode
+ * would have made it worse.
+ */
+export function applyMode(mode: Mode, attribute: 'class' | 'data-theme') {
+  const el = document.documentElement
+  el.classList.toggle('white-mode', mode === 'white')
+  el.classList.toggle('trail-mode', mode === 'trail')
+
+  if (attribute === 'class') {
+    el.classList.toggle('dark', mode === 'dark')
+  } else {
+    el.setAttribute('data-theme', mode === 'dark' ? 'dark' : 'light')
+  }
+}
+
 export function ThemeProvider({
   children,
   attribute = 'class',
@@ -39,30 +78,15 @@ export function ThemeProvider({
 
   React.useEffect(() => {
     const applyTheme = (t: Theme) => {
-      const el = document.documentElement
-      const isWhite = t === 'white'
-      const isDark =
-        !isWhite &&
-        (t === 'dark' ||
-          (t === 'system' &&
-            window.matchMedia &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches))
-
       if (disableTransitionOnChange) {
+        const el = document.documentElement
         el.classList.add('disable-transitions')
         // force reflow then remove
         void el.offsetWidth
         setTimeout(() => el.classList.remove('disable-transitions'), 0)
       }
 
-      el.classList.toggle('white-mode', isWhite)
-
-      if (attribute === 'class') {
-        if (isDark) el.classList.add('dark')
-        else el.classList.remove('dark')
-      } else {
-        el.setAttribute('data-theme', isDark ? 'dark' : 'light')
-      }
+      applyMode(resolveMode(t), attribute)
     }
 
     const resolveInitial = () => {
@@ -101,22 +125,7 @@ export function ThemeProvider({
     try {
       localStorage.setItem('theme', t)
     } catch {}
-    // apply immediately
-    const el = document.documentElement
-    const isWhite = t === 'white'
-    const isDark =
-      !isWhite &&
-      (t === 'dark' ||
-        (t === 'system' &&
-          window.matchMedia &&
-          window.matchMedia('(prefers-color-scheme: dark)').matches))
-    el.classList.toggle('white-mode', isWhite)
-    if (attribute === 'class') {
-      if (isDark) el.classList.add('dark')
-      else el.classList.remove('dark')
-    } else {
-      el.setAttribute('data-theme', isDark ? 'dark' : 'light')
-    }
+    applyMode(resolveMode(t), attribute)
     setThemeState(t)
   }, [attribute])
 
