@@ -605,6 +605,32 @@ export interface Database {
           created_at?: string
         }
       },
+      avatar_states: {
+        Row: {
+          id: string
+          user_id: string
+          unlocked_item_ids: string[]
+          equipped_items: Record<string, string | null>
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          unlocked_item_ids?: string[]
+          equipped_items?: Record<string, string | null>
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          unlocked_item_ids?: string[]
+          equipped_items?: Record<string, string | null>
+          created_at?: string
+          updated_at?: string
+        }
+      },
       city_states: {
         Row: {
           id: string
