@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Compass, Loader2, RefreshCw, Sparkles, Zap } from 'lucide-react'
+import { Compass, Eye, Loader2, RefreshCw, Sparkles, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -124,6 +124,60 @@ function OnboardingSimulation({ userId, onboardingComplete }: AdminTestingToolsP
   )
 }
 
+function PreviewAsUser() {
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function enterPreview() {
+    setBusy(true)
+    setError(null)
+    try {
+      const response = await fetch('/api/admin/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: true }),
+      })
+      if (!response.ok) throw new Error('Could not start preview mode.')
+      router.push('/dashboard')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start preview mode.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border bg-card p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Eye className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold">View as a normal user</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            Hides every admin-only surface -- Goals, Routines, the learning widget, the
+            assistant, the Labs shortcut, and this workspace itself -- so you see the app a
+            regular account actually gets. Nothing is written: your own data, XP, and role are
+            untouched, and a banner at the top brings you back.
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            For a genuinely new account, run this together with the onboarding simulation below.
+          </p>
+        </div>
+      </div>
+
+      <Button type="button" className="mt-4" onClick={() => void enterPreview()} disabled={busy}>
+        {busy && <Loader2 className="size-4 animate-spin" />}
+        <Eye className="size-4" />
+        Start preview
+      </Button>
+
+      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+    </section>
+  )
+}
+
 export function AdminTestingTools({ userId, onboardingComplete }: AdminTestingToolsProps) {
   const router = useRouter()
   const addXp = useUserStore((state) => state.addXp)
@@ -174,6 +228,8 @@ export function AdminTestingTools({ userId, onboardingComplete }: AdminTestingTo
           Current client store: level {level}, {totalXp} XP.
         </p>
       </section>
+
+      <PreviewAsUser />
 
       <OnboardingSimulation userId={userId} onboardingComplete={onboardingComplete} />
 

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { TodayPlanner } from "@/components/planning/TodayPlanner";
-import { isAdminUser } from "@/lib/admin";
+import { showAdminUi } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
 import { dateInTimezone } from "@/lib/dates";
 import type { DayPlanBlock } from "@/lib/types";
@@ -161,7 +161,7 @@ export default async function TodayPlanPage() {
       tasks={tasks}
       habits={habits}
       journals={journals}
-      workoutsEnabled={isAdminUser(user)}
+      workoutsEnabled={await showAdminUi(user)}
     />
   );
 }

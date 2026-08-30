@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { LevelUpOverlay } from '@/components/ui/level-up-overlay'
 import { AppShell } from '@/components/layout/app-shell'
-import { isAdminUser } from '@/lib/admin'
+import { isPreviewingAsUser, showAdminUi } from '@/lib/admin'
+import { PreviewAsUserBanner } from '@/components/layout/PreviewAsUserBanner'
 
 export default async function AppLayout({
   children,
@@ -18,10 +19,18 @@ export default async function AppLayout({
 
   if (!user) redirect('/login')
 
+  const [showAdmin, previewing] = await Promise.all([
+    showAdminUi(user),
+    isPreviewingAsUser(),
+  ])
+
   return (
-    <AppShell isAdmin={isAdminUser(user)}>
-      {children}
-      <LevelUpOverlay />
-    </AppShell>
+    <>
+      {previewing && <PreviewAsUserBanner />}
+      <AppShell isAdmin={showAdmin}>
+        {children}
+        <LevelUpOverlay />
+      </AppShell>
+    </>
   )
 }
