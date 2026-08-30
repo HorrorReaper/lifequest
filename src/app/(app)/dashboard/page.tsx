@@ -14,7 +14,7 @@ import type { DayPlanBlock } from '@/lib/types'
 import { fetchGoals } from '@/lib/goals'
 import { calculateRoutineProgress, fetchRoutines } from '@/lib/routines'
 import { RoutinesDashboardWidget } from '@/components/dashboard/RoutinesDashboardWidget'
-import { isAdminUser } from '@/lib/admin'
+import { showAdminUi } from '@/lib/admin'
 import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
 import { parseTodayPlanNotes } from '@/lib/today-plan'
@@ -90,7 +90,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   if (!profile?.onboarding_complete) redirect('/onboarding')
 
-  const isAdmin = isAdminUser(user)
+  const isAdmin = await showAdminUi(user)
 
   const level = getLevel(profile.total_xp)
   const cityTier = getCityTier(level)

@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { fetchCompletedHabitIdsForDate, fetchRoutine } from '@/lib/routines'
 import { RoutineRunner } from '@/components/routines/RoutineRunner'
-import { isAdminUser } from '@/lib/admin'
+import { showAdminUi } from '@/lib/admin'
 
 interface RoutineRunPageProps {
   params: Promise<{ routineId: string }>
@@ -26,7 +26,7 @@ export default async function RoutineRunPage({ params }: RoutineRunPageProps) {
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
-  if (!isAdminUser(user)) redirect('/dashboard')
+  if (!(await showAdminUi(user))) redirect('/dashboard')
 
   const { data: profile } = await supabase
     .from('profiles')
