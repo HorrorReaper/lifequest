@@ -96,7 +96,7 @@ export function EveningReviewPrompt({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.3 }}
           >
-            <DialogTitle>How did today go, {username ?? 'Adventurer'}?</DialogTitle>
+            <DialogTitle>How was your day, {username ?? 'Adventurer'}?</DialogTitle>
             <DialogDescription>
               Close the loop before you switch off. A couple of minutes to reflect on
               today and set tomorrow&apos;s focus.

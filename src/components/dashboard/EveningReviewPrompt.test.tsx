@@ -46,31 +46,31 @@ describe('EveningReviewPrompt', () => {
   it('opens once it is evening, the review is not done, and it has not been dismissed today', () => {
     render(<EveningReviewPrompt {...defaultProps} />)
 
-    expect(screen.getByText('How did today go, Alex?')).toBeTruthy()
+    expect(screen.getByText('How was your day, Alex?')).toBeTruthy()
   })
 
   it('falls back to the same default name as the morning prompt when there is no username', () => {
     render(<EveningReviewPrompt {...defaultProps} username={null} />)
 
-    expect(screen.getByText('How did today go, Adventurer?')).toBeTruthy()
+    expect(screen.getByText('How was your day, Adventurer?')).toBeTruthy()
   })
 
   it('stays closed before 8pm', () => {
     render(<EveningReviewPrompt {...defaultProps} isEvening={false} />)
 
-    expect(screen.queryByText('How did today go, Alex?')).toBeNull()
+    expect(screen.queryByText('How was your day, Alex?')).toBeNull()
   })
 
   it('stays closed once the evening review is already done today', () => {
     render(<EveningReviewPrompt {...defaultProps} reviewDone />)
 
-    expect(screen.queryByText('How did today go, Alex?')).toBeNull()
+    expect(screen.queryByText('How was your day, Alex?')).toBeNull()
   })
 
   it('stays closed when the Evening Review template could not be found', () => {
     render(<EveningReviewPrompt {...defaultProps} templateId={null} />)
 
-    expect(screen.queryByText('How did today go, Alex?')).toBeNull()
+    expect(screen.queryByText('How was your day, Alex?')).toBeNull()
   })
 
   it('shows the day summary and links straight into the journal entry', () => {
@@ -87,7 +87,7 @@ describe('EveningReviewPrompt', () => {
     const { unmount } = render(<EveningReviewPrompt {...defaultProps} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
-    expect(screen.queryByText('How did today go, Alex?')).toBeNull()
+    expect(screen.queryByText('How was your day, Alex?')).toBeNull()
     expect(
       window.localStorage.getItem(`lifequest-evening-review-dismissed-${TODAY}`)
     ).toBe('1')
@@ -95,7 +95,7 @@ describe('EveningReviewPrompt', () => {
     // Simulate a fresh page load later the same evening: still dismissed.
     unmount()
     render(<EveningReviewPrompt {...defaultProps} />)
-    expect(screen.queryByText('How did today go, Alex?')).toBeNull()
+    expect(screen.queryByText('How was your day, Alex?')).toBeNull()
   })
 
   it('reopens on a new day even if yesterday was dismissed', () => {
@@ -103,6 +103,6 @@ describe('EveningReviewPrompt', () => {
 
     render(<EveningReviewPrompt {...defaultProps} />)
 
-    expect(screen.getByText('How did today go, Alex?')).toBeTruthy()
+    expect(screen.getByText('How was your day, Alex?')).toBeTruthy()
   })
 })
