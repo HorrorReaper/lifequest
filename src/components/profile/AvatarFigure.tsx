@@ -31,19 +31,26 @@ interface ItemArt {
 
 const ITEM_ART: Record<string, ItemArt> = {
   // --- Hats ---------------------------------------------------------------
+  // Both hats band at y=28, not y=33: the eyes sit at y=33, so a brim there
+  // cut straight across the face. The head's half-width at y=28 is ~12.7, so
+  // a crown spanning x=47..73 meets the skull instead of overhanging it, and
+  // a control point at y=14 peaks the crown at y=21 -- exactly the top of the
+  // head circle.
   'trail-cap': {
     front: (
       <g fill="hsl(152 32% 38%)" stroke="hsl(152 32% 24%)" strokeWidth="2" strokeLinejoin="round">
-        <path d="M 45 33 Q 60 15 75 33 Z" />
-        <path d="M 74 33 Q 88 33 90 37 L 74 37 Z" />
+        <path d="M 47 28 Q 60 14 73 28 Z" />
+        {/* Brim reaches x=86, so ~13 units clear the skull -- shorter than the
+            head's 15-unit radius. Running it out to 90 read as a plank. */}
+        <path d="M 68 28 Q 80 27 86 30 Q 79 32 68 31 Z" />
       </g>
     ),
   },
   'sun-hat': {
     front: (
       <g fill="hsl(38 52% 62%)" stroke="hsl(30 40% 40%)" strokeWidth="2" strokeLinejoin="round">
-        <ellipse cx="60" cy="33" rx="28" ry="6" />
-        <path d="M 47 33 Q 60 14 73 33 Z" />
+        <ellipse cx="60" cy="29" rx="28" ry="5.5" />
+        <path d="M 48 29 Q 60 13 72 29 Z" />
       </g>
     ),
   },
