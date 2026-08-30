@@ -48,6 +48,11 @@ A new, independent feature — not a reuse or migration of City's code or table:
 
 **`/profile` and Avatar are unified, not two separate screens.** The user decided the existing (uncommitted) `src/app/(app)/profile/page.tsx` — level, streak, coins, city tier, per-skill XP — and the new Avatar customization screen become one surface: stats and customization live together, reached from the single nav slot freed up by removing City. `SkillLevels`/`fetchSkillXpTotals` and the rest of `/profile`'s current content carry over into that merged screen rather than being duplicated or discarded.
 
+## Shipped
+
+- **Token-only "Trail" theme** (branch `feat/trail-theme`) — warm parchment background, forest-green primary, selectable in Settings alongside White/System/Dark. User confirmed the direction. The illustration/layout layer is still a separate, larger follow-up.
+- **City retired as a reachable feature** (branch `feat/hide-city`) — `/city` now redirects to `/dashboard`; the working implementation was moved verbatim to `src/components/city/CityPageClient.tsx` (unused but intact) rather than left in place behind an unconditional `redirect()`, because `redirect()`'s `never` return type makes TypeScript treat everything after it as unreachable and drops the `&&` null-narrowing City's own JSX depends on — `/analytics` gets away with the inline version only because its dead code is trivial. Bottom nav's City entry and the now-dead City shortcut in admin QA tools were removed too. Neither branch is merged into `master` yet.
+
 ## Open questions — must be resolved before a task-by-task implementation plan is written
 
 1. **Equipment slots and starting catalog.** Only the general shape (coin cost + XP threshold per item) is agreed; the actual slot list (e.g. jacket / boots / backpack / hat) and the first catalog of items are not yet drafted.
