@@ -4,6 +4,8 @@ import { Fraunces } from 'next/font/google'
 import { motion } from 'framer-motion'
 import { Coins, Flame } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { AvatarHead } from '@/components/profile/AvatarFigure'
+import type { AvatarSlot } from '@/lib/avatar'
 import { XpRing } from './XpRing'
 
 // Scoped to this component only -- must not touch the app's global
@@ -15,12 +17,13 @@ const fraunces = Fraunces({ subsets: ['latin'], weight: ['600'] })
 interface TrailDashboardHeroProps {
   username: string | null
   level: number
-  cityTierLabel: string
   xpNext: number
   totalXp: number
   pct: number
   coins: number
   streak: number
+  /** Drives the avatar head standing on the trail, hat included. */
+  equippedItems: Record<AvatarSlot, string | null>
 }
 
 // Fixed positions, not generated from Math.random(): the trail direction's
@@ -38,7 +41,7 @@ const TRAIL_TREES: ReadonlyArray<{ x: number; height: number }> = [
 // Colors are literal (not theme CSS variables): this component only ever
 // renders while the Trail theme is active (see ThemedDashboardHero), so
 // there is nothing for them to react to.
-function TrailScene() {
+function TrailScene({ equippedItems }: { equippedItems: Record<AvatarSlot, string | null> }) {
   return (
     <svg
       viewBox="0 0 400 130"
@@ -58,8 +61,6 @@ function TrailScene() {
         strokeDasharray="3 7"
         strokeLinecap="round"
       />
-      <circle cx="190" cy="109" r="4.5" fill="hsl(152 38% 24%)" />
-      <circle cx="190" cy="109" r="8" fill="none" stroke="hsl(152 38% 24%)" strokeOpacity="0.35" strokeWidth="1.5" />
 
       {TRAIL_TREES.map((tree) => (
         <g key={tree.x}>
@@ -71,6 +72,9 @@ function TrailScene() {
           <rect x={tree.x - 2} y={118} width={4} height={8} fill="hsl(152 38% 24%)" fillOpacity="0.4" />
         </g>
       ))}
+
+      {/* Stands on the trail at x=190, where the path sits at y=110. */}
+      <AvatarHead equippedItems={equippedItems} x={168} y={68} width={44} height={44} />
     </svg>
   )
 }
@@ -78,12 +82,12 @@ function TrailScene() {
 export function TrailDashboardHero({
   username,
   level,
-  cityTierLabel,
   xpNext,
   totalXp,
   pct,
   coins,
   streak,
+  equippedItems,
 }: TrailDashboardHeroProps) {
   return (
     <motion.div
@@ -92,11 +96,8 @@ export function TrailDashboardHero({
       transition={{ duration: 0.4 }}
       className="overflow-hidden rounded-2xl border border-border/60 bg-card ring-1 ring-foreground/5"
     >
-      <TrailScene />
+      <TrailScene equippedItems={equippedItems} />
       <div className="space-y-3 p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          Level {level} &middot; {cityTierLabel}
-        </p>
         <h1 className={`${fraunces.className} text-2xl leading-snug text-foreground sm:text-3xl`}>
           Welcome back, {username ?? 'Adventurer'}.
         </h1>

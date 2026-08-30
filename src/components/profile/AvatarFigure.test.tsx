@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { AvatarFigure, AvatarItemArt } from '@/components/profile/AvatarFigure'
+import { AvatarFigure, AvatarHead, AvatarItemArt } from '@/components/profile/AvatarFigure'
 import { AVATAR_ITEM_CATALOG, getDefaultAvatarState } from '@/lib/avatar'
 
 afterEach(cleanup)
@@ -87,5 +87,28 @@ describe('AvatarItemArt', () => {
     )
 
     expect(screen.getByText('🎩')).toBeTruthy()
+  })
+})
+
+describe('AvatarHead', () => {
+  it('shows the head with the hat that is worn', () => {
+    const { container } = render(
+      <AvatarHead
+        equippedItems={{ hat: 'sun-hat', jacket: 'rain-jacket', backpack: null, boots: null }}
+      />
+    )
+
+    expect(container.querySelector('[data-avatar-item="sun-hat"]')).toBeTruthy()
+  })
+
+  it('leaves out gear that is not worn on the head', () => {
+    const { container } = render(
+      <AvatarHead
+        equippedItems={{ hat: null, jacket: 'rain-jacket', backpack: 'day-pack', boots: 'trail-shoes' }}
+      />
+    )
+
+    expect(container.querySelector('[data-testid="avatar-head"]')).toBeTruthy()
+    expect(container.querySelectorAll('[data-avatar-item]')).toHaveLength(0)
   })
 })
