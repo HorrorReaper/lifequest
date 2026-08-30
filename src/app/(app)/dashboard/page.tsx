@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import type { Database } from '@/lib/supabase/database.types'
-import { DashboardHero } from '@/components/dashboard/DashboardHero'
+import { ThemedDashboardHero } from '@/components/dashboard/ThemedDashboardHero'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
 import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
@@ -290,7 +290,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="max-w-2xl mx-auto space-y-5">
-        <DashboardHero
+        <ThemedDashboardHero
           username={profile.username}
           level={level}
           cityTierLabel={CITY_TIER_LABELS[cityTier]}
