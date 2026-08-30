@@ -14,6 +14,7 @@ function challengeQuest(patch: Partial<CustomQuest> = {}): CustomQuest {
     challenge_days: 3,
     challenge_task: 'Take a cold shower',
     challenge_start_date: '2026-07-20',
+    skill_category: null,
     is_completed: false,
     completed_at: null,
     created_at: '2026-07-20T08:00:00Z',
