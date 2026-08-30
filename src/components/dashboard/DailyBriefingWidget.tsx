@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, ListTodo, Sparkles, Target } from 'lucide-react'
+import { BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, ListTodo, Sparkles, Target } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { DayPlanMissionType, Goal } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
@@ -166,20 +166,19 @@ export function DailyBriefingWidget({
   const currentBlock = blocks.find((block) => block.isCurrent)
   const nextPlanBlock = currentBlock ?? blocks.find((block) => !block.isPast) ?? null
   const nextHabit = localHabits.find((habit) => !habit.completed) ?? null
-  const nextJournal = journals.find((journal) => !journal.completedToday) ?? journals[0] ?? null
   const topTask = [...localTasks].sort((a, b) => {
     if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
     const priorityRank = { high: 0, medium: 1, low: 2 }
     return priorityRank[a.priority] - priorityRank[b.priority]
   })[0] ?? null
   const habitPct = localHabits.length > 0 ? Math.round((completedHabits / localHabits.length) * 100) : 0
+  // Deliberately says nothing about journaling any more: that is the
+  // JournalNudge section's job, and it sits directly above this card.
   const focusCopy = mainQuestTitle
     ? `Your Main Quest is “${mainQuestTitle}”. Protect its next block before reacting to everything else.`
     : allClear
-    ? 'Everything important is handled. Keep the day light or add a deliberate next block.'
-    : completedJournalCount === 0
-      ? 'Start with a quick journal entry, then move into the next concrete action.'
-      : 'Journal is done. Keep momentum with the next plan block, task, or habit.'
+      ? 'Everything important is handled. Keep the day light or add a deliberate next block.'
+      : 'The plan blocks, tasks, and habits that make up today.'
 
   async function handleQuickCompleteTask() {
     if (!topTask || quickActionId) return
@@ -284,44 +283,7 @@ export function DailyBriefingWidget({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-2xl border bg-background/80 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Next best move
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            {focusCopy}
-          </p>
-          <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
-            {completedJournalCount === 0 && nextJournal ? (
-              <Button asChild size="lg" className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5">
-                <Link href={`/journal/new/${nextJournal.id}`}>
-                  <span className="mr-1.5 text-base">{nextJournal.icon}</span>
-                  Start {nextJournal.name}
-                  <ArrowRight className="ml-1.5 size-5" />
-                </Link>
-              </Button>
-            ) : (
-              <Button asChild size="lg" variant="secondary" className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5">
-                <Link href="/journal">
-                  <BookOpen className="mr-1.5 size-5" />
-                  Add Reflection
-                </Link>
-              </Button>
-            )}
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
-            >
-              <Link href="/plan">
-                <CalendarClock className="mr-1.5 size-5" />
-                {planCommitted ? 'Review Plan' : 'Plan Today'}
-              </Link>
-            </Button>
-          </div>
-          {quickError && <p className="mt-3 text-xs text-destructive">{quickError}</p>}
-        </div>
+        <p className="text-sm leading-relaxed text-muted-foreground">{focusCopy}</p>
 
         <div className="grid gap-3 sm:grid-cols-2">
           {mainQuestTitle && (
@@ -430,6 +392,9 @@ export function DailyBriefingWidget({
                 <Link href="/tasks" onClick={(event) => event.stopPropagation()}>Manage</Link>
               </Button>
             </div>
+            {/* Sits with the action that sets it -- quick-complete is the only
+                thing that can fail here. */}
+            {quickError && <p className="mt-2 text-xs text-destructive">{quickError}</p>}
           </section>
 
           <section

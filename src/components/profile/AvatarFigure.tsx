@@ -178,6 +178,11 @@ function BaseBody({ showFeet }: { showFeet: boolean }) {
       strokeLinejoin="round"
     >
       <circle cx="60" cy="36" r="15" />
+      <g strokeWidth="1.8">
+        <circle cx="55" cy="33" r="0.6" fill="currentColor" fillOpacity="0.85" />
+        <circle cx="65" cy="33" r="0.6" fill="currentColor" fillOpacity="0.85" />
+        <path d="M 54.5 40 Q 60 45 65.5 40" fill="none" />
+      </g>
       <path d="M 45 58 Q 60 53 75 58 L 73 99 Q 60 103 47 99 Z" />
       <path d="M 46 63 L 35 89" fill="none" />
       <path d="M 74 63 L 85 89" fill="none" />
@@ -228,6 +233,46 @@ export function AvatarFigure({ equippedItems, className }: AvatarFigureProps) {
       {backpackId && ITEM_ART[backpackId]?.behind && PACK_STRAPS}
       {artFor('boots', 'front')}
       {artFor('hat', 'front')}
+    </svg>
+  )
+}
+
+/** The head region of the shared coordinate space -- face plus whatever hat is worn. */
+const HEAD_BOX = '32 8 56 46'
+
+interface AvatarHeadProps {
+  equippedItems: Record<AvatarSlot, string | null>
+  className?: string
+  /** Set when nesting inside another SVG, which also clips the body below the neck. */
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+}
+
+/**
+ * Just the avatar's head, reusing the figure's own art rather than a second
+ * drawing of it. Small enough to sit inside another illustration -- the
+ * dashboard's trail marker nests one via x/y/width/height.
+ */
+export function AvatarHead({ equippedItems, className, x, y, width, height }: AvatarHeadProps) {
+  const hatId = equippedItems.hat
+  const hatArt = hatId ? ITEM_ART[hatId]?.front : null
+
+  return (
+    <svg
+      viewBox={HEAD_BOX}
+      className={className}
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      role="img"
+      aria-label="Your avatar"
+      data-testid="avatar-head"
+    >
+      <BaseBody showFeet={false} />
+      {hatArt && <g data-avatar-item={hatId}>{hatArt}</g>}
     </svg>
   )
 }

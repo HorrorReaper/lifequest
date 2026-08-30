@@ -4,6 +4,9 @@ import { addDays, dateInTimezone } from '@/lib/dates'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import type { Database } from '@/lib/supabase/database.types'
 import { ThemedDashboardHero } from '@/components/dashboard/ThemedDashboardHero'
+import { TrailPageSpine } from '@/components/dashboard/TrailPageSpine'
+import { JournalNudge } from '@/components/dashboard/JournalNudge'
+import { fetchAvatarState } from '@/lib/avatar'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
 import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
@@ -93,11 +96,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const cityTier = getCityTier(level)
   const progress = getXpProgress(profile.total_xp)
 
-  const { data: cityRowData } = await supabase
-    .from('city_states')
-    .select('coins')
-    .eq('user_id', user.id)
-    .single()
+  const [{ data: cityRowData }, avatarState] = await Promise.all([
+    supabase.from('city_states').select('coins').eq('user_id', user.id).single(),
+    fetchAvatarState(supabase, user.id),
+  ])
   const coins = (cityRowData as { coins: number } | null)?.coins ?? 0
 
   const { annotated, customQuests } = await fetchQuestPageData(supabase, user.id)
@@ -275,7 +277,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
-      <div className="max-w-2xl mx-auto space-y-5">
+      <TrailPageSpine />
+      <div className="relative max-w-2xl mx-auto space-y-5">
         <ThemedDashboardHero
           username={profile.username}
           level={level}
@@ -285,6 +288,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           pct={progress.pct}
           coins={coins}
           streak={profile.current_streak}
+          equippedItems={avatarState.equippedItems}
+        />
+
+        <JournalNudge
+          journals={briefingJournals}
+          completedJournalCount={(todayEntriesRes.data ?? []).length}
         />
 
         <FirstRunWelcome show={showWelcome} />
