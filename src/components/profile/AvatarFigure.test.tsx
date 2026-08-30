@@ -101,6 +101,19 @@ describe('AvatarHead', () => {
     expect(container.querySelector('[data-avatar-item="sun-hat"]')).toBeTruthy()
   })
 
+  it('draws no body, so a bodiless head has no stray torso line under it', () => {
+    const { container } = render(
+      <AvatarHead
+        equippedItems={{ hat: null, jacket: null, backpack: null, boots: null }}
+      />
+    )
+
+    // The figure's torso/arms/legs are paths; only the face's smile remains.
+    const paths = [...container.querySelectorAll('path')].map((p) => p.getAttribute('d'))
+    expect(paths).toEqual(['M 54.5 40 Q 60 45 65.5 40'])
+    expect(container.querySelectorAll('ellipse')).toHaveLength(0)
+  })
+
   it('leaves out gear that is not worn on the head', () => {
     const { container } = render(
       <AvatarHead
