@@ -1,3 +1,10 @@
+import { parseLocalDate } from '@/lib/dates'
+
+// Grouping and counting take the current day as a required argument rather
+// than defaulting to the browser's. The default used to be `localDateKey()`,
+// which made the Today column roll over on the device clock while the rest of
+// the app used the profile timezone. Requiring it forces every caller to say
+// which day it means.
 import type { ManagedTask, TaskPriority } from './tasks'
 
 export type TaskView = 'today' | 'upcoming' | 'no-date' | 'completed'
@@ -21,41 +28,6 @@ export const TASK_PRIORITY_ORDER: Record<TaskPriority, number> = {
   low: 2,
 }
 
-const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
-
-export function localDateKey(date = new Date()): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-export function parseLocalDate(dateKey: string): Date | null {
-  const match = DATE_ONLY_PATTERN.exec(dateKey)
-  if (!match) return null
-
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const date = new Date(year, month - 1, day, 12)
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null
-  }
-
-  return date
-}
-
-export function tomorrowDateKey(date = new Date()): string {
-  return localDateKey(
-    new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 12)
-  )
-}
-
 export function formatTaskDate(
   dateKey: string,
   locale?: string,
@@ -68,7 +40,7 @@ export function formatTaskDate(
 
 export function taskViewForDate(
   task: Pick<ManagedTask, 'due_date' | 'is_completed'>,
-  todayKey = localDateKey()
+  todayKey: string
 ): TaskView {
   if (task.is_completed) return 'completed'
   if (!task.due_date) return 'no-date'
@@ -100,7 +72,7 @@ export function filterTasks(
   tasks: ManagedTask[],
   view: TaskView,
   filters: TaskFilters,
-  todayKey = localDateKey()
+  todayKey: string
 ): ManagedTask[] {
   const normalizedSearch = filters.search.trim().toLocaleLowerCase()
 
@@ -121,7 +93,7 @@ export function filterTasks(
 
 export function countTaskViews(
   tasks: ManagedTask[],
-  todayKey = localDateKey()
+  todayKey: string
 ): Record<TaskView, number> {
   return tasks.reduce<Record<TaskView, number>>(
     (counts, task) => {

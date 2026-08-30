@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { fetchQuestPageData } from '@/lib/quests'
+import { dateInTimezone } from '@/lib/dates'
 import { QuestPageClient } from '@/components/quests/QuestPageClient'
 
 export default async function QuestsPage() {
@@ -10,6 +11,16 @@ export default async function QuestsPage() {
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
+  // Resolved on the server so the cards agree with the challenge RPCs, which
+  // derive their day from this same profile timezone.
+  const today = dateInTimezone(new Date(), timezone)
 
   const { annotated, customQuests, challengePrograms } = await fetchQuestPageData(supabase, user.id)
 
@@ -28,6 +39,7 @@ export default async function QuestsPage() {
           defaultQuests={annotated}
           initialCustomQuests={customQuests}
           initialChallengePrograms={challengePrograms}
+          today={today}
         />
       </div>
     </div>

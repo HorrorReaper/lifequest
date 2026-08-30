@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { addDays, dateInTimezone } from '@/lib/dates'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import type { Database } from '@/lib/supabase/database.types'
 import { DashboardHero } from '@/components/dashboard/DashboardHero'
@@ -37,15 +38,6 @@ function parseQuickAction(value: string | string[] | undefined): QuickActionTarg
   return null
 }
 
-function dateInTimezone(timezone: string) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-}
-
 function dayLabel(timezone: string) {
   return new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
@@ -58,12 +50,6 @@ function dayLabel(timezone: string) {
 function minutesFromTime(time: string) {
   const [hours, minutes] = time.split(':').map(Number)
   return hours * 60 + minutes
-}
-
-function nextDate(dateKey: string) {
-  const next = new Date(`${dateKey}T00:00:00Z`)
-  next.setUTCDate(next.getUTCDate() + 1)
-  return next.toISOString().slice(0, 10)
 }
 
 function currentMinutesInTimezone(timezone: string) {
@@ -120,7 +106,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activeGoals = isAdmin
     ? await fetchGoals(supabase, user.id, { status: 'active' })
     : []
-  const today = dateInTimezone(profile.timezone ?? 'UTC')
+  const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
 
   const trackedMetrics = await fetchTrackedMetrics(supabase, user.id)
   const trackedMetricSeries = await Promise.all(
@@ -195,7 +181,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('user_id', user.id)
       .eq('is_completed', true)
       .gte('completed_at', `${today}T00:00:00`)
-      .lt('completed_at', `${nextDate(today)}T00:00:00`),
+      .lt('completed_at', `${addDays(today, 1)}T00:00:00`),
   ])
 
   const completedHabitIds = new Set(

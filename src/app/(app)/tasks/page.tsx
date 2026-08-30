@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { ArrowLeft, ListTodo } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { TaskList } from '@/components/tasks/TaskList'
+import { dateInTimezone } from '@/lib/dates'
 
 export default async function TasksPage() {
   const supabase = await createClient()
@@ -11,6 +12,14 @@ export default async function TasksPage() {
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
+  const today = dateInTimezone(new Date(), timezone)
 
   return (
     <main className="min-h-svh bg-background p-4 pb-24 sm:p-8">
@@ -36,7 +45,7 @@ export default async function TasksPage() {
           </div>
         </header>
 
-        <TaskList userId={user.id} />
+        <TaskList userId={user.id} today={today} />
       </div>
     </main>
   )

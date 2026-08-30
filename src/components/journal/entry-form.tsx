@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
+import { dateInTimezone } from '@/lib/dates'
+import { resolveStreak, streakMilestoneBonus } from '@/lib/streak'
 import { supabaseInsert, supabaseFrom, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import { useUserStore } from '@/lib/stores/user-store'
@@ -55,6 +57,13 @@ interface EntryFormProps {
   existingEntryId?: string
   existingResponses?: Record<string, FieldValue>
   suggestedInsightTags?: string[]
+  /**
+   * The profile's IANA timezone. Every date key this form writes — the entry
+   * date, the same-day bonus lookup, the streak comparison — has to be the
+   * user's calendar day. Deriving it from UTC or from the browser instead
+   * files a late-evening entry under tomorrow and can break a live streak.
+   */
+  timezone: string
   /** True when this is the entry onboarding routed the user into. */
   firstEntry?: boolean
 }
@@ -171,6 +180,7 @@ export function EntryForm({
   existingEntryId,
   existingResponses,
   suggestedInsightTags = [],
+  timezone,
   firstEntry = false,
 }: EntryFormProps) {
   const router = useRouter()
@@ -357,6 +367,10 @@ export function EntryForm({
       )
       const entryXp = template.xp_reward + bonusXp
 
+      // Resolved once so every write below files under the same calendar day,
+      // even if the submission straddles midnight.
+      const today = dateInTimezone(new Date(), timezone)
+
       // 1. Create or update journal entry
       let entryId = existingEntryId
 
@@ -371,7 +385,7 @@ export function EntryForm({
           .insert({
             user_id: user.id,
             template_id: template.id,
-            entry_date: new Date().toISOString().split('T')[0],
+            entry_date: today,
             is_complete: true,
             xp_earned: entryXp,
           })
@@ -525,7 +539,6 @@ export function EntryForm({
       let totalXpEarned = entryXp
 
       // Check for morning+evening same-day bonus
-      const today = new Date().toISOString().split('T')[0]
       const { data: todayEntriesData } = await supabase
         .from('journal_entries')
         .select('id, template_id, journal_templates!inner(entry_type)')
@@ -572,62 +585,38 @@ export function EntryForm({
 
       if (profile) {
         const newTotalXp = profile.total_xp + totalXpEarned
-        let newStreak = profile.current_streak
 
-        const lastDate = profile.last_journal_date
-        const yesterday = new Date()
-        yesterday.setDate(yesterday.getDate() - 1)
-        const yesterdayStr = yesterday.toISOString().split('T')[0]
+        const transition = resolveStreak({
+          today,
+          lastJournalDate: profile.last_journal_date,
+          currentStreak: profile.current_streak,
+          streakFreezes: profile.streak_freezes,
+        })
+        const newStreak = transition.streak
 
-        if (lastDate === today) {
-          // Already journaled today — no streak change
-        } else if (lastDate === yesterdayStr) {
-          // Consecutive day
-          newStreak += 1
-        } else if (!lastDate) {
-          // First ever entry
-          newStreak = 1
-        } else {
-          // Missed day(s) — check freeze
-          const daysBetween = Math.floor((new Date(today).getTime() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24))
-          if (daysBetween === 2 && profile.streak_freezes > 0) {
-            // Use a freeze
-            newStreak += 1
-            await supabaseUpdateWhere(supabase, 'profiles', { streak_freezes: profile.streak_freezes - 1 }, 'id', user.id)
-          } else {
-            // Streak reset
-            if (profile.current_streak > 0) {
-              await supabaseInsert(supabase, 'streak_history', {
-                user_id: user.id,
-                streak_length: profile.current_streak,
-                started_on: new Date(new Date(lastDate).getTime() - (profile.current_streak - 1) * 86400000).toISOString().split('T')[0],
-                ended_on: lastDate,
-                used_freeze: false,
-              })
-            }
-            newStreak = 1
-          }
+        if (transition.usedFreeze) {
+          await supabaseUpdateWhere(supabase, 'profiles', { streak_freezes: profile.streak_freezes - 1 }, 'id', user.id)
         }
 
-        // Check streak milestone bonuses
-        let streakBonus = 0
-        const milestones = [
-          { days: 7, bonus: 50 },
-          { days: 14, bonus: 100 },
-          { days: 30, bonus: 200 },
-          { days: 100, bonus: 500 },
-        ]
-        for (const m of milestones) {
-          if (newStreak === m.days) {
-            streakBonus = m.bonus
-            await supabaseInsert(supabase, 'xp_events', {
-              user_id: user.id,
-              source_type: 'streak_bonus',
-              source_id: entryId!,
-              xp_amount: m.bonus,
-              description: `${m.days}-day streak bonus!`,
-            })
-          }
+        if (transition.brokenStreak) {
+          await supabaseInsert(supabase, 'streak_history', {
+            user_id: user.id,
+            streak_length: transition.brokenStreak.length,
+            started_on: transition.brokenStreak.startedOn,
+            ended_on: transition.brokenStreak.endedOn,
+            used_freeze: false,
+          })
+        }
+
+        const streakBonus = streakMilestoneBonus(newStreak)
+        if (streakBonus > 0) {
+          await supabaseInsert(supabase, 'xp_events', {
+            user_id: user.id,
+            source_type: 'streak_bonus',
+            source_id: entryId!,
+            xp_amount: streakBonus,
+            description: `${newStreak}-day streak bonus!`,
+          })
         }
 
         const finalXp = newTotalXp + streakBonus

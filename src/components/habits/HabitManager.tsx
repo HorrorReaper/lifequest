@@ -45,6 +45,7 @@ import {
   setHabitLogCompletion,
   updateHabit,
 } from "@/lib/habits";
+import { addDays, dateInTimezone, formatDateOnly } from "@/lib/dates";
 import {
   calculateHabitCheckInXp,
   checkInHabitReward,
@@ -52,11 +53,8 @@ import {
 } from "@/lib/habit-xp";
 import { useUserStore } from "@/lib/stores/user-store";
 import {
-  addDays,
   buildDateWindow,
   buildHabitSummary,
-  dateInTimezone,
-  formatDateOnly,
   habitLogKey,
   indexHabitLogs,
   moveHabit,

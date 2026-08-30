@@ -4,6 +4,8 @@ import { TaskManager } from './TaskManager'
 
 export interface TaskListProps {
   userId: string
+  /** The user's current day, resolved from their profile timezone. */
+  today: string
   /** Compact mode for dashboard widget */
   compact?: boolean
   /** Limit how many tasks to display */

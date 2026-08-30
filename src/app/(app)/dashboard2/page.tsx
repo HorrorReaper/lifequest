@@ -8,6 +8,7 @@ import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/ga
 import { getLevelProgress } from '@/lib/city/city'
 import type { Database } from '@/lib/supabase/database.types'
 import { TaskList } from '@/components/tasks/TaskList'
+import { dateInTimezone } from '@/lib/dates'
 import { TodayPlanWidget } from '@/components/dashboard/TodayPlanWidget'
 import { DashboardSwitchLink } from '@/components/dashboard/DashboardSwitchLink'
 
@@ -115,7 +116,13 @@ export default async function Dashboard2Page() {
             />
           </div>
         </div>
-        <TaskList userId={user.id} compact limit={5} onlyOpen />
+        <TaskList
+          userId={user.id}
+          today={dateInTimezone(new Date(), profile.timezone ?? 'UTC')}
+          compact
+          limit={5}
+          onlyOpen
+        />
         <TodayPlanWidget userId={user.id} />
         {/* Quick Action */}
         <Button asChild size="lg" className="w-full">

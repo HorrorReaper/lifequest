@@ -67,6 +67,8 @@ Users can work with single-completion or daily challenge quests. Reward completi
 
 Published challenge programs contain ordered challenge days. Programs can enforce sequential or strict completion rules. Users can start or restart a program, check in each day, and complete the overall program.
 
+Both challenge surfaces derive their day from the profile timezone, resolved once on the server in `src/app/(app)/quests/page.tsx` and passed down as a date key. This has to match what `check_in_daily_challenge_quest` and `complete_challenge_program_day` compute, because those RPCs enforce the challenge window and the strict-schedule rule server-side. `getChallengeProgress` and `getProgramDayState` in `src/lib/challenges.ts` take the day as an argument for exactly this reason — never read it from the browser.
+
 The admin Challenge Lab is the authoring surface for templates and days.
 
 ## Reward integrity

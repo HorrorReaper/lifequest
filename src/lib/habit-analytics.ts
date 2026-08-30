@@ -1,3 +1,5 @@
+import { addDays, dateFromDayNumber, dayNumber } from '@/lib/dates'
+
 const DAY_MS = 86_400_000
 
 export type HabitAnalyticsPeriod = 30 | 90 | 'all'
@@ -42,19 +44,6 @@ export interface HabitAnalytics {
   weeklyTrend: HabitAnalyticsWeek[]
   weekdayConsistency: HabitAnalyticsWeekday[]
   recentCompletions: string[]
-}
-
-function dayNumber(date: string) {
-  const [year, month, day] = date.slice(0, 10).split('-').map(Number)
-  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS)
-}
-
-function dateFromDayNumber(value: number) {
-  return new Date(value * DAY_MS).toISOString().slice(0, 10)
-}
-
-function addDays(date: string, amount: number) {
-  return dateFromDayNumber(dayNumber(date) + amount)
 }
 
 function inclusiveDayCount(start: string, end: string) {

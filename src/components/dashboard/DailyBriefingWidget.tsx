@@ -615,6 +615,7 @@ export function DailyBriefingWidget({
             <TaskList
               key={`focus-sheet-tasks-${initialOpenPanel === 'task' ? 'open' : 'closed'}`}
               userId={userId}
+              today={todayDate}
               compact
               limit={12}
               onlyOpen

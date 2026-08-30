@@ -2,16 +2,8 @@ import { redirect } from "next/navigation";
 import { TodayPlanner } from "@/components/planning/TodayPlanner";
 import { isAdminUser } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
+import { dateInTimezone } from "@/lib/dates";
 import type { DayPlanBlock } from "@/lib/types";
-
-function dateInTimezone(timezone: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
 
 function dateLabel(timezone: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -44,7 +36,7 @@ export default async function TodayPlanPage() {
   if (!profile?.onboarding_complete) redirect("/onboarding");
 
   const timezone = profile.timezone ?? "UTC";
-  const today = dateInTimezone(timezone);
+  const today = dateInTimezone(new Date(), timezone);
 
   const [
     tasksResult,

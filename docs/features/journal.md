@@ -24,6 +24,8 @@ Primary implementation areas:
 
 The current recommendation rule prefers a morning template before noon and an evening template after 17:00, with free writing as the middle-of-day fallback. If the preferred template has already been completed, the UI can indicate that it is a repeat.
 
+The hour and the day both come from the profile's IANA timezone via `src/lib/dates.ts`. They used to be read from a hard-coded `Europe/Berlin`, which recommended the wrong template and counted today's entries against the wrong date for everyone else.
+
 ## Templates
 
 System templates are globally readable and protected from user modification. Users can create and edit their own templates.
@@ -100,6 +102,8 @@ The existing final submission pipeline performs the following work as applicable
 9. Update streak, streak-freeze, milestone, and streak-history state.
 
 Morning and evening completion can award an additional daily bonus. Streak milestones award larger bonuses at configured thresholds.
+
+Every date key the pipeline writes — `entry_date`, the same-day bonus lookup, `last_journal_date` — is resolved once from the profile timezone at the start of the submission, so a submission that straddles midnight cannot file its side effects under two different days. The streak decision itself is not in the pipeline: `resolveStreak` in `src/lib/streak.ts` is a pure function over date keys, unit-tested, and the pipeline only applies its result. It previously compared a wall-clock "yesterday" against a UTC-formatted date, which drifted apart at daylight-saving transitions and reset live streaks.
 
 This pipeline is sequential rather than a single database transaction. A partial network/database failure can therefore leave some side effects completed; see [Known constraints](../reference/known-limitations.md).
 

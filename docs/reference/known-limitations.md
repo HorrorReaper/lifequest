@@ -38,14 +38,15 @@ This is secure by default, but the setup is easy to misunderstand. Prefer the tr
 
 ## Date and timezone consistency
 
-- Habits and planning generally use the profile timezone.
-- Task date-only helpers avoid UTC shifts.
-- Journal home recommendations currently hard-code `Europe/Berlin`.
-- Journal entry submission derives some date state from an ISO/UTC date.
+All date keys now come from `src/lib/dates.ts`. The journal landing page and journal entry submission were moved onto the profile timezone, and a date picker bug that stored the previous day for every user east of Greenwich was fixed.
 
-Impact: users outside Berlin can see a recommendation or entry date that differs from their profile-local day near midnight.
+Quests were brought in line as well. Both challenge surfaces used to compute "today" from the browser while the RPCs behind them resolve it from the profile timezone, so the UI could enable a check-in the server then rejected as outside the window, or report a strict streak as broken while the server still accepted the day. `/quests` now resolves the day server-side and passes it down, and the two computations live in `src/lib/challenges.ts` as pure, unit-tested functions.
 
-Recommended direction: centralize all user date keys around the profile IANA timezone.
+Tasks followed. `TaskList`/`TaskManager` now receive the day as a required prop, `tomorrowDateKey` was deleted in favour of `addDays(today, 1)`, and `taskViewForDate`, `filterTasks`, and `countTaskViews` take the day as a **required** argument instead of defaulting to `localDateKey()`. The default was the actual hazard: it let any caller reintroduce the browser day without saying so.
+
+Every user-facing surface now resolves the day from the profile timezone on the server and passes it down as a date key.
+
+Note also that the migrations fall back to `Europe/Berlin` when a profile has no timezone while the application falls back to `UTC`. `profiles.timezone` is non-null in the generated types, so neither fallback should fire; if the base schema is ever reconstructed (see *Database reproducibility* above), make the two agree.
 
 ## Waitlist persistence
 
