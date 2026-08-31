@@ -121,41 +121,49 @@ export function TasksSection({
         </div>
       ) : (
         <>
-          <ul className="mt-4 space-y-1">
+          <ul className="mt-4 space-y-2">
             {tasks.map((task) => {
               const done = completedIds.has(task.id)
               const busy = busyId === task.id
 
               return (
                 <li key={task.id}>
+                  {/* Sized to match HabitsSection: mobile-first, stepping back
+                      down at sm where a cursor needs less room than a thumb. */}
                   <button
                     type="button"
                     onClick={() => void completeTask(task)}
                     disabled={busy || done}
-                    className="flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-muted/60 disabled:opacity-60"
+                    className={cn(
+                      'flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 text-left transition-colors disabled:opacity-60 sm:min-h-12',
+                      done
+                        ? 'border-primary/40 bg-primary/5'
+                        : 'border-border bg-background hover:border-foreground/25 hover:bg-muted/50'
+                    )}
                   >
                     <span
                       aria-hidden="true"
                       className={cn(
-                        'h-7 w-[3px] shrink-0 rounded-full',
+                        'w-[3px] shrink-0 rounded-full',
+                        'h-8 sm:h-7',
                         priorityStripe[task.priority]
                       )}
                     />
                     <span
                       className={cn(
-                        'flex size-6 shrink-0 items-center justify-center rounded-md border transition-colors',
+                        'flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors sm:size-6',
                         done ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
                       )}
                     >
                       {busy ? (
-                        <Loader2 className="size-3.5 animate-spin" />
+                        <Loader2 className="size-4 animate-spin sm:size-3.5" />
                       ) : (
-                        done && <Check className="size-3.5" />
+                        done && <Check className="size-4 sm:size-3.5" />
                       )}
                     </span>
                     <span
                       className={cn(
-                        'min-w-0 flex-1 truncate text-sm',
+                        'min-w-0 flex-1 truncate text-base sm:text-sm',
                         done && 'text-muted-foreground line-through'
                       )}
                     >
@@ -164,7 +172,7 @@ export function TasksSection({
                     {task.dueDate && (
                       <span
                         className={cn(
-                          'shrink-0 text-xs tabular-nums',
+                          'shrink-0 text-sm tabular-nums sm:text-xs',
                           task.isOverdue ? 'text-destructive' : 'text-muted-foreground'
                         )}
                       >
