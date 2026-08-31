@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, ListTodo, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { awardTaskCompletionXp, toggleTask, type TaskPriority } from '@/lib/tasks'
+import { awardTaskCompletionXp, createTask, toggleTask, type TaskPriority } from '@/lib/tasks'
 import type { DashboardTask } from '@/lib/dashboard-tasks'
 import { useUserStore } from '@/lib/stores/user-store'
 import { formatTaskDate } from '@/lib/task-manager'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { TaskEditorDialog, type TaskEditorDraft } from '@/components/tasks/TaskEditorDialog'
 
 interface TasksSectionProps {
   userId: string
@@ -47,6 +48,28 @@ export function TasksSection({
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => new Set())
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorSaving, setEditorSaving] = useState(false)
+  const [editorError, setEditorError] = useState<string | null>(null)
+
+  async function handleCreate(draft: TaskEditorDraft) {
+    setEditorSaving(true)
+    setEditorError(null)
+    try {
+      await createTask(supabase, userId, draft)
+      setEditorOpen(false)
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
+      router.refresh()
+    } catch (createError) {
+      setEditorError(
+        createError instanceof Error && createError.message
+          ? createError.message
+          : 'Could not create the task.'
+      )
+    } finally {
+      setEditorSaving(false)
+    }
+  }
 
   const showingUndated = dueTasks.length === 0 && undatedTasks.length > 0
   const tasks = dueTasks.length > 0 ? dueTasks : undatedTasks
@@ -115,8 +138,8 @@ export function TasksSection({
           <p className="text-sm leading-relaxed text-muted-foreground">
             Nothing due today.
           </p>
-          <Button asChild size="sm" variant="outline">
-            <Link href="/tasks">Add a task</Link>
+          <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
+            Add a task
           </Button>
         </div>
       ) : (
@@ -185,7 +208,14 @@ export function TasksSection({
             })}
           </ul>
 
-          <div className="mt-4 flex justify-end border-t pt-3">
+          <div className="mt-4 flex items-center justify-between border-t pt-3">
+            <button
+              type="button"
+              onClick={() => setEditorOpen(true)}
+              className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              + Add task
+            </button>
             <Link
               href="/tasks"
               className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -197,6 +227,19 @@ export function TasksSection({
       )}
 
       {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+
+      <TaskEditorDialog
+        key={editorOpen ? 'open' : 'closed'}
+        open={editorOpen}
+        task={null}
+        saving={editorSaving}
+        error={editorError}
+        onOpenChange={(open) => {
+          setEditorOpen(open)
+          if (!open) setEditorError(null)
+        }}
+        onSubmit={handleCreate}
+      />
     </section>
   )
 }
