@@ -46,7 +46,7 @@ Insight metadata is stored on journal responses so a saved answer can be marked 
 | --- | --- |
 | `tasks` | User tasks, completion, priority, due date, and optional project metadata |
 | `day_plans` | Date-keyed plan, blocks, and serialized Today Plan envelope |
-| `habits` | Daily binary habit definitions, ordering, archive state |
+| `habits` | Daily binary habit definitions, ordering, archive state, optional `skill_category` |
 | `habit_logs` | One user/habit/date completion record; false rows are preserved |
 | `routines` | Named habit groups |
 | `routine_items` | Ordered habit membership in a routine |
@@ -96,7 +96,7 @@ External foods are owned cached records. Their primary import identity is `(user
 
 | Table | Purpose |
 | --- | --- |
-| `quests` | User/custom quest definitions and completion |
+| `quests` | User/custom quest definitions and completion, optional `skill_category` |
 | `quest_daily_logs` | Date-keyed check-ins for daily quests |
 | `quest_completions` | Durable completion/claim record |
 | `challenge_templates` | Admin-authored program definition |
@@ -111,7 +111,7 @@ Reward RPCs update the completion record, XP, and coins together.
 
 | Table | Purpose |
 | --- | --- |
-| `xp_events` | XP audit trail with source type/ID |
+| `xp_events` | XP audit trail with source type/ID and optional `skill_category` |
 | `streak_history` | Date-keyed streak history |
 | `city_buildings` | Global building catalog |
 | `user_buildings` | User-owned/placed building instances |
@@ -119,6 +119,22 @@ Reward RPCs update the completion record, XP, and coins together.
 | `city_buildings_placing` | Placement-related state retained by the existing city model |
 
 The profile total is the canonical XP total. `xp_events` explains its sources and supports idempotency checks.
+
+### Skill categories
+
+`skill_category` is a nullable Postgres enum column (`public.skill_category`: `physical_health | mental_health | focus | learning | relationships | career`) on `habits`, `quests`, and `xp_events`. Untagged rows contribute to no per-category total — there is no forced migration or default assignment. Journal entries, tasks, system quests, and challenge programs are not tagged in this iteration, and their XP grants never populate `xp_events.skill_category`. `xp_events.skill_category` is copied from the source habit/quest by application code at insert time, not by a trigger, since XP-granting code paths differ.
+
+Per-category totals are computed on read (`SUM(xp_amount) FROM xp_events WHERE user_id = ? AND skill_category = ?`, wrapped by `fetchSkillXpTotals` in `src/lib/skill-categories.ts`) rather than maintained as a denormalized total — unlike `profiles.total_xp`, which is updated incrementally. There is no backfill of historical `xp_events` rows.
+
+### Habit check-in rewards
+
+Habit check-ins grant XP and coins, using the same atomic-RPC pattern as the other reward claims below:
+
+- `check_in_habit_reward(p_habit_id, p_date, p_xp, p_skill_category)` — inserts an `xp_events` row (`source_type = 'habit'`, `source_id = '<habit_id>:<date>'`), adds `p_xp` to `profiles.total_xp`, and adds a flat 3 coins to `city_states.coins`, all in one transaction. A partial unique index, `xp_events_habit_dedup_idx` on `(user_id, source_id) where source_type = 'habit'`, backs an `insert ... on conflict do nothing`, so a duplicate call for the same habit/date is a no-op (`awarded: false`) rather than a double grant.
+- `undo_habit_check_in_reward(p_habit_id, p_date)` — deletes the matching `xp_events` row and reverses the same XP/coin amounts. If no row exists (e.g. pre-feature data, or an already-clawed-back grant), it is a no-op (`reversed: false`), not an error.
+- `xp_events.source_id` is `text`, not a UUID foreign key, to hold this composite `habit_id:date` key.
+
+XP is `round(10 * min(2.0, 1 + currentStreak * 0.02))` — 10 XP at streak 0, capped at 20 XP (2.0×) from streak 50 on. Coins are a flat 3, not streak-scaled. `src/lib/habit-xp.ts` holds the pure formula (`calculateHabitCheckInXp`) and the two RPC wrapper functions; `HabitManager.tsx`'s `saveCompletion` calls them on the false→true and true→false transitions. A reward-grant failure is caught separately from the habit-log save and does not roll back the completion — the log write is the source of truth for whether the habit was checked, and a lost reward is logged, not surfaced as a failed check-in.
 
 ## Knowledge and projects
 
@@ -166,6 +182,8 @@ Project tasks reuse `tasks` rather than having a separate task table.
 - `claim_system_quest_reward`
 - `complete_custom_quest_reward`
 - `complete_lesson_reward`
+- `check_in_habit_reward`
+- `undo_habit_check_in_reward`
 
 ### Utility/admin functions
 
@@ -191,6 +209,7 @@ Migrations currently cover:
 9. Workout/nutrition daily-driver expansion.
 10. Knowledge and projects.
 11. The metadata-only exercise catalog import.
+12. Skill categories (`habits`/`quests`/`xp_events`) and habit check-in reward RPCs, including the `xp_events.source_id` widening to `text` and the habit-dedup unique index.
 
 Apply migrations strictly in filename timestamp order.
 

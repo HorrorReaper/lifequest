@@ -110,31 +110,26 @@ interface PlannerDraft {
 const STEPS = [
   {
     label: "Reset",
-    eyebrow: "Step back",
     title: "Reset the board",
     description: "Clear the noise and decide what a good day should feel like.",
   },
   {
     label: "Top Three",
-    eyebrow: "Choose deliberately",
-    title: "Set your Top Three",
+    title: "Set up your Top Three for Today",
     description: "One must-win, one progress move, and one health commitment.",
   },
   {
     label: "Anchors",
-    eyebrow: "Protect the essentials",
     title: "Add your daily anchors",
     description: "Make room for habits, reflection, training, and shutdown.",
   },
   {
     label: "Timeline",
-    eyebrow: "Make it real",
     title: "Shape the timeline",
     description: "Give each commitment a place, not just a priority.",
   },
   {
     label: "Commit",
-    eyebrow: "Reality check",
     title: "Commit to the day",
     description: "Check capacity, resolve conflicts, and start with clarity.",
   },
@@ -153,7 +148,7 @@ const OUTCOME_META: Record<
 > = {
   must_win: {
     label: "Must Win",
-    helper: "If only one meaningful thing moves today, it is this.",
+    helper: "What one thing will create the biggest impact today?",
     mission: "Main Quest",
     icon: Target,
     style:

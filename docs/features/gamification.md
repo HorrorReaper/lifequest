@@ -33,6 +33,26 @@ City tiers are:
 | 21–35 | Metropolis |
 | 36+ | Capital |
 
+## Skill categories
+
+XP can optionally be tagged into one of six categories: Physical Health, Mental Health, Focus, Learning, Relationships, Career (`SkillCategory`/`SKILL_CATEGORIES` in `src/lib/skill-categories.ts`). This is a fresh taxonomy, not a reuse of `goals.category`.
+
+- A habit or custom quest can carry an optional `skill_category`, set via a toggleable chip picker in the habit editor and the quest creation form. Tapping a selected chip again clears it back to untagged.
+- Quest ideas added from the built-in picker (`src/lib/quest-ideas.ts`) arrive pre-tagged: each of the six quest-idea categories maps onto exactly one skill category (e.g. "Health & Fitness" → `physical_health`, "Money & Career" → `career`).
+- When an XP event is inserted for a tagged habit or quest, its `skill_category` is copied onto the `xp_events` row. Journal entries, tasks, system quests, and challenge programs are not tagged and never populate this column.
+- Per-category totals are summed from `xp_events` on read (`fetchSkillXpTotals`) and run through the same `getLevel`/`getXpProgress` helpers as the global level, just scoped to that category's XP. A category with zero XP still renders at level 1/0% rather than being hidden.
+
+## Habit check-in XP
+
+Checking a habit for the day awards XP and coins — the only reward path habits have. Unchecking claws the same amounts back.
+
+- Base 10 XP, scaled by a streak multiplier: `min(2.0, 1 + currentStreak * 0.02)`, rounded to the nearest integer (10 XP at streak 0, 12 at streak 10, 15 at streak 25, capped at 20 from streak 50 on). `currentStreak` includes the day just checked.
+- Flat +3 coins, not streak-scaled.
+- One grant per `(habit, date)`: a database-level unique index prevents a double grant, and toggling on/off repeatedly nets to zero rather than farming XP.
+- If the habit carries a `skill_category`, the XP event is tagged with it.
+
+See [Data model](../backend/data-model.md) for the `check_in_habit_reward`/`undo_habit_check_in_reward` RPC contract, and [Today planning, tasks, habits, and routines](./planning-tasks-habits.md) for how this fits into the habit manager's check-in flow.
+
 ## Streaks
 
 Journal completion is the primary streak driver. The profile stores current and best streak values, while `streak_history` supports historical display.
@@ -119,11 +139,13 @@ The building picker shows unlocked and affordable options. The grid stores user 
 
 ## Analytics
 
-The previous `/analytics` route currently redirects to `/dashboard`. Analytics components still exist in `src/components/analytics/`, but there is no active general analytics page.
+`/analytics` shows journal-derived stats (streaks, mood trend, template usage, activity heatmap) across Overview/Mood/Activity tabs, plus a Skills tab (`SkillLevels`) rendering the six per-category level bars described above.
 
 ## Implementation locations
 
 - `src/lib/gamification.ts`
+- `src/lib/skill-categories.ts`
+- `src/lib/habit-xp.ts`
 - `src/lib/quests.ts`
 - `src/lib/lessons.ts`
 - `src/lib/city.ts`
@@ -131,6 +153,7 @@ The previous `/analytics` route currently redirects to `/dashboard`. Analytics c
 - `src/components/quests/`
 - `src/components/learn/`
 - `src/components/city/`
+- `src/components/analytics/SkillLevels.tsx`
 
 There are currently two city helper locations (`src/lib/city.ts` and `src/lib/city/city.ts`). Confirm which import a screen uses before changing catalog or tier behavior.
 

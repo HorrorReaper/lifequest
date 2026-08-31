@@ -81,10 +81,6 @@ There is no dedicated error-monitoring, tracing, product analytics, or alerting 
 
 Impact: failures are primarily found through browser, Vercel, Supabase, and provider logs.
 
-## Analytics route
-
-`/analytics` redirects to `/dashboard`. General analytics components remain in the repository but are not exposed as a finished page.
-
 ## Experimental duplicate surfaces
 
 - `/landing2` and `/dashboard2` remain available beside canonical versions.

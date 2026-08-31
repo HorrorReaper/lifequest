@@ -37,7 +37,7 @@
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
 | `/city` | Virtual city view/build mode |
 | `/settings` | Appearance, profile, timezone, AI consent, sign-out, account deletion |
-| `/analytics` | Currently redirects to `/dashboard` |
+| `/analytics` | Journal stats, mood/activity charts, and a Skills tab with per-category XP levels |
 | `/learnings` | Redirects to `/journal/insights` |
 
 ## Journal pages

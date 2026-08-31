@@ -55,7 +55,7 @@ src/app/
 | --- | --- |
 | `admin/` | Admin shells/hubs, challenges, workouts, nutrition, notes, projects |
 | `ai/` | Contextual admin chatbot |
-| `analytics/` | Retained general analytics visualizations |
+| `analytics/` | Journal analytics visualizations plus per-skill level bars (`SkillLevels`) |
 | `auth/` | Login/sign-up form |
 | `city/` | Grid, building picker/sprites, rewards, level progress |
 | `dashboard/` | Daily briefing and dashboard cards |
@@ -93,8 +93,10 @@ src/app/
 | `task-manager.ts`, `tasks.ts` | Task grouping/mutations/helpers |
 | `habit-manager.ts`, `habits.ts` | Habit manager/mutations/helpers |
 | `habit-analytics.ts` | Streak and analytics calculations |
+| `habit-xp.ts` | Habit check-in streak-multiplier formula and reward-RPC wrappers |
 | `routines.ts` | Routine queries/mutations |
 | `gamification.ts` | XP/level helpers |
+| `skill-categories.ts` | Skill taxonomy, labels, and per-category XP total fetch |
 | `quests.ts` | Quest data helpers |
 | `lessons.ts` | Static lesson catalog |
 | `field-registry.ts` | Supported journal field types |
