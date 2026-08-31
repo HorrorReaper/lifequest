@@ -5,6 +5,7 @@ import type { DashboardTask } from '@/lib/dashboard-tasks'
 
 const toggleTask = vi.fn()
 const awardTaskCompletionXp = vi.fn()
+const createTask = vi.fn()
 
 vi.mock('@/lib/tasks', async () => {
   const actual = await vi.importActual<typeof import('@/lib/tasks')>('@/lib/tasks')
@@ -12,6 +13,7 @@ vi.mock('@/lib/tasks', async () => {
     ...actual,
     toggleTask: (...a: unknown[]) => toggleTask(...a),
     awardTaskCompletionXp: (...a: unknown[]) => awardTaskCompletionXp(...a),
+    createTask: (...a: unknown[]) => createTask(...a),
   }
 })
 
@@ -34,6 +36,7 @@ afterEach(cleanup)
 beforeEach(() => {
   toggleTask.mockReset().mockResolvedValue({})
   awardTaskCompletionXp.mockReset().mockResolvedValue({ awarded: true, previousTotal: 100 })
+  createTask.mockReset().mockResolvedValue({ id: 'new-task' })
 })
 
 describe('TasksSection', () => {
@@ -101,7 +104,44 @@ describe('TasksSection', () => {
     render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} openTaskCount={0} />)
 
     expect(screen.getByText('Nothing due today.')).toBeTruthy()
-    expect(screen.getByRole('link', { name: /add a task/i }).getAttribute('href')).toBe('/tasks')
+    expect(screen.getByRole('button', { name: /add a task/i })).toBeTruthy()
+  })
+
+  it('opens the create dialog in place instead of routing to the task list', async () => {
+    render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} openTaskCount={0} />)
+
+    expect(screen.queryByLabelText('Task')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /add a task/i }))
+
+    await waitFor(() => expect(screen.getByLabelText('Task')).toBeTruthy())
+  })
+
+  it('can add a task even when the list is not empty', async () => {
+    render(
+      <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} openTaskCount={1} />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /add task/i }))
+
+    await waitFor(() => expect(screen.getByLabelText('Task')).toBeTruthy())
+  })
+
+  it('creates the task the dialog submits', async () => {
+    render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} openTaskCount={0} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /add a task/i }))
+    await waitFor(() => expect(screen.getByLabelText('Task')).toBeTruthy())
+
+    fireEvent.change(screen.getByLabelText('Task'), { target: { value: 'Buy milk' } })
+    fireEvent.submit(screen.getByLabelText('Task').closest('form') as HTMLFormElement)
+
+    await waitFor(() =>
+      expect(createTask).toHaveBeenCalledWith(
+        expect.anything(),
+        'user-1',
+        expect.objectContaining({ title: 'Buy milk' })
+      )
+    )
   })
 
   it('shows the full open count in the footer, not just the visible rows', () => {
