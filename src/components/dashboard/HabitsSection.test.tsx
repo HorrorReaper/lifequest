@@ -6,10 +6,15 @@ import { calculateHabitCheckInXp } from '@/lib/habit-xp'
 
 const setHabitLogCompletion = vi.fn()
 const applyHabitCheckInReward = vi.fn()
+const createHabit = vi.fn()
 
 vi.mock('@/lib/habits', async () => {
   const actual = await vi.importActual<typeof import('@/lib/habits')>('@/lib/habits')
-  return { ...actual, setHabitLogCompletion: (...a: unknown[]) => setHabitLogCompletion(...a) }
+  return {
+    ...actual,
+    setHabitLogCompletion: (...a: unknown[]) => setHabitLogCompletion(...a),
+    createHabit: (...a: unknown[]) => createHabit(...a),
+  }
 })
 
 vi.mock('@/lib/habit-check-in', () => ({
@@ -36,6 +41,7 @@ afterEach(cleanup)
 beforeEach(() => {
   setHabitLogCompletion.mockReset().mockResolvedValue({})
   applyHabitCheckInReward.mockReset().mockResolvedValue(null)
+  createHabit.mockReset().mockResolvedValue({ id: 'new-habit' })
 })
 
 describe('HabitsSection', () => {
@@ -128,6 +134,62 @@ describe('HabitsSection', () => {
   it('offers a way to start when there are no habits', () => {
     render(<HabitsSection userId="user-1" today="2026-08-31" habits={[]} />)
 
-    expect(screen.getByRole('link', { name: /add a habit/i }).getAttribute('href')).toBe('/habits')
+    expect(screen.getByRole('button', { name: /add a habit/i })).toBeTruthy()
+  })
+
+  it('opens the create dialog in place instead of routing to the habit list', async () => {
+    render(<HabitsSection userId="user-1" today="2026-08-31" habits={[]} />)
+
+    expect(screen.queryByLabelText('Name')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /add a habit/i }))
+
+    await waitFor(() => expect(screen.getByLabelText('Name')).toBeTruthy())
+  })
+
+  it('can add a habit even when some already exist', async () => {
+    render(<HabitsSection userId="user-1" today="2026-08-31" habits={[habit()]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /add habit/i }))
+
+    await waitFor(() => expect(screen.getByLabelText('Name')).toBeTruthy())
+  })
+
+  it('appends the new habit to the end of the existing order', async () => {
+    render(
+      <HabitsSection
+        userId="user-1"
+        today="2026-08-31"
+        habits={[habit(), habit({ id: 'habit-2', name: 'Read' })]}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /add habit/i }))
+    await waitFor(() => expect(screen.getByLabelText('Name')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Walk' } })
+    fireEvent.submit(screen.getByLabelText('Name').closest('form') as HTMLFormElement)
+
+    await waitFor(() =>
+      expect(createHabit).toHaveBeenCalledWith(
+        expect.anything(),
+        'user-1',
+        expect.objectContaining({ name: 'Walk', sortOrder: 2 })
+      )
+    )
+  })
+
+  it('surfaces a duplicate name rather than failing silently', async () => {
+    const { DuplicateHabitError } = await import('@/lib/habits')
+    createHabit.mockRejectedValue(new DuplicateHabitError())
+
+    render(<HabitsSection userId="user-1" today="2026-08-31" habits={[]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /add a habit/i }))
+    await waitFor(() => expect(screen.getByLabelText('Name')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Meditation' } })
+    fireEvent.submit(screen.getByLabelText('Name').closest('form') as HTMLFormElement)
+
+    await waitFor(() =>
+      expect(screen.getByText(/already exists/i)).toBeTruthy()
+    )
   })
 })

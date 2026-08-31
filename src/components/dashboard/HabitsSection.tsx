@@ -5,12 +5,16 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, Flame, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { setHabitLogCompletion } from '@/lib/habits'
+import { createHabit, setHabitLogCompletion } from '@/lib/habits'
 import { applyHabitCheckInReward } from '@/lib/habit-check-in'
 import { useUserStore } from '@/lib/stores/user-store'
 import type { DashboardHabit } from '@/lib/dashboard-habits'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  HabitEditorDialog,
+  type HabitEditorValue,
+} from '@/components/habits/HabitEditorDialog'
 
 interface HabitsSectionProps {
   userId: string
@@ -35,6 +39,31 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
   )
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorSaving, setEditorSaving] = useState(false)
+  const [editorError, setEditorError] = useState<string | null>(null)
+
+  async function handleCreate(value: HabitEditorValue) {
+    setEditorSaving(true)
+    setEditorError(null)
+    try {
+      await createHabit(supabase, userId, { ...value, sortOrder: habits.length })
+      setEditorOpen(false)
+      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
+      router.refresh()
+    } catch (createError) {
+      // createHabit rejects an active duplicate name itself, and
+      // DuplicateHabitError already carries a readable message -- so this
+      // needs no name check of its own.
+      setEditorError(
+        createError instanceof Error && createError.message
+          ? createError.message
+          : 'Could not create the habit.'
+      )
+    } finally {
+      setEditorSaving(false)
+    }
+  }
 
   const doneCount = habits.filter((habit) => completedIds.has(habit.id)).length
 
@@ -118,8 +147,8 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
           <p className="text-sm leading-relaxed text-muted-foreground">
             No habits yet. Add one to start a daily chain.
           </p>
-          <Button asChild size="sm" variant="outline">
-            <Link href="/habits">Add a habit</Link>
+          <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
+            Add a habit
           </Button>
         </div>
       ) : (
@@ -191,7 +220,14 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
             })}
           </ul>
 
-          <div className="mt-4 flex justify-end border-t pt-3">
+          <div className="mt-4 flex items-center justify-between border-t pt-3">
+            <button
+              type="button"
+              onClick={() => setEditorOpen(true)}
+              className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              + Add habit
+            </button>
             <Link
               href="/habits"
               className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -203,6 +239,18 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
       )}
 
       {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+
+      <HabitEditorDialog
+        key={editorOpen ? 'open' : 'closed'}
+        open={editorOpen}
+        busy={editorSaving}
+        error={editorError}
+        onOpenChange={(open) => {
+          setEditorOpen(open)
+          if (!open) setEditorError(null)
+        }}
+        onSubmit={handleCreate}
+      />
     </section>
   )
 }
