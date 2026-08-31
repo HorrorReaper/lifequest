@@ -48,12 +48,25 @@ export function DatePicker({
 
   return (
     <>
-      {/* Phones: the platform control, which opens on tap by itself. */}
+      {/* Small screens: the platform control. */}
       <Input
         id={id}
         type="date"
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value || null)}
+        onClick={(event) => {
+          // A native date input otherwise opens only from the small calendar
+          // icon at its edge. Tapping anywhere opens it on a touch device, but
+          // this branch also renders in a narrow desktop window, where the
+          // icon-only rule still applies -- so the whole field has to ask.
+          // Guarded: showPicker throws where unsupported and when the picker
+          // is already open, and neither may block typing a date by hand.
+          try {
+            event.currentTarget.showPicker?.()
+          } catch {
+            // Leave the browser's own icon affordance as the fallback.
+          }
+        }}
         disabled={disabled}
         className={cn("h-12 sm:hidden", className)}
       />
