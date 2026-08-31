@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TaskEditorDialog } from './TaskEditorDialog'
@@ -57,8 +57,7 @@ describe('TaskEditorDialog', () => {
 })
 
 describe('TaskEditorDialog due date', () => {
-  it('opens the calendar when the field itself is clicked', () => {
-    const showPicker = vi.fn()
+  function renderDialog() {
     render(
       <TaskEditorDialog
         open
@@ -69,19 +68,37 @@ describe('TaskEditorDialog due date', () => {
         onSubmit={async () => undefined}
       />
     )
+  }
+
+  it('keeps a native date field, which is the better control on a phone', () => {
+    renderDialog()
 
     const field = screen.getByLabelText(/due date/i) as HTMLInputElement
-    field.showPicker = showPicker
-    fireEvent.click(field)
-
-    expect(showPicker).toHaveBeenCalled()
+    expect(field.type).toBe('date')
   })
 
-  it('still lets a date be typed where showPicker is unsupported', () => {
+  it('also offers a themed calendar for pointer devices', () => {
+    renderDialog()
+
+    expect(screen.getByRole('button', { name: /pick a date/i })).toBeTruthy()
+  })
+
+  it('shows a chosen date on the calendar trigger too', () => {
     render(
       <TaskEditorDialog
         open
-        task={null}
+        task={{
+          id: 't1',
+          user_id: 'u1',
+          title: 'Report',
+          description: null,
+          due_date: '2026-09-15',
+          priority: 'medium',
+          is_completed: false,
+          completed_at: null,
+          created_at: '2026-09-01T00:00:00.000Z',
+          updated_at: '2026-09-01T00:00:00.000Z',
+        }}
         saving={false}
         error={null}
         onOpenChange={() => undefined}
@@ -89,15 +106,8 @@ describe('TaskEditorDialog due date', () => {
       />
     )
 
-    const field = screen.getByLabelText(/due date/i) as HTMLInputElement
-    // jsdom has no showPicker; the click handler must swallow that rather
-    // than throwing and blocking manual entry.
-    field.showPicker = () => {
-      throw new Error('unsupported')
-    }
-    fireEvent.click(field)
-    fireEvent.change(field, { target: { value: '2026-09-15' } })
-
-    expect(field.value).toBe('2026-09-15')
+    // Both controls read from the same date key, so neither can drift.
+    expect((screen.getByLabelText(/due date/i) as HTMLInputElement).value).toBe('2026-09-15')
+    expect(screen.getByRole('button', { name: /September 15th, 2026/i })).toBeTruthy()
   })
 })

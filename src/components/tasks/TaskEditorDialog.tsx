@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -218,29 +219,13 @@ export function TaskEditorDialog({
                 <CalendarDays className="size-4 text-muted-foreground" />
                 Due date
               </Label>
-              <Input
+              <DatePicker
                 id="task-due-date"
-                type="date"
-                value={draft.due_date ?? ''}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    due_date: event.target.value,
-                  }))
+                value={draft.due_date || null}
+                onChange={(due_date) =>
+                  setDraft((current) => ({ ...current, due_date: due_date ?? '' }))
                 }
-                onClick={(event) => {
-                  // A native date input only opens its calendar from the small
-                  // icon; showPicker() makes the whole field open it. Guarded
-                  // because it throws where unsupported and if the picker is
-                  // already open, and neither may block typing a date by hand.
-                  try {
-                    event.currentTarget.showPicker?.()
-                  } catch {
-                    // Fall back to the browser's own icon affordance.
-                  }
-                }}
                 disabled={saving}
-                className="h-12 sm:h-10"
               />
               <p className="text-xs text-muted-foreground">
                 Leave this empty to keep it in No Date.
