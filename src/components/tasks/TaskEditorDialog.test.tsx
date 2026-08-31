@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TaskEditorDialog } from './TaskEditorDialog'
@@ -53,5 +53,51 @@ describe('TaskEditorDialog', () => {
     expect(screen.getByRole('alert').textContent).toContain(
       'The task could not be created.'
     )
+  })
+})
+
+describe('TaskEditorDialog due date', () => {
+  it('opens the calendar when the field itself is clicked', () => {
+    const showPicker = vi.fn()
+    render(
+      <TaskEditorDialog
+        open
+        task={null}
+        saving={false}
+        error={null}
+        onOpenChange={() => undefined}
+        onSubmit={async () => undefined}
+      />
+    )
+
+    const field = screen.getByLabelText(/due date/i) as HTMLInputElement
+    field.showPicker = showPicker
+    fireEvent.click(field)
+
+    expect(showPicker).toHaveBeenCalled()
+  })
+
+  it('still lets a date be typed where showPicker is unsupported', () => {
+    render(
+      <TaskEditorDialog
+        open
+        task={null}
+        saving={false}
+        error={null}
+        onOpenChange={() => undefined}
+        onSubmit={async () => undefined}
+      />
+    )
+
+    const field = screen.getByLabelText(/due date/i) as HTMLInputElement
+    // jsdom has no showPicker; the click handler must swallow that rather
+    // than throwing and blocking manual entry.
+    field.showPicker = () => {
+      throw new Error('unsupported')
+    }
+    fireEvent.click(field)
+    fireEvent.change(field, { target: { value: '2026-09-15' } })
+
+    expect(field.value).toBe('2026-09-15')
   })
 })

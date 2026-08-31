@@ -228,6 +228,17 @@ export function TaskEditorDialog({
                     due_date: event.target.value,
                   }))
                 }
+                onClick={(event) => {
+                  // A native date input only opens its calendar from the small
+                  // icon; showPicker() makes the whole field open it. Guarded
+                  // because it throws where unsupported and if the picker is
+                  // already open, and neither may block typing a date by hand.
+                  try {
+                    event.currentTarget.showPicker?.()
+                  } catch {
+                    // Fall back to the browser's own icon affordance.
+                  }
+                }}
                 disabled={saving}
                 className="h-12 sm:h-10"
               />
