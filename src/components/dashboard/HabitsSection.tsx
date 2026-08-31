@@ -138,40 +138,48 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
             ))}
           </div>
 
-          <ul className="mt-4 space-y-1">
+          <ul className="mt-4 space-y-2">
             {habits.map((habit) => {
               const checked = completedIds.has(habit.id)
               const busy = busyId === habit.id
 
               return (
                 <li key={habit.id}>
+                  {/* Mobile-first: the larger sizes are the base and desktop
+                      steps back down, since thumbs need the room more than a
+                      cursor does. */}
                   <button
                     type="button"
                     onClick={() => void toggleHabit(habit)}
                     disabled={busy}
                     aria-pressed={checked}
-                    className="flex min-h-12 w-full items-center gap-3 rounded-xl px-2 text-left transition-colors hover:bg-muted/60 disabled:opacity-60"
+                    className={cn(
+                      'flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 text-left transition-colors disabled:opacity-60 sm:min-h-12',
+                      checked
+                        ? 'border-orange-500/40 bg-orange-500/5'
+                        : 'border-border bg-background hover:border-foreground/25 hover:bg-muted/50'
+                    )}
                   >
                     <span
                       className={cn(
-                        'flex size-6 shrink-0 items-center justify-center rounded-md border transition-colors',
+                        'flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors sm:size-6',
                         checked
                           ? 'border-orange-500 bg-orange-500 text-white'
                           : 'border-border'
                       )}
                     >
                       {busy ? (
-                        <Loader2 className="size-3.5 animate-spin" />
+                        <Loader2 className="size-4 animate-spin sm:size-3.5" />
                       ) : (
-                        checked && <Check className="size-3.5" />
+                        checked && <Check className="size-4 sm:size-3.5" />
                       )}
                     </span>
-                    <span aria-hidden="true" className="text-base">
+                    <span aria-hidden="true" className="text-xl sm:text-base">
                       {habit.emoji}
                     </span>
                     <span
                       className={cn(
-                        'min-w-0 flex-1 truncate text-sm',
+                        'min-w-0 flex-1 truncate text-base sm:text-sm',
                         checked && 'text-muted-foreground line-through'
                       )}
                     >
