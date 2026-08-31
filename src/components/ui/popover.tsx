@@ -29,7 +29,10 @@ function PopoverContent({
       <PopoverPrimitive.Positioner sideOffset={sideOffset} align={align}>
         <PopoverPrimitive.Popup
           className={cn(
-            "z-50 rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg outline-none",
+            // Above z-50 on purpose: a popover is usually opened from
+            // inside a dialog, which sits at z-50 itself. At equal
+            // levels it would only paint on top by portal order.
+            "z-[90] rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg outline-none",
             "origin-[var(--transform-origin)] transition-[transform,opacity] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
             className
           )}

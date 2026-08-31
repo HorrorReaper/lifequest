@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TaskEditorDialog } from './TaskEditorDialog'
@@ -109,5 +109,33 @@ describe('TaskEditorDialog due date', () => {
     // Both controls read from the same date key, so neither can drift.
     expect((screen.getByLabelText(/due date/i) as HTMLInputElement).value).toBe('2026-09-15')
     expect(screen.getByRole('button', { name: /September 15th, 2026/i })).toBeTruthy()
+  })
+
+  it('opens the calendar on click and picks a day without closing the dialog', async () => {
+    // The picker lives inside a dialog and portals its popover out of it,
+    // which is where this kind of thing usually breaks: the click either does
+    // nothing, or the dialog treats it as an outside click and closes.
+    const onOpenChange = vi.fn()
+    render(
+      <TaskEditorDialog
+        open
+        task={null}
+        saving={false}
+        error={null}
+        onOpenChange={onOpenChange}
+        onSubmit={async () => undefined}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /pick a date/i }))
+    await waitFor(() => expect(screen.getByRole('grid')).toBeTruthy())
+
+    const day = screen.getAllByRole('button').find((button) => button.textContent === '15')
+    fireEvent.click(day as HTMLElement)
+
+    await waitFor(() =>
+      expect((screen.getByLabelText(/due date/i) as HTMLInputElement).value).not.toBe('')
+    )
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
 })
