@@ -72,6 +72,33 @@ function calculateLongestStreak(completionDays: number[]) {
   return longest
 }
 
+/**
+ * Consecutive completed days ending at `endDate`, walking backwards.
+ *
+ * Exported for the dashboard, which needs the streak *through yesterday*: it
+ * lets the Habits section derive both the streak and a check-in's XP without
+ * shipping log history to the browser, since checking today simply makes it
+ * `streakThroughYesterday + 1`.
+ *
+ * The walk stops at the first day not present in `completionDates`, so a
+ * caller passing a bounded window under-reports a streak longer than that
+ * window.
+ */
+export function calculateStreakEndingOn(
+  completionDates: ReadonlySet<string>,
+  endDate: string
+): number {
+  let cursor = endDate
+  let streak = 0
+
+  while (completionDates.has(cursor)) {
+    streak += 1
+    cursor = addDays(cursor, -1)
+  }
+
+  return streak
+}
+
 function calculateCurrentStreak(
   completions: Set<string>,
   createdDate: string,

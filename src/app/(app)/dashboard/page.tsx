@@ -6,6 +6,20 @@ import type { Database } from '@/lib/supabase/database.types'
 import { ThemedDashboardHero } from '@/components/dashboard/ThemedDashboardHero'
 import { TrailPageSpine } from '@/components/dashboard/TrailPageSpine'
 import { JournalNudge } from '@/components/dashboard/JournalNudge'
+import { HabitsSection } from '@/components/dashboard/HabitsSection'
+import { TasksSection } from '@/components/dashboard/TasksSection'
+import {
+  buildDashboardHabits,
+  completedHabitIdsFor,
+  habitStreakWindowStart,
+  type HabitLogRow,
+  type HabitRow,
+} from '@/lib/dashboard-habits'
+import {
+  DASHBOARD_TASK_FETCH_LIMIT,
+  partitionDashboardTasks,
+  type TaskRow,
+} from '@/lib/dashboard-tasks'
 import { fetchAvatarState } from '@/lib/avatar'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
@@ -132,21 +146,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     dayPlanRes,
     routines,
     dashboardLearnings,
+    openTasksRes,
     tasksCompletedTodayRes,
   ] = await Promise.all([
     supabase
       .from('habits')
-      .select('id, name, emoji')
+      .select('id, name, emoji, skill_category')
       .eq('user_id', user.id)
       .eq('is_archived', false)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
+    // Widened from today-only because the Habits section pays streak-scaled
+    // XP, so it needs the streak as well as today's state. 400 days is the
+    // ceiling: a longer streak is under-reported rather than paged for.
     supabase
       .from('habit_logs')
-      .select('habit_id')
+      .select('habit_id, log_date')
       .eq('user_id', user.id)
-      .eq('log_date', today)
-      .eq('completed', true),
+      .eq('completed', true)
+      .gte('log_date', habitStreakWindowStart(today))
+      .lte('log_date', today),
     supabase
       .from('tasks')
       .select('id, title, due_date, priority')
@@ -155,7 +174,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .or(`due_date.lte.${today},due_date.is.null`)
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
-      .limit(8),
+      .limit(DASHBOARD_TASK_FETCH_LIMIT),
     supabase
       .from('journal_templates')
       .select('id, name, icon')
@@ -181,36 +200,34 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .from('tasks')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
+      .eq('is_completed', false),
+    supabase
+      .from('tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
       .eq('is_completed', true)
       .gte('completed_at', `${today}T00:00:00`)
       .lt('completed_at', `${addDays(today, 1)}T00:00:00`),
   ])
 
-  const completedHabitIds = new Set(
-    ((briefingHabitLogsRes.data ?? []) as { habit_id: string }[]).map((log) => log.habit_id)
+  const habitLogRows = (briefingHabitLogsRes.data ?? []) as HabitLogRow[]
+  const completedHabitIds = completedHabitIdsFor(habitLogRows, today)
+  const dashboardHabits = buildDashboardHabits(
+    (briefingHabitsRes.data ?? []) as HabitRow[],
+    habitLogRows,
+    today
   )
-  const briefingHabits = ((briefingHabitsRes.data ?? []) as {
-    id: string
-    name: string
-    emoji: string | null
-  }[]).map((habit) => ({
-    id: habit.id,
-    name: habit.name,
-    emoji: habit.emoji ?? '✅',
-    completed: completedHabitIds.has(habit.id),
+  const briefingHabits = dashboardHabits.map(({ id, name, emoji, completed }) => ({
+    id,
+    name,
+    emoji,
+    completed,
   }))
-  const briefingTasks = ((briefingTasksRes.data ?? []) as {
-    id: string
-    title: string
-    due_date: string | null
-    priority: 'low' | 'medium' | 'high' | null
-  }[]).map((task) => ({
-    id: task.id,
-    title: task.title,
-    dueDate: task.due_date,
-    priority: task.priority ?? 'medium',
-    isOverdue: task.due_date !== null && task.due_date < today,
-  }))
+  const { dueTasks, undatedTasks } = partitionDashboardTasks(
+    (briefingTasksRes.data ?? []) as TaskRow[],
+    today
+  )
+  const briefingTasks = [...dueTasks, ...undatedTasks]
   const completedTemplateIds = new Set(
     ((todayEntriesRes.data ?? []) as { template_id: string }[]).map((entry) => entry.template_id)
   )
@@ -307,6 +324,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           habitsCompleted={habitsCompletedToday}
           habitsTotal={briefingHabits.length}
           tasksCompletedToday={tasksCompletedToday}
+        />
+
+        <HabitsSection
+          userId={user.id}
+          today={today}
+          habits={dashboardHabits}
+        />
+
+        <TasksSection
+          userId={user.id}
+          dueTasks={dueTasks}
+          undatedTasks={undatedTasks}
+          openTaskCount={openTasksRes.count ?? 0}
         />
 
         <DailyBriefingWidget
