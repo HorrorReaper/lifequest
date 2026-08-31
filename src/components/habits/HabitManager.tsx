@@ -46,11 +46,7 @@ import {
   updateHabit,
 } from "@/lib/habits";
 import { addDays, dateInTimezone, formatDateOnly } from "@/lib/dates";
-import {
-  calculateHabitCheckInXp,
-  checkInHabitReward,
-  undoHabitCheckInReward,
-} from "@/lib/habit-xp";
+import { applyHabitCheckInReward } from "@/lib/habit-check-in";
 import { useUserStore } from "@/lib/stores/user-store";
 import {
   buildDateWindow,
@@ -217,37 +213,26 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         savedLog,
       ]);
       try {
-        const wasCompleted = previousLog?.completed ?? false;
-        if (completed && !wasCompleted) {
-          const summary = buildHabitSummary({
-            habit,
-            logs: [
-              ...logs.filter((log) => log.habit_id === habit.id),
-              savedLog,
-            ],
-            today,
-            timezone,
-          });
-          const { xp } = calculateHabitCheckInXp(summary.currentStreak);
-          const result = await checkInHabitReward(supabase, {
-            habitId: habit.id,
-            date,
-            xp,
-            skillCategory: habit.skill_category ?? null,
-          });
-          if (result.awarded) {
-            addXp(xp, result.totalXp - xp);
-            setCoins(result.coins);
-          }
-        } else if (!completed && wasCompleted) {
-          const result = await undoHabitCheckInReward(supabase, {
-            habitId: habit.id,
-            date,
-          });
-          if (result.reversed) {
-            setCoins(result.coins);
-            addXp(0, result.totalXp);
-          }
+        // buildHabitSummary runs over the logs including the one just saved,
+        // so currentStreak already counts this check-in -- which is the streak
+        // applyHabitCheckInReward expects.
+        const summary = buildHabitSummary({
+          habit,
+          logs: [...logs.filter((log) => log.habit_id === habit.id), savedLog],
+          today,
+          timezone,
+        });
+        const outcome = await applyHabitCheckInReward(supabase, {
+          habitId: habit.id,
+          date,
+          completed,
+          wasCompleted: previousLog?.completed ?? false,
+          streak: summary.currentStreak,
+          skillCategory: habit.skill_category ?? null,
+        });
+        if (outcome) {
+          addXp(outcome.xpDelta, outcome.totalXp - outcome.xpDelta);
+          setCoins(outcome.coins);
         }
       } catch (rewardError) {
         console.error("Failed to apply habit check-in reward", rewardError);

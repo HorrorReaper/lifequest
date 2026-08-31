@@ -3,13 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { BookOpen, CalendarClock, Check, CheckCircle2, Circle, Flame, ListTodo, Sparkles, Target } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { BookOpen, CalendarClock, Check, CheckCircle2, Circle, Sparkles, Target } from 'lucide-react'
 import type { DayPlanMissionType, Goal } from '@/lib/types'
-import type { Database } from '@/lib/supabase/database.types'
-import { supabaseInsert, supabaseUpdateWhere } from '@/lib/supabase/helpers'
-import { toggleTask } from '@/lib/tasks'
-import { useUserStore } from '@/lib/stores/user-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -79,27 +74,6 @@ const focusSheetTabs: { value: FocusSheetTab; label: string }[] = [
   { value: 'goals', label: 'Goals' },
 ]
 
-interface HabitLogUpsertClient {
-  from(table: 'habit_logs'): {
-    upsert(
-      value: {
-        user_id: string
-        habit_id: string
-        log_date: string
-        completed: boolean
-        entry_id: string | null
-      },
-      options: { onConflict: string }
-    ): PromiseLike<{ error: unknown }>
-  }
-}
-
-const priorityStyles = {
-  high: 'text-red-600 dark:text-red-400',
-  medium: 'text-yellow-600 dark:text-yellow-400',
-  low: 'text-blue-600 dark:text-blue-400',
-}
-
 export function DailyBriefingWidget({
   userId,
   todayDate,
@@ -121,9 +95,7 @@ export function DailyBriefingWidget({
     (initialOpenPanel === 'goal' && !goalsEnabled)
       ? null
       : initialOpenPanel
-  const supabase = createClient()
   const router = useRouter()
-  const addXp = useUserStore((state) => state.addXp)
   const [blocks] = useState(planBlocks)
   const [localHabits, setLocalHabits] = useState(habits)
   const [localTasks, setLocalTasks] = useState(tasks)
@@ -141,8 +113,6 @@ export function DailyBriefingWidget({
             ? 'goals'
           : 'tasks'
   )
-  const [quickActionId, setQuickActionId] = useState<string | null>(null)
-  const [quickError, setQuickError] = useState<string | null>(null)
   const visibleFocusSheetTabs = focusSheetTabs.filter(
     (tab) =>
       (tab.value !== 'routines' || routinesEnabled) &&
@@ -165,13 +135,6 @@ export function DailyBriefingWidget({
   const allClear = totalItems > 0 && doneItems >= totalItems
   const currentBlock = blocks.find((block) => block.isCurrent)
   const nextPlanBlock = currentBlock ?? blocks.find((block) => !block.isPast) ?? null
-  const nextHabit = localHabits.find((habit) => !habit.completed) ?? null
-  const topTask = [...localTasks].sort((a, b) => {
-    if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
-    const priorityRank = { high: 0, medium: 1, low: 2 }
-    return priorityRank[a.priority] - priorityRank[b.priority]
-  })[0] ?? null
-  const habitPct = localHabits.length > 0 ? Math.round((completedHabits / localHabits.length) * 100) : 0
   // Deliberately says nothing about journaling any more: that is the
   // JournalNudge section's job, and it sits directly above this card.
   const focusCopy = mainQuestTitle
@@ -179,92 +142,6 @@ export function DailyBriefingWidget({
     : allClear
       ? 'Everything important is handled. Keep the day light or add a deliberate next block.'
       : 'The plan blocks, tasks, and habits that make up today.'
-
-  async function handleQuickCompleteTask() {
-    if (!topTask || quickActionId) return
-
-    setQuickActionId(`task:${topTask.id}`)
-    setQuickError(null)
-    setLocalTasks((current) => current.filter((task) => task.id !== topTask.id))
-
-    try {
-      await toggleTask(supabase, topTask.id, true)
-
-      const award = 5
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('total_xp')
-        .eq('id', userId)
-        .single()
-      const profile = profileData as Pick<Database['public']['Tables']['profiles']['Row'], 'total_xp'> | null
-
-      await supabaseInsert(supabase, 'xp_events', {
-        user_id: userId,
-        source_type: 'task',
-        source_id: topTask.id,
-        xp_amount: award,
-        description: `Completed task: ${topTask.title}`,
-      })
-
-      if (profile) {
-        await supabaseUpdateWhere(
-          supabase,
-          'profiles',
-          { total_xp: profile.total_xp + award, updated_at: new Date().toISOString() },
-          'id',
-          userId
-        )
-        addXp(award, profile.total_xp)
-      }
-
-      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
-      router.refresh()
-    } catch (error) {
-      console.error('Failed to complete task from Today Focus:', error)
-      setLocalTasks(tasks)
-      setQuickError('Could not complete that task. Open the manager and try again.')
-    } finally {
-      setQuickActionId(null)
-    }
-  }
-
-  async function handleQuickCheckHabit() {
-    if (!nextHabit || quickActionId) return
-
-    setQuickActionId(`habit:${nextHabit.id}`)
-    setQuickError(null)
-    setLocalHabits((current) =>
-      current.map((habit) =>
-        habit.id === nextHabit.id ? { ...habit, completed: true } : habit
-      )
-    )
-
-    try {
-      const { error } = await (supabase as unknown as HabitLogUpsertClient)
-        .from('habit_logs')
-        .upsert(
-          {
-            user_id: userId,
-            habit_id: nextHabit.id,
-            log_date: todayDate,
-            completed: true,
-            entry_id: null,
-          },
-          { onConflict: 'user_id,habit_id,log_date' }
-        )
-
-      if (error) throw error
-
-      window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
-      router.refresh()
-    } catch (error) {
-      console.error('Failed to check habit from Today Focus:', error)
-      setLocalHabits(habits)
-      setQuickError('Could not check that habit. Open the manager and try again.')
-    } finally {
-      setQuickActionId(null)
-    }
-  }
 
   return (
     <>
@@ -330,136 +207,6 @@ export function DailyBriefingWidget({
                 No plan block yet. Add one to give the day a clear shape.
               </p>
             )}
-          </section>
-
-          <section
-            role="link"
-            tabIndex={0}
-            aria-label="Manage tasks"
-            onClick={() => router.push('/tasks')}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                router.push('/tasks')
-              }
-            }}
-            className="cursor-pointer rounded-lg border bg-background/70 p-3 transition-colors hover:border-blue-500/35 hover:bg-blue-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <ListTodo className="size-4 text-blue-500" />
-                <h3 className="text-sm font-semibold">Top Task</h3>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {openTasks > 0 ? `${openTasks} open` : 'Clear'}
-              </span>
-            </div>
-
-            {topTask ? (
-              <div className="space-y-1">
-                <p className="truncate text-sm font-medium">{topTask.title}</p>
-                <p
-                  className={cn(
-                    'text-xs font-medium capitalize',
-                    topTask.isOverdue ? 'text-red-600 dark:text-red-400' : priorityStyles[topTask.priority]
-                  )}
-                >
-                  {topTask.isOverdue ? 'Overdue' : `${topTask.priority} priority`}
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                No due or overdue tasks. Keep the day clean.
-              </p>
-            )}
-            <div className="mt-3 flex gap-2">
-              {topTask && (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-10 flex-1 sm:h-8"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    void handleQuickCompleteTask()
-                  }}
-                  disabled={quickActionId === `task:${topTask.id}`}
-                >
-                  <Check className="mr-1.5 size-3.5" />
-                  {quickActionId === `task:${topTask.id}` ? 'Completing...' : 'Complete'}
-                </Button>
-              )}
-              <Button asChild size="sm" variant="outline" className="h-10 flex-1 sm:h-8">
-                <Link href="/tasks" onClick={(event) => event.stopPropagation()}>Manage</Link>
-              </Button>
-            </div>
-            {/* Sits with the action that sets it -- quick-complete is the only
-                thing that can fail here. */}
-            {quickError && <p className="mt-2 text-xs text-destructive">{quickError}</p>}
-          </section>
-
-          <section
-            role="link"
-            tabIndex={0}
-            aria-label={nextHabit ? `View analytics for ${nextHabit.name}` : 'Manage habits'}
-            onClick={() => router.push(nextHabit ? `/habits/${nextHabit.id}` : '/habits')}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                router.push(nextHabit ? `/habits/${nextHabit.id}` : '/habits')
-              }
-            }}
-            className="cursor-pointer rounded-lg border bg-background/70 p-3 transition-colors hover:border-orange-500/35 hover:bg-orange-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Flame className="size-4 text-orange-500" />
-                <h3 className="text-sm font-semibold">Habit Chain</h3>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {localHabits.length > 0 ? `${completedHabits}/${localHabits.length}` : 'None'}
-              </span>
-            </div>
-
-            {localHabits.length > 0 ? (
-              <div className="space-y-2">
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-orange-500 transition-all" style={{ width: `${habitPct}%` }} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {nextHabit ? (
-                    <>
-                      Next: <span className="text-foreground">{nextHabit.emoji} {nextHabit.name}</span>
-                    </>
-                  ) : (
-                    'All habits checked for today.'
-                  )}
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Add habits to make your daily chain visible here.
-              </p>
-            )}
-            <div className="mt-3 flex gap-2">
-              {nextHabit && (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-10 flex-1 sm:h-8"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    void handleQuickCheckHabit()
-                  }}
-                  disabled={quickActionId === `habit:${nextHabit.id}`}
-                >
-                  <Check className="mr-1.5 size-3.5" />
-                  {quickActionId === `habit:${nextHabit.id}` ? 'Checking...' : 'Check'}
-                </Button>
-              )}
-              <Button asChild size="sm" variant="outline" className="h-10 flex-1 sm:h-8">
-                <Link href="/habits" onClick={(event) => event.stopPropagation()}>Manage</Link>
-              </Button>
-            </div>
           </section>
 
           <section
