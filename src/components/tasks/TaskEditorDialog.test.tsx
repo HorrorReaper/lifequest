@@ -95,7 +95,6 @@ describe('TaskEditorDialog due date', () => {
           due_date: '2026-09-15',
           priority: 'medium',
           is_completed: false,
-          completed_at: null,
           created_at: '2026-09-01T00:00:00.000Z',
           updated_at: '2026-09-01T00:00:00.000Z',
         }}
@@ -137,5 +136,49 @@ describe('TaskEditorDialog due date', () => {
       expect((screen.getByLabelText(/due date/i) as HTMLInputElement).value).not.toBe('')
     )
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
+  })
+
+  it('opens the native picker from the field itself, not just its icon', () => {
+    // The small-screen branch also renders in a narrow desktop window, where
+    // a native date input still only opens from the calendar icon at its edge.
+    const showPicker = vi.fn()
+    render(
+      <TaskEditorDialog
+        open
+        task={null}
+        saving={false}
+        error={null}
+        onOpenChange={() => undefined}
+        onSubmit={async () => undefined}
+      />
+    )
+
+    const field = screen.getByLabelText(/due date/i) as HTMLInputElement
+    field.showPicker = showPicker
+    fireEvent.click(field)
+
+    expect(showPicker).toHaveBeenCalled()
+  })
+
+  it('still accepts a typed date where showPicker is unsupported', () => {
+    render(
+      <TaskEditorDialog
+        open
+        task={null}
+        saving={false}
+        error={null}
+        onOpenChange={() => undefined}
+        onSubmit={async () => undefined}
+      />
+    )
+
+    const field = screen.getByLabelText(/due date/i) as HTMLInputElement
+    field.showPicker = () => {
+      throw new Error('unsupported')
+    }
+    fireEvent.click(field)
+    fireEvent.change(field, { target: { value: '2026-09-15' } })
+
+    expect(field.value).toBe('2026-09-15')
   })
 })
