@@ -1,119 +1,105 @@
 "use client"
 
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { DayPicker } from 'react-day-picker'
-import 'react-day-picker/dist/style.css'
-import { format, parseISO } from 'date-fns'
-import { localDateKey } from '@/lib/dates'
+import * as React from "react"
+import { CalendarDays } from "lucide-react"
+import { format } from "date-fns"
 
-interface DatePickerProps {
+import { localDateKey, parseLocalDate } from "@/lib/dates"
+import { cn } from "@/lib/utils"
+import { Calendar } from "@/components/ui/calendar"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+
+export interface DatePickerProps {
+  /** A `YYYY-MM-DD` date key, or null when unset. */
   value: string | null
-  onChange: (isoDate: string | null) => void
+  onChange: (value: string | null) => void
+  id?: string
   placeholder?: string
+  disabled?: boolean
   className?: string
 }
 
-export function DatePicker({ value, onChange, placeholder = 'Select date', className = '' }: DatePickerProps) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const portalRef = useRef<HTMLDivElement | null>(null)
-  const [portalStyle, setPortalStyle] = useState<React.CSSProperties>({})
-  const selected = value ? parseISO(value) : undefined
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (!containerRef.current) return
-      const target = e.target as Node
-      // if the click is inside the button/container or inside the portal, ignore
-      if (containerRef.current.contains(target)) return
-      if (portalRef.current && portalRef.current.contains(target)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [])
-
-  function updatePosition() {
-    if (!containerRef.current) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const buttonWidth = rect.width
-    const minWidth = 288 // 18rem default previously used (w-72)
-    const popupWidth = Math.max(minWidth, buttonWidth)
-    let left = rect.left
-    // Clamp to viewport so popup doesn't overflow to the right
-    if (left + popupWidth > window.innerWidth) left = Math.max(8, window.innerWidth - popupWidth - 8)
-    if (left < 8) left = 8
-    setPortalStyle({
-      position: 'fixed',
-      top: rect.bottom,
-      left,
-      minWidth: popupWidth,
-      maxWidth: Math.min(popupWidth, window.innerWidth - 16),
-      zIndex: 2147483647,
-      pointerEvents: 'auto',
-    })
-  }
-
-  useEffect(() => {
-    if (!open) return
-    updatePosition()
-    const onResize = () => updatePosition()
-    window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', onResize, true)
-    return () => {
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onResize, true)
-    }
-  }, [open])
+/**
+ * A due-date field that shows a themed calendar on pointer devices and the
+ * platform's own date control on phones.
+ *
+ * The split is deliberate rather than a shortcut. A native `<input type="date">`
+ * is the weaker control on desktop -- it only opens from a small icon and it
+ * cannot be themed -- but on a phone it opens the OS wheel, which is faster
+ * than any calendar grid and already familiar. This app is mobile-first, so
+ * neither control wins everywhere and each is used where it is better.
+ *
+ * Both branches speak the same `YYYY-MM-DD` date key, and both go through
+ * `localDateKey`/`parseLocalDate` so a timezone offset can never shift the
+ * chosen day -- the bug this file used to have when it serialised with
+ * `toISOString()`.
+ */
+export function DatePicker({
+  value,
+  onChange,
+  id,
+  placeholder = "Pick a date",
+  disabled = false,
+  className,
+}: DatePickerProps) {
+  const [open, setOpen] = React.useState(false)
+  const selected = value ? parseLocalDate(value) ?? undefined : undefined
 
   return (
-    <div className={`relative z-50 inline-block ${className}`} ref={containerRef}>
-      <button
-        type="button"
-        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-left sm:h-9"
-        onClick={() => setOpen((s) => !s)}
-      >
-        <span className="text-sm">{value ? format(parseISO(value), 'PPP') : placeholder}</span>
-      </button>
+    <>
+      {/* Phones: the platform control, which opens on tap by itself. */}
+      <Input
+        id={id}
+        type="date"
+        value={value ?? ""}
+        onChange={(event) => onChange(event.target.value || null)}
+        disabled={disabled}
+        className={cn("h-12 sm:hidden", className)}
+      />
 
-      {open && createPortal(
-        <div ref={portalRef} style={portalStyle} className="mt-2 rounded-md border bg-card p-2 shadow-lg">
-          <DayPicker
-            mode="single"
-            selected={selected}
-            onSelect={(d) => {
-              if (!d) {
-                onChange(null)
-                return
-              }
-              // react-day-picker hands back local midnight. toISOString() on
-              // that lands on the previous day everywhere east of Greenwich,
-              // so read the calendar fields directly instead.
-              onChange(localDateKey(d))
-              setOpen(false)
-            }}
-            pagedNavigation={false}
-          />
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              className="min-h-10 flex-1 rounded-md border px-2 py-1 text-sm sm:min-h-8"
-              onClick={() => { onChange(null); setOpen(false) }}
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              className="min-h-10 flex-1 rounded-md bg-primary/10 px-2 py-1 text-sm sm:min-h-8"
-              onClick={() => setOpen(false)}
-            >
-              Close
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
+      {/* Pointer devices: the themed calendar. */}
+      <div className={cn("hidden sm:block", className)}>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            type="button"
+            disabled={disabled}
+            className={cn(
+              "flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-left text-sm transition-colors",
+              "hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+              !selected && "text-muted-foreground"
+            )}
+          >
+            <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
+            {selected ? format(selected, "PPP") : placeholder}
+          </PopoverTrigger>
+
+          <PopoverContent>
+            <Calendar
+              mode="single"
+              autoFocus
+              selected={selected}
+              defaultMonth={selected}
+              onSelect={(date) => {
+                onChange(date ? localDateKey(date) : null)
+                setOpen(false)
+              }}
+            />
+            {value && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(null)
+                  setOpen(false)
+                }}
+                className="mt-2 w-full rounded-lg border py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Clear date
+              </button>
+            )}
+          </PopoverContent>
+        </Popover>
+      </div>
+    </>
   )
 }
