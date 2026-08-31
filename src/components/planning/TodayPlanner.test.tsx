@@ -63,7 +63,9 @@ describe("TodayPlanner", () => {
     render(<TodayPlanner {...defaultProps} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByRole("heading", { name: "Set your Top Three" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Set up your Top Three for Today" })
+    ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByRole("alert").textContent).toContain(

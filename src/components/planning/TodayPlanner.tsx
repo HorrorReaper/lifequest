@@ -637,12 +637,9 @@ export function TodayPlanner({
 
         <section aria-labelledby={`planner-step-${step}`}>
           <div className="mb-7 max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-              {STEPS[step].eyebrow}
-            </p>
             <h1
               id={`planner-step-${step}`}
-              className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
+              className="text-3xl font-semibold tracking-tight sm:text-4xl"
             >
               {STEPS[step].title}
             </h1>
