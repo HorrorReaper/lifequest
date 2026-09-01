@@ -47,9 +47,14 @@ export function XpRing({ pct, level, size = 88, strokeWidth = 8, className }: Xp
           transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold font-heading leading-none">{level}</span>
-        <span className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Lvl</span>
+      {/* The number alone: the ring is already the level indicator, so the
+          old "Lvl" caption only competed with it for room. The label survives
+          for screen readers, which would otherwise hear a bare number. */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-2xl font-bold font-heading leading-none">
+          <span className="sr-only">Level </span>
+          {level}
+        </span>
       </div>
     </div>
   );
