@@ -39,7 +39,7 @@ A client component, but fed **entirely by server props** — habits with `comple
 
 | State | Behaviour |
 | --- | --- |
-| Empty | "No habits yet", with Add habit as the only action |
+| Empty | "No habits yet." as plain copy, with the footer unchanged — see *Shared footer* below |
 | All done | Chain fully filled, header reads `5 of 5`, no nagging copy |
 | Failed write | Row reverts with an inline retry, matching `/habits` |
 
@@ -54,6 +54,12 @@ Priority becomes a 3px stripe rather than the words "high priority". That frees 
 | Empty, undated tasks exist | Header reads `Nothing due today · 3 unscheduled`; up to 8 undated open tasks render |
 | Empty, nothing open | "Nothing due today." — a finished state, not an error |
 | Overflow | Show at most eight rows regardless of how many were fetched; footer reads `All tasks (14)` |
+
+### Shared footer
+
+Habits and Tasks are read as a pair, so their footers are structurally identical in **every** state, empty included: an outline `Add …` button and a ghost `… →` link, each `flex-1`, side by side under the rows.
+
+Neither section gets a bespoke empty-state call-to-action. An `Add habit` button that lives in a dashed box when the list is empty and jumps to the footer once it is not reads as a bug, and it puts the same action in two different places depending on data. The empty states are plain copy — `No habits yet.` and `Nothing due today.` — and the footer never moves.
 
 ### Section 3 — Today's plan
 

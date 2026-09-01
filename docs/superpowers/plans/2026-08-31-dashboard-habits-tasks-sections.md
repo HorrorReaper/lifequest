@@ -1063,10 +1063,15 @@ describe('HabitsSection', () => {
     await waitFor(() => expect(mocks.applyHabitCheckIn).toHaveBeenCalledTimes(2))
   })
 
-  it('invites a first habit when there are none', () => {
+  it('keeps the same footer when empty, so Add habit never moves', () => {
     renderSection([])
-    expect(screen.getByText(/no habits yet/i)).toBeTruthy()
-    expect(screen.queryByRole('link', { name: /manage habits/i })).toBeNull()
+    expect(screen.getByText('No habits yet.')).toBeTruthy()
+    // Deliberately identical to TasksSection's empty state: plain copy plus
+    // the standing footer pair, not a bespoke call-to-action box.
+    expect(screen.getByRole('button', { name: /add habit/i })).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: /manage habits/i }).getAttribute('href')
+    ).toBe('/habits')
   })
 
   it('does not nag once everything is checked', () => {
@@ -1292,85 +1297,78 @@ export function HabitsSection({
       )}
 
       {local.length === 0 ? (
-        <div className="mt-3 rounded-xl border border-dashed p-4 text-center">
-          <p className="text-sm font-medium">No habits yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Add one daily behaviour to begin the chain.
-          </p>
-          <Button size="sm" className="mt-3" onClick={() => setEditorOpen(true)}>
-            <Plus className="size-3.5" />
-            Add habit
-          </Button>
-        </div>
+        <p className="mt-3 text-sm text-muted-foreground">No habits yet.</p>
       ) : (
-        <>
-          <ul className="mt-3 space-y-2">
-            {local.map((habit) => {
-              const streak = habit.completed
-                ? habit.streakThroughYesterday + 1
-                : habit.streakThroughYesterday
-              return (
-                <li
-                  key={habit.id}
+        <ul className="mt-3 space-y-2">
+          {local.map((habit) => {
+            const streak = habit.completed
+              ? habit.streakThroughYesterday + 1
+              : habit.streakThroughYesterday
+            return (
+              <li
+                key={habit.id}
+                className={cn(
+                  'flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2',
+                  habit.completed && 'bg-muted/40'
+                )}
+              >
+                <Checkbox
+                  checked={habit.completed}
+                  disabled={busyIds.has(habit.id)}
+                  onCheckedChange={() => void toggle(habit, !habit.completed)}
+                  aria-label={`Mark ${habit.name} ${habit.completed ? 'incomplete' : 'complete'}`}
+                />
+                <span
                   className={cn(
-                    'flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2',
-                    habit.completed && 'bg-muted/40'
+                    'grid size-8 shrink-0 place-items-center rounded-lg text-sm text-white',
+                    habitColorClass(habit.color)
                   )}
                 >
-                  <Checkbox
-                    checked={habit.completed}
-                    disabled={busyIds.has(habit.id)}
-                    onCheckedChange={() => void toggle(habit, !habit.completed)}
-                    aria-label={`Mark ${habit.name} ${habit.completed ? 'incomplete' : 'complete'}`}
-                  />
-                  <span
+                  {habit.emoji}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p
                     className={cn(
-                      'grid size-8 shrink-0 place-items-center rounded-lg text-sm text-white',
-                      habitColorClass(habit.color)
+                      'truncate text-sm',
+                      habit.completed && 'text-muted-foreground'
                     )}
                   >
-                    {habit.emoji}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={cn(
-                        'truncate text-sm',
-                        habit.completed && 'text-muted-foreground'
-                      )}
-                    >
-                      {habit.name}
+                    {habit.name}
+                  </p>
+                  {streak > 0 && (
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Flame className="size-3 text-orange-500" />
+                      {streak} day streak
                     </p>
-                    {streak > 0 && (
-                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Flame className="size-3 text-orange-500" />
-                        {streak} day streak
-                      </p>
-                    )}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-
-          <div className="mt-4 flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => setEditorOpen(true)}
-            >
-              <Plus className="size-3.5" />
-              Add habit
-            </Button>
-            <Button asChild variant="ghost" size="sm" className="flex-1">
-              <Link href="/habits">
-                Manage habits
-                <ChevronRight className="size-3.5" />
-              </Link>
-            </Button>
-          </div>
-        </>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       )}
+
+      {/* Rendered in every state, including the empty one, so that Add habit
+          sits in exactly the same place as TasksSection's Add task. The two
+          sections are read as a pair on the home screen; a footer that comes
+          and goes on one of them reads as a bug. */}
+      <div className="mt-4 flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={() => setEditorOpen(true)}
+        >
+          <Plus className="size-3.5" />
+          Add habit
+        </Button>
+        <Button asChild variant="ghost" size="sm" className="flex-1">
+          <Link href="/habits">
+            Manage habits
+            <ChevronRight className="size-3.5" />
+          </Link>
+        </Button>
+      </div>
 
       <HabitEditorDialog
         open={editorOpen}
