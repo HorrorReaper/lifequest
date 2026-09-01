@@ -132,11 +132,11 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
     <section className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Flame className="size-4 text-orange-500" />
-          <h2 className="text-sm font-semibold">Habits</h2>
+          <Flame className="size-5 text-orange-500 sm:size-4" />
+          <h2 className="text-lg font-semibold sm:text-base">Habits</h2>
         </div>
         {habits.length > 0 && (
-          <span className="text-xs tabular-nums text-muted-foreground">
+          <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
             {doneCount} of {habits.length} today
           </span>
         )}
@@ -144,7 +144,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
 
       {habits.length === 0 ? (
         <div className="mt-4 space-y-3">
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className="text-base leading-relaxed text-muted-foreground sm:text-sm">
             No habits yet. Add one to start a daily chain.
           </p>
           <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
@@ -208,7 +208,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
                     </span>
                     <span
                       className={cn(
-                        'min-w-0 flex-1 truncate text-base sm:text-sm',
+                        'min-w-0 flex-1 truncate text-lg sm:text-base',
                         checked && 'text-muted-foreground line-through'
                       )}
                     >
@@ -224,13 +224,13 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
             <button
               type="button"
               onClick={() => setEditorOpen(true)}
-              className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
             >
               + Add habit
             </button>
             <Link
               href="/habits"
-              className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
             >
               Manage habits →
             </Link>
@@ -238,7 +238,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
         </>
       )}
 
-      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive sm:text-xs">{error}</p>}
 
       <HabitEditorDialog
         key={editorOpen ? 'open' : 'closed'}

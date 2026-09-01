@@ -116,10 +116,10 @@ export function TasksSection({
     <section className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <ListTodo className="size-4 text-blue-500" />
-          <h2 className="text-sm font-semibold">Tasks</h2>
+          <ListTodo className="size-5 text-blue-500 sm:size-4" />
+          <h2 className="text-lg font-semibold sm:text-base">Tasks</h2>
         </div>
-        <span className="text-xs tabular-nums text-muted-foreground">
+        <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
           {showingUndated ? (
             <>Nothing due today &middot; {undatedTasks.length} unscheduled</>
           ) : dueTasks.length > 0 ? (
@@ -135,7 +135,7 @@ export function TasksSection({
 
       {tasks.length === 0 ? (
         <div className="mt-4 space-y-3">
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className="text-base leading-relaxed text-muted-foreground sm:text-sm">
             Nothing due today.
           </p>
           <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
@@ -186,7 +186,7 @@ export function TasksSection({
                     </span>
                     <span
                       className={cn(
-                        'min-w-0 flex-1 truncate text-base sm:text-sm',
+                        'min-w-0 flex-1 truncate text-lg sm:text-base',
                         done && 'text-muted-foreground line-through'
                       )}
                     >
@@ -212,13 +212,13 @@ export function TasksSection({
             <button
               type="button"
               onClick={() => setEditorOpen(true)}
-              className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
             >
               + Add task
             </button>
             <Link
               href="/tasks"
-              className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
             >
               All tasks{openTaskCount > 0 && ` (${openTaskCount})`} →
             </Link>
@@ -226,7 +226,7 @@ export function TasksSection({
         </>
       )}
 
-      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive sm:text-xs">{error}</p>}
 
       <TaskEditorDialog
         key={editorOpen ? 'open' : 'closed'}
