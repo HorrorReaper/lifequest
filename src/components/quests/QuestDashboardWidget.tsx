@@ -35,7 +35,9 @@ export function QuestDashboardWidget({ claimable, activeCustom }: QuestDashboard
     <div className="rounded-xl border p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Trophy className="size-5 text-primary sm:size-4" />
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Trophy className="size-4" />
+          </span>
           <h2 className="text-lg font-semibold sm:text-base">Quests</h2>
           {claimable.length > 0 && (
             <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-[11px] text-primary-foreground font-bold sm:size-4 sm:text-[10px]">

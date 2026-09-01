@@ -116,7 +116,9 @@ export function TasksSection({
     <section className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <ListTodo className="size-5 text-blue-500 sm:size-4" />
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ListTodo className="size-4" />
+          </span>
           <h2 className="text-lg font-semibold sm:text-base">Tasks</h2>
         </div>
         <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">

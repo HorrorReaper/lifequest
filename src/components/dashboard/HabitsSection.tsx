@@ -132,7 +132,9 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
     <section className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Flame className="size-5 text-orange-500 sm:size-4" />
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Flame className="size-4" />
+          </span>
           <h2 className="text-lg font-semibold sm:text-base">Habits</h2>
         </div>
         {habits.length > 0 && (
