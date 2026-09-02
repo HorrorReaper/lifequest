@@ -133,15 +133,14 @@ export function DailyBriefingWidget({
   const totalItems = localHabits.length + openTasks + activePlanBlocks + Math.max(journals.length > 0 ? 1 : 0, 0)
   const doneItems = completedHabits + completedJournalCount + blocks.filter((block) => block.isPast).length
   const allClear = totalItems > 0 && doneItems >= totalItems
-  const currentBlock = blocks.find((block) => block.isCurrent)
-  const nextPlanBlock = currentBlock ?? blocks.find((block) => !block.isPast) ?? null
   // Deliberately says nothing about journaling any more: that is the
   // JournalNudge section's job, and it sits directly above this card.
+  // Nor about the timeline: TodayPlanSection owns that, higher up the page.
   const focusCopy = mainQuestTitle
     ? `Your Main Quest is “${mainQuestTitle}”. Protect its next block before reacting to everything else.`
     : allClear
       ? 'Everything important is handled. Keep the day light or add a deliberate next block.'
-      : 'The plan blocks, tasks, and habits that make up today.'
+      : 'The journals, tasks, and habits that make up today.'
 
   return (
     <>
@@ -182,33 +181,6 @@ export function DailyBriefingWidget({
             </section>
           )}
 
-          <section className="rounded-lg border bg-background/70 p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <CalendarClock className="size-4 text-purple-500" />
-                <h3 className="text-sm font-semibold">Now / Next</h3>
-              </div>
-              {nextPlanBlock?.isCurrent && (
-                <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
-                  Now
-                </span>
-              )}
-            </div>
-
-            {nextPlanBlock ? (
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{nextPlanBlock.title}</p>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {nextPlanBlock.startTime}-{nextPlanBlock.endTime} · {nextPlanBlock.category.replace('_', ' ')}
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                No plan block yet. Add one to give the day a clear shape.
-              </p>
-            )}
-          </section>
-
           <section
             role="link"
             tabIndex={0}
@@ -220,7 +192,7 @@ export function DailyBriefingWidget({
                 router.push('/journal')
               }
             }}
-            className="cursor-pointer rounded-lg border bg-background/70 p-3 transition-colors hover:border-primary/35 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="cursor-pointer rounded-lg border bg-background/70 p-3 transition-colors hover:border-primary/35 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:col-span-2"
           >
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -254,32 +226,6 @@ export function DailyBriefingWidget({
             )}
           </section>
 
-          {activePlanBlocks > 1 && (
-            <section className="rounded-lg border bg-background/70 p-3 sm:col-span-2">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <CalendarClock className="size-4 text-purple-500" />
-                  <h3 className="text-sm font-semibold">Upcoming Plan</h3>
-                </div>
-                <span className="text-xs text-muted-foreground">{activePlanBlocks} left</span>
-              </div>
-              <ul className="space-y-1.5">
-                {blocks.filter((block) => !block.isPast).slice(0, 3).map((block) => (
-                  <li key={block.id} className="flex items-center gap-2 text-xs">
-                    {block.isCurrent ? (
-                      <CheckCircle2 className="size-3.5 text-primary" />
-                    ) : (
-                      <Circle className="size-3.5 text-muted-foreground" />
-                    )}
-                    <span className="w-24 shrink-0 font-mono text-muted-foreground">
-                      {block.startTime}-{block.endTime}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{block.title}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </div>
 
       </CardContent>

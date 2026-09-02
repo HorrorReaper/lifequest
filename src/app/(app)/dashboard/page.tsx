@@ -6,6 +6,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import { ThemedDashboardHero } from '@/components/dashboard/ThemedDashboardHero'
 import { TrailPageSpine } from '@/components/dashboard/TrailPageSpine'
 import { JournalNudge } from '@/components/dashboard/JournalNudge'
+import { TodayPlanSection } from '@/components/dashboard/TodayPlanSection'
 import { HabitsSection } from '@/components/dashboard/HabitsSection'
 import { TasksSection } from '@/components/dashboard/TasksSection'
 import {
@@ -325,6 +326,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           habitsTotal={briefingHabits.length}
           tasksCompletedToday={tasksCompletedToday}
         />
+
+        <TodayPlanSection blocks={planBlocks} nowMinutes={nowMinutes} />
 
         <HabitsSection
           userId={user.id}
