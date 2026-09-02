@@ -104,14 +104,14 @@ describe('TasksSection', () => {
     render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} openTaskCount={0} />)
 
     expect(screen.getByText('Nothing due today.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /add a task/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /add task/i })).toBeTruthy()
   })
 
   it('opens the create dialog in place instead of routing to the task list', async () => {
     render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} openTaskCount={0} />)
 
     expect(screen.queryByLabelText('Task')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /add a task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task/i }))
 
     await waitFor(() => expect(screen.getByLabelText('Task')).toBeTruthy())
   })
@@ -129,7 +129,7 @@ describe('TasksSection', () => {
   it('creates the task the dialog submits', async () => {
     render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} openTaskCount={0} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /add a task/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add task/i }))
     await waitFor(() => expect(screen.getByLabelText('Task')).toBeTruthy())
 
     fireEvent.change(screen.getByLabelText('Task'), { target: { value: 'Buy milk' } })

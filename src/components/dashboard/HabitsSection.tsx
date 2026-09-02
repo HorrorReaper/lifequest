@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, Flame, Loader2 } from 'lucide-react'
+import { Check, Flame, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { createHabit, setHabitLogCompletion } from '@/lib/habits'
 import { applyHabitCheckInReward } from '@/lib/habit-check-in'
@@ -150,7 +150,8 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
             No habits yet. Add one to start a daily chain.
           </p>
           <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
-            Add a habit
+            <Plus />
+            Add habit
           </Button>
         </div>
       ) : (
@@ -223,13 +224,10 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
           </ul>
 
           <div className="mt-4 flex items-center justify-between border-t pt-3">
-            <button
-              type="button"
-              onClick={() => setEditorOpen(true)}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
-            >
-              + Add habit
-            </button>
+            <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
+              <Plus />
+              Add habit
+            </Button>
             <Link
               href="/habits"
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"

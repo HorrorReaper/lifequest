@@ -134,14 +134,14 @@ describe('HabitsSection', () => {
   it('offers a way to start when there are no habits', () => {
     render(<HabitsSection userId="user-1" today="2026-08-31" habits={[]} />)
 
-    expect(screen.getByRole('button', { name: /add a habit/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /add habit/i })).toBeTruthy()
   })
 
   it('opens the create dialog in place instead of routing to the habit list', async () => {
     render(<HabitsSection userId="user-1" today="2026-08-31" habits={[]} />)
 
     expect(screen.queryByLabelText('Name')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /add a habit/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add habit/i }))
 
     await waitFor(() => expect(screen.getByLabelText('Name')).toBeTruthy())
   })
@@ -183,7 +183,7 @@ describe('HabitsSection', () => {
 
     render(<HabitsSection userId="user-1" today="2026-08-31" habits={[]} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /add a habit/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add habit/i }))
     await waitFor(() => expect(screen.getByLabelText('Name')).toBeTruthy())
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Meditation' } })
     fireEvent.submit(screen.getByLabelText('Name').closest('form') as HTMLFormElement)

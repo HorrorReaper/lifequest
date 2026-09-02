@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ListTodo, Loader2 } from 'lucide-react'
+import { Check, ListTodo, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { awardTaskCompletionXp, createTask, toggleTask, type TaskPriority } from '@/lib/tasks'
 import type { DashboardTask } from '@/lib/dashboard-tasks'
@@ -141,7 +141,8 @@ export function TasksSection({
             Nothing due today.
           </p>
           <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
-            Add a task
+            <Plus />
+            Add task
           </Button>
         </div>
       ) : (
@@ -211,13 +212,10 @@ export function TasksSection({
           </ul>
 
           <div className="mt-4 flex items-center justify-between border-t pt-3">
-            <button
-              type="button"
-              onClick={() => setEditorOpen(true)}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
-            >
-              + Add task
-            </button>
+            <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
+              <Plus />
+              Add task
+            </Button>
             <Link
               href="/tasks"
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
