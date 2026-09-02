@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ListTodo, Loader2, Plus } from 'lucide-react'
+import { Check, ChevronDown, ListTodo, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { awardTaskCompletionXp, createTask, toggleTask, type TaskPriority } from '@/lib/tasks'
 import type { DashboardTask } from '@/lib/dashboard-tasks'
@@ -29,6 +29,8 @@ interface TasksSectionProps {
   openTaskCount: number
 }
 
+const TASKS_PREVIEW_COUNT = 5
+
 const priorityStripe: Record<TaskPriority, string> = {
   high: 'bg-red-500',
   medium: 'bg-yellow-500',
@@ -51,6 +53,7 @@ export function TasksSection({
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorSaving, setEditorSaving] = useState(false)
   const [editorError, setEditorError] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(false)
 
   async function handleCreate(draft: TaskEditorDraft) {
     setEditorSaving(true)
@@ -148,7 +151,7 @@ export function TasksSection({
       ) : (
         <>
           <ul className="mt-4 space-y-2">
-            {tasks.map((task) => {
+            {(expanded ? tasks : tasks.slice(0, TASKS_PREVIEW_COUNT)).map((task) => {
               const done = completedIds.has(task.id)
               const busy = busyId === task.id
 
@@ -210,6 +213,20 @@ export function TasksSection({
               )
             })}
           </ul>
+
+          {tasks.length > TASKS_PREVIEW_COUNT && (
+            <button
+              type="button"
+              onClick={() => setExpanded((current) => !current)}
+              aria-expanded={expanded}
+              className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
+            >
+              {expanded ? 'Show less' : `Show ${tasks.length - TASKS_PREVIEW_COUNT} more`}
+              <ChevronDown
+                className={cn('size-4 transition-transform sm:size-3.5', expanded && 'rotate-180')}
+              />
+            </button>
+          )}
 
           <div className="mt-4 flex items-center justify-between border-t pt-3">
             <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
