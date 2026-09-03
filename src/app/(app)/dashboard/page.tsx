@@ -24,9 +24,7 @@ import {
 import { fetchAvatarState } from '@/lib/avatar'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
-import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
 import type { DayPlanBlock } from '@/lib/types'
-import { fetchGoals } from '@/lib/goals'
 import { calculateRoutineProgress, fetchRoutines } from '@/lib/routines'
 import { RoutinesDashboardWidget } from '@/components/dashboard/RoutinesDashboardWidget'
 import { showAdminUi } from '@/lib/admin'
@@ -39,7 +37,19 @@ import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 
-type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal' | 'routine'
+type QuickActionTarget = 'task' | 'plan' | 'habit' | 'routine'
+
+/**
+ * Where a ?quick= link lands now that Today Focus -- which used to open these
+ * as panels in place -- is off the dashboard. Kept so older links and
+ * bookmarks still arrive somewhere useful rather than on a silent dashboard.
+ */
+const QUICK_ACTION_ROUTES: Record<QuickActionTarget, string> = {
+  plan: '/plan',
+  task: '/tasks',
+  habit: '/habits',
+  routine: '/routines',
+}
 
 interface DashboardPageProps {
   searchParams?: Promise<{
@@ -50,19 +60,10 @@ interface DashboardPageProps {
 
 function parseQuickAction(value: string | string[] | undefined): QuickActionTarget | null {
   const quick = Array.isArray(value) ? value[0] : value
-  if (quick === 'task' || quick === 'plan' || quick === 'habit' || quick === 'goal' || quick === 'routine') {
+  if (quick === 'task' || quick === 'plan' || quick === 'habit' || quick === 'routine') {
     return quick
   }
   return null
-}
-
-function dayLabel(timezone: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date())
 }
 
 function minutesFromTime(time: string) {
@@ -87,7 +88,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const params = searchParams ? await searchParams : {}
   const quickAction = parseQuickAction(params.quick)
   const showWelcome = params.welcome === '1'
-  if (quickAction === 'plan') redirect('/plan')
+  if (quickAction) redirect(QUICK_ACTION_ROUTES[quickAction])
   const supabase = await createClient()
   const {
     data: { user },
@@ -120,9 +121,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { annotated, customQuests } = await fetchQuestPageData(supabase, user.id)
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
-  const activeGoals = isAdmin
-    ? await fetchGoals(supabase, user.id, { status: 'active' })
-    : []
   const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
 
   const trackedMetrics = await fetchTrackedMetrics(supabase, user.id)
@@ -228,7 +226,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     (briefingTasksRes.data ?? []) as TaskRow[],
     today
   )
-  const briefingTasks = [...dueTasks, ...undatedTasks]
   const completedTemplateIds = new Set(
     ((todayEntriesRes.data ?? []) as { template_id: string }[]).map((entry) => entry.template_id)
   )
@@ -259,8 +256,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   } | null
   const planMetadata = parseTodayPlanNotes(dayPlan?.notes).metadata
   const planCommitted = Boolean(planMetadata?.ritual_completed_at)
-  const mainQuestTitle =
-    planMetadata?.outcomes.find((outcome) => outcome.role === 'must_win')?.title ?? null
   const planBlocks = ((dayPlan?.blocks ?? [])
     .slice()
     .sort((a, b) => a.start_time.localeCompare(b.start_time))
@@ -340,32 +335,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           dueTasks={dueTasks}
           undatedTasks={undatedTasks}
           openTaskCount={openTasksRes.count ?? 0}
-        />
-
-        <DailyBriefingWidget
-          key={`briefing-${quickAction ?? 'default'}`}
-          userId={user.id}
-          todayDate={today}
-          todayLabel={dayLabel(profile.timezone ?? 'UTC')}
-          habits={briefingHabits}
-          tasks={briefingTasks}
-          journals={briefingJournals}
-          planBlocks={planBlocks}
-          mainQuestTitle={mainQuestTitle}
-          planCommitted={planCommitted}
-          goals={activeGoals}
-          goalsEnabled={isAdmin}
-          completedJournalCount={(todayEntriesRes.data ?? []).length}
-          routinesEnabled={isAdmin}
-          initialOpenPanel={
-            quickAction === 'routine'
-              ? (isAdmin ? 'routine' : null)
-              : quickAction === 'goal'
-                ? (isAdmin ? 'goal' : null)
-              : quickAction === 'task' || quickAction === 'habit'
-              ? quickAction
-              : null
-          }
         />
 
         {primaryMetric && (
