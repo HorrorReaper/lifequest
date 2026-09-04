@@ -9,6 +9,40 @@ import { isValidMoodValue } from "@/lib/mood";
 
 export const TODAY_PLAN_NOTES_PREFIX = "LIFEQUEST_TODAY_PLAN_V1:";
 
+/** The last minute a plan block may reach. */
+const END_OF_DAY_MINUTES = 23 * 60 + 59;
+
+/**
+ * The shortest gap the generated schedule leaves between two blocks.
+ *
+ * Chaining commitments back to back plans a day nobody can actually walk
+ * through; this is the room to stand up and switch context.
+ */
+export const MIN_TRANSITION_MINUTES = 10;
+
+/**
+ * Generated start times land on this grid.
+ *
+ * Chaining "previous end + transition" alone drifts onto times no person
+ * would ever choose -- 09:40, then 11:45, then 12:35. Rounding each start up
+ * to a quarter hour keeps the schedule readable, and the few minutes it adds
+ * become buffer rather than being lost.
+ */
+export const PLAN_TIME_GRID_MINUTES = 15;
+
+/**
+ * The next grid-aligned minute a block may start on, given what came before.
+ *
+ * Always at least MIN_TRANSITION_MINUTES after `previousEnd`, so rounding can
+ * widen a gap but never close one.
+ */
+export function nextGridStart(previousEnd: number): number {
+  const earliest = previousEnd + MIN_TRANSITION_MINUTES;
+  const aligned =
+    Math.ceil(earliest / PLAN_TIME_GRID_MINUTES) * PLAN_TIME_GRID_MINUTES;
+  return Math.min(aligned, END_OF_DAY_MINUTES);
+}
+
 const OUTCOME_ROLES: DayPlanOutcomeRole[] = [
   "must_win",
   "progress",
@@ -264,6 +298,133 @@ export function shiftEndTime(
   return minutesToTime(nextStartMinutes + span);
 }
 
+function byStartTime(a: DayPlanBlock, b: DayPlanBlock) {
+  return a.start_time.localeCompare(b.start_time);
+}
+
+/**
+ * Edits one block's times and carries everything after it along.
+ *
+ * Without this, moving the second of eight blocks leaves the other six
+ * standing where they were, so the planner asks you to retype every later
+ * time by hand -- and punishes the first overlap you create on the way. The
+ * tail moves as a rigid chain: every duration and every gap after the edited
+ * block is preserved exactly, including deliberate ones like a fixed lunch.
+ *
+ * Returns the blocks in their original array order, so React keys and the
+ * rendered list stay stable.
+ */
+export function applyBlockTimeChange(
+  blocks: DayPlanBlock[],
+  id: string,
+  patch: Pick<Partial<DayPlanBlock>, "start_time" | "end_time">
+): DayPlanBlock[] {
+  const target = blocks.find((block) => block.id === id);
+  if (!target) return blocks;
+
+  const edited = { ...target, ...patch };
+  const previousEnd = timeToMinutes(target.end_time);
+  const nextEnd = timeToMinutes(edited.end_time);
+  const nextStart = timeToMinutes(edited.start_time);
+
+  const applyEditOnly = () =>
+    blocks.map((block) => (block.id === id ? edited : block));
+
+  // A half-typed time ("1:" while reaching for 13:00) or an inverted span is
+  // not something to ripple; leave it for findTodayPlanBlockProblems to flag.
+  if (
+    !Number.isFinite(previousEnd) ||
+    !Number.isFinite(nextEnd) ||
+    !Number.isFinite(nextStart) ||
+    nextEnd <= nextStart
+  ) {
+    return applyEditOnly();
+  }
+
+  const delta = nextEnd - previousEnd;
+  if (delta === 0) return applyEditOnly();
+
+  const ordered = blocks.slice().sort(byStartTime);
+  const targetIndex = ordered.findIndex((block) => block.id === id);
+  const tail = ordered.slice(targetIndex + 1);
+  if (tail.length === 0) return applyEditOnly();
+
+  // Shift the whole tail by one clamped amount rather than per block, so the
+  // chain cannot compress against the end of the day: the gaps a user can see
+  // survive even when the day runs out of room.
+  let shift = delta;
+  if (shift > 0) {
+    const latestEnd = tail.reduce(
+      (latest, block) => Math.max(latest, timeToMinutes(block.end_time) || 0),
+      0
+    );
+    shift = Math.min(shift, END_OF_DAY_MINUTES - latestEnd);
+  } else {
+    const earliestStart = tail.reduce(
+      (earliest, block) =>
+        Math.min(earliest, timeToMinutes(block.start_time) || 0),
+      END_OF_DAY_MINUTES
+    );
+    shift = Math.max(shift, -earliestStart);
+  }
+  if (shift === 0) return applyEditOnly();
+
+  const shiftedIds = new Set(tail.map((block) => block.id));
+  return blocks.map((block) => {
+    if (block.id === id) return edited;
+    if (!shiftedIds.has(block.id)) return block;
+    return {
+      ...block,
+      start_time: minutesToTime(timeToMinutes(block.start_time) + shift),
+      end_time: minutesToTime(timeToMinutes(block.end_time) + shift),
+    };
+  });
+}
+
+/**
+ * Pushes overlapping blocks apart, keeping their order and their durations.
+ *
+ * The planner used to detect an overlap and then simply refuse to move on,
+ * leaving the user to solve it by arithmetic. Only blocks that actually
+ * collide are moved, and only ever later, so a schedule that is already
+ * clean comes back untouched.
+ */
+export function resolveOverlaps(blocks: DayPlanBlock[]): DayPlanBlock[] {
+  const ordered = blocks.slice().sort(byStartTime);
+  const resolved = new Map<string, DayPlanBlock>();
+  let previousEnd: number | null = null;
+
+  for (const block of ordered) {
+    const start = timeToMinutes(block.start_time);
+    const end = timeToMinutes(block.end_time);
+
+    // An invalid block has no duration to preserve, so it cannot be placed;
+    // it stays put and stays flagged.
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      resolved.set(block.id, block);
+      continue;
+    }
+
+    if (previousEnd !== null && start < previousEnd) {
+      const nextStart = nextGridStart(previousEnd);
+      const duration = end - start;
+      const nextEnd = Math.min(nextStart + duration, END_OF_DAY_MINUTES);
+      resolved.set(block.id, {
+        ...block,
+        start_time: minutesToTime(nextStart),
+        end_time: minutesToTime(nextEnd),
+      });
+      previousEnd = nextEnd;
+      continue;
+    }
+
+    resolved.set(block.id, block);
+    previousEnd = end;
+  }
+
+  return blocks.map((block) => resolved.get(block.id) ?? block);
+}
+
 export function blockDurationMinutes(block: DayPlanBlock): number {
   const start = timeToMinutes(block.start_time);
   const end = timeToMinutes(block.end_time);
@@ -377,15 +538,15 @@ export function buildTodayPlanSchedule({
   idFactory?: () => string;
 }): DayPlanBlock[] {
   const next = blocks.map((block) => ({ ...block }));
+  const dayStart = timeToMinutes(metadata.day_start) || 8 * 60;
   const latestEnd = next.reduce(
     (latest, block) =>
       Math.max(latest, timeToMinutes(block.end_time) || 0),
-    timeToMinutes(metadata.day_start) || 8 * 60
+    dayStart
   );
-  let cursor = Math.min(
-    latestEnd + (next.length > 0 ? 10 : 0),
-    23 * 60
-  );
+  // The first generated block may begin exactly when the day does; anything
+  // after an existing block needs the transition gap and the grid.
+  let cursor = next.length > 0 ? nextGridStart(latestEnd) : dayStart;
 
   function append(
     title: string,
@@ -395,7 +556,7 @@ export function buildTodayPlanSchedule({
       "category" | "mission_type" | "source_type" | "source_id" | "outcome_role"
     >
   ) {
-    const end = Math.min(cursor + duration, 23 * 60 + 59);
+    const end = Math.min(cursor + duration, END_OF_DAY_MINUTES);
     if (end <= cursor) return;
     next.push({
       id: idFactory(),
@@ -404,7 +565,7 @@ export function buildTodayPlanSchedule({
       title,
       ...details,
     });
-    cursor = Math.min(end + 10, 23 * 60 + 59);
+    cursor = nextGridStart(end);
   }
 
   for (const outcome of metadata.outcomes) {

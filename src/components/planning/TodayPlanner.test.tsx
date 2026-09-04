@@ -1,6 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TodayPlanner } from "@/components/planning/TodayPlanner";
+import {
+  createDefaultTodayPlanMetadata,
+  serializeTodayPlanNotes,
+} from "@/lib/today-plan";
 
 const push = vi.fn();
 const refresh = vi.fn();
@@ -138,5 +142,86 @@ describe("TodayPlanner", () => {
       screen.getByText("Your unfinished plan was restored.")
     ).toBeTruthy();
   });
-});
 
+  // Starting on the timeline step: a Must Win already chosen so step 1
+  // validates, and its block already present so the schedule builder has
+  // nothing left to append.
+  const timelineProps = {
+    ...defaultProps,
+    initialNotes: serializeTodayPlanNotes({
+      ...createDefaultTodayPlanMetadata(),
+      outcomes: [
+        {
+          id: "main",
+          role: "must_win" as const,
+          title: "Write launch brief",
+          task_id: null,
+          duration_minutes: 60,
+        },
+      ],
+    }),
+    initialBlocks: [
+      {
+        id: "a",
+        start_time: "08:00",
+        end_time: "09:00",
+        title: "Write launch brief",
+        category: "deep_work" as const,
+        mission_type: "main_quest" as const,
+        outcome_role: "must_win" as const,
+      },
+      {
+        id: "b",
+        start_time: "09:15",
+        end_time: "10:00",
+        title: "Side quest",
+        category: "deep_work" as const,
+      },
+      {
+        id: "c",
+        start_time: "11:00",
+        end_time: "11:45",
+        title: "Training",
+        category: "exercise" as const,
+      },
+    ],
+  };
+
+  function gotoTimeline() {
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  }
+
+  it("moves every later block when one is retimed", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.change(screen.getAllByLabelText("Start")[0], {
+      target: { value: "08:30" },
+    });
+
+    const starts = screen.getAllByLabelText("Start");
+    expect(starts[0]).toHaveProperty("value", "08:30");
+    expect(starts[1]).toHaveProperty("value", "09:45");
+    expect(starts[2]).toHaveProperty("value", "11:30");
+  });
+
+  it("offers to space out overlapping blocks instead of only refusing", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.change(screen.getAllByLabelText("Start")[1], {
+      target: { value: "08:30" },
+    });
+    expect(screen.getByText("Two blocks want the same minutes.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Space them out" }));
+
+    expect(screen.queryByText("Two blocks want the same minutes.")).toBeNull();
+    // The pushed block keeps its 45 minutes, it just starts after the first.
+    const starts = screen.getAllByLabelText("Start");
+    expect(starts[1]).toHaveProperty("value", "09:15");
+    expect(screen.getAllByLabelText("End")[1]).toHaveProperty("value", "10:00");
+  });
+});
