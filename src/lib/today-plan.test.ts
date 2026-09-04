@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { DayPlanBlock } from "@/lib/types";
 import {
+  applyBlockTimeChange,
   buildTodayPlanSchedule,
   calculateTodayPlanCapacity,
   createDefaultTodayPlanMetadata,
   findTodayPlanBlockProblems,
   parseTodayPlanNotes,
+  nextGridStart,
+  resolveOverlaps,
   serializeTodayPlanNotes,
   shiftEndTime,
 } from "@/lib/today-plan";
@@ -123,18 +126,21 @@ describe("today plan schedule", () => {
       source_type: "task",
     });
     expect(scheduled[1]).toMatchObject({
-      start_time: "09:10",
+      start_time: "09:15",
+      end_time: "10:00",
       mission_type: "recovery",
       outcome_role: "health",
     });
     expect(scheduled[2]).toMatchObject({
+      start_time: "10:15",
+      end_time: "10:25",
       mission_type: "anchor",
       source_type: "journal",
     });
     expect(scheduledAgain).toEqual(scheduled);
   });
 
-  it("keeps a transition buffer after an existing block", () => {
+  it("starts on the quarter hour after an existing block, past the transition gap", () => {
     const metadata = {
       ...createDefaultTodayPlanMetadata(),
       outcomes: [
@@ -162,7 +168,7 @@ describe("today plan schedule", () => {
       idFactory: () => "generated",
     });
 
-    expect(scheduled[1].start_time).toBe("10:10");
+    expect(scheduled[1].start_time).toBe("10:15");
   });
 });
 
@@ -232,3 +238,214 @@ describe("shiftEndTime", () => {
     expect(shiftEndTime("08:00", "", "09:00")).toBe("");
   });
 });
+
+describe("nextGridStart", () => {
+  it("clears the transition gap and lands on the next quarter hour", () => {
+    // 10:00 + 10 minutes is 10:10, which rounds up to 10:15.
+    expect(nextGridStart(10 * 60)).toBe(10 * 60 + 15);
+  });
+
+  it("never returns a gap shorter than the transition minimum", () => {
+    // 10:05 + 10 is exactly 10:15, so rounding must not pull it back to 10:15
+    // from below or snap it down to 10:05.
+    expect(nextGridStart(10 * 60 + 5)).toBe(10 * 60 + 15);
+    expect(nextGridStart(10 * 60 + 6)).toBe(10 * 60 + 30);
+  });
+
+  it("stops at the last minute of the day", () => {
+    expect(nextGridStart(23 * 60 + 55)).toBe(23 * 60 + 59);
+  });
+});
+
+describe("applyBlockTimeChange", () => {
+  function chain(): DayPlanBlock[] {
+    return [
+      {
+        id: "a",
+        start_time: "08:00",
+        end_time: "09:00",
+        title: "Main quest",
+        category: "deep_work",
+      },
+      {
+        id: "b",
+        start_time: "09:15",
+        end_time: "10:00",
+        title: "Side quest",
+        category: "deep_work",
+      },
+      {
+        id: "c",
+        start_time: "11:00",
+        end_time: "11:45",
+        title: "Training",
+        category: "exercise",
+      },
+    ];
+  }
+
+  it("carries every later block along when one is moved", () => {
+    const next = applyBlockTimeChange(chain(), "a", {
+      start_time: "08:30",
+      end_time: "09:30",
+    });
+
+    expect(next[1]).toMatchObject({ start_time: "09:45", end_time: "10:30" });
+    expect(next[2]).toMatchObject({ start_time: "11:30", end_time: "12:15" });
+  });
+
+  it("preserves the deliberate gap between later blocks", () => {
+    const next = applyBlockTimeChange(chain(), "a", {
+      start_time: "08:30",
+      end_time: "09:30",
+    });
+
+    // b ended at 10:00 and c began at 11:00; that hour must survive the move.
+    expect(timeToMinutesOf(next, "c", "start_time")).toBe(
+      timeToMinutesOf(next, "b", "end_time") + 60
+    );
+  });
+
+  it("pulls the day back up when a block is shortened", () => {
+    const next = applyBlockTimeChange(chain(), "a", { end_time: "08:30" });
+
+    expect(next[1]).toMatchObject({ start_time: "08:45", end_time: "09:30" });
+    expect(next[2]).toMatchObject({ start_time: "10:30" });
+  });
+
+  it("leaves the blocks before the edited one alone", () => {
+    const next = applyBlockTimeChange(chain(), "b", { end_time: "10:30" });
+
+    expect(next[0]).toEqual(chain()[0]);
+    expect(next[2]).toMatchObject({ start_time: "11:30", end_time: "12:15" });
+  });
+
+  it("never creates an overlap out of a clean schedule", () => {
+    const next = applyBlockTimeChange(chain(), "b", {
+      start_time: "09:45",
+      end_time: "10:30",
+    });
+
+    expect(findTodayPlanBlockProblems(next).overlappingBlockIds).toEqual([]);
+  });
+
+  it("keeps the tail inside the day rather than compressing it", () => {
+    const next = applyBlockTimeChange(chain(), "a", {
+      start_time: "22:00",
+      end_time: "23:00",
+    });
+
+    // c cannot be pushed past 23:59, so the whole tail shifts by the same
+    // clamped amount and the gaps between b and c stay intact.
+    expect(next[2].end_time).toBe("23:59");
+    expect(
+      timeToMinutesOf(next, "c", "start_time") -
+        timeToMinutesOf(next, "b", "end_time")
+    ).toBe(60);
+  });
+
+  it("applies a half-typed time without dragging the day with it", () => {
+    const next = applyBlockTimeChange(chain(), "a", { end_time: "07:00" });
+
+    expect(next[0].end_time).toBe("07:00");
+    expect(next[1]).toEqual(chain()[1]);
+    expect(next[2]).toEqual(chain()[2]);
+  });
+
+  it("returns the blocks untouched when the id is unknown", () => {
+    const blocks = chain();
+    expect(applyBlockTimeChange(blocks, "missing", { end_time: "12:00" })).toBe(
+      blocks
+    );
+  });
+});
+
+describe("resolveOverlaps", () => {
+  it("pushes a colliding block clear while keeping its duration", () => {
+    const resolved = resolveOverlaps([
+      {
+        id: "a",
+        start_time: "09:00",
+        end_time: "10:30",
+        title: "Deep work",
+        category: "deep_work",
+      },
+      {
+        id: "b",
+        start_time: "10:00",
+        end_time: "10:45",
+        title: "Call",
+        category: "meeting",
+      },
+    ]);
+
+    expect(resolved[1]).toMatchObject({
+      start_time: "10:45",
+      end_time: "11:30",
+    });
+    expect(findTodayPlanBlockProblems(resolved).overlappingBlockIds).toEqual([]);
+  });
+
+  it("leaves a schedule that already fits completely alone", () => {
+    const blocks: DayPlanBlock[] = [
+      {
+        id: "a",
+        start_time: "09:00",
+        end_time: "10:00",
+        title: "Deep work",
+        category: "deep_work",
+      },
+      {
+        id: "b",
+        start_time: "14:00",
+        end_time: "15:00",
+        title: "Call",
+        category: "meeting",
+      },
+    ];
+
+    expect(resolveOverlaps(blocks)).toEqual(blocks);
+  });
+
+  it("resolves a pile-up of three without reordering them", () => {
+    const resolved = resolveOverlaps([
+      {
+        id: "a",
+        start_time: "09:00",
+        end_time: "10:00",
+        title: "One",
+        category: "deep_work",
+      },
+      {
+        id: "b",
+        start_time: "09:30",
+        end_time: "10:00",
+        title: "Two",
+        category: "deep_work",
+      },
+      {
+        id: "c",
+        start_time: "09:45",
+        end_time: "10:15",
+        title: "Three",
+        category: "deep_work",
+      },
+    ]);
+
+    expect(resolved.map((block) => block.id)).toEqual(["a", "b", "c"]);
+    expect(resolved[1].start_time).toBe("10:15");
+    expect(resolved[2].start_time).toBe("11:00");
+    expect(findTodayPlanBlockProblems(resolved).overlappingBlockIds).toEqual([]);
+  });
+});
+
+/** Reads one time field off a block by id, in minutes. */
+function timeToMinutesOf(
+  blocks: DayPlanBlock[],
+  id: string,
+  field: "start_time" | "end_time"
+) {
+  const value = blocks.find((block) => block.id === id)?.[field] ?? "00:00";
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}

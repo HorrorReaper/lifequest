@@ -51,13 +51,16 @@ import type {
   DayPlanOutcomeRole,
 } from "@/lib/types";
 import {
+  applyBlockTimeChange,
   buildTodayPlanSchedule,
   calculateTodayPlanCapacity,
   createDefaultTodayPlanMetadata,
   findTodayPlanBlockProblems,
   formatPlanMinutes,
   minutesToTime,
+  nextGridStart,
   parseTodayPlanNotes,
+  resolveOverlaps,
   serializeTodayPlanNotes,
   shiftEndTime,
   timeToMinutes,
@@ -432,11 +435,25 @@ export function TodayPlanner({
     setStepError(null);
   }
 
+  /**
+   * Retimes a block and carries the rest of the day with it.
+   *
+   * Separate from updateBlock because only a time change ripples -- renaming
+   * a block or switching its category must leave the schedule alone.
+   */
+  function updateBlockTime(
+    id: string,
+    patch: Pick<Partial<DayPlanBlock>, "start_time" | "end_time">
+  ) {
+    setBlocks((current) => applyBlockTimeChange(current, id, patch));
+    setStepError(null);
+  }
+
   function addManualBlock(category: DayPlanCategory = "other") {
-    const start = Math.min(
-      lastScheduledMinute(blocks, metadata.day_start) + (blocks.length ? 10 : 0),
-      23 * 60
-    );
+    const last = lastScheduledMinute(blocks, metadata.day_start);
+    const start = blocks.length
+      ? nextGridStart(last)
+      : Math.min(last, 23 * 60);
     const end = Math.min(start + 30, 23 * 60 + 59);
     setBlocks((current) => [
       ...current,
@@ -952,7 +969,8 @@ export function TodayPlanner({
               <div className="space-y-3">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm text-muted-foreground">
-                    Changes remain local until you commit on the next step.
+                    Moving a block moves everything after it. Changes remain
+                    local until you commit on the next step.
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -974,6 +992,26 @@ export function TodayPlanner({
                     </Button>
                   </div>
                 </div>
+
+                {problems.overlappingBlockIds.length > 0 && (
+                  <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/35 bg-destructive/8 p-4 text-sm">
+                    <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                    <p className="min-w-0 flex-1">
+                      Two blocks want the same minutes.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBlocks((current) => resolveOverlaps(current));
+                        setStepError(null);
+                      }}
+                    >
+                      Space them out
+                    </Button>
+                  </div>
+                )}
 
                 {sortedBlocks.length === 0 ? (
                   <div className="rounded-3xl border border-dashed bg-background/65 p-8 text-center">
@@ -1053,7 +1091,7 @@ export function TodayPlanner({
                                     type="time"
                                     value={block.start_time}
                                     onChange={(event) =>
-                                      updateBlock(block.id, {
+                                      updateBlockTime(block.id, {
                                         start_time: event.target.value,
                                         end_time: shiftEndTime(
                                           block.start_time,
@@ -1071,7 +1109,7 @@ export function TodayPlanner({
                                     type="time"
                                     value={block.end_time}
                                     onChange={(event) =>
-                                      updateBlock(block.id, {
+                                      updateBlockTime(block.id, {
                                         end_time: event.target.value,
                                       })
                                     }
