@@ -88,7 +88,9 @@ describe("TodayPlanner", () => {
     fireEvent.click(screen.getByRole("button", { name: /Read/ }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    expect(screen.getByDisplayValue("Write launch brief")).toBeTruthy();
+    expect(
+      screen.getByLabelText(/Write launch brief, \d\d:\d\d to \d\d:\d\d/)
+    ).toBeTruthy();
     // The habit rides along instead of taking a slot: it shows up in the rail,
     // never as an editable block with its own start and end time.
     expect(screen.queryByDisplayValue("📚 Read")).toBeNull();
@@ -211,25 +213,82 @@ describe("TodayPlanner", () => {
     expect(rail.textContent).toContain("No time slot needed");
   });
 
+  it("draws a block as tall as it is long, and where it starts", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    const px = (el: HTMLElement, prop: "height" | "top") =>
+      Number.parseFloat(el.style[prop]);
+
+    const a = screen.getByLabelText("Write launch brief, 08:00 to 09:00");
+    const b = screen.getByLabelText("Side quest, 09:15 to 10:00");
+    const c = screen.getByLabelText("Training, 11:00 to 11:45");
+
+    // 60 minutes must be exactly a third taller than 45. This proportion is
+    // the whole point of the axis: the old card list drew them identically.
+    expect(px(a, "height") / px(b, "height")).toBeCloseTo(60 / 45, 5);
+    expect(px(b, "height")).toBeCloseTo(px(c, "height"), 5);
+
+    // The day opens at 08:00, so the first block sits at the very top and the
+    // others are offset by their real distance from it.
+    expect(px(a, "top")).toBe(0);
+    expect(px(b, "top") / px(a, "height")).toBeCloseTo(75 / 60, 5);
+    expect(px(c, "top") / px(a, "height")).toBeCloseTo(180 / 60, 5);
+  });
+
   it("moves every later block when one is retimed", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
 
-    fireEvent.change(screen.getAllByLabelText("Start")[0], {
+    fireEvent.click(screen.getByLabelText(/Write launch brief, 08:00 to 09:00/));
+    fireEvent.change(screen.getByLabelText("Start"), {
       target: { value: "08:30" },
     });
 
-    const starts = screen.getAllByLabelText("Start");
-    expect(starts[0]).toHaveProperty("value", "08:30");
-    expect(starts[1]).toHaveProperty("value", "09:45");
-    expect(starts[2]).toHaveProperty("value", "11:30");
+    // The axis is the source of truth now, so assert on what it announces.
+    expect(screen.getByLabelText("Write launch brief, 08:30 to 09:30")).toBeTruthy();
+    expect(screen.getByLabelText("Side quest, 09:45 to 10:30")).toBeTruthy();
+    expect(screen.getByLabelText("Training, 11:30 to 12:15")).toBeTruthy();
+  });
+
+  it("moves a block with the arrow keys, for anyone not using a pointer", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    const block = screen.getByLabelText("Side quest, 09:15 to 10:00");
+    fireEvent.keyDown(block, { key: "ArrowDown" });
+
+    expect(screen.getByLabelText("Side quest, 09:20 to 10:05")).toBeTruthy();
+    // Everything after it follows, exactly as a drag would.
+    expect(screen.getByLabelText("Training, 11:05 to 11:50")).toBeTruthy();
+  });
+
+  it("resizes with shift and an arrow key without moving the start", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    const block = screen.getByLabelText("Side quest, 09:15 to 10:00");
+    fireEvent.keyDown(block, { key: "ArrowDown", shiftKey: true });
+
+    expect(screen.getByLabelText("Side quest, 09:15 to 10:05")).toBeTruthy();
+  });
+
+  it("keeps a block reachable when its time cannot be placed on the axis", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.click(screen.getByLabelText(/Side quest, 09:15 to 10:00/));
+    fireEvent.change(screen.getByLabelText("End"), { target: { value: "08:00" } });
+
+    expect(screen.getByText("needs a valid time")).toBeTruthy();
   });
 
   it("offers to space out overlapping blocks instead of only refusing", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
 
-    fireEvent.change(screen.getAllByLabelText("Start")[1], {
+    fireEvent.click(screen.getByLabelText(/Side quest, 09:15 to 10:00/));
+    fireEvent.change(screen.getByLabelText("Start"), {
       target: { value: "08:30" },
     });
     expect(screen.getByText("Two blocks want the same minutes.")).toBeTruthy();
@@ -238,8 +297,6 @@ describe("TodayPlanner", () => {
 
     expect(screen.queryByText("Two blocks want the same minutes.")).toBeNull();
     // The pushed block keeps its 45 minutes, it just starts after the first.
-    const starts = screen.getAllByLabelText("Start");
-    expect(starts[1]).toHaveProperty("value", "09:15");
-    expect(screen.getAllByLabelText("End")[1]).toHaveProperty("value", "10:00");
+    expect(screen.getByLabelText("Side quest, 09:15 to 10:00")).toBeTruthy();
   });
 });

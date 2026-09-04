@@ -45,6 +45,7 @@ import { createTask } from "@/lib/tasks";
 import { MoodSelector } from "@/components/journal/mood-selector";
 import { DEFAULT_MOOD_OPTIONS } from "@/lib/mood";
 import { TaskCombobox } from "@/components/planning/TaskCombobox";
+import { PlanTimeline } from "@/components/planning/PlanTimeline";
 import type {
   DayPlanBlock,
   DayPlanCategory,
@@ -289,6 +290,7 @@ export function TodayPlanner({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [restoredDraft, setRestoredDraft] = useState(false);
 
@@ -616,6 +618,17 @@ export function TodayPlanner({
   const sortedBlocks = blocks
     .slice()
     .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+  const selectedBlock =
+    blocks.find((block) => block.id === selectedBlockId) ?? null;
+
+  // Blocks the axis cannot draw, because their times do not parse or run
+  // backwards. The editor still reaches them through the list below it.
+  const unplaceableBlocks = sortedBlocks.filter((block) => {
+    const start = timeToMinutes(block.start_time);
+    const end = timeToMinutes(block.end_time);
+    return !Number.isFinite(start) || !Number.isFinite(end) || end <= start;
+  });
 
   return (
     <main className="min-h-svh bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_38%),hsl(var(--background))] pb-28 sm:pb-10">
@@ -1082,157 +1095,178 @@ export function TodayPlanner({
                     </p>
                   </div>
                 ) : (
-                  <ol className="relative space-y-3 before:absolute before:bottom-6 before:left-[1.18rem] before:top-6 before:w-px before:bg-border sm:before:left-[2.18rem]">
-                    {sortedBlocks.map((block, index) => {
-                      const invalid = problems.invalidBlockIds.includes(
-                        block.id
-                      );
-                      const overlapping =
-                        problems.overlappingBlockIds.includes(block.id);
-                      return (
-                        <li
-                          key={block.id}
-                          className="relative grid grid-cols-[2.4rem_1fr] gap-2 sm:grid-cols-[4.4rem_1fr] sm:gap-3"
-                        >
-                          <div className="relative z-10 flex items-start justify-center pt-5">
-                            <span
-                              className={cn(
-                                "flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-semibold",
-                                block.mission_type === "main_quest" &&
-                                  "bg-primary text-primary-foreground",
-                                (invalid || overlapping) &&
-                                  "bg-destructive text-destructive-foreground"
-                              )}
-                            >
-                              {index + 1}
-                            </span>
-                          </div>
-                          <Card
-                            className={cn(
-                              "rounded-2xl",
-                              (invalid || overlapping) &&
-                                "border-destructive/55"
-                            )}
+                  <>
+                    <PlanTimeline
+                      blocks={blocks}
+                      dayStart={metadata.day_start}
+                      dayEnd={metadata.day_end}
+                      invalidBlockIds={problems.invalidBlockIds}
+                      overlappingBlockIds={problems.overlappingBlockIds}
+                      selectedId={selectedBlockId}
+                      onSelect={setSelectedBlockId}
+                      onChange={(next) => {
+                        setBlocks(next);
+                        setStepError(null);
+                      }}
+                    />
+
+                    {selectedBlock ? (
+                      <div className="mt-3 rounded-2xl border bg-card p-4">
+                        <div className="flex items-start gap-2">
+                          <Input
+                            aria-label="Block title"
+                            value={selectedBlock.title}
+                            onChange={(event) =>
+                              updateBlock(selectedBlock.id, {
+                                title: event.target.value,
+                              })
+                            }
+                            maxLength={160}
+                            className="h-11 min-w-0 flex-1 rounded-xl font-medium"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete ${selectedBlock.title}`}
+                            onClick={() => {
+                              setBlocks((current) =>
+                                current.filter(
+                                  (item) => item.id !== selectedBlock.id
+                                )
+                              );
+                              setSelectedBlockId(null);
+                            }}
+                            className="text-muted-foreground hover:text-destructive"
                           >
-                            <CardContent className="space-y-3 p-4">
-                              <div className="flex items-start gap-2">
-                                <Input
-                                  aria-label={`Plan block ${index + 1} title`}
-                                  value={block.title}
-                                  onChange={(event) =>
-                                    updateBlock(block.id, {
-                                      title: event.target.value,
-                                    })
-                                  }
-                                  maxLength={160}
-                                  className="h-11 min-w-0 flex-1 rounded-xl font-medium"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label={`Delete ${block.title}`}
-                                  onClick={() =>
-                                    setBlocks((current) =>
-                                      current.filter(
-                                        (item) => item.id !== block.id
-                                      )
-                                    )
-                                  }
-                                  className="text-muted-foreground hover:text-destructive"
-                                >
-                                  <Trash2 className="size-4" />
-                                </Button>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.25fr]">
-                                <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-                                  Start
-                                  <Input
-                                    type="time"
-                                    value={block.start_time}
-                                    onChange={(event) =>
-                                      updateBlockTime(block.id, {
-                                        start_time: event.target.value,
-                                        end_time: shiftEndTime(
-                                          block.start_time,
-                                          block.end_time,
-                                          event.target.value
-                                        ),
-                                      })
-                                    }
-                                    className="h-10 rounded-xl text-foreground"
-                                  />
-                                </label>
-                                <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-                                  End
-                                  <Input
-                                    type="time"
-                                    value={block.end_time}
-                                    onChange={(event) =>
-                                      updateBlockTime(block.id, {
-                                        end_time: event.target.value,
-                                      })
-                                    }
-                                    className="h-10 rounded-xl text-foreground"
-                                  />
-                                </label>
-                                <label className="col-span-2 space-y-1 text-[11px] font-medium text-muted-foreground sm:col-span-1">
-                                  Type
-                                  <select
-                                    value={block.category}
-                                    onChange={(event) =>
-                                      updateBlock(block.id, {
-                                        category: event.target
-                                          .value as DayPlanCategory,
-                                      })
-                                    }
-                                    className="h-10 w-full rounded-xl border bg-background px-3 text-sm text-foreground"
-                                  >
-                                    {Object.entries(CATEGORY_LABELS).map(
-                                      ([value, label]) => (
-                                        <option key={value} value={value}>
-                                          {label}
-                                        </option>
-                                      )
-                                    )}
-                                  </select>
-                                </label>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                {block.mission_type && (
-                                  <Badge
-                                    variant="outline"
-                                    className="rounded-full text-[10px]"
-                                  >
-                                    {MISSION_LABELS[block.mission_type]}
-                                  </Badge>
-                                )}
-                                <span className="text-xs text-muted-foreground">
-                                  {formatPlanMinutes(
-                                    Math.max(
-                                      0,
-                                      timeToMinutes(block.end_time) -
-                                        timeToMinutes(block.start_time)
-                                    )
-                                  )}
-                                </span>
-                                {invalid && (
-                                  <span className="text-xs text-destructive">
-                                    Check title and time
-                                  </span>
-                                )}
-                                {overlapping && (
-                                  <span className="text-xs text-destructive">
-                                    Overlaps another block
-                                  </span>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </li>
-                      );
-                    })}
-                  </ol>
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+
+                        {/* The fields stay alongside the drag gesture: a
+                            pointer is faster, typing is exact, and a keyboard
+                            user needs a way in that is not a drag. */}
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.25fr]">
+                          <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+                            Start
+                            <Input
+                              type="time"
+                              value={selectedBlock.start_time}
+                              onChange={(event) =>
+                                updateBlockTime(selectedBlock.id, {
+                                  start_time: event.target.value,
+                                  end_time: shiftEndTime(
+                                    selectedBlock.start_time,
+                                    selectedBlock.end_time,
+                                    event.target.value
+                                  ),
+                                })
+                              }
+                              className="h-10 rounded-xl text-foreground"
+                            />
+                          </label>
+                          <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+                            End
+                            <Input
+                              type="time"
+                              value={selectedBlock.end_time}
+                              onChange={(event) =>
+                                updateBlockTime(selectedBlock.id, {
+                                  end_time: event.target.value,
+                                })
+                              }
+                              className="h-10 rounded-xl text-foreground"
+                            />
+                          </label>
+                          <label className="col-span-2 space-y-1 text-[11px] font-medium text-muted-foreground sm:col-span-1">
+                            Type
+                            <select
+                              value={selectedBlock.category}
+                              onChange={(event) =>
+                                updateBlock(selectedBlock.id, {
+                                  category: event.target
+                                    .value as DayPlanCategory,
+                                })
+                              }
+                              className="h-10 w-full rounded-xl border bg-background px-3 text-sm text-foreground"
+                            >
+                              {Object.entries(CATEGORY_LABELS).map(
+                                ([value, label]) => (
+                                  <option key={value} value={value}>
+                                    {label}
+                                  </option>
+                                )
+                              )}
+                            </select>
+                          </label>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {selectedBlock.mission_type && (
+                            <Badge
+                              variant="outline"
+                              className="rounded-full text-[10px]"
+                            >
+                              {MISSION_LABELS[selectedBlock.mission_type]}
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {formatPlanMinutes(
+                              Math.max(
+                                0,
+                                timeToMinutes(selectedBlock.end_time) -
+                                  timeToMinutes(selectedBlock.start_time)
+                              )
+                            )}
+                          </span>
+                          {problems.invalidBlockIds.includes(
+                            selectedBlock.id
+                          ) && (
+                            <span className="text-xs text-destructive">
+                              Check title and time
+                            </span>
+                          )}
+                          {problems.overlappingBlockIds.includes(
+                            selectedBlock.id
+                          ) && (
+                            <span className="text-xs text-destructive">
+                              Overlaps another block
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
+                        Drag a block to move it, pull its bottom edge to make it
+                        longer. Select one to rename it or change its type.
+                      </p>
+                    )}
+
+                    {/* A block with an unreadable time cannot be drawn on a
+                        time axis, so it would vanish exactly when it needs
+                        fixing. Listed here until it is valid again. */}
+                    {unplaceableBlocks.length > 0 && (
+                      <ul className="mt-3 space-y-2">
+                        {unplaceableBlocks.map((block) => (
+                          <li key={block.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBlockId(block.id)}
+                              className="flex w-full items-center gap-2 rounded-xl border border-destructive/55 bg-destructive/8 px-3 py-2 text-left text-sm"
+                            >
+                              <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                              <span className="min-w-0 flex-1 truncate">
+                                {block.title || "Untitled block"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                needs a valid time
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
                 )}
               </div>
 

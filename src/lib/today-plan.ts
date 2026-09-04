@@ -302,6 +302,62 @@ function byStartTime(a: DayPlanBlock, b: DayPlanBlock) {
   return a.start_time.localeCompare(b.start_time);
 }
 
+/** Vertical pixels the timeline gives one minute. */
+export const TIMELINE_PX_PER_MINUTE = 1.2;
+
+/** Dragging resolves to this many minutes. */
+export const TIMELINE_DRAG_GRID_MINUTES = 5;
+
+/** The shortest a block may be dragged down to. */
+export const MIN_BLOCK_MINUTES = 10;
+
+/**
+ * The span the timeline draws, in whole hours.
+ *
+ * Widened past the planned day whenever a block sits outside it, because a
+ * block you cannot see is a block you cannot fix -- and the old form-based
+ * step let people put one at 22:00 inside an 08:00-18:00 day.
+ */
+export function timelineWindow(
+  blocks: DayPlanBlock[],
+  dayStart: string,
+  dayEnd: string
+): { startMinutes: number; endMinutes: number } {
+  const starts: number[] = [];
+  const ends: number[] = [];
+
+  const rawStart = timeToMinutes(dayStart);
+  const rawEnd = timeToMinutes(dayEnd);
+  if (Number.isFinite(rawStart)) starts.push(rawStart);
+  if (Number.isFinite(rawEnd)) ends.push(rawEnd);
+
+  for (const block of blocks) {
+    const start = timeToMinutes(block.start_time);
+    const end = timeToMinutes(block.end_time);
+    if (Number.isFinite(start)) starts.push(start);
+    if (Number.isFinite(end)) ends.push(end);
+  }
+
+  if (starts.length === 0 || ends.length === 0) {
+    return { startMinutes: 8 * 60, endMinutes: 18 * 60 };
+  }
+
+  const startMinutes = Math.max(0, Math.floor(Math.min(...starts) / 60) * 60);
+  const endMinutes = Math.min(
+    24 * 60,
+    Math.ceil(Math.max(...ends, startMinutes + 60) / 60) * 60
+  );
+  return { startMinutes, endMinutes };
+}
+
+/** Rounds a minute value to the drag grid. */
+export function snapToDragGrid(minutes: number): number {
+  return (
+    Math.round(minutes / TIMELINE_DRAG_GRID_MINUTES) *
+    TIMELINE_DRAG_GRID_MINUTES
+  );
+}
+
 /**
  * Edits one block's times and carries everything after it along.
  *

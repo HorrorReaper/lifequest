@@ -9,6 +9,8 @@ import {
   parseTodayPlanNotes,
   nextGridStart,
   resolveOverlaps,
+  snapToDragGrid,
+  timelineWindow,
   serializeTodayPlanNotes,
   shiftEndTime,
 } from "@/lib/today-plan";
@@ -487,3 +489,51 @@ function timeToMinutesOf(
   const [hours, minutes] = value.split(":").map(Number);
   return hours * 60 + minutes;
 }
+
+describe("timelineWindow", () => {
+  const block = (start: string, end: string): DayPlanBlock => ({
+    id: `${start}-${end}`,
+    start_time: start,
+    end_time: end,
+    title: "Block",
+    category: "deep_work",
+  });
+
+  it("spans the planned day in whole hours", () => {
+    const win = timelineWindow([block("09:00", "10:00")], "08:00", "18:00");
+    expect(win.startMinutes).toBe(8 * 60);
+    expect(win.endMinutes).toBe(18 * 60);
+  });
+
+  it("widens to reach a block that sits outside the planned day", () => {
+    // A block at 22:00 inside an 08:00-18:00 day must still be visible, or it
+    // cannot be dragged back in.
+    const win = timelineWindow([block("21:40", "22:30")], "08:00", "18:00");
+    expect(win.endMinutes).toBe(23 * 60);
+  });
+
+  it("widens backwards for an early block too", () => {
+    const win = timelineWindow([block("06:20", "07:00")], "08:00", "18:00");
+    expect(win.startMinutes).toBe(6 * 60);
+  });
+
+  it("falls back to a sane day when there is nothing to measure", () => {
+    const win = timelineWindow([], "nonsense", "also nonsense");
+    expect(win).toEqual({ startMinutes: 8 * 60, endMinutes: 18 * 60 });
+  });
+
+  it("always spans at least an hour", () => {
+    const win = timelineWindow([], "09:00", "09:00");
+    expect(win.endMinutes - win.startMinutes).toBeGreaterThanOrEqual(60);
+  });
+});
+
+describe("snapToDragGrid", () => {
+  it("resolves a drag to the nearest five minutes", () => {
+    expect(snapToDragGrid(0)).toBe(0);
+    expect(snapToDragGrid(2)).toBe(0);
+    expect(snapToDragGrid(3)).toBe(5);
+    expect(snapToDragGrid(-3)).toBe(-5);
+    expect(snapToDragGrid(47)).toBe(45);
+  });
+});
