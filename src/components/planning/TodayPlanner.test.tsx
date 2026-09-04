@@ -89,7 +89,10 @@ describe("TodayPlanner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(screen.getByDisplayValue("Write launch brief")).toBeTruthy();
-    expect(screen.getByDisplayValue("📚 Read")).toBeTruthy();
+    // The habit rides along instead of taking a slot: it shows up in the rail,
+    // never as an editable block with its own start and end time.
+    expect(screen.queryByDisplayValue("📚 Read")).toBeNull();
+    expect(screen.getByText("Rides along")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(
@@ -192,6 +195,21 @@ describe("TodayPlanner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
   }
+
+  it("names the ride-along habits without giving them a time slot", () => {
+    render(<TodayPlanner {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.focus(screen.getByLabelText("Must Win outcome"));
+    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: /Read/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    const rail = screen.getByText("Rides along").parentElement as HTMLElement;
+    expect(rail.textContent).toContain("Read");
+    expect(rail.textContent).toContain("No time slot needed");
+  });
 
   it("moves every later block when one is retimed", () => {
     render(<TodayPlanner {...timelineProps} />);

@@ -74,7 +74,7 @@ describe("today plan notes", () => {
 });
 
 describe("today plan schedule", () => {
-  it("creates mission-aligned blocks without duplicating scheduled commitments", () => {
+  it("schedules outcomes and workouts, but never habits or journals", () => {
     const metadata = {
       ...createDefaultTodayPlanMetadata(),
       outcomes: [
@@ -102,6 +102,14 @@ describe("today plan schedule", () => {
           emoji: "📓",
           duration_minutes: 10,
         },
+        {
+          id: "workout",
+          source_type: "workout" as const,
+          source_id: null,
+          title: "Training session",
+          emoji: "🏋",
+          duration_minutes: 75,
+        },
       ],
     };
     let counter = 0;
@@ -117,7 +125,12 @@ describe("today plan schedule", () => {
       idFactory: () => `block-${++counter}`,
     });
 
+    // The journal anchor rides along instead of taking a slot; the workout
+    // genuinely occupies the clock, so it stays on the timeline.
     expect(scheduled).toHaveLength(3);
+    expect(
+      scheduled.some((block) => block.source_type === "journal")
+    ).toBe(false);
     expect(scheduled[0]).toMatchObject({
       start_time: "08:00",
       end_time: "09:00",
@@ -133,11 +146,36 @@ describe("today plan schedule", () => {
     });
     expect(scheduled[2]).toMatchObject({
       start_time: "10:15",
-      end_time: "10:25",
+      end_time: "11:30",
       mission_type: "anchor",
-      source_type: "journal",
+      source_type: "workout",
+      category: "exercise",
     });
     expect(scheduledAgain).toEqual(scheduled);
+  });
+
+  it("does not duplicate an anchor that carries no source id", () => {
+    const metadata = {
+      ...createDefaultTodayPlanMetadata(),
+      anchors: [
+        {
+          id: "workout-daily-anchor",
+          source_type: "workout" as const,
+          source_id: null,
+          title: "Training session",
+          emoji: "🏋",
+          duration_minutes: 75,
+        },
+      ],
+    };
+    let counter = 0;
+    const idFactory = () => `block-${++counter}`;
+
+    const once = buildTodayPlanSchedule({ blocks: [], metadata, idFactory });
+    const twice = buildTodayPlanSchedule({ blocks: once, metadata, idFactory });
+
+    expect(once).toHaveLength(1);
+    expect(twice).toHaveLength(1);
   });
 
   it("starts on the quarter hour after an existing block, past the transition gap", () => {

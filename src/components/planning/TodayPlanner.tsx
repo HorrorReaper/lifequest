@@ -51,6 +51,7 @@ import type {
   DayPlanOutcomeRole,
 } from "@/lib/types";
 import {
+  anchorTakesTime,
   applyBlockTimeChange,
   buildTodayPlanSchedule,
   calculateTodayPlanCapacity,
@@ -590,6 +591,28 @@ export function TodayPlanner({
       : []),
   ];
 
+  // Habits and journal prompts chosen as anchors, which no longer take a slot
+  // on the timeline. They stay in metadata.anchors either way, so committing
+  // still records what the day was meant to carry.
+  const ridingAlong = metadata.anchors.filter(
+    (anchor) => !anchorTakesTime(anchor)
+  );
+
+  function anchorCompletedToday(anchor: TodayPlanAnchor) {
+    if (anchor.source_type === "habit") {
+      return Boolean(
+        habits.find((habit) => habit.id === anchor.source_id)?.completedToday
+      );
+    }
+    if (anchor.source_type === "journal") {
+      return Boolean(
+        journals.find((journal) => journal.id === anchor.source_id)
+          ?.completedToday
+      );
+    }
+    return false;
+  }
+
   const sortedBlocks = blocks
     .slice()
     .sort((a, b) => a.start_time.localeCompare(b.start_time));
@@ -831,7 +854,9 @@ export function TodayPlanner({
                       <h2 className="font-semibold">Daily anchors</h2>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Select only the rituals worth protecting today.
+                      Select only the rituals worth protecting today. Habits and
+                      reflections ride along with the day; only training takes a
+                      slot on the timeline.
                     </p>
                     {anchorOptions.length > 0 ? (
                       <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -878,7 +903,9 @@ export function TodayPlanner({
                                 <span className="mt-0.5 block text-xs text-muted-foreground">
                                   {completed
                                     ? "Already completed"
-                                    : `${formatPlanMinutes(anchor.duration_minutes)} anchor`}
+                                    : anchorTakesTime(anchor)
+                                      ? `${formatPlanMinutes(anchor.duration_minutes)} on the timeline`
+                                      : "Rides along, no time slot"}
                                 </span>
                               </span>
                               <span
@@ -992,6 +1019,39 @@ export function TodayPlanner({
                     </Button>
                   </div>
                 </div>
+
+                {ridingAlong.length > 0 && (
+                  // Read-only on purpose: checking a habit here would write to
+                  // the database, and this step promises that nothing is saved
+                  // until the final step. Checking them off stays on the home
+                  // screen, where it already works.
+                  <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border bg-background/65 p-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Rides along
+                    </span>
+                    {ridingAlong.map((anchor) => {
+                      const done = anchorCompletedToday(anchor);
+                      return (
+                        <span
+                          key={anchor.id}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs",
+                            done
+                              ? "border-emerald-500/40 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300"
+                              : "bg-muted/40"
+                          )}
+                        >
+                          {done && <Check className="size-3" />}
+                          <span aria-hidden="true">{anchor.emoji}</span>
+                          {anchor.title}
+                        </span>
+                      );
+                    })}
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      No time slot needed
+                    </span>
+                  </div>
+                )}
 
                 {problems.overlappingBlockIds.length > 0 && (
                   <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/35 bg-destructive/8 p-4 text-sm">
