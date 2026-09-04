@@ -510,6 +510,20 @@ function outcomeMission(role: DayPlanOutcomeRole): {
   return { category: "deep_work", missionType: "side_quest" };
 }
 
+/**
+ * Whether an anchor is a commitment that occupies the clock.
+ *
+ * A workout genuinely takes an hour of the day and belongs on the timeline.
+ * A habit or a journal prompt does not: giving "Smile 5 times a day" a slot
+ * from 12:10 to 12:25 invents a meeting that will never happen, and pushes
+ * everything real later. Those ride along with the day as a checklist
+ * instead -- they still live in metadata.anchors, they just never become
+ * blocks.
+ */
+export function anchorTakesTime(anchor: TodayPlanAnchor): boolean {
+  return anchor.source_type === "workout";
+}
+
 function anchorCategory(
   sourceType: TodayPlanAnchor["source_type"]
 ): DayPlanCategory {
@@ -582,12 +596,16 @@ export function buildTodayPlanSchedule({
   }
 
   for (const anchor of metadata.anchors) {
+    if (!anchorTakesTime(anchor)) continue;
+    // Match the identity `append` actually writes below. Falling back to the
+    // title instead would never match an anchor without a source_id, because
+    // the block's title carries the emoji and the anchor's does not -- which
+    // duplicated the workout block every time the schedule was rebuilt.
+    const anchorKey = anchor.source_id ?? anchor.id;
     const alreadyScheduled = next.some(
       (block) =>
         block.source_type === anchor.source_type &&
-        (anchor.source_id
-          ? block.source_id === anchor.source_id
-          : block.title === anchor.title)
+        block.source_id === anchorKey
     );
     if (alreadyScheduled) continue;
     append(`${anchor.emoji} ${anchor.title}`.trim(), anchor.duration_minutes, {
