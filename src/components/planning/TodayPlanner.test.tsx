@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TodayPlanner } from "@/components/planning/TodayPlanner";
 import {
@@ -536,6 +543,98 @@ describe("TodayPlanner", () => {
     expect(px(short, "height")).toBeCloseTo(15 * 1.2, 5);
     expect(px(short, "top") + px(short, "height")).toBeLessThanOrEqual(
       px(next, "top")
+    );
+  });
+
+  it("opens a block's properties over the day rather than under it", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByLabelText("Block title")).toBeNull();
+
+    fireEvent.click(screen.getByLabelText("Write launch brief, 08:00 to 09:00"));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("Edit block");
+    expect(screen.getByLabelText("Block title")).toHaveProperty(
+      "value",
+      "Write launch brief"
+    );
+  });
+
+  it("closes the properties again once the block is gone", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.click(screen.getByLabelText("Write launch brief, 08:00 to 09:00"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete Write launch brief" })
+    );
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      screen.queryByLabelText(/Write launch brief, 08:00 to 09:00/)
+    ).toBeNull();
+  });
+
+  it("does not open the properties when a block was dragged, only tapped", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    const block = screen.getByLabelText("Write launch brief, 08:00 to 09:00");
+    // jsdom does not implement pointer capture; the handler only needs it not
+    // to throw.
+    block.setPointerCapture = () => {};
+
+    fireEvent.pointerDown(block, { button: 0, pointerId: 1, clientY: 100 });
+    fireEvent.pointerMove(block, { pointerId: 1, clientY: 136 });
+    fireEvent.pointerUp(block, { pointerId: 1, clientY: 136 });
+    fireEvent.click(block);
+
+    // 36px is 30 minutes, so the block moved -- and a move is not a tap.
+    expect(screen.getByLabelText("Write launch brief, 08:30 to 09:30")).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("offers the overlap fix inside the properties, where it is reachable", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.click(screen.getByLabelText("Side quest, 09:15 to 10:00"));
+    fireEvent.change(screen.getByLabelText("Start"), {
+      target: { value: "08:30" },
+    });
+
+    // The banner behind the modal cannot be clicked, so the dialog carries it.
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("Overlaps another block.");
+    fireEvent.click(screen.getByRole("button", { name: "Space them out" }));
+
+    expect(screen.getByLabelText("Side quest, 09:15 to 10:00")).toBeTruthy();
+  });
+
+  it("puts an add button within thumb reach on the timeline step", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    // The footer button is the mobile one; the header keeps its own for
+    // pointer widths, and CSS shows exactly one of them at a time.
+    const footer = () =>
+      within(document.querySelector("footer") as HTMLElement);
+
+    pickMood();
+    next();
+    // Not on the earlier steps, where there is no timeline to add to.
+    expect(footer().queryByRole("button", { name: "Add block" })).toBeNull();
+
+    next();
+    next();
+    fireEvent.click(footer().getByRole("button", { name: "Add block" }));
+
+    // Creating selects, so the properties open with the new block.
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByLabelText("Block title")).toHaveProperty(
+      "value",
+      "New plan block"
     );
   });
 
