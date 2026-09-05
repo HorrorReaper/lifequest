@@ -103,6 +103,9 @@ export function PlanTimeline({
 }: PlanTimelineProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
+  // A pointer gesture ends in a click on the same element. Now that a click
+  // opens a modal, a drag that actually moved must not also open it.
+  const movedRef = useRef(false);
   const [dragging, setDragging] = useState<string | null>(null);
   const [preview, setPreview] = useState<GapPreview | null>(null);
 
@@ -138,6 +141,7 @@ export function PlanTimeline({
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
+    movedRef.current = false;
     dragRef.current = {
       id: block.id,
       mode,
@@ -151,7 +155,6 @@ export function PlanTimeline({
       originBlocks: blocks,
     };
     setDragging(block.id);
-    onSelect(block.id);
   }
 
   function moveDrag(event: React.PointerEvent<HTMLElement>) {
@@ -161,6 +164,7 @@ export function PlanTimeline({
     const deltaMinutes = snapToDragGrid(
       (event.clientY - drag.originY) / TIMELINE_PX_PER_MINUTE
     );
+    if (deltaMinutes !== 0) movedRef.current = true;
     if (drag.mode === "move") {
       const duration = drag.originEnd - drag.originStart;
       const nextStart = Math.min(
@@ -421,7 +425,13 @@ export function PlanTimeline({
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
                 onKeyDown={(event) => handleKeyDown(event, block)}
-                onClick={() => onSelect(block.id)}
+                onClick={() => {
+                  if (movedRef.current) {
+                    movedRef.current = false;
+                    return;
+                  }
+                  onSelect(block.id);
+                }}
                 className={cn(
                   // Centred rather than flowing from the top: a block is as
                   // tall as it is long, so anything past a short one left its

@@ -1127,10 +1127,14 @@ export function TodayPlanner({
                       <HeartPulse className="mr-1.5 size-4" />
                       Add break
                     </Button>
+                    {/* Mobile gets the round button in the footer instead,
+                        so exactly one control named "Add block" exists at
+                        any width. */}
                     <Button
                       type="button"
                       size="sm"
                       onClick={() => addManualBlock()}
+                      className="hidden sm:inline-flex"
                     >
                       <Plus className="mr-1.5 size-4" />
                       Add block
@@ -1216,137 +1220,10 @@ export function TodayPlanner({
                       onCreateBlock={createBlockAt}
                     />
 
-                    {selectedBlock ? (
-                      <div className="mt-3 rounded-2xl border bg-card p-4">
-                        <div className="flex items-start gap-2">
-                          <Input
-                            aria-label="Block title"
-                            value={selectedBlock.title}
-                            onChange={(event) =>
-                              updateBlock(selectedBlock.id, {
-                                title: event.target.value,
-                              })
-                            }
-                            maxLength={160}
-                            className="h-11 min-w-0 flex-1 rounded-xl font-medium"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Delete ${selectedBlock.title}`}
-                            onClick={() => {
-                              setBlocks((current) =>
-                                current.filter(
-                                  (item) => item.id !== selectedBlock.id
-                                )
-                              );
-                              setSelectedBlockId(null);
-                            }}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
-
-                        {/* The fields stay alongside the drag gesture: a
-                            pointer is faster, typing is exact, and a keyboard
-                            user needs a way in that is not a drag. */}
-                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.25fr]">
-                          <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-                            Start
-                            <Input
-                              type="time"
-                              value={selectedBlock.start_time}
-                              onChange={(event) =>
-                                updateBlockTime(selectedBlock.id, {
-                                  start_time: event.target.value,
-                                  end_time: shiftEndTime(
-                                    selectedBlock.start_time,
-                                    selectedBlock.end_time,
-                                    event.target.value
-                                  ),
-                                })
-                              }
-                              className="h-10 rounded-xl text-foreground"
-                            />
-                          </label>
-                          <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-                            End
-                            <Input
-                              type="time"
-                              value={selectedBlock.end_time}
-                              onChange={(event) =>
-                                updateBlockTime(selectedBlock.id, {
-                                  end_time: event.target.value,
-                                })
-                              }
-                              className="h-10 rounded-xl text-foreground"
-                            />
-                          </label>
-                          <label className="col-span-2 space-y-1 text-[11px] font-medium text-muted-foreground sm:col-span-1">
-                            Type
-                            <select
-                              value={selectedBlock.category}
-                              onChange={(event) =>
-                                updateBlock(selectedBlock.id, {
-                                  category: event.target
-                                    .value as DayPlanCategory,
-                                })
-                              }
-                              className="h-10 w-full rounded-xl border bg-background px-3 text-sm text-foreground"
-                            >
-                              {Object.entries(CATEGORY_LABELS).map(
-                                ([value, label]) => (
-                                  <option key={value} value={value}>
-                                    {label}
-                                  </option>
-                                )
-                              )}
-                            </select>
-                          </label>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          {selectedBlock.mission_type && (
-                            <Badge
-                              variant="outline"
-                              className="rounded-full text-[10px]"
-                            >
-                              {MISSION_LABELS[selectedBlock.mission_type]}
-                            </Badge>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {formatPlanMinutes(
-                              Math.max(
-                                0,
-                                timeToMinutes(selectedBlock.end_time) -
-                                  timeToMinutes(selectedBlock.start_time)
-                              )
-                            )}
-                          </span>
-                          {problems.invalidBlockIds.includes(
-                            selectedBlock.id
-                          ) && (
-                            <span className="text-xs text-destructive">
-                              Check title and time
-                            </span>
-                          )}
-                          {problems.overlappingBlockIds.includes(
-                            selectedBlock.id
-                          ) && (
-                            <span className="text-xs text-destructive">
-                              Overlaps another block
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
-                        Drag a block to move it, pull its bottom edge to make it
-                        longer. Select one to rename it or change its type.
-                      </p>
-                    )}
+                    <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
+                      Drag a block to move it, pull its bottom edge to make it
+                      longer. Tap one to rename it or change its type.
+                    </p>
 
                     {/* A block with an unreadable time cannot be drawn on a
                         time axis, so it would vanish exactly when it needs
@@ -1635,6 +1512,23 @@ export function TodayPlanner({
             <ArrowLeft className="mr-1.5 size-4" />
             {step === 0 ? "Dashboard" : "Back"}
           </Button>
+
+          {/* The timeline's own Add block sits at the top of a scrolling
+              column, which on a phone is wherever you are not. This takes the
+              gap the footer already leaves between Back and Next, and matches
+              the round button the home screen puts in the same place.
+              Creating selects, so the properties open with it. */}
+          {step === 4 && (
+            <Button
+              type="button"
+              aria-label="Add block"
+              onClick={() => addManualBlock()}
+              className="relative -top-5 size-14 shrink-0 rounded-full border-4 border-background p-0 shadow-[0_16px_40px_rgba(0,0,0,0.22)] transition-transform hover:scale-105 sm:hidden white-mode:shadow-[0_12px_30px_rgba(68,64,60,0.14)]"
+            >
+              <Plus className="size-7" />
+            </Button>
+          )}
+
           {step < STEPS.length - 1 ? (
             <Button type="button" size="lg" onClick={goNext}>
               Next
@@ -1653,6 +1547,168 @@ export function TodayPlanner({
           )}
         </div>
       </footer>
+
+      {/* The block's properties belong on top of the day, not underneath it:
+          on a phone an editor below the axis is off-screen exactly when it
+          opens, and the block it describes is no longer in view. */}
+      <Dialog
+        open={Boolean(selectedBlock)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedBlockId(null);
+        }}
+      >
+        <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl sm:bottom-auto sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 sm:rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit block</DialogTitle>
+            <DialogDescription>
+              Times here are exact; dragging on the timeline is faster.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBlock && (
+            <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <Input
+                    aria-label="Block title"
+                    value={selectedBlock.title}
+                    onChange={(event) =>
+                      updateBlock(selectedBlock.id, {
+                        title: event.target.value,
+                      })
+                    }
+                    maxLength={160}
+                    className="h-11 min-w-0 flex-1 rounded-xl font-medium"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Delete ${selectedBlock.title}`}
+                    onClick={() => {
+                      setBlocks((current) =>
+                        current.filter(
+                          (item) => item.id !== selectedBlock.id
+                        )
+                      );
+                      setSelectedBlockId(null);
+                    }}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+
+                {/* The fields stay alongside the drag gesture: a
+                    pointer is faster, typing is exact, and a keyboard
+                    user needs a way in that is not a drag. */}
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.25fr]">
+                  <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+                    Start
+                    <Input
+                      type="time"
+                      value={selectedBlock.start_time}
+                      onChange={(event) =>
+                        updateBlockTime(selectedBlock.id, {
+                          start_time: event.target.value,
+                          end_time: shiftEndTime(
+                            selectedBlock.start_time,
+                            selectedBlock.end_time,
+                            event.target.value
+                          ),
+                        })
+                      }
+                      className="h-10 rounded-xl text-foreground"
+                    />
+                  </label>
+                  <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+                    End
+                    <Input
+                      type="time"
+                      value={selectedBlock.end_time}
+                      onChange={(event) =>
+                        updateBlockTime(selectedBlock.id, {
+                          end_time: event.target.value,
+                        })
+                      }
+                      className="h-10 rounded-xl text-foreground"
+                    />
+                  </label>
+                  <label className="col-span-2 space-y-1 text-[11px] font-medium text-muted-foreground sm:col-span-1">
+                    Type
+                    <select
+                      value={selectedBlock.category}
+                      onChange={(event) =>
+                        updateBlock(selectedBlock.id, {
+                          category: event.target
+                            .value as DayPlanCategory,
+                        })
+                      }
+                      className="h-10 w-full rounded-xl border bg-background px-3 text-sm text-foreground"
+                    >
+                      {Object.entries(CATEGORY_LABELS).map(
+                        ([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {selectedBlock.mission_type && (
+                    <Badge
+                      variant="outline"
+                      className="rounded-full text-[10px]"
+                    >
+                      {MISSION_LABELS[selectedBlock.mission_type]}
+                    </Badge>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {formatPlanMinutes(
+                      Math.max(
+                        0,
+                        timeToMinutes(selectedBlock.end_time) -
+                          timeToMinutes(selectedBlock.start_time)
+                      )
+                    )}
+                  </span>
+                  {problems.invalidBlockIds.includes(
+                    selectedBlock.id
+                  ) && (
+                    <span className="text-xs text-destructive">
+                      Check title and time
+                    </span>
+                  )}
+                </div>
+
+                {/* The banner behind the dialog carries this too, but a
+                    modal makes it unreachable -- and typing a time in here
+                    is the likeliest way to cause an overlap in the first
+                    place. */}
+                {problems.overlappingBlockIds.includes(selectedBlock.id) && (
+                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/35 bg-destructive/8 p-3">
+                    <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                    <p className="min-w-0 flex-1 text-xs">
+                      Overlaps another block.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBlocks((current) => resolveOverlaps(current));
+                        setStepError(null);
+                      }}
+                    >
+                      Space them out
+                    </Button>
+                  </div>
+                )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={closeOpen} onOpenChange={setCloseOpen}>
         <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl sm:bottom-auto sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 sm:rounded-2xl">
