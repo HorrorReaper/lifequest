@@ -32,6 +32,14 @@ interface PlanTimelineProps {
   onCreateBlock: (startTime: string, endTime: string) => void;
 }
 
+/**
+ * Below this, a block only gets its title.
+ *
+ * At 1.2px per minute a 25-minute block is 30px; two lines plus padding do
+ * not fit under that without clipping the title itself.
+ */
+const COMPACT_BLOCK_MINUTES = 25;
+
 type DragMode = "move" | "resize";
 
 /** The block a click would create right now, and which gap it belongs to. */
@@ -383,6 +391,9 @@ export function PlanTimeline({
           }
 
           const duration = end - start;
+          // Too short to carry the padding and the second line without
+          // swallowing the title.
+          const compact = duration < COMPACT_BLOCK_MINUTES;
           const previous = ordered[index - 1];
           const gapBefore = previous
             ? start - (timeToMinutes(previous.end_time) || start)
@@ -416,7 +427,8 @@ export function PlanTimeline({
                   // tall as it is long, so anything past a short one left its
                   // label stranded above a pool of empty colour. The resize
                   // handle is absolute, so it stays on the bottom edge.
-                  "absolute inset-x-1 left-2 flex touch-none flex-col justify-center overflow-hidden rounded-lg border border-l-[3px] px-2.5 py-1.5 text-left select-none transition-shadow",
+                  "absolute inset-x-1 left-2 flex touch-none flex-col justify-center overflow-hidden rounded-lg border border-l-[3px] px-2.5 text-left select-none transition-shadow",
+                  compact ? "py-0" : "py-1.5",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   accentFor(block),
                   dragging === block.id
@@ -427,13 +439,27 @@ export function PlanTimeline({
                 )}
                 style={{
                   top: offsetOf(start),
-                  height: Math.max(duration * TIMELINE_PX_PER_MINUTE, 22),
+                  // The drawn height is the real duration. Padding it out to
+                  // a readable minimum made a 15-minute block reach into the
+                  // next one, which is exactly the lie a proportional axis
+                  // exists to avoid. The floor is the shortest block the
+                  // planner will make, so only data from below its own
+                  // minimum can still collide.
+                  height: Math.max(
+                    duration * TIMELINE_PX_PER_MINUTE,
+                    MIN_BLOCK_MINUTES * TIMELINE_PX_PER_MINUTE
+                  ),
                 }}
               >
-                <p className="truncate text-xs font-medium leading-tight">
+                <p
+                  className={cn(
+                    "truncate font-medium",
+                    compact ? "text-[11px] leading-none" : "text-xs leading-tight"
+                  )}
+                >
                   {block.title || "Untitled block"}
                 </p>
-                {duration >= 25 && (
+                {!compact && (
                   <p className="truncate text-[10px] tabular-nums text-muted-foreground">
                     {block.start_time}&ndash;{block.end_time} &middot;{" "}
                     {formatPlanMinutes(duration)}
