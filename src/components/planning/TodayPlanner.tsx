@@ -43,6 +43,10 @@ import { upsertDayPlan } from "@/lib/day-plans";
 import { createTask } from "@/lib/tasks";
 import { MoodSelector } from "@/components/journal/mood-selector";
 import { DEFAULT_MOOD_OPTIONS } from "@/lib/mood";
+import {
+  MOOD_REASON_NOTE_MAX,
+  MOOD_REASONS,
+} from "@/lib/mood-reasons";
 import { TaskCombobox } from "@/components/planning/TaskCombobox";
 import { PlanTimeline } from "@/components/planning/PlanTimeline";
 import type {
@@ -357,6 +361,16 @@ export function TodayPlanner({
 
   function updateMetadata(patch: Partial<TodayPlanMetadata>) {
     setMetadata((current) => ({ ...current, ...patch }));
+    setStepError(null);
+  }
+
+  function toggleMoodReason(id: string) {
+    setMetadata((current) => ({
+      ...current,
+      mood_reasons: current.mood_reasons.includes(id)
+        ? current.mood_reasons.filter((item) => item !== id)
+        : [...current.mood_reasons, id],
+    }));
     setStepError(null);
   }
 
@@ -743,6 +757,69 @@ export function TodayPlanner({
                     Required. How a day starts changes what is reasonable to
                     plan into it.
                   </p>
+
+                  {/* Only after there is a feeling to explain -- asking why
+                      before asking whether puts the answer first. */}
+                  {metadata.mood && (
+                    <div className="space-y-3 border-t pt-4">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          What is behind that?
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Optional, and as many as apply.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {MOOD_REASONS.map((reason) => {
+                          const chosen = metadata.mood_reasons.includes(
+                            reason.id
+                          );
+                          return (
+                            <button
+                              key={reason.id}
+                              type="button"
+                              aria-pressed={chosen}
+                              onClick={() => toggleMoodReason(reason.id)}
+                              className={cn(
+                                "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors",
+                                chosen
+                                  ? "border-primary/35 bg-primary/10 text-primary"
+                                  : "border-border/60 bg-background/70 hover:border-primary/25"
+                              )}
+                            >
+                              <span aria-hidden="true" className="text-base">
+                                {reason.emoji}
+                              </span>
+                              {reason.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="plan-mood-reason-note"
+                          className="text-xs font-medium text-muted-foreground"
+                        >
+                          Something else
+                        </label>
+                        <Input
+                          id="plan-mood-reason-note"
+                          value={metadata.mood_reason_note}
+                          onChange={(event) =>
+                            updateMetadata({
+                              mood_reason_note: event.target.value,
+                            })
+                          }
+                          maxLength={MOOD_REASON_NOTE_MAX}
+                          placeholder="In your own words"
+                          className="h-11 rounded-xl"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
