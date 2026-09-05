@@ -6,6 +6,10 @@ import type {
   DayPlanSourceType,
 } from "@/lib/types";
 import { isValidMoodValue } from "@/lib/mood";
+import {
+  MOOD_REASON_NOTE_MAX,
+  normalizeMoodReasons,
+} from "@/lib/mood-reasons";
 
 export const TODAY_PLAN_NOTES_PREFIX = "LIFEQUEST_TODAY_PLAN_V1:";
 
@@ -78,6 +82,10 @@ export interface TodayPlanMetadata {
   intention: string;
   /** How the user said they felt when starting today's ritual; one of the shared mood vocabulary values. Null only for a plan made before the mood step became mandatory, or one not started yet. */
   mood: string | null;
+  /** Why it feels that way, as ids from MOOD_REASONS. Optional and possibly several; empty for a plan made before this was asked. */
+  mood_reasons: string[];
+  /** A reason in the user's own words, when none of the offered ones fit. Empty when unused. */
+  mood_reason_note: string;
   outcomes: TodayPlanOutcome[];
   anchors: TodayPlanAnchor[];
   day_start: string;
@@ -109,6 +117,8 @@ export function createDefaultTodayPlanMetadata(): TodayPlanMetadata {
     version: 1,
     intention: "",
     mood: null,
+    mood_reasons: [],
+    mood_reason_note: "",
     outcomes: [],
     anchors: [],
     day_start: "08:00",
@@ -207,6 +217,11 @@ function normalizeMetadata(value: unknown): TodayPlanMetadata | null {
         ? value.intention.trim().slice(0, 500)
         : "",
     mood: isValidMoodValue(value.mood) ? value.mood : null,
+    mood_reasons: normalizeMoodReasons(value.mood_reasons),
+    mood_reason_note:
+      typeof value.mood_reason_note === "string"
+        ? value.mood_reason_note.trim().slice(0, MOOD_REASON_NOTE_MAX)
+        : "",
     outcomes,
     anchors,
     day_start: dayStart,

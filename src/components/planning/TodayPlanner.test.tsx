@@ -101,6 +101,74 @@ describe("TodayPlanner", () => {
     expect(good.getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("asks for reasons only once there is a feeling to explain", () => {
+    render(<TodayPlanner {...defaultProps} />);
+
+    expect(screen.queryByText("What is behind that?")).toBeNull();
+    expect(screen.queryByRole("button", { name: /adventure/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /good/i }));
+
+    expect(screen.getByText("What is behind that?")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /adventure/i })).toBeTruthy();
+  });
+
+  it("takes several reasons at once", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /good/i }));
+
+    const fitness = screen.getByRole("button", { name: /fitness/i });
+    const friends = screen.getByRole("button", { name: /friends/i });
+    expect(fitness.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(fitness);
+    fireEvent.click(friends);
+
+    expect(fitness.getAttribute("aria-pressed")).toBe("true");
+    expect(friends.getAttribute("aria-pressed")).toBe("true");
+
+    // And lets one go again without disturbing the other.
+    fireEvent.click(fitness);
+    expect(fitness.getAttribute("aria-pressed")).toBe("false");
+    expect(friends.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("does not require a reason to move on", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /good/i }));
+    next();
+
+    expect(
+      screen.getByRole("heading", { name: "What quality should guide today?" })
+    ).toBeTruthy();
+  });
+
+  it("commits the reasons and the written one with the plan", async () => {
+    render(<TodayPlanner {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /good/i }));
+    fireEvent.click(screen.getByRole("button", { name: /adventure/i }));
+    fireEvent.change(screen.getByLabelText("Something else"), {
+      target: { value: "First frost this morning" },
+    });
+    next();
+
+    next();
+    fireEvent.focus(screen.getByLabelText("Must Win outcome"));
+    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
+    next();
+    next();
+    next();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Commit Today's Plan/i })
+    );
+
+    await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
+    const notes = upsertDayPlan.mock.calls[0][2].notes as string;
+    expect(notes).toContain("adventure");
+    expect(notes).toContain("First frost this morning");
+  });
+
   it("asks mood and intention on their own steps", () => {
     render(<TodayPlanner {...defaultProps} />);
 

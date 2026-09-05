@@ -726,3 +726,64 @@ function minutesToTimeLocal(total: number) {
   const minutes = total % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
+
+describe("mood reasons in plan notes", () => {
+  it("round-trips the chosen reasons and the written one", () => {
+    const metadata = {
+      ...createDefaultTodayPlanMetadata(),
+      mood: "good",
+      mood_reasons: ["fitness", "friends"],
+      mood_reason_note: "Slept properly for once",
+    };
+
+    const parsed = parseTodayPlanNotes(serializeTodayPlanNotes(metadata));
+
+    expect(parsed.metadata?.mood_reasons).toEqual(["fitness", "friends"]);
+    expect(parsed.metadata?.mood_reason_note).toBe("Slept properly for once");
+  });
+
+  it("drops reasons this app no longer knows", () => {
+    // A plan can outlive the vocabulary it was written against.
+    const metadata = {
+      ...createDefaultTodayPlanMetadata(),
+      mood_reasons: ["fitness", "astrology", 7, null],
+    } as unknown as ReturnType<typeof createDefaultTodayPlanMetadata>;
+
+    const parsed = parseTodayPlanNotes(serializeTodayPlanNotes(metadata));
+
+    expect(parsed.metadata?.mood_reasons).toEqual(["fitness"]);
+  });
+
+  it("reads a plan written before reasons existed", () => {
+    const legacy = `${"LIFEQUEST_TODAY_PLAN_V1:"}${JSON.stringify({
+      metadata: {
+        version: 1,
+        intention: "Move calmly",
+        mood: "okay",
+        outcomes: [],
+        anchors: [],
+        day_start: "08:00",
+        day_end: "18:00",
+        shutdown_time: "18:00",
+        ritual_completed_at: null,
+      },
+    })}`;
+
+    const parsed = parseTodayPlanNotes(legacy);
+
+    expect(parsed.metadata?.mood_reasons).toEqual([]);
+    expect(parsed.metadata?.mood_reason_note).toBe("");
+    expect(parsed.metadata?.intention).toBe("Move calmly");
+  });
+
+  it("trims a written reason to the stored maximum", () => {
+    const metadata = {
+      ...createDefaultTodayPlanMetadata(),
+      mood_reason_note: "x".repeat(400),
+    };
+
+    const parsed = parseTodayPlanNotes(serializeTodayPlanNotes(metadata));
+
+    expect(parsed.metadata?.mood_reason_note.length).toBe(120);
+  });
+});
