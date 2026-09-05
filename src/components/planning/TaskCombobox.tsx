@@ -164,7 +164,7 @@ export function TaskCombobox({
               }}
               onMouseEnter={() => setHighlight(index)}
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                "flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
                 index === highlight ? "bg-primary/10" : "hover:bg-muted"
               )}
             >
@@ -198,7 +198,7 @@ export function TaskCombobox({
               disabled={creating}
               onMouseEnter={() => setHighlight(results.length)}
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                "flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
                 highlight === results.length ? "bg-primary/10" : "hover:bg-muted",
                 creating && "opacity-60"
               )}

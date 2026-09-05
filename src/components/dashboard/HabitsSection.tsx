@@ -189,7 +189,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
                     disabled={busy}
                     aria-pressed={checked}
                     className={cn(
-                      'flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 text-left transition-colors disabled:opacity-60 sm:min-h-12',
+                      'flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border px-3 text-left transition-colors disabled:cursor-default disabled:opacity-60 sm:min-h-12',
                       checked
                         ? 'border-orange-500/40 bg-orange-500/5'
                         : 'border-border bg-background hover:border-foreground/25 hover:bg-muted/50'
@@ -231,7 +231,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
               type="button"
               onClick={() => setExpanded((current) => !current)}
               aria-expanded={expanded}
-              className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
+              className="mt-2 flex w-full cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
             >
               {expanded ? 'Show less' : `Show ${habits.length - HABITS_PREVIEW_COUNT} more`}
               <ChevronDown

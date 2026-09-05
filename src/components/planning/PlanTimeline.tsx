@@ -332,7 +332,7 @@ export function PlanTimeline({
               onBlur={() => setPreview(null)}
               onClick={(event) => createInGap(event, gap)}
               aria-label={`Add a block between ${minutesToTime(gap.startMinutes)} and ${minutesToTime(gap.endMinutes)}`}
-              className="absolute inset-x-1 left-2 rounded-lg focus-visible:outline-none"
+              className="absolute inset-x-1 left-2 cursor-pointer rounded-lg focus-visible:outline-none"
               style={{
                 top: offsetOf(gap.startMinutes),
                 height: available * TIMELINE_PX_PER_MINUTE,

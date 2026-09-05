@@ -723,7 +723,7 @@ export function TodayPlanner({
             </div>
             <button
               type="button"
-              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+              className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground"
               onClick={() => setRestoredDraft(false)}
             >
               Dismiss
@@ -783,7 +783,7 @@ export function TodayPlanner({
                               aria-pressed={chosen}
                               onClick={() => toggleMoodReason(reason.id)}
                               className={cn(
-                                "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors",
+                                "flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors",
                                 chosen
                                   ? "border-primary/35 bg-primary/10 text-primary"
                                   : "border-border/60 bg-background/70 hover:border-primary/25"
@@ -1002,7 +1002,7 @@ export function TodayPlanner({
                               aria-pressed={selected}
                               onClick={() => toggleAnchor(anchor)}
                               className={cn(
-                                "flex min-h-16 items-center gap-3 rounded-2xl border p-3 text-left transition",
+                                "flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl border p-3 text-left transition",
                                 selected
                                   ? "border-primary bg-primary/8 ring-1 ring-primary/15"
                                   : "hover:border-primary/30 hover:bg-primary/5"
@@ -1358,7 +1358,7 @@ export function TodayPlanner({
                             <button
                               type="button"
                               onClick={() => setSelectedBlockId(block.id)}
-                              className="flex w-full items-center gap-2 rounded-xl border border-destructive/55 bg-destructive/8 px-3 py-2 text-left text-sm"
+                              className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-destructive/55 bg-destructive/8 px-3 py-2 text-left text-sm"
                             >
                               <TriangleAlert className="size-4 shrink-0 text-destructive" />
                               <span className="min-w-0 flex-1 truncate">
