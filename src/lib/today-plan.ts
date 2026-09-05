@@ -76,7 +76,7 @@ export interface TodayPlanAnchor {
 export interface TodayPlanMetadata {
   version: 1;
   intention: string;
-  /** How the user said they felt when starting today's ritual; one of the shared mood vocabulary values, or null if skipped. */
+  /** How the user said they felt when starting today's ritual; one of the shared mood vocabulary values. Null only for a plan made before the mood step became mandatory, or one not started yet. */
   mood: string | null;
   outcomes: TodayPlanOutcome[];
   anchors: TodayPlanAnchor[];

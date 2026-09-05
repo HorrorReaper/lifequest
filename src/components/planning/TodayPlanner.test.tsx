@@ -63,15 +63,70 @@ afterEach(() => {
 });
 
 describe("TodayPlanner", () => {
+  const next = () =>
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+  /** Clears the mood step, which no longer lets anyone through unanswered. */
+  const pickMood = () => {
+    fireEvent.click(screen.getByRole("button", { name: /good/i }));
+    next();
+  };
+
+  it("blocks progress until a mood is chosen", () => {
+    render(<TodayPlanner {...defaultProps} />);
+
+    next();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Pick how you are feeling"
+    );
+    expect(
+      screen.getByRole("heading", { name: "How are you feeling right now?" })
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /good/i }));
+    next();
+
+    expect(
+      screen.getByRole("heading", { name: "What quality should guide today?" })
+    ).toBeTruthy();
+  });
+
+  it("marks the chosen mood as pressed", () => {
+    render(<TodayPlanner {...defaultProps} />);
+
+    const good = screen.getByRole("button", { name: /good/i });
+    expect(good.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(good);
+    expect(good.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("asks mood and intention on their own steps", () => {
+    render(<TodayPlanner {...defaultProps} />);
+
+    // The intention field is not reachable until the mood step is done.
+    expect(screen.queryByRole("textbox")).toBeNull();
+    pickMood();
+    expect(
+      screen.getByRole("textbox", { name: "What quality should guide today?" })
+    ).toBeTruthy();
+
+    next();
+    expect(
+      screen.getByRole("heading", { name: "Set up your Top Three for Today" })
+    ).toBeTruthy();
+  });
+
   it("blocks progress until a Must Win is selected", () => {
     render(<TodayPlanner {...defaultProps} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    pickMood();
+    next();
     expect(
       screen.getByRole("heading", { name: "Set up your Top Three for Today" })
     ).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    next();
     expect(screen.getByRole("alert").textContent).toContain(
       "Choose one Must Win"
     );
@@ -80,7 +135,8 @@ describe("TodayPlanner", () => {
   it("builds the timeline and performs one final write", async () => {
     render(<TodayPlanner {...defaultProps} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    pickMood();
+    next();
     fireEvent.focus(screen.getByLabelText("Must Win outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -110,7 +166,8 @@ describe("TodayPlanner", () => {
 
   it("gives Progress and Health their own task combobox instead of a shared sidebar", () => {
     render(<TodayPlanner {...defaultProps} />);
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    pickMood();
+    next();
 
     expect(screen.queryByText("Pull from tasks")).toBeNull();
 
@@ -126,8 +183,9 @@ describe("TodayPlanner", () => {
 
   it("restores an unfinished tab-local draft", async () => {
     const first = render(<TodayPlanner {...defaultProps} />);
+    pickMood();
     fireEvent.change(
-      screen.getByLabelText("What quality should guide today?"),
+      screen.getByRole("textbox", { name: "What quality should guide today?" }),
       { target: { value: "Calm execution" } }
     );
 
@@ -140,12 +198,13 @@ describe("TodayPlanner", () => {
 
     render(<TodayPlanner {...defaultProps} />);
 
-    await waitFor(() =>
-      expect(screen.getByDisplayValue("Calm execution")).toBeTruthy()
-    );
     expect(
       screen.getByText("Your unfinished plan was restored.")
     ).toBeTruthy();
+    // A restored draft reopens at the first step, so the recovered intention
+    // is one step in -- the mood came back with it and lets us straight past.
+    await waitFor(() => next());
+    expect(screen.getByDisplayValue("Calm execution")).toBeTruthy();
   });
 
   // Starting on the timeline step: a Must Win already chosen so step 1
@@ -193,20 +252,22 @@ describe("TodayPlanner", () => {
   };
 
   function gotoTimeline() {
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    pickMood();
+    next();
+    next();
+    next();
   }
 
   it("names the ride-along habits without giving them a time slot", () => {
     render(<TodayPlanner {...defaultProps} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    pickMood();
+    next();
     fireEvent.focus(screen.getByLabelText("Must Win outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    next();
     fireEvent.click(screen.getByRole("button", { name: /Read/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    next();
 
     const rail = screen.getByText("Rides along").parentElement as HTMLElement;
     expect(rail.textContent).toContain("Read");

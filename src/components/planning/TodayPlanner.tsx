@@ -114,9 +114,14 @@ interface PlannerDraft {
 
 const STEPS = [
   {
-    label: "Reset",
-    title: "Reset the board",
-    description: "Clear the noise and decide what a good day should feel like.",
+    label: "Mood",
+    title: "How are you feeling right now?",
+    description: "Name it before you plan around it. One tap is enough.",
+  },
+  {
+    label: "Intention",
+    title: "What quality should guide today?",
+    description: "A short line you can hold every later tradeoff against.",
   },
   {
     label: "Top Three",
@@ -473,19 +478,22 @@ export function TodayPlanner({
   }
 
   function validateCurrentStep() {
-    if (step === 1 && !mainOutcome?.title.trim()) {
+    if (step === 0 && !metadata.mood) {
+      return "Pick how you are feeling before moving on.";
+    }
+    if (step === 2 && !mainOutcome?.title.trim()) {
       return "Choose one Must Win before moving on.";
     }
     if (
-      step === 2 &&
+      step === 3 &&
       timeToMinutes(metadata.day_end) <= timeToMinutes(metadata.day_start)
     ) {
       return "Your day must end after it starts.";
     }
-    if (step === 3 && problems.invalidBlockIds.length > 0) {
+    if (step === 4 && problems.invalidBlockIds.length > 0) {
       return "Every block needs a title and an end time after its start.";
     }
-    if (step === 3 && problems.overlappingBlockIds.length > 0) {
+    if (step === 4 && problems.overlappingBlockIds.length > 0) {
       return "Resolve overlapping blocks before the final check.";
     }
     return null;
@@ -497,7 +505,7 @@ export function TodayPlanner({
       setStepError(error);
       return;
     }
-    if (step === 2) {
+    if (step === 3) {
       setBlocks((current) =>
         buildTodayPlanSchedule({ blocks: current, metadata })
       );
@@ -704,34 +712,31 @@ export function TodayPlanner({
           {step === 0 && (
             <div className="mx-auto grid w-full max-w-2xl gap-5">
               <Card className="rounded-3xl">
-                <CardContent className="space-y-5 p-5 sm:p-6">
-                  <div>
-                    <p className="text-sm font-semibold">
-                      How are you feeling right now?
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Optional, but useful context for the intention below.
-                    </p>
-                    <div className="mt-3">
-                      <MoodSelector
-                        options={DEFAULT_MOOD_OPTIONS}
-                        value={metadata.mood}
-                        onChange={(mood) => updateMetadata({ mood })}
-                      />
-                    </div>
-                  </div>
+                <CardContent className="space-y-4 p-5 sm:p-6">
+                  <MoodSelector
+                    options={DEFAULT_MOOD_OPTIONS}
+                    value={metadata.mood}
+                    onChange={(mood) => updateMetadata({ mood })}
+                  />
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Required. How a day starts changes what is reasonable to
+                    plan into it.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-                  <div>
-                    <label
-                      htmlFor="plan-intention"
-                      className="text-sm font-semibold"
-                    >
-                      What quality should guide today?
-                    </label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      A short intention helps you make better tradeoffs later.
-                    </p>
-                  </div>
+          {step === 1 && (
+            <div className="mx-auto grid w-full max-w-2xl gap-5">
+              <Card className="rounded-3xl">
+                <CardContent className="space-y-3 p-5 sm:p-6">
+                  {/* The step heading already asks the question, so repeating
+                      it on screen would be noise -- but the field still needs
+                      a name for anyone not reading the heading. */}
+                  <label htmlFor="plan-intention" className="sr-only">
+                    What quality should guide today?
+                  </label>
                   <Textarea
                     id="plan-intention"
                     value={metadata.intention}
@@ -748,11 +753,10 @@ export function TodayPlanner({
                   </div>
                 </CardContent>
               </Card>
-
             </div>
           )}
 
-          {step === 1 && (
+          {step === 2 && (
             <div className="space-y-4">
               {(Object.keys(OUTCOME_META) as DayPlanOutcomeRole[]).map(
                 (role) => {
@@ -857,7 +861,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="grid gap-5 lg:grid-cols-[1fr_0.75fr]">
               <div className="space-y-5">
                 <Card className="rounded-3xl">
@@ -1004,7 +1008,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="grid gap-5 lg:grid-cols-[1fr_17rem]">
               <div className="space-y-3">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1304,7 +1308,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
               <div className="space-y-5">
                 <Card className="overflow-hidden rounded-3xl border-primary/25">
