@@ -1557,7 +1557,10 @@ export function TodayPlanner({
           if (!open) setSelectedBlockId(null);
         }}
       >
-        <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl sm:bottom-auto sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 sm:rounded-2xl">
+        {/* Centred at every width: the block being edited is the thing on
+            screen, so the editor belongs in front of it rather than sliding
+            up from an edge. Scrolls inside itself on a short screen. */}
+        <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit block</DialogTitle>
             <DialogDescription>
