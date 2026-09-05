@@ -7,6 +7,8 @@ import {
   createDefaultTodayPlanMetadata,
   findTodayPlanBlockProblems,
   parseTodayPlanNotes,
+  blockSpanForGap,
+  findTimelineGaps,
   nextGridStart,
   resolveOverlaps,
   snapToDragGrid,
@@ -537,3 +539,150 @@ describe("snapToDragGrid", () => {
     expect(snapToDragGrid(47)).toBe(45);
   });
 });
+
+describe("findTimelineGaps", () => {
+  const at = (start: string, end: string): DayPlanBlock => ({
+    id: `${start}-${end}`,
+    start_time: start,
+    end_time: end,
+    title: "Block",
+    category: "deep_work",
+  });
+
+  it("finds the free time before, between and after the blocks", () => {
+    const gaps = findTimelineGaps(
+      [at("09:00", "10:00"), at("12:00", "13:00")],
+      8 * 60,
+      18 * 60
+    );
+
+    expect(gaps).toEqual([
+      { startMinutes: 8 * 60, endMinutes: 9 * 60 },
+      { startMinutes: 10 * 60, endMinutes: 12 * 60 },
+      { startMinutes: 13 * 60, endMinutes: 18 * 60 },
+    ]);
+  });
+
+  it("ignores a gap too short to hold a block", () => {
+    // Five minutes between two blocks cannot become anything valid, so
+    // offering to fill it would be a dead end.
+    const gaps = findTimelineGaps(
+      [at("09:00", "10:00"), at("10:05", "11:00")],
+      9 * 60,
+      11 * 60
+    );
+
+    expect(gaps).toEqual([]);
+  });
+
+  it("treats overlapping blocks as one occupied run", () => {
+    const gaps = findTimelineGaps(
+      [at("09:00", "11:00"), at("10:00", "12:00")],
+      9 * 60,
+      13 * 60
+    );
+
+    expect(gaps).toEqual([{ startMinutes: 12 * 60, endMinutes: 13 * 60 }]);
+  });
+
+  it("skips blocks whose times cannot be read", () => {
+    const gaps = findTimelineGaps(
+      [at("nonsense", "10:00"), at("11:00", "10:00")],
+      9 * 60,
+      12 * 60
+    );
+
+    expect(gaps).toEqual([{ startMinutes: 9 * 60, endMinutes: 12 * 60 }]);
+  });
+
+  it("returns the whole window when nothing is planned", () => {
+    const gaps = findTimelineGaps([], 8 * 60, 18 * 60);
+    expect(gaps).toEqual([{ startMinutes: 8 * 60, endMinutes: 18 * 60 }]);
+  });
+});
+
+describe("blockSpanForGap", () => {
+  it("runs an hour from where the click landed, on the planning grid", () => {
+    const gap = { startMinutes: 8 * 60, endMinutes: 18 * 60 };
+    const span = blockSpanForGap(gap, 10 * 60 + 37);
+
+    // 10:37 rounds to 10:30, and an hour is available.
+    expect(span).toEqual({
+      startMinutes: 10 * 60 + 30,
+      endMinutes: 11 * 60 + 30,
+    });
+  });
+
+  it("fills a gap shorter than an hour exactly", () => {
+    const gap = { startMinutes: 9 * 60, endMinutes: 9 * 60 + 45 };
+    const span = blockSpanForGap(gap, 9 * 60 + 20);
+
+    expect(span).toEqual({
+      startMinutes: 9 * 60,
+      endMinutes: 9 * 60 + 45,
+    });
+  });
+
+  it("fills a gap of exactly an hour edge to edge", () => {
+    const gap = { startMinutes: 9 * 60, endMinutes: 10 * 60 };
+    expect(blockSpanForGap(gap, 9 * 60 + 30)).toEqual({
+      startMinutes: 9 * 60,
+      endMinutes: 10 * 60,
+    });
+  });
+
+  it("never runs past the end of the gap", () => {
+    const gap = { startMinutes: 8 * 60, endMinutes: 10 * 60 };
+    const span = blockSpanForGap(gap, 9 * 60 + 50);
+
+    expect(span.endMinutes).toBe(10 * 60);
+    expect(span.startMinutes).toBe(9 * 60);
+  });
+
+  it("never starts before the gap does", () => {
+    const gap = { startMinutes: 9 * 60 + 10, endMinutes: 12 * 60 };
+    const span = blockSpanForGap(gap, 9 * 60);
+
+    expect(span.startMinutes).toBe(9 * 60 + 10);
+  });
+
+  it("places a block that cannot overlap what is already there", () => {
+    const blocks: DayPlanBlock[] = [
+      {
+        id: "a",
+        start_time: "09:00",
+        end_time: "10:00",
+        title: "One",
+        category: "deep_work",
+      },
+      {
+        id: "b",
+        start_time: "10:40",
+        end_time: "11:30",
+        title: "Two",
+        category: "deep_work",
+      },
+    ];
+    const [gap] = findTimelineGaps(blocks, 9 * 60, 11 * 60 + 30);
+    const span = blockSpanForGap(gap, 10 * 60 + 35);
+
+    const placed: DayPlanBlock = {
+      id: "new",
+      start_time: minutesToTimeLocal(span.startMinutes),
+      end_time: minutesToTimeLocal(span.endMinutes),
+      title: "New",
+      category: "other",
+    };
+
+    expect(
+      findTodayPlanBlockProblems([...blocks, placed]).overlappingBlockIds
+    ).toEqual([]);
+  });
+});
+
+/** Local mirror of minutesToTime, to keep this file's imports about behaviour. */
+function minutesToTimeLocal(total: number) {
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}

@@ -350,6 +350,82 @@ export function timelineWindow(
   return { startMinutes, endMinutes };
 }
 
+/** How long a block created by clicking empty time runs, when there is room. */
+export const DEFAULT_NEW_BLOCK_MINUTES = 60;
+
+export interface TimelineGap {
+  startMinutes: number;
+  endMinutes: number;
+}
+
+/**
+ * The stretches of the day nothing is planned in.
+ *
+ * Only gaps at least MIN_BLOCK_MINUTES long are returned: a shorter one
+ * cannot hold a valid block, so offering to fill it would be a dead end.
+ * Overlapping blocks are walked as one occupied run rather than producing a
+ * negative gap between them.
+ */
+export function findTimelineGaps(
+  blocks: DayPlanBlock[],
+  windowStart: number,
+  windowEnd: number
+): TimelineGap[] {
+  const placed = blocks
+    .map((block) => ({
+      start: timeToMinutes(block.start_time),
+      end: timeToMinutes(block.end_time),
+    }))
+    .filter(
+      (span) =>
+        Number.isFinite(span.start) &&
+        Number.isFinite(span.end) &&
+        span.end > span.start
+    )
+    .sort((a, b) => a.start - b.start);
+
+  const gaps: TimelineGap[] = [];
+  let cursor = windowStart;
+
+  for (const span of placed) {
+    if (span.start - cursor >= MIN_BLOCK_MINUTES) {
+      gaps.push({ startMinutes: cursor, endMinutes: span.start });
+    }
+    cursor = Math.max(cursor, span.end);
+  }
+
+  if (windowEnd - cursor >= MIN_BLOCK_MINUTES) {
+    gaps.push({ startMinutes: cursor, endMinutes: windowEnd });
+  }
+
+  return gaps;
+}
+
+/**
+ * Where a block dropped into free time should begin and end.
+ *
+ * An hour by default, starting from where the click landed, rounded to the
+ * planning grid so a placed block reads like a scheduled one. A gap too
+ * narrow for that is filled exactly instead of being left with an unusable
+ * sliver on one side.
+ */
+export function blockSpanForGap(
+  gap: TimelineGap,
+  atMinutes: number
+): { startMinutes: number; endMinutes: number } {
+  const available = gap.endMinutes - gap.startMinutes;
+  const duration = Math.min(DEFAULT_NEW_BLOCK_MINUTES, available);
+
+  const snapped =
+    Math.round(atMinutes / PLAN_TIME_GRID_MINUTES) * PLAN_TIME_GRID_MINUTES;
+  const startMinutes = Math.min(
+    Math.max(snapped, gap.startMinutes),
+    gap.endMinutes - duration
+  );
+
+  return { startMinutes, endMinutes: startMinutes + duration };
+}
+
 /** Rounds a minute value to the drag grid. */
 export function snapToDragGrid(minutes: number): number {
   return (
@@ -586,6 +662,16 @@ function anchorCategory(
   if (sourceType === "workout") return "exercise";
   if (sourceType === "journal") return "personal";
   return "other";
+}
+
+/**
+ * An id for a new plan block.
+ *
+ * Guarded because crypto.randomUUID is absent in some test environments and
+ * in older browsers, where an unguarded call throws while adding a block.
+ */
+export function planBlockId(): string {
+  return defaultId();
 }
 
 function defaultId() {

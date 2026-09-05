@@ -62,6 +62,7 @@ import {
   minutesToTime,
   nextGridStart,
   parseTodayPlanNotes,
+  planBlockId,
   resolveOverlaps,
   serializeTodayPlanNotes,
   shiftEndTime,
@@ -457,24 +458,45 @@ export function TodayPlanner({
     setStepError(null);
   }
 
+  function newBlock(
+    startTime: string,
+    endTime: string,
+    category: DayPlanCategory = "other"
+  ): DayPlanBlock {
+    return {
+      id: planBlockId(),
+      start_time: startTime,
+      end_time: endTime,
+      title: category === "break" ? "Recovery break" : "New plan block",
+      category,
+      mission_type: category === "break" ? "recovery" : "side_quest",
+      source_type: "manual",
+    };
+  }
+
   function addManualBlock(category: DayPlanCategory = "other") {
     const last = lastScheduledMinute(blocks, metadata.day_start);
     const start = blocks.length
       ? nextGridStart(last)
       : Math.min(last, 23 * 60);
     const end = Math.min(start + 30, 23 * 60 + 59);
-    setBlocks((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        start_time: minutesToTime(start),
-        end_time: minutesToTime(end),
-        title: category === "break" ? "Recovery break" : "New plan block",
-        category,
-        mission_type: category === "break" ? "recovery" : "side_quest",
-        source_type: "manual",
-      },
-    ]);
+    const block = newBlock(minutesToTime(start), minutesToTime(end), category);
+    setBlocks((current) => [...current, block]);
+    setSelectedBlockId(block.id);
+  }
+
+  /**
+   * Adds a block into free time on the axis.
+   *
+   * The timeline sized it to fit the gap it was dropped into, so this never
+   * ripples the rest of the day -- it cannot collide with anything. Selected
+   * straight away, since an untitled block is the next thing to deal with.
+   */
+  function createBlockAt(startTime: string, endTime: string) {
+    const block = newBlock(startTime, endTime);
+    setBlocks((current) => [...current, block]);
+    setSelectedBlockId(block.id);
+    setStepError(null);
   }
 
   function validateCurrentStep() {
@@ -1112,6 +1134,7 @@ export function TodayPlanner({
                         setBlocks(next);
                         setStepError(null);
                       }}
+                      onCreateBlock={createBlockAt}
                     />
 
                     {selectedBlock ? (

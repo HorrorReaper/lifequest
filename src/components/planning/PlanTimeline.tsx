@@ -1,10 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { GripHorizontal } from "lucide-react";
+import { GripHorizontal, Plus } from "lucide-react";
 import type { DayPlanBlock, DayPlanCategory, DayPlanMissionType } from "@/lib/types";
 import {
   applyBlockTimeChange,
+  blockSpanForGap,
+  DEFAULT_NEW_BLOCK_MINUTES,
+  findTimelineGaps,
   formatPlanMinutes,
   MIN_BLOCK_MINUTES,
   minutesToTime,
@@ -25,6 +28,8 @@ interface PlanTimelineProps {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onChange: (blocks: DayPlanBlock[]) => void;
+  /** Called with "HH:mm" bounds when empty time is clicked. */
+  onCreateBlock: (startTime: string, endTime: string) => void;
 }
 
 type DragMode = "move" | "resize";
@@ -79,7 +84,9 @@ export function PlanTimeline({
   selectedId,
   onSelect,
   onChange,
+  onCreateBlock,
 }: PlanTimelineProps) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
 
@@ -218,6 +225,29 @@ export function PlanTimeline({
     );
   }
 
+  const gaps = findTimelineGaps(blocks, startMinutes, endMinutes);
+
+  /** Turns a click inside a gap into a block placed where it landed. */
+  function createInGap(
+    event: React.MouseEvent<HTMLButtonElement>,
+    gap: (typeof gaps)[number]
+  ) {
+    const track = trackRef.current;
+    // Without a measurable track there is no click position to read, so fall
+    // back to the top of the gap rather than refusing to add anything.
+    const atMinutes = track
+      ? startMinutes +
+        (event.clientY - track.getBoundingClientRect().top) /
+          TIMELINE_PX_PER_MINUTE
+      : gap.startMinutes;
+
+    const span = blockSpanForGap(gap, atMinutes);
+    onCreateBlock(
+      minutesToTime(span.startMinutes),
+      minutesToTime(span.endMinutes)
+    );
+  }
+
   return (
     <div className="grid grid-cols-[3.25rem_1fr] rounded-2xl border bg-background/55 p-3 sm:p-4">
       {/* Hour gutter */}
@@ -233,7 +263,7 @@ export function PlanTimeline({
         ))}
       </div>
 
-      <div className="relative border-l" style={{ height }}>
+      <div ref={trackRef} className="relative border-l" style={{ height }}>
         {hours.map((minute) => (
           <span
             key={minute}
@@ -242,6 +272,34 @@ export function PlanTimeline({
             style={{ top: offsetOf(minute) }}
           />
         ))}
+
+        {/* Empty time is clickable. Rendered before the blocks so a block
+            always wins the pointer where the two meet. */}
+        {gaps.map((gap) => {
+          const available = gap.endMinutes - gap.startMinutes;
+          return (
+            <button
+              key={`gap-${gap.startMinutes}`}
+              type="button"
+              onClick={(event) => createInGap(event, gap)}
+              aria-label={`Add a block between ${minutesToTime(gap.startMinutes)} and ${minutesToTime(gap.endMinutes)}`}
+              className="group absolute inset-x-1 left-2 flex items-center justify-center rounded-lg border border-transparent transition-colors hover:border-dashed hover:border-primary/40 hover:bg-primary/5 focus-visible:border-dashed focus-visible:border-primary/40 focus-visible:bg-primary/5 focus-visible:outline-none"
+              style={{
+                top: offsetOf(gap.startMinutes),
+                height: available * TIMELINE_PX_PER_MINUTE,
+              }}
+            >
+              <span className="flex items-center gap-1.5 rounded-full border bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                <Plus className="size-3" />
+                {/* Say the length up front, since a narrow gap yields a
+                    shorter block than the usual hour. */}
+                {formatPlanMinutes(
+                  Math.min(DEFAULT_NEW_BLOCK_MINUTES, available)
+                )}
+              </span>
+            </button>
+          );
+        })}
 
         {ordered.map((block, index) => {
           const start = timeToMinutes(block.start_time);
