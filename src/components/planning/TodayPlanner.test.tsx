@@ -297,6 +297,87 @@ describe("TodayPlanner", () => {
     expect(px(c, "top") / px(a, "height")).toBeCloseTo(180 / 60, 5);
   });
 
+  it("offers to fill each stretch of free time, sized to what fits", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    // 09:00-09:15 between the first two, 10:00-11:00 before the third, and
+    // everything after it up to the end of the planned day.
+    expect(
+      screen.getByLabelText("Add a block between 09:00 and 09:15")
+    ).toBeTruthy();
+    expect(
+      screen.getByLabelText("Add a block between 10:00 and 11:00")
+    ).toBeTruthy();
+    expect(
+      screen.getByLabelText("Add a block between 11:45 and 18:00")
+    ).toBeTruthy();
+
+    // The affordance names the length it would actually create.
+    expect(
+      screen.getByLabelText("Add a block between 09:00 and 09:15").textContent
+    ).toContain("15m");
+    expect(
+      screen.getByLabelText("Add a block between 11:45 and 18:00").textContent
+    ).toContain("1h");
+  });
+
+  it("fits the new block to a gap shorter than an hour", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.click(screen.getByLabelText("Add a block between 09:00 and 09:15"));
+
+    expect(screen.getByLabelText("New plan block, 09:00 to 09:15")).toBeTruthy();
+  });
+
+  it("runs an hour from where the click landed when there is room", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    // jsdom reports a zero-origin rect, so clientY is the offset from the top
+    // of the track: 300 minutes past 08:00 at 1.2px per minute is 13:00.
+    fireEvent.click(
+      screen.getByLabelText("Add a block between 11:45 and 18:00"),
+      { clientY: 360 }
+    );
+
+    expect(screen.getByLabelText("New plan block, 13:00 to 14:00")).toBeTruthy();
+  });
+
+  it("selects the block it just created so it can be named", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.click(screen.getByLabelText("Add a block between 09:00 and 09:15"));
+
+    const title = screen.getByLabelText("Block title");
+    expect(title).toHaveProperty("value", "New plan block");
+  });
+
+  it("adds into free time without pushing the rest of the day around", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.click(screen.getByLabelText("Add a block between 10:00 and 11:00"));
+
+    // Filling a gap cannot collide, so nothing after it may move.
+    expect(screen.getByLabelText("Training, 11:00 to 11:45")).toBeTruthy();
+    expect(screen.getByLabelText("Side quest, 09:15 to 10:00")).toBeTruthy();
+    expect(screen.queryByText("Two blocks want the same minutes.")).toBeNull();
+  });
+
+  it("stops offering a gap once it is filled", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.click(screen.getByLabelText("Add a block between 09:00 and 09:15"));
+
+    expect(
+      screen.queryByLabelText("Add a block between 09:00 and 09:15")
+    ).toBeNull();
+  });
+
   it("moves every later block when one is retimed", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
