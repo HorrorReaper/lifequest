@@ -519,6 +519,26 @@ describe("TodayPlanner", () => {
     ).toBeNull();
   });
 
+  it("draws a short block at its real height, clear of the next one", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    fireEvent.click(screen.getByLabelText("Add a block between 09:00 and 09:15"));
+
+    const px = (el: HTMLElement, prop: "height" | "top") =>
+      Number.parseFloat(el.style[prop]);
+
+    const short = screen.getByLabelText("New plan block, 09:00 to 09:15");
+    const next = screen.getByLabelText("Side quest, 09:15 to 10:00");
+
+    // 15 minutes at 1.2px each. Rounding this up to a readable minimum is
+    // what used to push it under its neighbour.
+    expect(px(short, "height")).toBeCloseTo(15 * 1.2, 5);
+    expect(px(short, "top") + px(short, "height")).toBeLessThanOrEqual(
+      px(next, "top")
+    );
+  });
+
   it("moves every later block when one is retimed", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
