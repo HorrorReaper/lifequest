@@ -19,7 +19,6 @@ import {
   Dumbbell,
   Flame,
   HeartPulse,
-  MoonStar,
   Plus,
   Sparkles,
   Target,
@@ -976,6 +975,12 @@ export function TodayPlanner({
                     <Clock3 className="size-4 text-violet-500" />
                     <h2 className="font-semibold">Day boundaries</h2>
                   </div>
+                  {/* Three fields of the same kind, so they get the same
+                      cell and the same treatment. The shutdown field used to
+                      sit full width below with a moon icon inside it, which
+                      collided with the digits: Input carries sm:px-2.5, and a
+                      breakpointless pl-10 does not survive that from 640px
+                      up. The label already says what the field is. */}
                   <div className="grid grid-cols-2 gap-3">
                     <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
                       Day starts
@@ -1006,21 +1011,18 @@ export function TodayPlanner({
                         className="h-11 rounded-xl text-foreground"
                       />
                     </label>
-                  </div>
-                  <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
-                    Shutdown ritual
-                    <div className="relative">
-                      <MoonStar className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                      Shutdown ritual
                       <Input
                         type="time"
                         value={metadata.shutdown_time}
                         onChange={(event) =>
                           updateMetadata({ shutdown_time: event.target.value })
                         }
-                        className="h-11 rounded-xl pl-10 text-foreground"
+                        className="h-11 rounded-xl text-foreground"
                       />
-                    </div>
-                  </label>
+                    </label>
+                  </div>
                   <p className="rounded-2xl bg-muted/55 p-3 text-xs leading-relaxed text-muted-foreground">
                     A shutdown time turns planning into a bounded commitment.
                     Unused capacity is recovery, not failure.
