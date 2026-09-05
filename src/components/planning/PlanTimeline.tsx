@@ -6,9 +6,9 @@ import type { DayPlanBlock, DayPlanCategory, DayPlanMissionType } from "@/lib/ty
 import {
   applyBlockTimeChange,
   blockSpanForGap,
-  DEFAULT_NEW_BLOCK_MINUTES,
   findTimelineGaps,
   formatPlanMinutes,
+  type TimelineGap,
   MIN_BLOCK_MINUTES,
   minutesToTime,
   snapToDragGrid,
@@ -33,6 +33,13 @@ interface PlanTimelineProps {
 }
 
 type DragMode = "move" | "resize";
+
+/** The block a click would create right now, and which gap it belongs to. */
+interface GapPreview {
+  gapStart: number;
+  startMinutes: number;
+  endMinutes: number;
+}
 
 interface DragState {
   id: string;
@@ -89,6 +96,7 @@ export function PlanTimeline({
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [preview, setPreview] = useState<GapPreview | null>(null);
 
   const { startMinutes, endMinutes } = timelineWindow(blocks, dayStart, dayEnd);
   const spanMinutes = Math.max(60, endMinutes - startMinutes);
@@ -227,21 +235,50 @@ export function PlanTimeline({
 
   const gaps = findTimelineGaps(blocks, startMinutes, endMinutes);
 
-  /** Turns a click inside a gap into a block placed where it landed. */
-  function createInGap(
-    event: React.MouseEvent<HTMLButtonElement>,
-    gap: (typeof gaps)[number]
-  ) {
+  /**
+   * The span a pointer at `clientY` would place inside `gap`.
+   *
+   * The preview and the click both go through this, so what is highlighted
+   * is exactly what gets created.
+   */
+  function spanAt(gap: TimelineGap, clientY: number) {
     const track = trackRef.current;
-    // Without a measurable track there is no click position to read, so fall
-    // back to the top of the gap rather than refusing to add anything.
+    // Without a measurable track there is no position to read, so fall back
+    // to the top of the gap rather than refusing to place anything.
     const atMinutes = track
       ? startMinutes +
-        (event.clientY - track.getBoundingClientRect().top) /
-          TIMELINE_PX_PER_MINUTE
+        (clientY - track.getBoundingClientRect().top) / TIMELINE_PX_PER_MINUTE
       : gap.startMinutes;
+    return blockSpanForGap(gap, atMinutes);
+  }
 
-    const span = blockSpanForGap(gap, atMinutes);
+  function showPreview(gap: TimelineGap, clientY: number) {
+    const span = spanAt(gap, clientY);
+    // Only re-render when the span actually moves, which happens on crossing
+    // an hour boundary rather than on every pixel of travel.
+    setPreview((current) =>
+      current &&
+      current.gapStart === gap.startMinutes &&
+      current.startMinutes === span.startMinutes &&
+      current.endMinutes === span.endMinutes
+        ? current
+        : { gapStart: gap.startMinutes, ...span }
+    );
+  }
+
+  function createInGap(
+    event: React.MouseEvent<HTMLButtonElement>,
+    gap: TimelineGap
+  ) {
+    // detail is 0 when the button was activated from the keyboard, where
+    // there is no pointer position; place at the top of the gap, which is
+    // what focusing it previews.
+    const span =
+      event.detail === 0
+        ? blockSpanForGap(gap, gap.startMinutes)
+        : spanAt(gap, event.clientY);
+
+    setPreview(null);
     onCreateBlock(
       minutesToTime(span.startMinutes),
       minutesToTime(span.endMinutes)
@@ -277,26 +314,56 @@ export function PlanTimeline({
             always wins the pointer where the two meet. */}
         {gaps.map((gap) => {
           const available = gap.endMinutes - gap.startMinutes;
+          const shown =
+            preview && preview.gapStart === gap.startMinutes ? preview : null;
+
           return (
             <button
               key={`gap-${gap.startMinutes}`}
               type="button"
+              onMouseMove={(event) => showPreview(gap, event.clientY)}
+              onMouseLeave={() => setPreview(null)}
+              onFocus={() =>
+                setPreview({
+                  gapStart: gap.startMinutes,
+                  ...blockSpanForGap(gap, gap.startMinutes),
+                })
+              }
+              onBlur={() => setPreview(null)}
               onClick={(event) => createInGap(event, gap)}
               aria-label={`Add a block between ${minutesToTime(gap.startMinutes)} and ${minutesToTime(gap.endMinutes)}`}
-              className="group absolute inset-x-1 left-2 flex items-center justify-center rounded-lg border border-transparent transition-colors hover:border-dashed hover:border-primary/40 hover:bg-primary/5 focus-visible:border-dashed focus-visible:border-primary/40 focus-visible:bg-primary/5 focus-visible:outline-none"
+              className="absolute inset-x-1 left-2 rounded-lg focus-visible:outline-none"
               style={{
                 top: offsetOf(gap.startMinutes),
                 height: available * TIMELINE_PX_PER_MINUTE,
               }}
             >
-              <span className="flex items-center gap-1.5 rounded-full border bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                <Plus className="size-3" />
-                {/* Say the length up front, since a narrow gap yields a
-                    shorter block than the usual hour. */}
-                {formatPlanMinutes(
-                  Math.min(DEFAULT_NEW_BLOCK_MINUTES, available)
-                )}
-              </span>
+              {/* The whole gap is the hit area, but only the hour that would
+                  actually be created is drawn -- highlighting the entire
+                  stretch promised a block the size of the afternoon. */}
+              {shown && (
+                <span
+                  aria-hidden="true"
+                  data-slot="gap-preview"
+                  className="absolute inset-x-0 flex items-center justify-center rounded-lg border border-dashed border-primary/50 bg-primary/10"
+                  style={{
+                    top:
+                      (shown.startMinutes - gap.startMinutes) *
+                      TIMELINE_PX_PER_MINUTE,
+                    height:
+                      (shown.endMinutes - shown.startMinutes) *
+                      TIMELINE_PX_PER_MINUTE,
+                  }}
+                >
+                  <span className="flex items-center gap-1.5 rounded-full border bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                    <Plus className="size-3" />
+                    {/* Name the times, since the span snaps to the hour and
+                        gives way to whatever is already planned. */}
+                    {minutesToTime(shown.startMinutes)}&ndash;
+                    {minutesToTime(shown.endMinutes)}
+                  </span>
+                </span>
+              )}
             </button>
           );
         })}
