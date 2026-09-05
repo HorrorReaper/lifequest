@@ -412,7 +412,11 @@ export function PlanTimeline({
                 onKeyDown={(event) => handleKeyDown(event, block)}
                 onClick={() => onSelect(block.id)}
                 className={cn(
-                  "absolute inset-x-1 left-2 touch-none select-none overflow-hidden rounded-lg border border-l-[3px] px-2.5 py-1.5 text-left transition-shadow",
+                  // Centred rather than flowing from the top: a block is as
+                  // tall as it is long, so anything past a short one left its
+                  // label stranded above a pool of empty colour. The resize
+                  // handle is absolute, so it stays on the bottom edge.
+                  "absolute inset-x-1 left-2 flex touch-none flex-col justify-center overflow-hidden rounded-lg border border-l-[3px] px-2.5 py-1.5 text-left select-none transition-shadow",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   accentFor(block),
                   dragging === block.id
