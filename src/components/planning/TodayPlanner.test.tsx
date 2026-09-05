@@ -297,6 +297,25 @@ describe("TodayPlanner", () => {
     expect(px(c, "top") / px(a, "height")).toBeCloseTo(180 / 60, 5);
   });
 
+  it("keeps all three day boundaries editable in one place", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    pickMood();
+    next();
+    next();
+
+    expect(screen.getByLabelText("Day starts")).toHaveProperty("value", "08:00");
+    expect(screen.getByLabelText("Day ends")).toHaveProperty("value", "18:00");
+
+    const shutdown = screen.getByLabelText("Shutdown ritual");
+    expect(shutdown).toHaveProperty("value", "18:00");
+
+    fireEvent.change(shutdown, { target: { value: "17:30" } });
+    expect(screen.getByLabelText("Shutdown ritual")).toHaveProperty(
+      "value",
+      "17:30"
+    );
+  });
+
   it("offers to fill each stretch of free time, sized to what fits", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
