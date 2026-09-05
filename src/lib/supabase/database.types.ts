@@ -72,6 +72,7 @@ export interface Database {
           streak_freezes: number
           last_journal_date: string | null
           timezone: string
+          birth_year: number | null
           onboarding_complete: boolean
           ai_assistant_enabled: boolean
           ai_consent_at: string | null
@@ -88,6 +89,7 @@ export interface Database {
           streak_freezes?: number
           last_journal_date?: string | null
           timezone?: string
+          birth_year?: number | null
           onboarding_complete?: boolean
           ai_assistant_enabled?: boolean
           ai_consent_at?: string | null
@@ -104,6 +106,7 @@ export interface Database {
           streak_freezes?: number
           last_journal_date?: string | null
           timezone?: string
+          birth_year?: number | null
           onboarding_complete?: boolean
           ai_assistant_enabled?: boolean
           ai_consent_at?: string | null
