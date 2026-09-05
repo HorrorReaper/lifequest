@@ -332,13 +332,68 @@ describe("TodayPlanner", () => {
       screen.getByLabelText("Add a block between 11:45 and 18:00")
     ).toBeTruthy();
 
-    // The affordance names the length it would actually create.
-    expect(
-      screen.getByLabelText("Add a block between 09:00 and 09:15").textContent
-    ).toContain("15m");
+    // Nothing is drawn until a pointer says where.
     expect(
       screen.getByLabelText("Add a block between 11:45 and 18:00").textContent
-    ).toContain("1h");
+    ).toBe("");
+  });
+
+  it("previews only the hour it would create, where the pointer is", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    const gap = screen.getByLabelText("Add a block between 11:45 and 18:00");
+    // jsdom reports a zero-origin rect, so clientY is the offset from the top
+    // of the track: 348px at 1.2px per minute is 290 minutes past 08:00,
+    // which is 12:50.
+    fireEvent.mouseMove(gap, { clientY: 348 });
+
+    const shown = gap.querySelector('[data-slot="gap-preview"]') as HTMLElement;
+    expect(shown.textContent).toContain("12:00");
+    expect(shown.textContent).toContain("13:00");
+    // An hour tall, and no taller, however large the gap behind it is.
+    expect(Number.parseFloat(shown.style.height)).toBeCloseTo(60 * 1.2, 5);
+  });
+
+  it("drops the preview back to the end of the blocking block", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    const gap = screen.getByLabelText("Add a block between 11:45 and 18:00");
+    // 264px is 220 minutes past 08:00, so 11:40 -- inside the 11:00 hour,
+    // which the previous block occupies until 11:45.
+    fireEvent.mouseMove(gap, { clientY: 264 });
+
+    const shown = gap.querySelector('[data-slot="gap-preview"]') as HTMLElement;
+    expect(shown.textContent).toContain("11:45");
+    expect(shown.textContent).toContain("12:45");
+  });
+
+  it("clears the preview when the pointer leaves", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    const gap = screen.getByLabelText("Add a block between 11:45 and 18:00");
+    fireEvent.mouseMove(gap, { clientY: 348 });
+    expect(gap.querySelector('[data-slot="gap-preview"]')).toBeTruthy();
+
+    fireEvent.mouseLeave(gap);
+    expect(gap.querySelector('[data-slot="gap-preview"]')).toBeNull();
+  });
+
+  it("previews from the top of the gap when reached by keyboard", () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+
+    const gap = screen.getByLabelText("Add a block between 11:45 and 18:00");
+    fireEvent.focus(gap);
+
+    const shown = gap.querySelector('[data-slot="gap-preview"]') as HTMLElement;
+    expect(shown.textContent).toContain("11:45");
+
+    // Activating from the keyboard creates exactly what was previewed.
+    fireEvent.click(gap, { detail: 0 });
+    expect(screen.getByLabelText("New plan block, 11:45 to 12:45")).toBeTruthy();
   });
 
   it("fits the new block to a gap shorter than an hour", () => {
@@ -350,18 +405,17 @@ describe("TodayPlanner", () => {
     expect(screen.getByLabelText("New plan block, 09:00 to 09:15")).toBeTruthy();
   });
 
-  it("runs an hour from where the click landed when there is room", () => {
+  it("creates the hour the pointer is in, on the hour", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
 
-    // jsdom reports a zero-origin rect, so clientY is the offset from the top
-    // of the track: 300 minutes past 08:00 at 1.2px per minute is 13:00.
+    // 348px is 290 minutes past 08:00, so 12:50 -- inside the 12:00 hour.
     fireEvent.click(
       screen.getByLabelText("Add a block between 11:45 and 18:00"),
-      { clientY: 360 }
+      { clientY: 348, detail: 1 }
     );
 
-    expect(screen.getByLabelText("New plan block, 13:00 to 14:00")).toBeTruthy();
+    expect(screen.getByLabelText("New plan block, 12:00 to 13:00")).toBeTruthy();
   });
 
   it("selects the block it just created so it can be named", () => {

@@ -602,14 +602,42 @@ describe("findTimelineGaps", () => {
 });
 
 describe("blockSpanForGap", () => {
-  it("runs an hour from where the click landed, on the planning grid", () => {
+  it("runs from the full hour at the pointer to the next one", () => {
     const gap = { startMinutes: 8 * 60, endMinutes: 18 * 60 };
-    const span = blockSpanForGap(gap, 10 * 60 + 37);
 
-    // 10:37 rounds to 10:30, and an hour is available.
-    expect(span).toEqual({
-      startMinutes: 10 * 60 + 30,
-      endMinutes: 11 * 60 + 30,
+    // 12:37 belongs to the 12:00 hour, so the block is 12:00 to 13:00.
+    expect(blockSpanForGap(gap, 12 * 60 + 37)).toEqual({
+      startMinutes: 12 * 60,
+      endMinutes: 13 * 60,
+    });
+    // Exactly on the hour stays on that hour rather than jumping back.
+    expect(blockSpanForGap(gap, 12 * 60)).toEqual({
+      startMinutes: 12 * 60,
+      endMinutes: 13 * 60,
+    });
+    // One minute before it belongs to the hour before.
+    expect(blockSpanForGap(gap, 12 * 60 - 1)).toEqual({
+      startMinutes: 11 * 60,
+      endMinutes: 12 * 60,
+    });
+  });
+
+  it("starts at the end of the previous block when the hour is not free", () => {
+    // The gap opens at 11:45, so the 11:00 hour is not available; the block
+    // begins where the previous one ended instead.
+    const gap = { startMinutes: 11 * 60 + 45, endMinutes: 18 * 60 };
+    expect(blockSpanForGap(gap, 11 * 60 + 50)).toEqual({
+      startMinutes: 11 * 60 + 45,
+      endMinutes: 12 * 60 + 45,
+    });
+  });
+
+  it("slides back to end against the next block", () => {
+    // Hovering the last minutes of a gap cannot push the hour past it.
+    const gap = { startMinutes: 8 * 60, endMinutes: 10 * 60 + 30 };
+    expect(blockSpanForGap(gap, 10 * 60 + 20)).toEqual({
+      startMinutes: 9 * 60 + 30,
+      endMinutes: 10 * 60 + 30,
     });
   });
 
@@ -646,6 +674,16 @@ describe("blockSpanForGap", () => {
     expect(span.startMinutes).toBe(9 * 60 + 10);
   });
 
+  it("is never longer than an hour, wherever the pointer sits", () => {
+    const gap = { startMinutes: 8 * 60, endMinutes: 18 * 60 };
+    for (let at = gap.startMinutes; at <= gap.endMinutes; at += 7) {
+      const span = blockSpanForGap(gap, at);
+      expect(span.endMinutes - span.startMinutes).toBe(60);
+      expect(span.startMinutes).toBeGreaterThanOrEqual(gap.startMinutes);
+      expect(span.endMinutes).toBeLessThanOrEqual(gap.endMinutes);
+    }
+  });
+
   it("places a block that cannot overlap what is already there", () => {
     const blocks: DayPlanBlock[] = [
       {
@@ -665,6 +703,8 @@ describe("blockSpanForGap", () => {
     ];
     const [gap] = findTimelineGaps(blocks, 9 * 60, 11 * 60 + 30);
     const span = blockSpanForGap(gap, 10 * 60 + 35);
+    // 10:00-11:00 collides with the 10:40 block, so it fills 10:00-10:40.
+    expect(span).toEqual({ startMinutes: 10 * 60, endMinutes: 10 * 60 + 40 });
 
     const placed: DayPlanBlock = {
       id: "new",

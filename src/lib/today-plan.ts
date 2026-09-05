@@ -404,10 +404,15 @@ export function findTimelineGaps(
 /**
  * Where a block dropped into free time should begin and end.
  *
- * An hour by default, starting from where the click landed, rounded to the
- * planning grid so a placed block reads like a scheduled one. A gap too
- * narrow for that is filled exactly instead of being left with an unusable
- * sliver on one side.
+ * One hour, running from the full hour at or before the pointer to the full
+ * hour after it -- 12:37 gives 12:00 to 13:00 -- so a block placed by hand
+ * lands on the same round times a person would have picked.
+ *
+ * Both ends give way to what is already planned. When the whole hour does
+ * not fit before the next block, the span slides back to end against it;
+ * when the hour would start inside the previous block, it begins at that
+ * block's end instead. A gap too narrow for an hour is filled exactly,
+ * rather than being left with an unusable sliver on one side.
  */
 export function blockSpanForGap(
   gap: TimelineGap,
@@ -416,10 +421,9 @@ export function blockSpanForGap(
   const available = gap.endMinutes - gap.startMinutes;
   const duration = Math.min(DEFAULT_NEW_BLOCK_MINUTES, available);
 
-  const snapped =
-    Math.round(atMinutes / PLAN_TIME_GRID_MINUTES) * PLAN_TIME_GRID_MINUTES;
+  const onTheHour = Math.floor(atMinutes / 60) * 60;
   const startMinutes = Math.min(
-    Math.max(snapped, gap.startMinutes),
+    Math.max(onTheHour, gap.startMinutes),
     gap.endMinutes - duration
   );
 
