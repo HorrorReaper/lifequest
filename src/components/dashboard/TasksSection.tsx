@@ -164,7 +164,7 @@ export function TasksSection({
                     onClick={() => void completeTask(task)}
                     disabled={busy || done}
                     className={cn(
-                      'flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 text-left transition-colors disabled:opacity-60 sm:min-h-12',
+                      'flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border px-3 text-left transition-colors disabled:cursor-default disabled:opacity-60 sm:min-h-12',
                       done
                         ? 'border-primary/40 bg-primary/5'
                         : 'border-border bg-background hover:border-foreground/25 hover:bg-muted/50'
@@ -219,7 +219,7 @@ export function TasksSection({
               type="button"
               onClick={() => setExpanded((current) => !current)}
               aria-expanded={expanded}
-              className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
+              className="mt-2 flex w-full cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
             >
               {expanded ? 'Show less' : `Show ${tasks.length - TASKS_PREVIEW_COUNT} more`}
               <ChevronDown
