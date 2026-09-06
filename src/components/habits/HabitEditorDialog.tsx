@@ -19,19 +19,69 @@ import { cn } from "@/lib/utils";
 import { SKILL_CATEGORIES } from "@/lib/skill-categories";
 import type { SkillCategory } from "@/lib/skill-categories";
 
+/**
+ * A habit's colour, in the two weights the app actually uses.
+ *
+ * `className` fills a control that has to read as on or chosen. `tint` is
+ * for a surface that only carries the colour as a label -- the emoji tile
+ * above all, where a saturated block sat behind an emoji that brings its own
+ * colours, so two palettes fought inside one square. Elsewhere the app tints
+ * and keeps the hue in the foreground (bg-primary/10 text-primary, and
+ * bg-orange-500/10 on this very page's own header), which is what these
+ * follow.
+ */
 export const HABIT_COLORS = [
-  { value: "blue", label: "Ocean", className: "bg-sky-500" },
-  { value: "green", label: "Forest", className: "bg-emerald-500" },
-  { value: "orange", label: "Sunset", className: "bg-orange-500" },
-  { value: "purple", label: "Violet", className: "bg-violet-500" },
-  { value: "pink", label: "Rose", className: "bg-rose-500" },
-  { value: "yellow", label: "Gold", className: "bg-amber-400" },
+  {
+    value: "blue",
+    label: "Ocean",
+    className: "bg-sky-600",
+    tint: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  },
+  {
+    value: "green",
+    label: "Forest",
+    className: "bg-emerald-600",
+    tint: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  },
+  {
+    value: "orange",
+    label: "Sunset",
+    className: "bg-orange-600",
+    tint: "bg-orange-500/10 text-orange-700 dark:text-orange-300",
+  },
+  {
+    value: "purple",
+    label: "Violet",
+    className: "bg-violet-600",
+    tint: "bg-violet-500/10 text-violet-700 dark:text-violet-300",
+  },
+  {
+    value: "pink",
+    label: "Rose",
+    className: "bg-rose-600",
+    tint: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  },
+  {
+    value: "yellow",
+    label: "Gold",
+    className: "bg-amber-500",
+    tint: "bg-amber-500/12 text-amber-700 dark:text-amber-300",
+  },
 ] as const;
 
+/** The filled weight, for a control that is on or chosen. */
 export function habitColorClass(color: string) {
   return (
     HABIT_COLORS.find((option) => option.value === color)?.className ??
-    "bg-sky-500"
+    "bg-sky-600"
+  );
+}
+
+/** The quiet weight, for a surface that only labels which habit this is. */
+export function habitTintClass(color: string) {
+  return (
+    HABIT_COLORS.find((option) => option.value === color)?.tint ??
+    "bg-sky-500/10 text-sky-700 dark:text-sky-300"
   );
 }
 

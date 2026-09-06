@@ -72,6 +72,7 @@ import { Input } from "@/components/ui/input";
 import {
   HabitEditorDialog,
   habitColorClass,
+  habitTintClass,
   type HabitEditorValue,
 } from "@/components/habits/HabitEditorDialog";
 
@@ -830,8 +831,8 @@ function SortableHabitCard({
         <span
           aria-hidden
           className={cn(
-            "grid size-12 shrink-0 place-items-center rounded-2xl text-xl text-white shadow-sm",
-            habitColorClass(habit.color)
+            "grid size-12 shrink-0 place-items-center rounded-2xl text-xl",
+            habitTintClass(habit.color)
           )}
         >
           {habit.emoji}
@@ -925,8 +926,8 @@ function ArchivedHabitCard({
     <article className="flex items-center gap-3 rounded-2xl border bg-card p-4">
       <span
         className={cn(
-          "grid size-11 shrink-0 place-items-center rounded-xl text-lg text-white",
-          habitColorClass(habit.color)
+          "grid size-11 shrink-0 place-items-center rounded-xl text-lg",
+          habitTintClass(habit.color)
         )}
       >
         {habit.emoji}
