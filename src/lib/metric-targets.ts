@@ -116,10 +116,12 @@ export async function fetchMetricTargets(
   supabase: SupabaseClient,
   userId: string
 ): Promise<MetricTarget[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('metric_targets')
     .select('field_id, target_value, direction')
     .eq('user_id', userId)
+
+  if (error) throw error
 
   const rows = (data ?? []) as {
     field_id: string
@@ -152,18 +154,20 @@ export async function fetchLatestMetricValues(
   since.setDate(since.getDate() - LATEST_VALUE_WINDOW_DAYS)
   const sinceDate = since.toISOString().slice(0, 10)
 
-  const { data: entryRows } = await supabase
+  const { data: entryRows, error: entryError } = await supabase
     .from('journal_entries')
     .select('id, entry_date')
     .eq('user_id', userId)
     .gte('entry_date', sinceDate)
+
+  if (entryError) throw entryError
 
   const entries = (entryRows ?? []) as { id: string; entry_date: string }[]
   if (entries.length === 0) return {}
 
   const entryDateById = new Map(entries.map((entry) => [entry.id, entry.entry_date]))
 
-  const { data: responseRows } = await supabase
+  const { data: responseRows, error: responseError } = await supabase
     .from('journal_responses')
     .select('field_id, entry_id, value_number')
     .in('field_id', fieldIds)
@@ -172,6 +176,8 @@ export async function fetchLatestMetricValues(
       entries.map((entry) => entry.id)
     )
     .not('value_number', 'is', null)
+
+  if (responseError) throw responseError
 
   return latestByFieldId(
     (responseRows ?? []) as {
