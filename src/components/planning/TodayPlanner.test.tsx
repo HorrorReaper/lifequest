@@ -161,7 +161,7 @@ describe("TodayPlanner", () => {
     next();
 
     next();
-    fireEvent.focus(screen.getByLabelText("Must Win outcome"));
+    fireEvent.focus(screen.getByLabelText("Main Quest outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
     next();
     next();
@@ -192,6 +192,48 @@ describe("TodayPlanner", () => {
     ).toBeTruthy();
   });
 
+  it("names each quest once, and says which one is required", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    // "Must Win" beside a "Main Quest" badge was two names for one thing.
+    expect(screen.queryByText("Must Win")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Main Quest" })).toBeTruthy();
+    expect(screen.getByText("Required")).toBeTruthy();
+    expect(screen.getAllByText("Optional")).toHaveLength(2);
+  });
+
+  it("says nothing about an outcome that does not exist yet", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    // The old copy read "Standalone outcome" under three blank fields.
+    expect(screen.queryByText("Standalone outcome")).toBeNull();
+    expect(screen.queryByText("Not saved as a task")).toBeNull();
+    expect(screen.queryByLabelText("Main Quest block length")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+      target: { value: "Ship the fix" },
+    });
+
+    expect(screen.getByText("Not saved as a task")).toBeTruthy();
+    expect(screen.getByLabelText("Main Quest block length")).toBeTruthy();
+  });
+
+  it("asks each question once, in the label rather than twice", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    const field = screen.getByLabelText("Main Quest outcome")
+    expect(field.getAttribute("placeholder")).toBe(
+      "Search your tasks, or write something new"
+    );
+    expect(screen.getByText("The one thing that has to move today.")).toBeTruthy();
+  });
+
   it("blocks progress until a Must Win is selected", () => {
     render(<TodayPlanner {...defaultProps} />);
 
@@ -212,7 +254,7 @@ describe("TodayPlanner", () => {
 
     pickMood();
     next();
-    fireEvent.focus(screen.getByLabelText("Must Win outcome"));
+    fireEvent.focus(screen.getByLabelText("Main Quest outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
@@ -246,14 +288,14 @@ describe("TodayPlanner", () => {
 
     expect(screen.queryByText("Pull from tasks")).toBeNull();
 
-    fireEvent.focus(screen.getByLabelText("Progress outcome"));
+    fireEvent.focus(screen.getByLabelText("Side Quest outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
 
-    expect(screen.getByLabelText("Progress outcome")).toHaveProperty(
+    expect(screen.getByLabelText("Side Quest outcome")).toHaveProperty(
       "value",
       "Write launch brief"
     );
-    expect(screen.getByLabelText("Health outcome")).toHaveProperty("value", "");
+    expect(screen.getByLabelText("Recovery Quest outcome")).toHaveProperty("value", "");
   });
 
   it("restores an unfinished tab-local draft", async () => {
@@ -338,7 +380,7 @@ describe("TodayPlanner", () => {
 
     pickMood();
     next();
-    fireEvent.focus(screen.getByLabelText("Must Win outcome"));
+    fireEvent.focus(screen.getByLabelText("Main Quest outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
     next();
     fireEvent.click(screen.getByRole("button", { name: /Read/ }));
