@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
+import { DashboardSectionsCard } from '@/components/settings/DashboardSectionsCard'
+import type { DashboardSectionVisibility } from '@/lib/dashboard-sections'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,6 +57,7 @@ interface SettingsFormProps {
   aiConsentAt: string | null
   aiAccessEnabled: boolean
   isAdmin: boolean
+  dashboardSections: DashboardSectionVisibility
 }
 
 export function SettingsForm({
@@ -66,6 +69,7 @@ export function SettingsForm({
   aiConsentAt: initialAiConsentAt,
   aiAccessEnabled,
   isAdmin,
+  dashboardSections,
 }: SettingsFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -228,6 +232,12 @@ export function SettingsForm({
           </div>
         </CardContent>
       </Card>
+
+      <DashboardSectionsCard
+        userId={userId}
+        isAdmin={isAdmin}
+        initial={dashboardSections}
+      />
 
       {isAdmin && (
         <Card className="border-primary/30 bg-primary/5">
