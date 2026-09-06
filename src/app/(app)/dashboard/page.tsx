@@ -37,6 +37,12 @@ import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
 import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
+import { ScorecardSection } from '@/components/dashboard/ScorecardSection'
+import {
+  buildScorecardRows,
+  fetchLatestMetricValues,
+  fetchMetricTargets,
+} from '@/lib/metric-targets'
 import {
   isSectionVisible,
   normalizeDashboardSections,
@@ -137,14 +143,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
   const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
 
-  // One query plus one per tracked metric, all sequential before the main
-  // batch below -- the largest saving of the three.
-  const trackedMetrics = shows('metric')
-    ? await fetchTrackedMetrics(supabase, user.id)
+  // Scorecard rows come from targets, not the tracked-metric list, so fetch
+  // targets first and only pay for the list when something actually needs
+  // it: the chart (shows('metric')) or a scorecard that has targets set.
+  // The scorecard is on by default with no targets on day one, so gating
+  // the list this way removes two wasted sequential queries for exactly the
+  // population that sees no section.
+  const metricTargets = shows('scorecard')
+    ? await fetchMetricTargets(supabase, user.id)
     : []
-  const trackedMetricSeries = await Promise.all(
-    trackedMetrics.map((metric) => fetchMetricSeries(supabase, user.id, metric.fieldId))
-  )
+  const trackedMetrics =
+    shows('metric') || metricTargets.length > 0
+      ? await fetchTrackedMetrics(supabase, user.id)
+      : []
+  const trackedMetricSeries = shows('metric')
+    ? await Promise.all(
+        trackedMetrics.map((metric) =>
+          fetchMetricSeries(supabase, user.id, metric.fieldId)
+        )
+      )
+    : []
   // Prefer a metric that actually has data over the first one alphabetically/
   // by creation order, so a brand-new, still-empty metric doesn't bump one
   // the user is already filling in off the dashboard.
@@ -153,6 +171,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     primaryMetricIndex >= 0 ? trackedMetrics[primaryMetricIndex] : trackedMetrics[0] ?? null
   const primaryMetricSeries =
     primaryMetricIndex >= 0 ? trackedMetricSeries[primaryMetricIndex] : []
+
+  const scorecardRows = shows('scorecard')
+    ? buildScorecardRows({
+        metrics: trackedMetrics,
+        targets: metricTargets,
+        latest: await fetchLatestMetricValues(
+          supabase,
+          user.id,
+          metricTargets.map((target) => target.fieldId)
+        ),
+      })
+    : []
 
   const [
     briefingHabitsRes,
@@ -362,6 +392,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             openTaskCount={openTasksRes.count ?? 0}
           />
         )}
+
+        {shows('scorecard') && <ScorecardSection rows={scorecardRows} />}
 
         {shows('metric') && primaryMetric && (
           <MetricDashboardWidget

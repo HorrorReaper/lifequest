@@ -22,7 +22,7 @@ describe('DashboardSectionsCard', () => {
   it('offers a switch for each section the user can see', () => {
     render(<DashboardSectionsCard userId="user-1" isAdmin={false} initial={{}} />)
 
-    expect(screen.getAllByRole('switch')).toHaveLength(5)
+    expect(screen.getAllByRole('switch')).toHaveLength(6)
     expect(screen.getByRole('switch', { name: /habits/i })).toBeTruthy()
     expect(screen.queryByRole('switch', { name: /routines/i })).toBeNull()
   })
@@ -30,7 +30,7 @@ describe('DashboardSectionsCard', () => {
   it('offers the admin-only section to an admin', () => {
     render(<DashboardSectionsCard userId="user-1" isAdmin initial={{}} />)
 
-    expect(screen.getAllByRole('switch')).toHaveLength(6)
+    expect(screen.getAllByRole('switch')).toHaveLength(7)
     expect(screen.getByRole('switch', { name: /routines/i })).toBeTruthy()
   })
 

@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation'
 import { ArrowLeft, LineChart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
+import { fetchMetricTargets } from '@/lib/metric-targets'
 import { MetricChart } from '@/components/journal/MetricChart'
+import { MetricTargetControl } from '@/components/journal/MetricTargetControl'
 
 export default async function JournalMetricsPage() {
   const supabase = await createClient()
@@ -17,6 +19,8 @@ export default async function JournalMetricsPage() {
   const series = await Promise.all(
     metrics.map((metric) => fetchMetricSeries(supabase, user.id, metric.fieldId))
   )
+  const targets = await fetchMetricTargets(supabase, user.id)
+  const targetByFieldId = new Map(targets.map((target) => [target.fieldId, target]))
 
   return (
     <main className="min-h-svh bg-background p-4 pb-24 sm:p-8">
@@ -60,13 +64,21 @@ export default async function JournalMetricsPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {metrics.map((metric, index) => (
-              <MetricChart
-                key={metric.fieldId}
-                label={metric.label}
-                unit={metric.unit}
-                templateName={metric.templateName}
-                data={series[index]}
-              />
+              <div key={metric.fieldId} className="space-y-2">
+                <MetricChart
+                  label={metric.label}
+                  unit={metric.unit}
+                  templateName={metric.templateName}
+                  data={series[index]}
+                />
+                <MetricTargetControl
+                  userId={user.id}
+                  fieldId={metric.fieldId}
+                  label={metric.label}
+                  unit={metric.unit}
+                  initial={targetByFieldId.get(metric.fieldId) ?? null}
+                />
+              </div>
             ))}
           </div>
         )}
