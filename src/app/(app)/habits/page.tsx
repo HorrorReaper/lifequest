@@ -1,6 +1,5 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowLeft, Flame } from 'lucide-react'
+import { Flame } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { HabitManager } from '@/components/habits/HabitManager'
 import { dateInTimezone } from '@/lib/dates'
@@ -25,13 +24,6 @@ export default async function HabitsPage() {
     <main className="min-h-svh bg-background p-4 pb-24 sm:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
         <header>
-          <Link
-            href="/dashboard"
-            className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-            Dashboard
-          </Link>
           <div className="flex items-center gap-3">
             <span className="flex size-11 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
               <Flame className="size-5" />
