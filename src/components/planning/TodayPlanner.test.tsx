@@ -212,14 +212,101 @@ describe("TodayPlanner", () => {
     // The old copy read "Standalone outcome" under three blank fields.
     expect(screen.queryByText("Standalone outcome")).toBeNull();
     expect(screen.queryByText("Not saved as a task")).toBeNull();
-    expect(screen.queryByLabelText("Main Quest block length")).toBeNull();
+    expect(screen.queryByLabelText("Main Quest block length in minutes")).toBeNull();
 
     fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
       target: { value: "Ship the fix" },
     });
 
     expect(screen.getByText("Not saved as a task")).toBeTruthy();
-    expect(screen.getByLabelText("Main Quest block length")).toBeTruthy();
+    expect(screen.getByLabelText("Main Quest block length in minutes")).toBeTruthy();
+  });
+
+  it("takes a block length to the minute, not just the presets", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+      target: { value: "Ship the fix" },
+    });
+    const field = () => screen.getByLabelText("Main Quest block length in minutes");
+    expect(field()).toHaveProperty("value", "90");
+
+    fireEvent.change(field(), { target: { value: "37" } });
+    expect(field()).toHaveProperty("value", "37");
+  });
+
+  it("lets a number be typed digit by digit without clamping mid-way", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+      target: { value: "Ship the fix" },
+    });
+    const field = () => screen.getByLabelText("Main Quest block length in minutes");
+
+    // "9" is below the minimum, but jumping it to 5 here would make "90"
+    // impossible to finish typing.
+    fireEvent.change(field(), { target: { value: "9" } });
+    expect(field()).toHaveProperty("value", "9");
+
+    fireEvent.change(field(), { target: { value: "90" } });
+    expect(field()).toHaveProperty("value", "90");
+  });
+
+  it("snaps back to what is planned when a typed length is unusable", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+      target: { value: "Ship the fix" },
+    });
+    const field = () => screen.getByLabelText("Main Quest block length in minutes");
+
+    fireEvent.change(field(), { target: { value: "900" } });
+    fireEvent.blur(field());
+
+    // Out of range never reached the outcome, so the field returns to the
+    // number that is actually planned rather than showing a lie.
+    expect(field()).toHaveProperty("value", "90");
+  });
+
+  it("keeps only digits", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+      target: { value: "Ship the fix" },
+    });
+    const field = screen.getByLabelText("Main Quest block length in minutes");
+    fireEvent.change(field, { target: { value: "4h5" } });
+
+    expect(field).toHaveProperty("value", "45");
+  });
+
+  it("carries the exact length through to the timeline block", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    fireEvent.focus(screen.getByLabelText("Main Quest outcome"));
+    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
+    fireEvent.change(
+      screen.getByLabelText("Main Quest block length in minutes"),
+      { target: { value: "37" } }
+    );
+
+    next();
+    next();
+
+    // The day opens at 08:00 and this is the first block on it.
+    expect(
+      screen.getByLabelText("Write launch brief, 08:00 to 08:37")
+    ).toBeTruthy();
   });
 
   it("asks each question once, in the label rather than twice", () => {
