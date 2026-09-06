@@ -72,6 +72,7 @@ export interface Database {
           streak_freezes: number
           last_journal_date: string | null
           timezone: string
+          dashboard_sections: Record<string, boolean>
           birth_year: number | null
           onboarding_complete: boolean
           ai_assistant_enabled: boolean
@@ -89,6 +90,7 @@ export interface Database {
           streak_freezes?: number
           last_journal_date?: string | null
           timezone?: string
+          dashboard_sections?: Record<string, boolean>
           birth_year?: number | null
           onboarding_complete?: boolean
           ai_assistant_enabled?: boolean
@@ -106,6 +108,7 @@ export interface Database {
           streak_freezes?: number
           last_journal_date?: string | null
           timezone?: string
+          dashboard_sections?: Record<string, boolean>
           birth_year?: number | null
           onboarding_complete?: boolean
           ai_assistant_enabled?: boolean
