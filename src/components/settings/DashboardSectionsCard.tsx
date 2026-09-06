@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import {
@@ -40,15 +40,21 @@ export function DashboardSectionsCard({
   const [supabase] = useState(() => createClient())
   const [visibility, setVisibility] = useState(initial)
   const [error, setError] = useState<string | null>(null)
+  // Mirrors `visibility` synchronously so a second toggle fired before React
+  // re-renders from the first still reads the first's change: `visibility`
+  // itself is a stale closure until the next render lands.
+  const visibilityRef = useRef(initial)
 
   const sections = sectionsFor({ isAdmin })
 
   async function toggle(id: string, next: boolean) {
-    const previous = visibility
+    const previousValue = isSectionVisible(visibilityRef.current, id)
     // The whole map goes to the database. Sending only the key that moved
-    // would drop every other choice back to its default.
-    const updated = { ...visibility, [id]: next }
-
+    // would drop every other choice back to its default. Built from the
+    // ref, not the `visibility` state, so a fast second click includes the
+    // first click's still-in-flight change in its own payload.
+    const updated = { ...visibilityRef.current, [id]: next }
+    visibilityRef.current = updated
     setVisibility(updated)
     setError(null)
 
@@ -64,7 +70,12 @@ export function DashboardSectionsCard({
     )
 
     if (saveError) {
-      setVisibility(previous)
+      // Roll back only this switch's key. A different, later toggle may
+      // have already succeeded and been persisted while this write was in
+      // flight; restoring the whole pre-click snapshot would silently
+      // discard that already-saved change from the UI.
+      visibilityRef.current = { ...visibilityRef.current, [id]: previousValue }
+      setVisibility(visibilityRef.current)
       setError('We could not save which sections to show. Please try again.')
     }
   }

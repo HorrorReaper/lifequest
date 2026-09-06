@@ -99,4 +99,45 @@ describe('DashboardSectionsCard', () => {
     )
     expect(screen.getByText(/could not save/i)).toBeTruthy()
   })
+
+  it('keeps a later toggle that already saved when an earlier toggle fails after it', async () => {
+    let resolveFirst!: (value: { error: unknown }) => void
+    let resolveSecond!: (value: { error: unknown }) => void
+    const firstCall = new Promise<{ error: unknown }>((resolve) => {
+      resolveFirst = resolve
+    })
+    const secondCall = new Promise<{ error: unknown }>((resolve) => {
+      resolveSecond = resolve
+    })
+    update
+      .mockReset()
+      .mockImplementationOnce(() => firstCall)
+      .mockImplementationOnce(() => secondCall)
+
+    render(<DashboardSectionsCard userId="user-1" isAdmin={false} initial={{}} />)
+
+    // habits is clicked first but its write is the slow one; tasks is
+    // clicked second but its write resolves first.
+    fireEvent.click(screen.getByRole('switch', { name: /habits/i }))
+    fireEvent.click(screen.getByRole('switch', { name: /tasks/i }))
+
+    resolveSecond({ error: null })
+    await waitFor(() =>
+      expect(
+        screen.getByRole('switch', { name: /tasks/i }).getAttribute('aria-checked')
+      ).toBe('false')
+    )
+
+    resolveFirst({ error: { message: 'offline' } })
+    await waitFor(() => expect(screen.getByText(/could not save/i)).toBeTruthy())
+
+    // The failed switch rolls back...
+    expect(
+      screen.getByRole('switch', { name: /habits/i }).getAttribute('aria-checked')
+    ).toBe('true')
+    // ...but the other switch, already saved, must not be reverted too.
+    expect(
+      screen.getByRole('switch', { name: /tasks/i }).getAttribute('aria-checked')
+    ).toBe('false')
+  })
 })
