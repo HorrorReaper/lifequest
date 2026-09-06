@@ -62,6 +62,8 @@ import {
   createDefaultTodayPlanMetadata,
   findTodayPlanBlockProblems,
   formatPlanMinutes,
+  MAX_OUTCOME_MINUTES,
+  MIN_OUTCOME_MINUTES,
   minutesToTime,
   nextGridStart,
   parseTodayPlanNotes,
@@ -214,8 +216,6 @@ const MISSION_LABELS: Record<
   recovery: "Recovery",
 };
 
-const DURATION_OPTIONS = [15, 25, 45, 60, 90, 120];
-
 function fingerprint(value: PlannerDraft) {
   return JSON.stringify(value);
 }
@@ -306,6 +306,12 @@ export function TodayPlanner({
   const [saving, setSaving] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  // What is being typed into a block-length field, per role, while it is not
+  // yet a usable number. Committing on every keystroke instead would clamp
+  // "9" up to the minimum before "90" could ever be finished.
+  const [lengthDrafts, setLengthDrafts] = useState<
+    Partial<Record<DayPlanOutcomeRole, string>>
+  >({});
   const [draftReady, setDraftReady] = useState(false);
   const [restoredDraft, setRestoredDraft] = useState(false);
 
@@ -402,6 +408,35 @@ export function TodayPlanner({
       };
     });
     setStepError(null);
+  }
+
+  function changeBlockLength(role: DayPlanOutcomeRole, raw: string) {
+    const digits = raw.replace(/[^0-9]/g, "").slice(0, 3);
+    setLengthDrafts((current) => ({ ...current, [role]: digits }));
+
+    const minutes = Number(digits);
+    if (
+      digits !== "" &&
+      minutes >= MIN_OUTCOME_MINUTES &&
+      minutes <= MAX_OUTCOME_MINUTES
+    ) {
+      updateOutcome(role, { duration_minutes: minutes });
+    }
+  }
+
+  /**
+   * Drops the draft so the field falls back to the stored value.
+   *
+   * Anything half-typed or out of range never reached the outcome, so this
+   * is what snaps a field showing "3" or "900" back to what is actually
+   * planned, rather than leaving a number on screen that is not real.
+   */
+  function commitBlockLength(role: DayPlanOutcomeRole) {
+    setLengthDrafts((current) => {
+      const next = { ...current };
+      delete next[role];
+      return next;
+    });
   }
 
   function assignTaskToRole(role: DayPlanOutcomeRole, task: TodayPlannerTask) {
@@ -943,27 +978,26 @@ export function TodayPlanner({
                                 rather than "Budget", which said nothing
                                 about where the number goes. */}
                             Block length
-                            <select
-                              aria-label={`${item.label} block length`}
-                              value={
-                                outcome?.duration_minutes ??
-                                item.defaultDuration
-                              }
-                              onChange={(event) =>
-                                updateOutcome(role, {
-                                  duration_minutes: Number(
-                                    event.target.value
-                                  ),
-                                })
-                              }
-                              className="h-9 rounded-lg border bg-background px-2 text-foreground"
-                            >
-                              {DURATION_OPTIONS.map((minutes) => (
-                                <option key={minutes} value={minutes}>
-                                  {formatPlanMinutes(minutes)}
-                                </option>
-                              ))}
-                            </select>
+                            <span className="flex items-center gap-1.5">
+                              <Input
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                aria-label={`${item.label} block length in minutes`}
+                                value={
+                                  lengthDrafts[role] ??
+                                  String(
+                                    outcome?.duration_minutes ??
+                                      item.defaultDuration
+                                  )
+                                }
+                                onChange={(event) =>
+                                  changeBlockLength(role, event.target.value)
+                                }
+                                onBlur={() => commitBlockLength(role)}
+                                className="h-9 w-16 px-2 text-center tabular-nums"
+                              />
+                              min
+                            </span>
                           </label>
                         </div>
                         )}

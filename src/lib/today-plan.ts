@@ -138,9 +138,22 @@ function isTime(value: unknown): value is string {
   return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
 }
 
+/**
+ * The range a planned duration is kept inside.
+ *
+ * Exported so the field a user types into and the parser that reads it back
+ * cannot drift apart: a value the form accepts but the parser clamps would
+ * silently change after a reload.
+ */
+export const MIN_OUTCOME_MINUTES = 5;
+export const MAX_OUTCOME_MINUTES = 240;
+
 function boundedMinutes(value: unknown, fallback: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.min(240, Math.max(5, Math.round(value)));
+  return Math.min(
+    MAX_OUTCOME_MINUTES,
+    Math.max(MIN_OUTCOME_MINUTES, Math.round(value))
+  );
 }
 
 function normalizeOutcome(value: unknown): TodayPlanOutcome | null {
