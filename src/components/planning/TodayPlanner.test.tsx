@@ -767,6 +767,22 @@ describe("TodayPlanner", () => {
     );
   });
 
+  it("opens on the timeline when the route asks for it", () => {
+    render(<TodayPlanner {...timelineProps} startAt="timeline" />);
+
+    // No mood, no intention, no outcome step on the way.
+    expect(screen.getByRole("heading", { name: "Shape the timeline" })).toBeTruthy();
+    expect(screen.getByLabelText("Write launch brief, 08:00 to 09:00")).toBeTruthy();
+  });
+
+  it("still starts at the beginning without that request", () => {
+    render(<TodayPlanner {...timelineProps} />);
+
+    expect(
+      screen.getByRole("heading", { name: "How are you feeling right now?" })
+    ).toBeTruthy();
+  });
+
   it("moves every later block when one is retimed", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();

@@ -106,6 +106,18 @@ describe('TodayPlanSection', () => {
     expect(screen.getByText('Standup').closest('li')?.textContent).toContain('Now')
   })
 
+  it('sends Add block straight to the timeline, not through the whole ritual', () => {
+    render(<TodayPlanSection blocks={[block()]} nowMinutes={9 * 60} />)
+
+    const add = screen.getByRole('link', { name: /add block/i })
+    expect(add.getAttribute('href')).toBe('/plan?step=timeline')
+
+    // Opening the planner proper still means the planner proper.
+    expect(
+      screen.getByRole('link', { name: /open planner/i }).getAttribute('href')
+    ).toBe('/plan')
+  })
+
   it('offers a way to plan when the day is empty', () => {
     render(<TodayPlanSection blocks={[]} nowMinutes={MIDDAY} />)
 

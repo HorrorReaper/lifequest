@@ -227,8 +227,11 @@ export function TodayPlanSection({ blocks, nowMinutes }: TodayPlanSectionProps) 
           )}
 
           <div className="mt-4 flex items-center justify-between border-t pt-3">
+            {/* Straight to the timeline: this button only exists once a
+                plan does, and re-answering mood and outcomes to move one
+                block is not what it offers. */}
             <Button asChild size="sm" variant="outline">
-              <Link href="/plan">
+              <Link href="/plan?step=timeline">
                 <Plus />
                 Add block
               </Link>
