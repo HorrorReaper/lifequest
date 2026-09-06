@@ -16,7 +16,12 @@ function dateLabel(timezone: string) {
 
 const priorityRank = { high: 0, medium: 1, low: 2 };
 
-export default async function TodayPlanPage() {
+export default async function TodayPlanPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ step?: string }>;
+}) {
+  const requestedStep = searchParams ? (await searchParams).step : undefined;
   const supabase = await createClient();
   const {
     data: { user },
@@ -151,17 +156,25 @@ export default async function TodayPlanPage() {
     notes?: string | null;
   } | null;
 
+  const blocks: DayPlanBlock[] = Array.isArray(plan?.blocks) ? plan.blocks : [];
+
   return (
     <TodayPlanner
       userId={user.id}
       date={today}
       dateLabel={dateLabel(timezone)}
-      initialBlocks={Array.isArray(plan?.blocks) ? plan.blocks : []}
+      initialBlocks={blocks}
       initialNotes={plan?.notes ?? null}
       tasks={tasks}
       habits={habits}
       journals={journals}
       workoutsEnabled={await showAdminUi(user)}
+      // Only with blocks to manage. Landing on the timeline without a Main
+      // Quest lets someone edit their way to the commit step and be refused
+      // there, for a reason nothing on that screen explains.
+      startAt={
+        requestedStep === "timeline" && blocks.length > 0 ? "timeline" : undefined
+      }
     />
   );
 }

@@ -111,6 +111,14 @@ interface TodayPlannerProps {
   habits: TodayPlannerHabit[];
   journals: TodayPlannerJournal[];
   workoutsEnabled: boolean;
+  /**
+   * Skips straight to a later step.
+   *
+   * Set by the route only when there is already a plan to edit; walking
+   * someone through mood and outcomes again to move one block is the reason
+   * this exists.
+   */
+  startAt?: PlannerEntryPoint;
 }
 
 interface PlannerDraft {
@@ -150,6 +158,23 @@ const STEPS = [
     description: "Check capacity, resolve conflicts, and start with clarity.",
   },
 ] as const;
+
+/**
+ * Where each step sits in STEPS.
+ *
+ * Two steps have been inserted into the middle of this flow already, and
+ * every `step === 3` scattered through validation and rendering had to be
+ * found and shifted by hand. Naming them keeps that to one edit.
+ */
+const MOOD_STEP = 0;
+const INTENTION_STEP = 1;
+const OUTCOMES_STEP = 2;
+const ANCHORS_STEP = 3;
+const TIMELINE_STEP = 4;
+const COMMIT_STEP = 5;
+
+/** Where the planner may be asked to open, via ?step= on the route. */
+export type PlannerEntryPoint = "timeline";
 
 /**
  * One name per role, not two.
@@ -272,6 +297,7 @@ export function TodayPlanner({
   habits,
   journals,
   workoutsEnabled,
+  startAt,
 }: TodayPlannerProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -289,7 +315,9 @@ export function TodayPlanner({
   const [metadata, setMetadata] =
     useState<TodayPlanMetadata>(initialMetadata);
   const [blocks, setBlocks] = useState<DayPlanBlock[]>(initialBlocks);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(
+    startAt === "timeline" ? TIMELINE_STEP : MOOD_STEP
+  );
   // Seeded from the server-loaded prop, then grown locally so a task created
   // inline from any outcome's combobox shows up immediately in the other
   // two comboboxes without a round trip back to the server.
@@ -554,22 +582,22 @@ export function TodayPlanner({
   }
 
   function validateCurrentStep() {
-    if (step === 0 && !metadata.mood) {
+    if (step === MOOD_STEP && !metadata.mood) {
       return "Pick how you are feeling before moving on.";
     }
-    if (step === 2 && !mainOutcome?.title.trim()) {
+    if (step === OUTCOMES_STEP && !mainOutcome?.title.trim()) {
       return "Choose one Must Win before moving on.";
     }
     if (
-      step === 3 &&
+      step === ANCHORS_STEP &&
       timeToMinutes(metadata.day_end) <= timeToMinutes(metadata.day_start)
     ) {
       return "Your day must end after it starts.";
     }
-    if (step === 4 && problems.invalidBlockIds.length > 0) {
+    if (step === TIMELINE_STEP && problems.invalidBlockIds.length > 0) {
       return "Every block needs a title and an end time after its start.";
     }
-    if (step === 4 && problems.overlappingBlockIds.length > 0) {
+    if (step === TIMELINE_STEP && problems.overlappingBlockIds.length > 0) {
       return "Resolve overlapping blocks before the final check.";
     }
     return null;
@@ -581,7 +609,7 @@ export function TodayPlanner({
       setStepError(error);
       return;
     }
-    if (step === 3) {
+    if (step === ANCHORS_STEP) {
       setBlocks((current) =>
         buildTodayPlanSchedule({ blocks: current, metadata })
       );
@@ -785,7 +813,7 @@ export function TodayPlanner({
             </p>
           </div>
 
-          {step === 0 && (
+          {step === MOOD_STEP && (
             <div className="mx-auto grid w-full max-w-2xl gap-5">
               <Card className="rounded-3xl">
                 <CardContent className="space-y-4 p-5 sm:p-6">
@@ -866,7 +894,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 1 && (
+          {step === INTENTION_STEP && (
             <div className="mx-auto grid w-full max-w-2xl gap-5">
               <Card className="rounded-3xl">
                 <CardContent className="space-y-3 p-5 sm:p-6">
@@ -895,7 +923,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 2 && (
+          {step === OUTCOMES_STEP && (
             <div className="space-y-4">
               {(Object.keys(OUTCOME_META) as DayPlanOutcomeRole[]).map(
                 (role) => {
@@ -1009,7 +1037,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 3 && (
+          {step === ANCHORS_STEP && (
             <div className="grid gap-5 lg:grid-cols-[1fr_0.75fr]">
               <div className="space-y-5">
                 <Card className="rounded-3xl">
@@ -1159,7 +1187,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 4 && (
+          {step === TIMELINE_STEP && (
             <div className="grid gap-5 lg:grid-cols-[1fr_17rem]">
               <div className="space-y-3">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1337,7 +1365,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 5 && (
+          {step === COMMIT_STEP && (
             <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
               <div className="space-y-5">
                 <Card className="overflow-hidden rounded-3xl border-primary/25">
@@ -1557,10 +1585,10 @@ export function TodayPlanner({
             type="button"
             variant="ghost"
             size="lg"
-            onClick={step === 0 ? requestClose : goBack}
+            onClick={step === MOOD_STEP ? requestClose : goBack}
           >
             <ArrowLeft className="mr-1.5 size-4" />
-            {step === 0 ? "Dashboard" : "Back"}
+            {step === MOOD_STEP ? "Dashboard" : "Back"}
           </Button>
 
           {/* The timeline's own Add block sits at the top of a scrolling
@@ -1568,7 +1596,7 @@ export function TodayPlanner({
               gap the footer already leaves between Back and Next, and matches
               the round button the home screen puts in the same place.
               Creating selects, so the properties open with it. */}
-          {step === 4 && (
+          {step === TIMELINE_STEP && (
             <Button
               type="button"
               aria-label="Add block"
