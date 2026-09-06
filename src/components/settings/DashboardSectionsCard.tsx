@@ -44,25 +44,26 @@ export function DashboardSectionsCard({
   // re-renders from the first still reads the first's change: `visibility`
   // itself is a stale closure until the next render lands.
   const visibilityRef = useRef(initial)
+  // Serializes the network writes: each toggle chains its write onto this
+  // promise instead of firing immediately, so only one write is ever in
+  // flight against the row. Without this, two writes race independently of
+  // click order and the row can end up holding a value neither the rollback
+  // nor the UI knows about.
+  const writeChainRef = useRef<Promise<void>>(Promise.resolve())
 
   const sections = sectionsFor({ isAdmin })
 
-  async function toggle(id: string, next: boolean) {
-    const previousValue = isSectionVisible(visibilityRef.current, id)
-    // The whole map goes to the database. Sending only the key that moved
-    // would drop every other choice back to its default. Built from the
-    // ref, not the `visibility` state, so a fast second click includes the
-    // first click's still-in-flight change in its own payload.
-    const updated = { ...visibilityRef.current, [id]: next }
-    visibilityRef.current = updated
-    setVisibility(updated)
-    setError(null)
-
+  async function save(id: string, previousValue: boolean) {
+    // Built from the ref at send time, not at click time: by the time this
+    // write actually goes out, an earlier queued write may have already
+    // rolled its own key back (or another click may have landed), and this
+    // payload needs to carry that, not a stale snapshot from when it was
+    // queued.
     const { error: saveError } = await supabaseUpdateWhere(
       supabase,
       'profiles',
       {
-        dashboard_sections: updated,
+        dashboard_sections: visibilityRef.current,
         updated_at: new Date().toISOString(),
       },
       'id',
@@ -78,6 +79,30 @@ export function DashboardSectionsCard({
       setVisibility(visibilityRef.current)
       setError('We could not save which sections to show. Please try again.')
     }
+  }
+
+  function toggle(id: string, next: boolean) {
+    const previousValue = isSectionVisible(visibilityRef.current, id)
+    // The whole map goes to the database. Sending only the key that moved
+    // would drop every other choice back to its default. Built from the
+    // ref, not the `visibility` state, so a fast second click includes the
+    // first click's still-in-flight change in its own payload.
+    const updated = { ...visibilityRef.current, [id]: next }
+    visibilityRef.current = updated
+    setVisibility(updated)
+    setError(null)
+
+    // Chain onto the queue rather than sending now: this write will not
+    // actually reach the network until every write queued ahead of it has
+    // settled, so writes land in click order and each one's payload is
+    // built from whatever the ref holds once its turn comes up.
+    writeChainRef.current = writeChainRef.current
+      .then(() => save(id, previousValue))
+      .catch(() => {
+        // A rejection here would be a bug in save() itself (it already
+        // reports save failures via saveError), but if one ever slips
+        // through, don't let it wedge every write queued after it.
+      })
   }
 
   return (
@@ -110,7 +135,7 @@ export function DashboardSectionsCard({
               id={`dashboard-section-${section.id}`}
               aria-label={section.label}
               checked={isSectionVisible(visibility, section.id)}
-              onCheckedChange={(next) => void toggle(section.id, next)}
+              onCheckedChange={(next) => toggle(section.id, next)}
             />
           </div>
         ))}

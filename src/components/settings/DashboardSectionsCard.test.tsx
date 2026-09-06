@@ -140,4 +140,105 @@ describe('DashboardSectionsCard', () => {
       screen.getByRole('switch', { name: /tasks/i }).getAttribute('aria-checked')
     ).toBe('false')
   })
+
+  it('does not let a write that already succeeded persist a value the rolled-back UI no longer shows', async () => {
+    let resolveFirst!: (value: { error: unknown }) => void
+    let resolveSecond!: (value: { error: unknown }) => void
+    const firstCall = new Promise<{ error: unknown }>((resolve) => {
+      resolveFirst = resolve
+    })
+    const secondCall = new Promise<{ error: unknown }>((resolve) => {
+      resolveSecond = resolve
+    })
+    update
+      .mockReset()
+      .mockImplementationOnce(() => firstCall)
+      .mockImplementationOnce(() => secondCall)
+
+    render(<DashboardSectionsCard userId="user-1" isAdmin={false} initial={{}} />)
+
+    // habits is clicked first (its write ends up failing); tasks is
+    // clicked second, before habits' write resolves.
+    fireEvent.click(screen.getByRole('switch', { name: /habits/i }))
+    fireEvent.click(screen.getByRole('switch', { name: /tasks/i }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    resolveFirst({ error: { message: 'offline' } })
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2))
+    resolveSecond({ error: null })
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('switch', { name: /habits/i }).getAttribute('aria-checked')
+      ).toBe('true')
+    )
+
+    const habitsIsOnInUI =
+      screen.getByRole('switch', { name: /habits/i }).getAttribute('aria-checked') ===
+      'true'
+
+    // The write that actually succeeded (and is therefore what the row now
+    // holds) must agree with what the UI ended up showing after the other
+    // write's rollback, not with a value that was rolled back out from
+    // under it. Checked against the recorded payload, not the switches,
+    // because the bug is exactly that the database and the UI can diverge.
+    const persistedPayload = update.mock.calls[update.mock.calls.length - 1][2] as {
+      dashboard_sections: Record<string, boolean>
+    }
+    expect(persistedPayload.dashboard_sections.habits).toBe(habitsIsOnInUI)
+  })
+
+  it('keeps the database in sync with the switch when the same section is toggled twice before either write lands', async () => {
+    let resolveFirst!: (value: { error: unknown }) => void
+    let resolveSecond!: (value: { error: unknown }) => void
+    const firstCall = new Promise<{ error: unknown }>((resolve) => {
+      resolveFirst = resolve
+    })
+    const secondCall = new Promise<{ error: unknown }>((resolve) => {
+      resolveSecond = resolve
+    })
+
+    // Simulates the row: each write, once it resolves successfully,
+    // overwrites this with whatever payload it carried -- whichever write
+    // resolves last "wins", exactly like a real last-write-wins update.
+    let dbSections: Record<string, boolean> | null = null
+    update.mockReset()
+    update.mockImplementationOnce((...args: unknown[]) => {
+      const payload = args[2] as { dashboard_sections: Record<string, boolean> }
+      return firstCall.then((result) => {
+        if (!result.error) dbSections = payload.dashboard_sections
+        return result
+      })
+    })
+    update.mockImplementationOnce((...args: unknown[]) => {
+      const payload = args[2] as { dashboard_sections: Record<string, boolean> }
+      return secondCall.then((result) => {
+        if (!result.error) dbSections = payload.dashboard_sections
+        return result
+      })
+    })
+
+    render(<DashboardSectionsCard userId="user-1" isAdmin={false} initial={{}} />)
+
+    const habitsSwitch = screen.getByRole('switch', { name: /habits/i })
+    fireEvent.click(habitsSwitch) // off
+    fireEvent.click(habitsSwitch) // back on, before the first write resolves
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+
+    // Resolve out of order: the second (correct, "on") write lands first,
+    // then the first (stale, "off") write lands after it -- the race the
+    // reviewer described.
+    resolveSecond({ error: null })
+    resolveFirst({ error: null })
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect(habitsSwitch.getAttribute('aria-checked')).toBe('true')
+    )
+
+    // The last payload the database actually received must match where the
+    // switch ended up, not a stale value from the first click.
+    expect(dbSections).toEqual({ habits: true })
+  })
 })
