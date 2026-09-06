@@ -130,7 +130,7 @@ const STEPS = [
   {
     label: "Top Three",
     title: "Set up your Top Three for Today",
-    description: "One must-win, one progress move, and one health commitment.",
+    description: "A Main Quest is required. The other two are yours to skip.",
   },
   {
     label: "Anchors",
@@ -149,39 +149,45 @@ const STEPS = [
   },
 ] as const;
 
+/**
+ * One name per role, not two.
+ *
+ * The card used to show "Must Win" beside a "Main Quest" badge, and the same
+ * doubling for the other two -- two names for one thing, on the step where
+ * the user has learned neither. The quest name is the one that survives: it
+ * is what the timeline and the dashboard call the block afterwards, while
+ * "Must Win" appeared here and nowhere else. The helper line now carries the
+ * meaning that label used to.
+ */
 const OUTCOME_META: Record<
   DayPlanOutcomeRole,
   {
     label: string;
     helper: string;
-    mission: string;
     icon: typeof Target;
     style: string;
     defaultDuration: number;
   }
 > = {
   must_win: {
-    label: "Must Win",
-    helper: "What one thing will create the biggest impact today?",
-    mission: "Main Quest",
+    label: "Main Quest",
+    helper: "The one thing that has to move today.",
     icon: Target,
     style:
       "border-violet-500/35 bg-violet-500/8 text-violet-700 dark:text-violet-300",
     defaultDuration: 90,
   },
   progress: {
-    label: "Progress",
-    helper: "A concrete move that compounds toward your bigger goals.",
-    mission: "Side Quest",
+    label: "Side Quest",
+    helper: "A concrete move toward something bigger.",
     icon: Sparkles,
     style:
       "border-blue-500/35 bg-blue-500/8 text-blue-700 dark:text-blue-300",
     defaultDuration: 60,
   },
   health: {
-    label: "Health",
-    helper: "The action that protects your body, energy, or recovery.",
-    mission: "Recovery Quest",
+    label: "Recovery Quest",
+    helper: "What protects your body, energy, or recovery.",
     icon: HeartPulse,
     style:
       "border-emerald-500/35 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300",
@@ -880,15 +886,21 @@ export function TodayPlanner({
                             <Icon className="size-5" />
                           </span>
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-baseline gap-2">
                               <h2 className="font-semibold">{item.label}</h2>
-                              <Badge
-                                variant="outline"
-                                className={cn("rounded-full", item.style)}
-                              >
-                                {item.mission}
-                              </Badge>
+                              {role === "must_win" ? (
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  Required
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  Optional
+                                </span>
+                              )}
                             </div>
+                            {/* The question, asked once. It used to be here
+                                and again inside the field, in slightly
+                                different words. */}
                             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                               {item.helper}
                             </p>
@@ -907,29 +919,32 @@ export function TodayPlanner({
                             void createAndAssignTask(role, title)
                           }
                           creating={creatingRole === role}
-                          placeholder={
-                            role === "must_win"
-                              ? "What must move today? Search or create a task…"
-                              : role === "progress"
-                                ? "What creates forward momentum? Search or create a task…"
-                                : "What protects your energy? Search or create a task…"
-                          }
+                          // Says what the field does, not what to think
+                          // about -- the helper above already asked.
+                          placeholder="Search your tasks, or write something new"
                         />
                         {createTaskError?.role === role && (
                           <p role="alert" className="text-xs text-destructive">
                             {createTaskError.message}
                           </p>
                         )}
+                        {/* Nothing to say about an empty field. This used
+                            to read "Standalone outcome" under three blank
+                            inputs, where there was no outcome yet. */}
+                        {outcome?.title.trim() && (
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-xs text-muted-foreground">
                             {outcome?.task_id
                               ? "Linked to a task"
-                              : "Standalone outcome"}
+                              : "Not saved as a task"}
                           </span>
                           <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                            Budget
+                            {/* Named for what it becomes on the timeline,
+                                rather than "Budget", which said nothing
+                                about where the number goes. */}
+                            Block length
                             <select
-                              aria-label={`${item.label} time budget`}
+                              aria-label={`${item.label} block length`}
                               value={
                                 outcome?.duration_minutes ??
                                 item.defaultDuration
@@ -951,6 +966,7 @@ export function TodayPlanner({
                             </select>
                           </label>
                         </div>
+                        )}
                       </CardContent>
                     </Card>
                   );
@@ -1317,7 +1333,7 @@ export function TodayPlanner({
                             className="rounded-2xl border bg-background/70 p-4"
                           >
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              {OUTCOME_META[outcome.role].mission}
+                              {OUTCOME_META[outcome.role].label}
                             </p>
                             <p className="mt-1 text-sm font-medium">
                               {outcome.title}
