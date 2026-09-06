@@ -123,6 +123,28 @@ describe('MetricTargetControl', () => {
     )
   })
 
+  it('discards an abandoned edit when reopened', async () => {
+    render(
+      <MetricTargetControl
+        {...props}
+        initial={{ fieldId: 'field-steps', targetValue: 8000, direction: 'at_least' }}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /at least 8000 steps/i }))
+
+    await waitFor(() => expect(screen.getByLabelText('Target')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('Target'), { target: { value: '999' } })
+
+    // Close without saving.
+    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    await waitFor(() => expect(screen.queryByLabelText('Target')).toBeNull())
+
+    // Reopen: the abandoned edit should be gone, replaced by the saved value.
+    fireEvent.click(screen.getByRole('button', { name: /at least 8000 steps/i }))
+    await waitFor(() => expect(screen.getByLabelText('Target')).toBeTruthy())
+    expect(screen.getByLabelText('Target')).toHaveProperty('value', '8000')
+  })
+
   it('removes the target it has', async () => {
     render(
       <MetricTargetControl

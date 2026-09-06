@@ -78,4 +78,25 @@ describe('ScorecardSection', () => {
       screen.getByRole('link', { name: /metrics/i }).getAttribute('href')
     ).toBe('/journal/metrics')
   })
+
+  it('draws a full bar for a met zero target instead of an invisible one', () => {
+    const { container } = render(
+      <ScorecardSection
+        rows={[
+          row({
+            label: 'Cigarettes',
+            unit: 'cigarettes',
+            targetValue: 0,
+            direction: 'at_most',
+            latestValue: 0,
+            met: true,
+          }),
+        ]}
+      />
+    )
+
+    const bar = container.querySelector('.transition-all') as HTMLElement | null
+    expect(bar).toBeTruthy()
+    expect(bar?.style.width).toBe('100%')
+  })
 })

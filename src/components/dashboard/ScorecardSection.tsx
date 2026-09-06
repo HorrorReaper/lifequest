@@ -57,10 +57,21 @@ export function ScorecardSection({ rows }: ScorecardSectionProps) {
         {rows.map((row) => {
           // Fill means closeness to the target in both directions. Only the
           // colour flips: for a limit, full is bad and beyond it worse.
+          // A target of 0 can only be met via `at_most` (`at_least 0` is met
+          // by everything), so a met zero-target draws a full bar and a
+          // missed one stays empty rather than painting a destructive full
+          // bar for values that overshot a limit of zero.
           const fill =
-            row.latestValue === null || row.targetValue === 0
+            row.latestValue === null
               ? 0
-              : Math.min((row.latestValue / row.targetValue) * 100, 100)
+              : row.targetValue === 0
+                ? row.met
+                  ? 100
+                  : 0
+                : Math.max(
+                    0,
+                    Math.min((row.latestValue / row.targetValue) * 100, 100)
+                  )
 
           return (
             <li key={row.fieldId} className="space-y-1.5">

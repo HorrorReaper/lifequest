@@ -143,10 +143,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
   const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
 
-  // Both sections need the metric list; only the chart needs a full series
-  // per metric, which is the expensive part.
+  // Scorecard rows come from targets, not the tracked-metric list, so fetch
+  // targets first and only pay for the list when something actually needs
+  // it: the chart (shows('metric')) or a scorecard that has targets set.
+  // The scorecard is on by default with no targets on day one, so gating
+  // the list this way removes two wasted sequential queries for exactly the
+  // population that sees no section.
+  const metricTargets = shows('scorecard')
+    ? await fetchMetricTargets(supabase, user.id)
+    : []
   const trackedMetrics =
-    shows('metric') || shows('scorecard')
+    shows('metric') || metricTargets.length > 0
       ? await fetchTrackedMetrics(supabase, user.id)
       : []
   const trackedMetricSeries = shows('metric')
@@ -165,9 +172,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const primaryMetricSeries =
     primaryMetricIndex >= 0 ? trackedMetricSeries[primaryMetricIndex] : []
 
-  const metricTargets = shows('scorecard')
-    ? await fetchMetricTargets(supabase, user.id)
-    : []
   const scorecardRows = shows('scorecard')
     ? buildScorecardRows({
         metrics: trackedMetrics,

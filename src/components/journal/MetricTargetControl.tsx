@@ -86,6 +86,17 @@ export function MetricTargetControl({
     }
   }
 
+  // Opening always starts from the currently saved target, discarding any
+  // abandoned edit left over from a dialog that was dismissed without
+  // saving -- otherwise the field shows stale text while the button behind
+  // it still shows the saved target.
+  function handleOpen() {
+    setValue(target ? String(target.targetValue) : '')
+    setDirection(target?.direction ?? 'at_least')
+    setError(null)
+    setOpen(true)
+  }
+
   async function handleRemove() {
     setSaving(true)
     setError(null)
@@ -109,7 +120,7 @@ export function MetricTargetControl({
         type="button"
         variant="outline"
         size="sm"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         className="w-full justify-start"
       >
         <TargetIcon />
