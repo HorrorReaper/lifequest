@@ -13,6 +13,7 @@ describe('DASHBOARD_SECTIONS', () => {
       'today_plan',
       'habits',
       'tasks',
+      'scorecard',
       'metric',
       'quests',
       'routines',
@@ -78,18 +79,18 @@ describe('sectionsFor', () => {
   it('hides the admin-only section from everyone else', () => {
     const ids = sectionsFor({ isAdmin: false }).map((section) => section.id)
     expect(ids).not.toContain('routines')
-    expect(ids).toHaveLength(5)
+    expect(ids).toHaveLength(6)
   })
 
   it('gives an admin the full list', () => {
-    expect(sectionsFor({ isAdmin: true })).toHaveLength(6)
+    expect(sectionsFor({ isAdmin: true })).toHaveLength(7)
   })
 })
 
 describe('visibleSectionCount', () => {
   it('counts everything when nothing has been turned off', () => {
-    expect(visibleSectionCount({}, { isAdmin: false })).toBe(5)
-    expect(visibleSectionCount({}, { isAdmin: true })).toBe(6)
+    expect(visibleSectionCount({}, { isAdmin: false })).toBe(6)
+    expect(visibleSectionCount({}, { isAdmin: true })).toBe(7)
   })
 
   it('does not count a section the user could not see anyway', () => {
@@ -99,6 +100,7 @@ describe('visibleSectionCount', () => {
       today_plan: false,
       habits: false,
       tasks: false,
+      scorecard: false,
       metric: false,
       quests: false,
     }
