@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { addDays, dateInTimezone } from '@/lib/dates'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
@@ -36,6 +37,12 @@ import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
 import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
+import {
+  isSectionVisible,
+  normalizeDashboardSections,
+  sectionsFor,
+  visibleSectionCount,
+} from '@/lib/dashboard-sections'
 
 type QuickActionTarget = 'task' | 'plan' | 'habit' | 'routine'
 
@@ -108,6 +115,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const isAdmin = await showAdminUi(user)
 
+  const sectionPrefs = normalizeDashboardSections(profile.dashboard_sections)
+  const shows = (id: string) => isSectionVisible(sectionPrefs, id)
+
   const level = getLevel(profile.total_xp)
   const cityTier = getCityTier(level)
   const progress = getXpProgress(profile.total_xp)
@@ -118,12 +128,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   ])
   const coins = (cityRowData as { coins: number } | null)?.coins ?? 0
 
-  const { annotated, customQuests } = await fetchQuestPageData(supabase, user.id)
+  // Its own sequential await, so skipping it shortens the page load rather
+  // than only the page.
+  const { annotated, customQuests } = shows('quests')
+    ? await fetchQuestPageData(supabase, user.id)
+    : { annotated: [], customQuests: [] }
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
   const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
 
-  const trackedMetrics = await fetchTrackedMetrics(supabase, user.id)
+  // One query plus one per tracked metric, all sequential before the main
+  // batch below -- the largest saving of the three.
+  const trackedMetrics = shows('metric')
+    ? await fetchTrackedMetrics(supabase, user.id)
+    : []
   const trackedMetricSeries = await Promise.all(
     trackedMetrics.map((metric) => fetchMetricSeries(supabase, user.id, metric.fieldId))
   )
@@ -193,7 +211,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('user_id', user.id)
       .eq('plan_date', today)
       .maybeSingle(),
-    isAdmin ? fetchRoutines(supabase, user.id, false) : Promise.resolve([]),
+    isAdmin && shows('routines')
+      ? fetchRoutines(supabase, user.id, false)
+      : Promise.resolve([]),
     isAdmin ? fetchDashboardLearnings(supabase, user.id) : Promise.resolve([]),
     supabase
       .from('tasks')
@@ -322,22 +342,28 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           tasksCompletedToday={tasksCompletedToday}
         />
 
-        <TodayPlanSection blocks={planBlocks} nowMinutes={nowMinutes} />
+        {shows('today_plan') && (
+          <TodayPlanSection blocks={planBlocks} nowMinutes={nowMinutes} />
+        )}
 
-        <HabitsSection
-          userId={user.id}
-          today={today}
-          habits={dashboardHabits}
-        />
+        {shows('habits') && (
+          <HabitsSection
+            userId={user.id}
+            today={today}
+            habits={dashboardHabits}
+          />
+        )}
 
-        <TasksSection
-          userId={user.id}
-          dueTasks={dueTasks}
-          undatedTasks={undatedTasks}
-          openTaskCount={openTasksRes.count ?? 0}
-        />
+        {shows('tasks') && (
+          <TasksSection
+            userId={user.id}
+            dueTasks={dueTasks}
+            undatedTasks={undatedTasks}
+            openTaskCount={openTasksRes.count ?? 0}
+          />
+        )}
 
-        {primaryMetric && (
+        {shows('metric') && primaryMetric && (
           <MetricDashboardWidget
             label={primaryMetric.label}
             unit={primaryMetric.unit}
@@ -353,12 +379,32 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
         )}
 
-        {isAdmin && <RoutinesDashboardWidget routines={dashboardRoutines} />}
+        {isAdmin && shows('routines') && (
+          <RoutinesDashboardWidget routines={dashboardRoutines} />
+        )}
 
-        <QuestDashboardWidget
-          claimable={claimableQuests}
-          activeCustom={activeCustomQuests}
-        />
+        {shows('quests') && (
+          <QuestDashboardWidget
+            claimable={claimableQuests}
+            activeCustom={activeCustomQuests}
+          />
+        )}
+
+        {/* Without this, someone who turned everything off sees a hero and
+            some prompts and cannot tell that from a broken page. */}
+        {visibleSectionCount(sectionPrefs, { isAdmin }) === 0 && (
+          <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+            All {sectionsFor({ isAdmin }).length} dashboard sections are
+            hidden.{' '}
+            <Link
+              href="/settings"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Turn some back on
+            </Link>
+            .
+          </p>
+        )}
       </div>
     </div>
   )
