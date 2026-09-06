@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { SettingsForm } from '@/components/settings/settings-form'
 import type { Database } from '@/lib/supabase/database.types'
 import { showAdminUi } from '@/lib/admin'
+import { normalizeDashboardSections } from '@/lib/dashboard-sections'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -34,6 +35,7 @@ export default async function SettingsPage() {
           aiConsentAt={profile?.ai_consent_at ?? null}
           aiAccessEnabled={showAdmin}
           isAdmin={showAdmin}
+          dashboardSections={normalizeDashboardSections(profile?.dashboard_sections)}
         />
       </div>
     </div>
