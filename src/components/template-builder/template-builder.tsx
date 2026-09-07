@@ -27,13 +27,17 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { EmojiPicker } from '@/components/ui/emoji-picker'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Eye } from 'lucide-react'
 import {
   SortableFieldItem,
   BuilderField,
 } from '@/components/template-builder/sortable-field-item'
 import { FieldConfigEditor } from '@/components/template-builder/field-config-editor'
 import { AddFieldPanel } from '@/components/template-builder/add-field-panel'
-import { FieldTypeDefinition } from '@/lib/field-registry'
+import { TemplatePreview } from '@/components/template-builder/template-preview'
+import { FieldTypeDefinition, getFieldDefinition } from '@/lib/field-registry'
 
 interface TemplateBuilderProps {
   templateId?: string
@@ -52,11 +56,6 @@ const ENTRY_TYPES = [
   { value: 'weekly', label: '📝 Weekly' },
   { value: 'free_write', label: '✍️ Free Write' },
   { value: 'custom', label: '🎨 Custom' },
-]
-
-const TEMPLATE_ICONS = [
-  '📓', '🌅', '🌙', '📝', '✍️', '💡', '🎯', '🧠',
-  '💪', '🙏', '🌟', '🔥', '📖', '💭', '🎨', '🏆',
 ]
 
 export function TemplateBuilder({
@@ -81,6 +80,9 @@ export function TemplateBuilder({
   const [editingField, setEditingField] = useState<BuilderField | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Below lg the preview cannot sit beside the builder, so it moves into a
+  // sheet the same way the dashboard puts its day management in one.
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   const sensors = useSensors( // DnD Kit Sensoren für Maus und Tastatur
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -229,7 +231,9 @@ export function TemplateBuilder({
       const fieldInserts = fields.map((field, index) => ({
         template_id: savedTemplateId!,
         field_type: field.field_type,
-        label: field.label || field.field_type,
+        // Falls back to the type's readable name: an unnamed field used to
+        // reach the journal labelled "mood" or "textarea".
+        label: field.label || getFieldDefinition(field.field_type).label,
         description: field.description,
         placeholder: field.placeholder,
         is_required: field.is_required,
@@ -256,29 +260,28 @@ export function TemplateBuilder({
     }
   }
 
+  const renderPreview = (showLabel: boolean) => (
+    <TemplatePreview
+      icon={icon}
+      name={name}
+      description={description}
+      fields={fields}
+      showLabel={showLabel}
+    />
+  )
+
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:items-start">
+      <div className="space-y-6">
       {/* Template Metadata */}
       <Card className="border-border/50">
         <CardContent className="space-y-4 pt-6">
           <div className="flex items-start gap-4">
-            {/* Icon picker */}
+            {/* Icon picker -- the same one habits use, so both are chosen the
+                same way and the choice is not limited to a fixed handful. */}
             <div className="space-y-2">
               <Label>Icon</Label>
-              <div className="relative">
-                <button
-                  type="button"
-                  className="flex h-14 w-14 items-center justify-center rounded-xl border border-border/50 bg-card text-3xl hover:bg-muted/50 transition-colors"
-                  onClick={() => {
-                    const currentIndex = TEMPLATE_ICONS.indexOf(icon)
-                    const nextIndex =
-                      (currentIndex + 1) % TEMPLATE_ICONS.length
-                    setIcon(TEMPLATE_ICONS[nextIndex])
-                  }}
-                >
-                  {icon}
-                </button>
-              </div>
+              <EmojiPicker value={icon} onChange={setIcon} label="Choose template icon" />
             </div>
 
             <div className="flex-1 space-y-3">
@@ -339,9 +342,20 @@ export function TemplateBuilder({
 
       {/* Fields List */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Fields ({fields.length})
-        </h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Fields ({fields.length})
+          </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setPreviewOpen(true)}
+          >
+            <Eye className="size-4" />
+            Preview
+          </Button>
+        </div>
 
         {fields.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/50 p-8 text-center">
@@ -417,6 +431,19 @@ export function TemplateBuilder({
         onClose={() => setEditingField(null)}
         onSave={handleSaveField}
       />
+      </div>
+
+      {/* Wide screens keep the preview in view while the builder scrolls. */}
+      <div className="hidden lg:sticky lg:top-8 lg:block">{renderPreview(true)}</div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="bottom-0 top-auto max-h-[92svh] max-w-none translate-y-0 gap-0 overflow-y-auto rounded-b-none rounded-t-3xl sm:bottom-auto sm:top-1/2 sm:max-w-lg sm:-translate-y-1/2 sm:rounded-xl">
+          <DialogHeader className="pr-10 text-left">
+            <DialogTitle>Preview</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">{renderPreview(false)}</div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
