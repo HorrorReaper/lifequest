@@ -5,6 +5,8 @@ import { useDeferredValue, useMemo, useState } from 'react'
 import {
   ArrowUpDown,
   BookOpenCheck,
+  ChevronDown,
+  SlidersHorizontal,
   CheckCircle2,
   CircleAlert,
   Lightbulb,
@@ -87,6 +89,7 @@ export function JournalInsights({ insights: initialInsights }: JournalInsightsPr
   const [endDate, setEndDate] = useState('')
   const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [sortMode, setSortMode] = useState<SortMode>('newest')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const deferredQuery = useDeferredValue(query.trim().toLowerCase())
 
@@ -194,15 +197,31 @@ export function JournalInsights({ insights: initialInsights }: JournalInsightsPr
     setSortMode('newest')
   }
 
-  const hasFilters =
-    query ||
-    type !== 'all' ||
-    tag !== 'all' ||
-    templateId !== 'all' ||
-    startDate ||
-    endDate ||
-    favoritesOnly ||
-    sortMode !== 'newest'
+  // Counted rather than a boolean, because the number is what the collapsed
+  // button shows: a filter you cannot see is one you will forget you set.
+  const activeFilterCount = [
+    query !== '',
+    type !== 'all',
+    tag !== 'all',
+    templateId !== 'all',
+    startDate !== '',
+    endDate !== '',
+    favoritesOnly,
+    sortMode !== 'newest',
+  ].filter(Boolean).length
+
+  const hasFilters = activeFilterCount > 0
+
+  // Everything the collapsed panel hides. The search box and the type tabs
+  // stay outside it, so this is what the button's badge is counting toward.
+  const hiddenFilterCount = [
+    tag !== 'all',
+    templateId !== 'all',
+    startDate !== '',
+    endDate !== '',
+    favoritesOnly,
+    sortMode !== 'newest',
+  ].filter(Boolean).length
 
   return (
     <div className="space-y-5">
@@ -245,32 +264,66 @@ export function JournalInsights({ insights: initialInsights }: JournalInsightsPr
       </div>
 
       <div className="rounded-2xl border bg-card/80 p-3 shadow-sm">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="relative">
+        {/* The search box and the type tabs are the fast path and stay put.
+            Everything else lives behind the button, because six controls
+            stacked above the list is a form in front of what you came to
+            read. */}
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search answers, prompts, topics, or templates..."
+              aria-label="Search insights"
               className="h-11 rounded-xl pl-9"
             />
           </div>
           <Button
             type="button"
             variant="outline"
-            onClick={clearFilters}
-            disabled={!hasFilters}
-            className="h-11 rounded-xl"
+            onClick={() => setFiltersOpen((current) => !current)}
+            aria-expanded={filtersOpen}
+            className="h-11 shrink-0 rounded-xl"
           >
-            <X className="size-3.5" />
-            Reset
+            <SlidersHorizontal className="size-3.5" />
+            Filters
+            {hiddenFilterCount > 0 && (
+              <span className="ml-0.5 grid size-5 place-items-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
+                {hiddenFilterCount}
+              </span>
+            )}
+            <ChevronDown
+              className={cn('size-3.5 transition-transform', filtersOpen && 'rotate-180')}
+            />
           </Button>
+          {/* Outside the panel, so a typed search can be cleared without
+              opening anything -- and only once there is something to undo. A
+              permanently disabled button was chrome, not an affordance. */}
+          {hasFilters && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={clearFilters}
+              className="h-11 shrink-0 rounded-xl text-muted-foreground"
+            >
+              <X className="size-3.5" />
+              Reset
+            </Button>
+          )}
         </div>
 
+        {filtersOpen && (
+        <>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+          <label
+            htmlFor="insight-filter-topic"
+            className="space-y-1.5 text-xs font-medium text-muted-foreground"
+          >
             Topic
             <select
+              id="insight-filter-topic"
               value={tag}
               onChange={(event) => setTag(event.target.value)}
               className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -282,9 +335,13 @@ export function JournalInsights({ insights: initialInsights }: JournalInsightsPr
             </select>
           </label>
 
-          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+          <label
+            htmlFor="insight-filter-template"
+            className="space-y-1.5 text-xs font-medium text-muted-foreground"
+          >
             Template
             <select
+              id="insight-filter-template"
               value={templateId}
               onChange={(event) => setTemplateId(event.target.value)}
               className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -298,9 +355,13 @@ export function JournalInsights({ insights: initialInsights }: JournalInsightsPr
             </select>
           </label>
 
-          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+          <label
+            htmlFor="insight-filter-from"
+            className="space-y-1.5 text-xs font-medium text-muted-foreground"
+          >
             From
             <Input
+              id="insight-filter-from"
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
@@ -308,9 +369,13 @@ export function JournalInsights({ insights: initialInsights }: JournalInsightsPr
             />
           </label>
 
-          <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+          <label
+            htmlFor="insight-filter-to"
+            className="space-y-1.5 text-xs font-medium text-muted-foreground"
+          >
             To
             <Input
+              id="insight-filter-to"
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
@@ -329,9 +394,14 @@ export function JournalInsights({ insights: initialInsights }: JournalInsightsPr
             <Star className={cn('size-3.5', favoritesOnly && 'fill-current')} />
             Favorites
           </Button>
-          <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <label
+            htmlFor="insight-filter-sort"
+            className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
+          >
             <ArrowUpDown className="size-3.5" />
+            <span className="sr-only">Sort</span>
             <select
+              id="insight-filter-sort"
               value={sortMode}
               onChange={(event) => setSortMode(event.target.value as SortMode)}
               className="h-8 rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -341,7 +411,10 @@ export function JournalInsights({ insights: initialInsights }: JournalInsightsPr
               <option value="favorites">Favorites first</option>
             </select>
           </label>
+
         </div>
+        </>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-3 text-sm">
