@@ -162,6 +162,29 @@ export function TemplateBuilder({
       let savedTemplateId = templateId
 
       if (savedTemplateId && !isSystem) {
+        // Nothing may be written before we know the fields can be replaced.
+        // This check used to run after the metadata update, which left a
+        // refused save with a changed name, icon and XP reward on a template
+        // whose fields had not moved.
+        const { data: existingFields } = await supabase
+          .from('template_fields')
+          .select('id')
+          .eq('template_id', savedTemplateId)
+
+        const fieldIds = (existingFields ?? []).map((f: { id: string }) => f.id)
+        if (fieldIds.length > 0) {
+          const { count } = await supabase
+            .from('journal_responses')
+            .select('id', { count: 'exact', head: true })
+            .in('field_id', fieldIds)
+
+          if ((count ?? 0) > 0) {
+            setError('Cannot modify template fields because there are existing responses. Duplicate or archive the template first.')
+            setSaving(false)
+            return
+          }
+        }
+
         // Update existing template
         const { error: updateError } = await supabaseFrom(supabase, 'journal_templates')
           .update({
@@ -176,37 +199,14 @@ export function TemplateBuilder({
           .eq('user_id', user.id)
 
         if (updateError) throw updateError
-        // Before removing fields, ensure there are no existing journal responses
-        const { data: existingFields } = await supabase
-          .from('template_fields')
-          .select('id')
-          .eq('template_id', savedTemplateId)
-
-        const fieldIds = (existingFields ?? []).map((f: any) => f.id)
-        if (fieldIds.length > 0) {
-          const { count } = await supabase
-            .from('journal_responses')
-            .select('id', { count: 'exact', head: true })
-            .in('field_id', fieldIds)
-
-          if ((count ?? 0) > 0) {
-            setError('Cannot modify template fields because there are existing responses. Duplicate or archive the template first.')
-            setSaving(false)
-            return
-          }
-        }
 
         // Delete existing fields and re-insert (safe because no responses reference them)
-        const { data: deletedFields, error: deleteError } = await supabase
+        const { error: deleteError } = await supabase
           .from('template_fields')
           .delete()
           .eq('template_id', savedTemplateId)
 
         if (deleteError) throw deleteError
-        // Debug: log deletion count
-        // eslint-disable-next-line no-console
-        const deleted = deletedFields as any
-        console.log('Deleted template_fields for', savedTemplateId, deleted?.length)
       } else {
         // Create new template
         const { data: newTemplate, error: insertError } = await supabaseFrom(supabase, 'journal_templates')
@@ -241,10 +241,6 @@ export function TemplateBuilder({
         config: field.config,
         xp_rules: field.xp_rules ?? [],
       }))
-
-      // Debug: log what's being inserted
-      // eslint-disable-next-line no-console
-      console.log('Inserting template fields for', savedTemplateId, fieldInserts)
 
       const { error: fieldsError } = await supabaseInsert(supabase, 'template_fields', fieldInserts as any)
 
