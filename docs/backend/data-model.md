@@ -33,8 +33,10 @@ Application filters such as `.eq('user_id', user.id)` improve clarity and perfor
 | `template_fields` | Ordered field definitions belonging to a template |
 | `journal_entries` | User entry, template, entry date, completion and XP |
 | `journal_responses` | Typed values for an entry and template field |
-| `journal_prompts` | Prompt library used by prompt fields |
+| `journal_prompts` | Prompt library used by `prompt` template fields, drawn at random |
 | `journal_learnings` | Durable user learning/insight records |
+
+The dashboard's Daily Reflection is a separate mechanism from `journal_prompts`: its questions are authored in `src/lib/daily-reflection.ts` and picked by calendar day, and it writes into a seeded system template whose id is a constant in that same module. Nothing about the day's question is stored per entry; it is derived from the entry's date.
 
 Responses support text, numeric, boolean, and JSON value columns. The field definition determines which representation is meaningful.
 

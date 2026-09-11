@@ -8,13 +8,14 @@ import {
 } from '@/lib/dashboard-sections'
 
 describe('DASHBOARD_SECTIONS', () => {
-  it('lists the six sections, with routines marked admin-only', () => {
+  it('lists the seven sections, with routines marked admin-only', () => {
     expect(DASHBOARD_SECTIONS.map((section) => section.id)).toEqual([
       'today_plan',
       'habits',
       'tasks',
       'scorecard',
       'metric',
+      'reflection',
       'quests',
       'routines',
     ])
@@ -79,18 +80,18 @@ describe('sectionsFor', () => {
   it('hides the admin-only section from everyone else', () => {
     const ids = sectionsFor({ isAdmin: false }).map((section) => section.id)
     expect(ids).not.toContain('routines')
-    expect(ids).toHaveLength(6)
+    expect(ids).toHaveLength(7)
   })
 
   it('gives an admin the full list', () => {
-    expect(sectionsFor({ isAdmin: true })).toHaveLength(7)
+    expect(sectionsFor({ isAdmin: true })).toHaveLength(8)
   })
 })
 
 describe('visibleSectionCount', () => {
   it('counts everything when nothing has been turned off', () => {
-    expect(visibleSectionCount({}, { isAdmin: false })).toBe(6)
-    expect(visibleSectionCount({}, { isAdmin: true })).toBe(7)
+    expect(visibleSectionCount({}, { isAdmin: false })).toBe(7)
+    expect(visibleSectionCount({}, { isAdmin: true })).toBe(8)
   })
 
   it('does not count a section the user could not see anyway', () => {
@@ -102,6 +103,7 @@ describe('visibleSectionCount', () => {
       tasks: false,
       scorecard: false,
       metric: false,
+      reflection: false,
       quests: false,
     }
     expect(visibleSectionCount(allOff, { isAdmin: false })).toBe(0)

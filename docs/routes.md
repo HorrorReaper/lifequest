@@ -24,7 +24,7 @@
 | Route | Purpose |
 | --- | --- |
 | `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
-| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, quests, and admin-only widgets |
+| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, the daily reflection prompt, quests, and admin-only widgets |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
 | `/plan` | Five-step Today Plan ritual |
 | `/tasks` | Full task manager |

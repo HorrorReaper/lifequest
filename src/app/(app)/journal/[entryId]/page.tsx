@@ -9,6 +9,10 @@ import { JournalTemplate, TemplateField, FieldValue } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { fetchInsightTagSuggestions, isInsightType } from '@/lib/insights'
 import { formatDateOnly } from '@/lib/dates'
+import {
+  DAILY_REFLECTION_TEMPLATE_ID,
+  reflectionPromptForDate,
+} from '@/lib/daily-reflection'
 
 interface PageProps {
   params: Promise<{ entryId: string }>
@@ -80,6 +84,14 @@ export default async function ViewEntryPage({ params }: PageProps) {
   }
 
 
+  // Derived from the entry's date rather than read back from a column: the
+  // rotation is a pure function of the day, so a reflection opened months
+  // later still shows the question it was written against.
+  const prompt =
+    entry.template_id === DAILY_REFLECTION_TEMPLATE_ID
+      ? reflectionPromptForDate(entry.entry_date).text
+      : null
+
   return (
     <div className="min-h-svh bg-background px-4 pb-24 pt-5 max-md:p-0 sm:px-8 sm:pt-8">
       <div className="mx-auto max-w-3xl space-y-4">
@@ -113,6 +125,7 @@ export default async function ViewEntryPage({ params }: PageProps) {
           existingResponses={existingResponses}
           suggestedInsightTags={suggestedInsightTags}
           timezone={timezone}
+          prompt={prompt}
         />
       </div>
     </div>

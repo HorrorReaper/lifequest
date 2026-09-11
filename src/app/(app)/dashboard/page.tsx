@@ -38,6 +38,11 @@ import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 import { ScorecardSection } from '@/components/dashboard/ScorecardSection'
+import { ReflectionSection } from '@/components/dashboard/ReflectionSection'
+import {
+  DAILY_REFLECTION_TEMPLATE_ID,
+  reflectionPromptForDate,
+} from '@/lib/daily-reflection'
 import {
   buildScorecardRows,
   fetchLatestMetricValues,
@@ -276,9 +281,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     (briefingTasksRes.data ?? []) as TaskRow[],
     today
   )
+  const todayEntries = (todayEntriesRes.data ?? []) as {
+    id: string
+    template_id: string
+  }[]
   const completedTemplateIds = new Set(
-    ((todayEntriesRes.data ?? []) as { template_id: string }[]).map((entry) => entry.template_id)
+    todayEntries.map((entry) => entry.template_id)
   )
+  // Reuses the entries already fetched for the journal nudge rather than
+  // asking again: today's reflection is just one of today's entries.
+  const reflectionEntryId =
+    todayEntries.find((entry) => entry.template_id === DAILY_REFLECTION_TEMPLATE_ID)?.id ?? null
   const briefingJournals = ((briefingTemplatesRes.data ?? []) as {
     id: string
     name: string
@@ -356,7 +369,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         <JournalNudge
           journals={briefingJournals}
-          completedJournalCount={(todayEntriesRes.data ?? []).length}
+          completedJournalCount={todayEntries.length}
         />
 
         <FirstRunWelcome show={showWelcome} />
@@ -413,6 +426,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         {isAdmin && shows('routines') && (
           <RoutinesDashboardWidget routines={dashboardRoutines} />
+        )}
+
+        {shows('reflection') && (
+          <ReflectionSection
+            prompt={reflectionPromptForDate(today)}
+            writtenToday={reflectionEntryId !== null}
+            entryId={reflectionEntryId}
+          />
         )}
 
         {shows('quests') && (

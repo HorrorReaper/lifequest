@@ -66,6 +66,13 @@ interface EntryFormProps {
   timezone: string
   /** True when this is the entry onboarding routed the user into. */
   firstEntry?: boolean
+  /**
+   * The question this entry answers, for templates whose prompt rotates
+   * rather than living on a field -- the Daily Reflection. Shown above the
+   * fields and kept on screen through every step of the mobile wizard, so
+   * the question stays visible while the answer is being written.
+   */
+  prompt?: string | null
 }
 
 type JournalResponseInsert = Database['public']['Tables']['journal_responses']['Insert']
@@ -182,6 +189,7 @@ export function EntryForm({
   suggestedInsightTags = [],
   timezone,
   firstEntry = false,
+  prompt = null,
 }: EntryFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -833,6 +841,17 @@ export function EntryForm({
         </section>
 
         <main className="flex-1 overflow-y-auto px-5 pb-8 pt-6 md:space-y-4 md:overflow-visible md:p-0">
+          {prompt && (
+            <div className="mb-4 rounded-[1.5rem] border border-primary/20 bg-primary/5 p-4 sm:p-5 md:mb-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                Today&apos;s question
+              </p>
+              <p className="mt-2 text-balance text-base leading-7 sm:text-[0.95rem] sm:leading-6">
+                {prompt}
+              </p>
+            </div>
+          )}
+
           {mobileSteps.map((step, stepIndex) => (
             <MobileJournalStepPanel
               key={step.id}

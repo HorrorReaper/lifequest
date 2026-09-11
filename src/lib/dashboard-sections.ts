@@ -43,6 +43,11 @@ export const DASHBOARD_SECTIONS: DashboardSectionDef[] = [
     description: 'A chart of the metric you are tracking.',
   },
   {
+    id: 'reflection',
+    label: 'Daily Reflection',
+    description: 'A question to think about, and a way to write about it.',
+  },
+  {
     id: 'quests',
     label: 'Quests',
     description: 'Quests ready to claim, and the ones still running.',
