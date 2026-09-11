@@ -31,8 +31,8 @@
 | `/habits` | Today/history/archived habit manager |
 | `/habits/[habitId]` | Habit detail and analytics |
 | `/quests` | Default quests, custom quests, daily challenges, and challenge programs |
-| `/learn` | Lesson library |
-| `/learn/[lessonId]` | Lesson reader and completion quiz |
+| `/learn` | Article library; admins additionally get the interactive Academy courses |
+| `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
 | `/city` | Virtual city view/build mode |
