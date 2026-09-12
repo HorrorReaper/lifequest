@@ -7,16 +7,18 @@ import {
   BookOpenCheck,
   ChevronDown,
   SlidersHorizontal,
-  CheckCircle2,
-  CircleAlert,
-  Lightbulb,
   Search,
   Star,
-  Trophy,
   X,
 } from 'lucide-react'
 import type { InsightType } from '@/lib/types'
-import { INSIGHT_TYPES, insightTypeLabel } from '@/lib/insights'
+import {
+  INSIGHT_TYPES,
+  INSIGHT_TYPE_ICONS as TYPE_ICONS,
+  INSIGHT_TYPE_STYLES as TYPE_STYLES,
+  insightTypeLabel,
+} from '@/lib/insights'
+import type { JournalInsightItem } from '@/lib/journal-insights'
 import { createClient } from '@/lib/supabase/client'
 import { supabaseFrom } from '@/lib/supabase/helpers'
 import { Badge } from '@/components/ui/badge'
@@ -25,27 +27,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-export interface JournalInsightItem {
-  id: string
-  source: 'response' | 'legacy'
-  sourceId: string
-  entryId: string
-  fieldId: string | null
-  type: InsightType
-  title: string | null
-  answer: string
-  prompt: string | null
-  tags: string[]
-  actionText: string | null
-  isFavorite: boolean
-  markedAt: string
-  entryDate: string
-  template: {
-    id: string | null
-    name: string | null
-    icon: string | null
-  } | null
-}
+// Re-exported for the views that render this component's items.
+export type { JournalInsightItem }
 
 interface JournalInsightsProps {
   insights: JournalInsightItem[]
@@ -53,22 +36,6 @@ interface JournalInsightsProps {
 
 type SortMode = 'newest' | 'oldest' | 'favorites'
 type TypeFilter = 'all' | InsightType
-
-const TYPE_ICONS = {
-  learning: BookOpenCheck,
-  problem: CircleAlert,
-  idea: Lightbulb,
-  decision: CheckCircle2,
-  win: Trophy,
-} satisfies Record<InsightType, typeof BookOpenCheck>
-
-const TYPE_STYLES = {
-  learning: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  problem: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  idea: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  decision: 'bg-primary/10 text-primary',
-  win: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-} satisfies Record<InsightType, string>
 
 function formatDate(date: string) {
   return new Date(`${date.slice(0, 10)}T12:00:00`).toLocaleDateString('en-US', {

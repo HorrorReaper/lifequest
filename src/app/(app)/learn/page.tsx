@@ -3,8 +3,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { annotateLessons, type LessonWithStatus } from '@/lib/lessons'
 import { showAdminUi } from '@/lib/admin'
+import { fetchJournalInsights } from '@/lib/journal-insights'
 import { LearningPathLibrary } from '@/components/learn/LearningPathLibrary'
-import { LearnPageClient } from '@/components/learn/LearnPageClient'
+import { AcademyLibrary } from '@/components/learn/AcademyLibrary'
 import { BookOpenCheck, Wrench } from 'lucide-react'
 import { fetchLearningExperience } from '@/lib/learning-api'
 import {
@@ -122,12 +123,15 @@ export default async function LearnPage() {
   const lessons = annotateLessons(completedIds, completionTimes)
 
   if (!showCourses) {
+    // Only this half renders insights, so the admin page never pays for them.
+    const insights = await fetchJournalInsights(supabase, user.id)
+
     return (
       <LearnPageShell
-        title="Articles"
-        intro="Short reads on habits, focus, and health — each one ends with a quiz that pays out XP and coins."
+        title="Learn by doing"
+        intro="Short reads that end in a quiz, tools to work through, and everything you marked while journaling."
       >
-        <LearnPageClient lessons={lessons} />
+        <AcademyLibrary lessons={lessons} insights={insights} />
       </LearnPageShell>
     )
   }
