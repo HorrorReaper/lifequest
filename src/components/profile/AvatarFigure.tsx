@@ -41,8 +41,13 @@ const ITEM_ART: Record<string, ItemArt> = {
       <g fill="hsl(152 32% 38%)" stroke="hsl(152 32% 24%)" strokeWidth="2" strokeLinejoin="round">
         <path d="M 47 28 Q 60 14 73 28 Z" />
         {/* Brim reaches x=86, so ~13 units clear the skull -- shorter than the
-            head's 15-unit radius. Running it out to 90 read as a plank. */}
-        <path d="M 68 28 Q 80 27 86 30 Q 79 32 68 31 Z" />
+            head's 15-unit radius. Running it out to 90 read as a plank.
+            Shifted 2 units above the crown's own y=28 base so its tip lands
+            on that same line instead of hanging below it -- the crown's arc
+            at x=68 (where the brim starts) is already up at y~23.7, so the
+            brim sitting any higher than its old y=28 start reads as tucked
+            under the crown rather than floating apart from it. */}
+        <path d="M 68 26 Q 80 25 86 28 Q 79 30 68 29 Z" />
       </g>
     ),
   },
