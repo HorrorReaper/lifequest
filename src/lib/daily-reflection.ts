@@ -19,6 +19,12 @@ export interface ReflectionPrompt {
 export const DAILY_REFLECTION_TEMPLATE_ID = 'f3ff8330-725f-43ef-b076-7fe79ba96cb3'
 
 /**
+ * The template's one field: a free-text answer to whichever prompt rotated
+ * in for the day. Seeded alongside the template in the same migration.
+ */
+export const DAILY_REFLECTION_FIELD_ID = '1bab55cf-5277-4597-9bc6-74a17ce47a09'
+
+/**
  * The daily reflection prompts, in rotation order.
  *
  * A list walked one prompt per calendar day rather than a random draw: the
@@ -203,4 +209,30 @@ export function reflectionPromptForDate(dateKey: string): ReflectionPrompt {
 export function findReflectionPrompt(id: string | null | undefined): ReflectionPrompt | null {
   if (!id) return null
   return PROMPTS_BY_ID.get(id) ?? null
+}
+
+/**
+ * A prompt other than the one you are looking at, for "give me a different
+ * question" on the dashboard.
+ *
+ * The swap is display-only: which prompt an entry answers is derived from
+ * its entry date (see `reflectionPromptForDate`), never stored with it, so
+ * picking a fresh one here has nothing else to keep in sync.
+ */
+export function randomReflectionPrompt(excludeId?: string | null): ReflectionPrompt {
+  const candidates = excludeId
+    ? REFLECTION_PROMPTS.filter((prompt) => prompt.id !== excludeId)
+    : REFLECTION_PROMPTS
+  const pool = candidates.length > 0 ? candidates : REFLECTION_PROMPTS
+  return pool[Math.floor(Math.random() * pool.length)]
+}
+
+/**
+ * Where a manually chosen "new question" is remembered for the rest of the
+ * day, so reloading the page does not undo it — only the day changing, or the
+ * refresh button, does. Scoped by user so a shared browser cannot leak one
+ * person's pick into another's.
+ */
+export function reflectionPromptStorageKey(userId: string, date: string): string {
+  return `lifequest:reflection-prompt:v1:${encodeURIComponent(userId)}:${date}`
 }
