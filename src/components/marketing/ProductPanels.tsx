@@ -34,6 +34,11 @@ const PILL_GREEN =
 // runs from 1,050 to 1,400 XP. A habit pays round(10 × min(2, 1 + streak×0.02))
 // XP and a flat 3 coins (src/lib/habit-xp.ts); a completed task pays 5 XP
 // (src/lib/tasks.ts). Change one of those and this panel has to change too.
+//
+// The readout counts down what is left rather than up towards a total,
+// because that is what both dashboard heroes show -- `Math.max(0, xpNext -
+// totalXp) XP to Level n` -- and someone who signs up should not meet a
+// second way of saying it.
 const LEVEL = 6;
 const LEVEL_FLOOR = 1050;
 const LEVEL_CEILING = 1400;
@@ -124,7 +129,7 @@ export function DashboardPanel() {
 
   const xp = BASE_XP + earnedXp;
   const coins = BASE_COINS + earnedCoins;
-  const shownXp = useCountUp(xp);
+  const shownRemaining = useCountUp(Math.max(0, LEVEL_CEILING - xp));
   const shownCoins = useCountUp(coins);
   // 25 for the evening review already written today, plus whatever gets
   // ticked here.
@@ -178,8 +183,7 @@ export function DashboardPanel() {
         />
       </div>
       <p className="mt-2 text-[0.82rem] tabular-nums text-[#6f6b63]">
-        {shownXp.toLocaleString("en-US")} / {LEVEL_CEILING.toLocaleString("en-US")} XP to level{" "}
-        {LEVEL + 1}
+        {shownRemaining.toLocaleString("en-US")} XP to Level {LEVEL + 1}
       </p>
 
       <div className="mt-5 flex flex-col gap-2.5">

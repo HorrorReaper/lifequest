@@ -16,12 +16,13 @@ afterEach(cleanup);
 const SETTLED = { timeout: 3000 };
 
 describe("DashboardPanel", () => {
-  it("shows the level band the app's own curve produces", () => {
+  it("counts down to the next level the way the app's heroes do", () => {
     render(<DashboardPanel />);
 
-    // xpForLevel(7) = 25·49 + 25·7 = 1400. A number that does not come from
-    // that curve would make the bar a lie the moment anyone checked.
-    expect(screen.getByText(/1,240 \/ 1,400 XP to level 7/)).toBeTruthy();
+    // xpForLevel(7) = 25·49 + 25·7 = 1400, and the panel sits at 1,240, so 160
+    // are left. Phrased as what remains, not as a fraction of a total, because
+    // that is what TrailDashboardHero and DashboardHero both print.
+    expect(screen.getByText(/^160 XP to Level 7$/)).toBeTruthy();
   });
 
   it("pays the habit's real XP and coins when it is ticked", async () => {
@@ -32,8 +33,9 @@ describe("DashboardPanel", () => {
 
     await user.click(screen.getByRole("button", { name: /move for 20 minutes/i }));
 
-    // round(10 × (1 + 12×0.02)) = 12 XP, and a flat 3 coins.
-    expect(await screen.findByText(/1,252 \/ 1,400 XP to level 7/, undefined, SETTLED)).toBeTruthy();
+    // round(10 × (1 + 12×0.02)) = 12 XP, so 160 left becomes 148, and a flat
+    // 3 coins on top.
+    expect(await screen.findByText(/^148 XP to Level 7$/, undefined, SETTLED)).toBeTruthy();
     expect(await screen.findByText(/89 coins/, undefined, SETTLED)).toBeTruthy();
   });
 
@@ -43,7 +45,7 @@ describe("DashboardPanel", () => {
 
     await user.click(screen.getByRole("button", { name: /send the project update/i }));
 
-    expect(await screen.findByText(/1,245 \/ 1,400 XP to level 7/, undefined, SETTLED)).toBeTruthy();
+    expect(await screen.findByText(/^155 XP to Level 7$/, undefined, SETTLED)).toBeTruthy();
     // Tasks pay no coins in the app, so the balance must not move.
     expect(screen.getByText(/86 coins/)).toBeTruthy();
   });
@@ -55,7 +57,7 @@ describe("DashboardPanel", () => {
     await user.click(screen.getByRole("button", { name: /move for 20 minutes/i }));
     await user.click(screen.getByRole("button", { name: /reset/i }));
 
-    expect(await screen.findByText(/1,240 \/ 1,400 XP to level 7/, undefined, SETTLED)).toBeTruthy();
+    expect(await screen.findByText(/^160 XP to Level 7$/, undefined, SETTLED)).toBeTruthy();
     expect(await screen.findByText(/86 coins/, undefined, SETTLED)).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /move for 20 minutes/i }).getAttribute("aria-pressed")
