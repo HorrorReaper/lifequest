@@ -11,7 +11,7 @@ import {
   StreakPanel,
   TemplatesPanel,
 } from "@/components/marketing/ProductPanels";
-import { EarnArt, LevelUpArt, WriteArt } from "@/components/marketing/StepArt";
+import { StepShot } from "@/components/marketing/StepArt";
 import { Reveal } from "@/components/marketing/Reveal";
 import { StickyCta } from "@/components/marketing/StickyCta";
 import { nightfallBody, nightfallDisplay } from "@/lib/marketing-fonts";
@@ -23,17 +23,20 @@ const STEPS = [
   {
     title: "Write",
     body: "Pick a template and answer a few fields. Morning, evening, weekly — or one you built yourself.",
-    art: WriteArt,
+    image: "/images/how-write.png",
+    alt: "The Morning Reflection entry: a mood picker, and a bar showing one of its four required fields answered.",
   },
   {
     title: "Earn",
     body: "Entries pay XP. Habits and quests pay XP and coins. Your streak grows with every day you show up.",
-    art: EarnArt,
+    image: "/images/how-earn.png",
+    alt: "The confirmation after saving an entry, showing the XP it paid.",
   },
   {
     title: "Level up",
     body: "Spend coins on gear for your character, and watch the level bar fill as the days add up.",
-    art: LevelUpArt,
+    image: "/images/how-levelup.png",
+    alt: "The dashboard: level 10, 1,150 coins, a one-day streak, and 206 XP to level 11.",
   },
 ];
 
@@ -130,10 +133,9 @@ export default function LandingPage() {
           <Reveal delay={60}>
           <ol className="mt-11 grid gap-7 sm:grid-cols-3 sm:gap-8">
             {STEPS.map((step, index) => {
-              const Art = step.art;
               return (
                 <li key={step.title} className="flex flex-col gap-4">
-                  <Art />
+                  <StepShot src={step.image} alt={step.alt} />
                   <div className="flex flex-col gap-2.5">
                     <span className="grid size-9 place-items-center rounded-full bg-[#fdf4e2] [font-family:var(--font-nightfall-display)] text-[0.95rem] font-extrabold text-[#9a6200]">
                       {index + 1}
