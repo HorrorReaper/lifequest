@@ -92,6 +92,27 @@ describe("TemplatesPanel", () => {
     await user.click(screen.getByRole("tab", { name: /weekly review/i }));
     expect(within(panel).getByText("Next week's theme or focus")).toBeTruthy();
     expect(within(panel).getByText("Free reflection")).toBeTruthy();
+
+    await user.click(screen.getByRole("tab", { name: /quick insight/i }));
+    expect(within(panel).getByText("One insight or thought worth remembering")).toBeTruthy();
+    expect(within(panel).getByText("+5 XP")).toBeTruthy();
+  });
+
+  it("keeps the panel tall enough for the longest template", async () => {
+    const user = userEvent.setup();
+    render(<TemplatesPanel />);
+
+    // Otherwise clicking from a seven-field template to a one-field one drops
+    // the panel by a couple of hundred pixels and shoves the page around.
+    const fieldsOf = () =>
+      screen.getByRole("tabpanel").querySelector<HTMLElement>("[style*='min-height']");
+
+    await user.click(screen.getByRole("tab", { name: /morning reflection/i }));
+    const tall = fieldsOf()?.style.minHeight;
+
+    await user.click(screen.getByRole("tab", { name: /quick insight/i }));
+    expect(fieldsOf()?.style.minHeight).toBe(tall);
+    expect(tall).toBeTruthy();
   });
 
   it("marks exactly one tab selected at a time", async () => {

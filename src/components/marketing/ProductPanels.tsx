@@ -248,9 +248,8 @@ export function DashboardPanel() {
 // ── Templates ────────────────────────────────────────────────────────────
 //
 // Every field below is the wording the seeded template really carries, given
-// by the app's author. Quick Insight is deliberately absent: its field was
-// not among them, and a made-up line here would be the one thing on this page
-// a visitor could catch us on. Add it when the wording is known.
+// by the app's author -- nothing here is a paraphrase, because a made-up line
+// would be the one thing on this page a visitor could catch us on.
 
 interface TemplateTab {
   id: string
@@ -304,7 +303,25 @@ const TEMPLATES: TemplateTab[] = [
       "Free reflection",
     ],
   },
+  {
+    id: "quick",
+    emoji: "💡",
+    name: "Quick Insight",
+    xp: 5,
+    fields: ["One insight or thought worth remembering"],
+  },
 ];
+
+/**
+ * Space enough for the longest template, so switching tabs swaps the fields
+ * without moving everything below the panel. One field against seven is a
+ * jump of a couple of hundred pixels otherwise. A floor, not a cap: a field
+ * that wraps on a narrow screen still grows the panel.
+ */
+const FIELD_ROW = 2.7; // rem, one single-line field including its border
+const FIELD_GAP = 0.5; // rem, the gap between two of them
+const MAX_FIELDS = Math.max(...TEMPLATES.map((template) => template.fields.length));
+const FIELDS_MIN_HEIGHT = `${MAX_FIELDS * FIELD_ROW + (MAX_FIELDS - 1) * FIELD_GAP}rem`;
 
 /** Templates, switchable, with the XP each one actually pays. */
 export function TemplatesPanel() {
@@ -346,7 +363,11 @@ export function TemplatesPanel() {
           <span className={PILL}>+{active.xp} XP</span>
         </div>
 
-        <div key={active.id} className="mt-3 flex flex-col gap-2 motion-safe:animate-[lq-fade_260ms_ease-out]">
+        <div
+          key={active.id}
+          className="mt-3 flex flex-col gap-2 motion-safe:animate-[lq-fade_260ms_ease-out]"
+          style={{ minHeight: FIELDS_MIN_HEIGHT }}
+        >
           {active.fields.map((field) => (
             <p
               key={field}
