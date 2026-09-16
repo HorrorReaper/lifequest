@@ -11,6 +11,7 @@ import {
   StreakPanel,
   TemplatesPanel,
 } from "@/components/marketing/ProductPanels";
+import { EarnArt, LevelUpArt, WriteArt } from "@/components/marketing/StepArt";
 import { Reveal } from "@/components/marketing/Reveal";
 import { StickyCta } from "@/components/marketing/StickyCta";
 import { nightfallBody, nightfallDisplay } from "@/lib/marketing-fonts";
@@ -22,14 +23,17 @@ const STEPS = [
   {
     title: "Write",
     body: "Pick a template and answer a few fields. Morning, evening, weekly — or one you built yourself.",
+    art: WriteArt,
   },
   {
     title: "Earn",
     body: "Entries pay XP. Habits and quests pay XP and coins. Your streak grows with every day you show up.",
+    art: EarnArt,
   },
   {
     title: "Level up",
     body: "Spend coins on gear for your character, and watch the level bar fill as the days add up.",
+    art: LevelUpArt,
   },
 ];
 
@@ -125,15 +129,21 @@ export default function LandingPage() {
 
           <Reveal delay={60}>
           <ol className="mt-11 grid gap-7 sm:grid-cols-3 sm:gap-8">
-            {STEPS.map((step, index) => (
-              <li key={step.title} className="flex flex-col gap-2.5">
-                <span className="grid size-9 place-items-center rounded-full bg-[#fdf4e2] [font-family:var(--font-nightfall-display)] text-[0.95rem] font-extrabold text-[#9a6200]">
-                  {index + 1}
-                </span>
-                <h3 className="text-[1.1rem] font-bold">{step.title}</h3>
-                <p className="text-[0.97rem] text-[#6f6b63]">{step.body}</p>
-              </li>
-            ))}
+            {STEPS.map((step, index) => {
+              const Art = step.art;
+              return (
+                <li key={step.title} className="flex flex-col gap-4">
+                  <Art />
+                  <div className="flex flex-col gap-2.5">
+                    <span className="grid size-9 place-items-center rounded-full bg-[#fdf4e2] [font-family:var(--font-nightfall-display)] text-[0.95rem] font-extrabold text-[#9a6200]">
+                      {index + 1}
+                    </span>
+                    <h3 className="text-[1.1rem] font-bold">{step.title}</h3>
+                    <p className="text-[0.97rem] text-[#6f6b63]">{step.body}</p>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
           </Reveal>
         </div>
