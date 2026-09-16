@@ -1,59 +1,81 @@
-import { motion } from "framer-motion";
+import { Reveal } from "./Reveal";
 
 type RoadmapItem = {
-  quarter: string;
   title: string;
   desc: string;
-  status?: string;
+  status: "Shipped" | "In progress" | "Planned";
 };
 
-const items: RoadmapItem[] = [
-  { quarter: "Q2 2026", title: "Landing Page", desc: "Waitlist, landing page.", status: "Live" },
-  { quarter: "Q3 2026", title: "Functional MVP", desc: "Core functionality (6 default journal templates, create your own templates, city builder), user onboarding.", status: "Live" },
-  { quarter: "Q4 2026", title: "Habit Tracker, Tasks, Daily Planner", desc: "Integrate habit tracking, task management, and daily planning features.", status: "Live" },
-  { quarter: "Q2 2027", title: "Mobile Apps & Social", desc: "iOS & Android app, friend leaderboards, communities.", status: "Planned" },
-  { quarter: "Q4 2027", title: "AI Coach & Personalization", desc: "AI-powered journaling prompts, insights, and personalized recommendations.", status: "Planned" },
-  { quarter: "Q2 2028", title: "Integrations & Expansion", desc: "Integrate with popular health and productivity apps, expand to new platforms.", status: "Planned" },
-  { quarter: "Q4 2028", title: "LifeQuest 2.0", desc: "Major update with new features, improved UX, and expanded content. LifeQuest as a all-around personal development platform.", status: "Planned" },
+// No quarter dates. The old list promised seven dated milestones out to 2028,
+// which a solo project cannot hold to and which ages badly the moment one
+// slips. Status is the only claim made here.
+const ITEMS: RoadmapItem[] = [
+  {
+    title: "The daily loop",
+    desc: "Journal templates you can build yourself, habits, tasks, the day planner, XP, streaks with freezes, quests, and a character to spend coins on.",
+    status: "Shipped",
+  },
+  {
+    title: "Insights and metrics",
+    desc: "Mark any answer as a learning and keep it in a library you can search. Turn any number into a chart, and give it a target you can check at a glance.",
+    status: "Shipped",
+  },
+  {
+    title: "Depth over breadth",
+    desc: "Fewer new features, better ones. Sharpening what is already here before anything else gets added.",
+    status: "In progress",
+  },
+  {
+    title: "The city returns",
+    desc: "A place to spend what you earn that grows with you — coming back once the daily loop is as good as it can be.",
+    status: "Planned",
+  },
+  {
+    title: "Mobile apps",
+    desc: "iOS and Android, so the two minutes happen wherever you are.",
+    status: "Planned",
+  },
 ];
+
+const STATUS_CLASSES: Record<RoadmapItem["status"], string> = {
+  Shipped: "bg-[#eaf3ed] text-[#3f7d5b]",
+  "In progress": "bg-[#fdf4e2] text-[#9a6200]",
+  Planned: "bg-[#f3efe6] text-[#6f6b63]",
+};
 
 export default function Roadmap() {
   return (
-    <section id="roadmap" className="container mx-auto px-4 py-24 max-w-6xl">
-      <div className="text-center mb-12">
-        <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">Roadmap</h2>
-        <p className="text-lg text-[#93a3c4] mt-4 max-w-2xl mx-auto">Here is what I will build next:</p>
-      </div>
+    <section id="roadmap" className="border-t border-[#f3efe6] px-5 py-16 sm:py-[5.75rem]">
+      <div className="mx-auto max-w-[1040px]">
+        <Reveal className="max-w-[720px]">
+          <h2 className="[font-family:var(--font-nightfall-display)] text-[clamp(1.8rem,3.8vw,2.4rem)] font-extrabold leading-tight">
+            What I am building next
+          </h2>
+          <p className="mt-3 text-[#6f6b63]">
+            Shipped is marked shipped. Everything else is a plan, not a promise.
+          </p>
+        </Reveal>
 
-      <div className="space-y-8">
-        {items.map((it, i) => (
-          <motion.div
-            key={i}
-            initial={{ y: 12, opacity: 0 }}
-            whileInView={{ y: 0, opacity: 1 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
-            className="flex flex-col md:flex-row items-start gap-6"
-          >
-            <div className="w-28 shrink-0">
-              <div className="text-sm text-[#93a3c4] font-medium">{it.quarter}</div>
-              <div
-                className={
-                  it.status === "Live"
-                    ? "mt-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-[rgba(247,185,85,0.14)] text-[#f7b955]"
-                    : "mt-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-white/[0.06] text-[#93a3c4]"
-                }
+        <Reveal delay={60}>
+        <ul className="mt-10 flex flex-col gap-3">
+          {ITEMS.map((item) => (
+            <li
+              key={item.title}
+              className="grid gap-3 rounded-2xl border border-[#eae5da] bg-white px-6 py-5 transition-colors hover:border-[#d9d2c4] sm:grid-cols-[7.5rem_1fr] sm:items-start sm:gap-6"
+            >
+              <span
+                className={`w-fit rounded-full px-2.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-[0.06em] ${STATUS_CLASSES[item.status]}`}
               >
-                {it.status}
+                {item.status}
+              </span>
+              <div>
+                <h3 className="text-[1.06rem] font-bold">{item.title}</h3>
+                <p className="mt-1 text-[0.9rem] leading-relaxed text-[#6f6b63]">{item.desc}</p>
               </div>
-            </div>
-
-            <div className="flex-1 rounded-xl border border-white/[0.08] p-6 bg-[#0d1626]">
-              <h3 className="font-semibold text-lg mb-1 text-[#f3f5fb]">{it.title}</h3>
-              <p className="text-sm text-[#93a3c4] leading-relaxed">{it.desc}</p>
-            </div>
-          </motion.div>
-        ))}
+            </li>
+          ))}
+        </ul>
+        </Reveal>
       </div>
     </section>
   );

@@ -1,39 +1,49 @@
-import Image from "next/image";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-export default function Navbar({ is_MVP, setWaitlistOpen }: { is_MVP: boolean; setWaitlistOpen: (open: boolean) => void }) {
-    return (
-    <header className="sticky top-0 z-50 backdrop-blur-md bg-[#060a14]/90 border-b border-white/[0.08]">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-6xl">
-          <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-            <Image src="/images/logo2.png" alt="LifeQuest logo" width={170} height={170} className="rounded-sm" />
-          </Link>
-          <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#features" className="text-[#93a3c4] hover:text-[#f3f5fb]">Features</a>
-            <a href="#how-it-works" className="text-[#93a3c4] hover:text-[#f3f5fb]">How it works</a>
-            <a href="#roadmap" className="text-[#93a3c4] hover:text-[#f3f5fb]">Roadmap</a>
-            <a href="#pricing" className="text-[#93a3c4] hover:text-[#f3f5fb]">Pricing</a>
-          </nav>
-          {is_MVP ? (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild className="text-[#f3f5fb] hover:bg-white/10 hover:text-[#f3f5fb]">
-                <Link href="/login">Log in</Link>
-              </Button>
-              <Button size="sm" asChild className="bg-[linear-gradient(180deg,#ffc873,#f7b955)] text-[#1a1204] hover:opacity-90">
-                <Link href="/login">Get started</Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center">
-              <Button size="sm"
-                onClick={() => setWaitlistOpen(true)}
-                className="px-5 py-3 rounded-lg bg-[linear-gradient(180deg,#ffc873,#f7b955)] text-[#1a1204] hover:cursor-pointer hover:opacity-90"
-              >
-                Join the waitlist
-              </Button>
-            </div>
-          )}
-        </div>
-      </header>
-    );
+
+// The landing page's own nav. Literal colours, like the page it belongs to —
+// it must not follow the in-app theme.
+export default function Navbar({
+  is_MVP,
+  setWaitlistOpen,
+}: {
+  is_MVP: boolean;
+  setWaitlistOpen: (open: boolean) => void;
+}) {
+  const cta =
+    "inline-flex items-center justify-center rounded-lg bg-[#d1870b] px-4 py-2.5 text-[0.92rem] font-bold text-white transition-colors hover:bg-[#9a6200]";
+
+  return (
+    <header className="sticky top-[env(safe-area-inset-top,0px)] z-50 border-b border-[#f3efe6] bg-[#fdfcf9]/95 px-5 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-[1040px] items-center justify-between gap-4">
+        <Link href="/" className="[font-family:var(--font-nightfall-display)] text-[1.35rem] font-extrabold tracking-tight text-[#1b1a17]">
+          Life<span className="text-[#d1870b]">Quest</span>
+        </Link>
+
+        <nav className="hidden items-center gap-7 text-[0.95rem] font-medium text-[#6f6b63] md:flex">
+          <a href="#how" className="hover:text-[#1b1a17]">How it works</a>
+          <a href="#features" className="hover:text-[#1b1a17]">Features</a>
+          <a href="#roadmap" className="hover:text-[#1b1a17]">Roadmap</a>
+          <a href="#pricing" className="hover:text-[#1b1a17]">Pricing</a>
+        </nav>
+
+        {is_MVP ? (
+          <div className="flex items-center gap-1">
+            <Link
+              href="/login"
+              className="hidden rounded-lg px-3 py-2.5 text-[0.92rem] font-semibold text-[#6f6b63] transition-colors hover:text-[#1b1a17] sm:inline-flex"
+            >
+              Log in
+            </Link>
+            <Link href="/login" className={cta}>
+              Get started
+            </Link>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setWaitlistOpen(true)} className={`${cta} cursor-pointer`}>
+            Join the waitlist
+          </button>
+        )}
+      </div>
+    </header>
+  );
 }

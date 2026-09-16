@@ -88,7 +88,7 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+          className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-[#1b1a17]/40 backdrop-blur-sm"
           onClick={onClose}
         >
           <motion.div
@@ -97,16 +97,12 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.25, ease: "easeOut" }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0d1626] shadow-2xl overflow-hidden"
+            className="relative w-full max-w-md rounded-2xl border border-[#eae5da] bg-white shadow-xl overflow-hidden"
           >
-            {/* Decorative gradient halo — matches the Nightfall City hero's palette */}
-            <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-[rgba(247,185,85,0.18)] blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-[rgba(143,160,255,0.14)] blur-3xl pointer-events-none" />
-
             <button
               onClick={onClose}
               aria-label="Close"
-              className="absolute top-4 right-4 z-10 text-[#93a3c4] hover:text-[#f3f5fb] transition-colors"
+              className="absolute top-4 right-4 z-10 text-[#6f6b63] hover:text-[#1b1a17] transition-colors"
             >
               <X className="h-5 w-5" />
             </button>
@@ -114,18 +110,18 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
             <div className="relative p-8">
               {success ? (
                 <div className="text-center space-y-4 py-4">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(180deg,#ffc873,#f7b955)] text-[#1a1204]">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#d1870b] text-white">
                     <Check className="h-7 w-7" />
                   </div>
-                  <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">
+                  <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-[#1b1a17] [font-family:var(--font-nightfall-display)]">
                     You're on the list!
                   </h2>
-                  <p className="text-[#93a3c4]">
+                  <p className="text-[#6f6b63]">
                     We'll email you the moment LifeQuest launches.
                   </p>
                   <button
                     onClick={onClose}
-                    className="mt-2 rounded-xl bg-[linear-gradient(180deg,#ffc873,#f7b955)] px-6 py-3 font-bold text-[#1a1204] shadow-[0_8px_24px_rgba(247,185,85,0.25)]"
+                    className="mt-2 rounded-xl bg-[#d1870b] px-6 py-3 font-bold text-white transition-colors hover:bg-[#9a6200]"
                   >
                     Close
                   </button>
@@ -133,18 +129,16 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
               ) : (
                 <>
 
-                  <h2 className="text-2xl md:text-3xl font-bold tracking-tight leading-tight text-[#f3f5fb] [font-family:var(--font-nightfall-display)]">
+                  <h2 className="text-2xl md:text-3xl font-bold tracking-tight leading-tight text-[#1b1a17] [font-family:var(--font-nightfall-display)]">
                     Join the{" "}
-                    <span className="bg-[linear-gradient(90deg,#f7b955,#ffdca0)] bg-clip-text text-transparent">
-                      waitlist
-                    </span>
+                    <span className="text-[#d1870b]">waitlist</span>
                   </h2>
-                  <p className="mt-2 text-sm text-[#93a3c4]">
+                  <p className="mt-2 text-sm text-[#6f6b63]">
                     Be the first to start your quest.
                     {count != null && (
                       <>
                         {" "}
-                        <span className="font-semibold text-[#f3f5fb]">{count}</span>{" "}
+                        <span className="font-semibold text-[#1b1a17]">{count}</span>{" "}
                         {count === 1 ? "player" : "players"} already joined.
                       </>
                     )}
@@ -152,13 +146,13 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
 
                   <form onSubmit={submit} className="mt-6 space-y-3">
                     <input
-                      className="w-full rounded-lg border border-white/[0.08] bg-[#111d33] px-4 py-3 text-sm text-[#f3f5fb] placeholder:text-[#93a3c4] focus:outline-none focus:ring-2 focus:ring-[rgba(247,185,85,0.4)] focus:border-[#f7b955] transition"
+                      className="w-full rounded-lg border border-[#eae5da] bg-[#fdfcf9] px-4 py-3 text-sm text-[#1b1a17] placeholder:text-[#8d887f] focus:outline-none focus:ring-2 focus:ring-[#d1870b]/35 focus:border-[#d1870b] transition"
                       placeholder="Your name (optional)"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                     />
                     <input
-                      className="w-full rounded-lg border border-white/[0.08] bg-[#111d33] px-4 py-3 text-sm text-[#f3f5fb] placeholder:text-[#93a3c4] focus:outline-none focus:ring-2 focus:ring-[rgba(247,185,85,0.4)] focus:border-[#f7b955] transition"
+                      className="w-full rounded-lg border border-[#eae5da] bg-[#fdfcf9] px-4 py-3 text-sm text-[#1b1a17] placeholder:text-[#8d887f] focus:outline-none focus:ring-2 focus:ring-[#d1870b]/35 focus:border-[#d1870b] transition"
                       type="email"
                       placeholder="you@example.com"
                       value={email}
@@ -170,11 +164,11 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                       <input
                         type="checkbox"
                         id="interested_pro"
-                        className="rounded border-white/[0.15] bg-[#111d33] text-[#f7b955] focus:ring-[#f7b955]"
+                        className="rounded border-[#d9d2c4] bg-white text-[#d1870b] focus:ring-[#d1870b]"
                         checked={interestedPro}
                         onChange={(e) => setInterestedPro(e.target.checked)}
                       />
-                      <label htmlFor="interested_pro" className="text-sm text-[#93a3c4]">
+                      <label htmlFor="interested_pro" className="text-sm text-[#6f6b63]">
                         I'm interested in the Pro version (advanced features).
                       </label>
                     </div>
@@ -182,11 +176,11 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                       <input
                         type="checkbox"
                         id="early_access"
-                        className="rounded border-white/[0.15] bg-[#111d33] text-[#f7b955] focus:ring-[#f7b955]"
+                        className="rounded border-[#d9d2c4] bg-white text-[#d1870b] focus:ring-[#d1870b]"
                         checked={earlyAccess}
                         onChange={(e) => setEarlyAccess(e.target.checked)}
                       />
-                      <label htmlFor="early_access" className="text-sm text-[#93a3c4]">
+                      <label htmlFor="early_access" className="text-sm text-[#6f6b63]">
                         I'd like to receive early access / beta invites.
                       </label>
                     </div>
@@ -194,16 +188,16 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                       <input
                         type="checkbox"
                         id="newsletter"
-                        className="rounded border-white/[0.15] bg-[#111d33] text-[#f7b955] focus:ring-[#f7b955]"
+                        className="rounded border-[#d9d2c4] bg-white text-[#d1870b] focus:ring-[#d1870b]"
                         checked={newsletter}
                         onChange={(e) => setNewsletter(e.target.checked)}
                       />
-                      <label htmlFor="newsletter" className="text-sm text-[#93a3c4]">
+                      <label htmlFor="newsletter" className="text-sm text-[#6f6b63]">
                         Sign me up for the newsletter.
                       </label>
                     </div>
                     {error && (
-                      <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                      <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                         {error}
                       </p>
                     )}
@@ -212,7 +206,7 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="w-full group rounded-xl bg-[linear-gradient(180deg,#ffc873,#f7b955)] px-6 py-3 font-bold text-[#1a1204] shadow-[0_8px_24px_rgba(247,185,85,0.25)] disabled:opacity-60 disabled:pointer-events-none"
+                        className="w-full group rounded-xl bg-[#d1870b] px-6 py-3 font-bold text-white transition-colors hover:bg-[#9a6200] disabled:opacity-60 disabled:pointer-events-none"
                       >
                         {submitting ? (
                           "Joining…"

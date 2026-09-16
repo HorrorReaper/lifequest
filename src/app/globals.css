@@ -729,3 +729,19 @@
   0%, 55%, 100% { opacity: 0.35; transform: scale(0.75); }
   12% { opacity: 1; transform: scale(1.25); }
 }
+
+/* ── Landing page (src/app/page.tsx) ──────────────────────────────────────
+   Two small motions, both tied to something the visitor just did rather than
+   to scroll position. Applied through Tailwind's motion-safe variant, so
+   prefers-reduced-motion drops them without needing a second rule here. */
+
+@keyframes lq-rise {
+  0%   { opacity: 0; transform: translateY(4px); }
+  18%  { opacity: 1; transform: translateY(-6px); }
+  100% { opacity: 0; transform: translateY(-26px); }
+}
+
+@keyframes lq-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
