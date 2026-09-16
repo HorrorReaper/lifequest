@@ -78,18 +78,34 @@ describe("TemplatesPanel", () => {
     expect(within(panel).queryByText(/what was my biggest win today/i)).toBeNull();
   });
 
+  it("quotes the seeded templates rather than inventing fields", async () => {
+    const user = userEvent.setup();
+    render(<TemplatesPanel />);
+
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).queryByText("What is my ONE most important task today?")).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: /morning reflection/i }));
+    expect(within(panel).getByText("What is my ONE most important task today?")).toBeTruthy();
+    expect(within(panel).getByText("Today's positive affirmation")).toBeTruthy();
+
+    await user.click(screen.getByRole("tab", { name: /weekly review/i }));
+    expect(within(panel).getByText("Next week's theme or focus")).toBeTruthy();
+    expect(within(panel).getByText("Free reflection")).toBeTruthy();
+  });
+
   it("marks exactly one tab selected at a time", async () => {
     const user = userEvent.setup();
     render(<TemplatesPanel />);
 
-    await user.click(screen.getByRole("tab", { name: /quick insight/i }));
+    await user.click(screen.getByRole("tab", { name: /morning reflection/i }));
 
     const selected = screen
       .getAllByRole("tab")
       .filter((tab) => tab.getAttribute("aria-selected") === "true");
 
     expect(selected).toHaveLength(1);
-    expect(selected[0].textContent).toMatch(/quick insight/i);
+    expect(selected[0].textContent).toMatch(/morning reflection/i);
   });
 });
 

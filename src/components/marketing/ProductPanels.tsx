@@ -247,9 +247,10 @@ export function DashboardPanel() {
 
 // ── Templates ────────────────────────────────────────────────────────────
 //
-// Evening Review's fields are the ones it really ships with. The other three
-// list the kinds of field each is built from rather than quoting wording that
-// would go stale the first time a system template is edited.
+// Every field below is the wording the seeded template really carries, given
+// by the app's author. Quick Insight is deliberately absent: its field was
+// not among them, and a made-up line here would be the one thing on this page
+// a visitor could catch us on. Add it when the wording is known.
 
 interface TemplateTab {
   id: string
@@ -265,7 +266,15 @@ const TEMPLATES: TemplateTab[] = [
     emoji: "🌅",
     name: "Morning Reflection",
     xp: 25,
-    fields: ["Gratitude", "Today's intention", "Energy level", "Mood"],
+    fields: [
+      "How are you feeling right now?",
+      "Energy level?",
+      "I'm grateful for…",
+      "I'm also grateful for…",
+      "And grateful for…",
+      "What is my ONE most important task today?",
+      "Today's positive affirmation",
+    ],
   },
   {
     id: "evening",
@@ -286,14 +295,14 @@ const TEMPLATES: TemplateTab[] = [
     emoji: "📝",
     name: "Weekly Review",
     xp: 50,
-    fields: ["The week in review", "What worked", "Next week's checklist", "Rate the week"],
-  },
-  {
-    id: "quick",
-    emoji: "💡",
-    name: "Quick Insight",
-    xp: 5,
-    fields: ["One thought worth keeping"],
+    fields: [
+      "Best moment of the week",
+      "Biggest struggle this week",
+      "What I want to do differently next week",
+      "Next week's theme or focus",
+      "Overall week rating",
+      "Free reflection",
+    ],
   },
 ];
 
