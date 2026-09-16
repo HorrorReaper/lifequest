@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   REFLECTION_PROMPTS,
   findReflectionPrompt,
+  randomReflectionPrompt,
   reflectionPromptForDate,
+  reflectionPromptStorageKey,
 } from '@/lib/daily-reflection'
 import { addDays } from '@/lib/dates'
 
@@ -52,6 +54,37 @@ describe('reflectionPromptForDate', () => {
     // Day numbers go negative there and JS keeps the sign through %, which
     // would index off the front of the list.
     expect(REFLECTION_PROMPTS).toContain(reflectionPromptForDate('1969-07-20'))
+  })
+})
+
+describe('randomReflectionPrompt', () => {
+  it('gives back a real prompt', () => {
+    expect(REFLECTION_PROMPTS).toContainEqual(randomReflectionPrompt())
+  })
+
+  it('never hands back the one it was told to move on from', () => {
+    const current = REFLECTION_PROMPTS[0]
+    for (let i = 0; i < 50; i++) {
+      expect(randomReflectionPrompt(current.id).id).not.toBe(current.id)
+    }
+  })
+
+  it('still returns something if the excluded id is not in the list', () => {
+    expect(REFLECTION_PROMPTS).toContainEqual(randomReflectionPrompt('not-a-real-id'))
+  })
+})
+
+describe('reflectionPromptStorageKey', () => {
+  it('differs by date, so a new day is not stuck on yesterday’s pick', () => {
+    expect(reflectionPromptStorageKey('user-1', '2026-09-11')).not.toBe(
+      reflectionPromptStorageKey('user-1', '2026-09-12')
+    )
+  })
+
+  it('differs by user, so a shared browser cannot leak one pick into another', () => {
+    expect(reflectionPromptStorageKey('user-1', '2026-09-11')).not.toBe(
+      reflectionPromptStorageKey('user-2', '2026-09-11')
+    )
   })
 })
 

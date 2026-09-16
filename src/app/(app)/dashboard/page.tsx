@@ -433,6 +433,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             prompt={reflectionPromptForDate(today)}
             writtenToday={reflectionEntryId !== null}
             entryId={reflectionEntryId}
+            timezone={profile.timezone ?? 'UTC'}
+            userId={user.id}
           />
         )}
 

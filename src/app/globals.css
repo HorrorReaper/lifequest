@@ -260,6 +260,16 @@
   scrollbar-color: var(--muted) transparent;
 }
 
+/* Swipeable card rails: the scrollbar would sit on top of the cards. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Cursor sparkle trail particles */
 .sparkle-particle {
   position: fixed;

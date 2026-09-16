@@ -1,5 +1,13 @@
 import type { InsightType } from '@/lib/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  BookOpenCheck,
+  CheckCircle2,
+  CircleAlert,
+  Lightbulb,
+  Trophy,
+  type LucideIcon,
+} from 'lucide-react'
 
 export const INSIGHT_TYPES: Array<{
   value: InsightType
@@ -32,6 +40,23 @@ export const INSIGHT_TYPES: Array<{
     description: 'A win worth remembering, for when you need the reminder.',
   },
 ]
+
+/** One icon and one colour per insight type, shared by every view. */
+export const INSIGHT_TYPE_ICONS: Record<InsightType, LucideIcon> = {
+  learning: BookOpenCheck,
+  problem: CircleAlert,
+  idea: Lightbulb,
+  decision: CheckCircle2,
+  win: Trophy,
+}
+
+export const INSIGHT_TYPE_STYLES: Record<InsightType, string> = {
+  learning: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  problem: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  idea: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  decision: 'bg-primary/10 text-primary',
+  win: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+}
 
 export function isInsightType(value: unknown): value is InsightType {
   return INSIGHT_TYPES.some((type) => type.value === value)
