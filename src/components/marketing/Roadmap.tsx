@@ -1,3 +1,5 @@
+import { Reveal } from "./Reveal";
+
 type RoadmapItem = {
   title: string;
   desc: string;
@@ -45,20 +47,21 @@ export default function Roadmap() {
   return (
     <section id="roadmap" className="border-t border-[#f3efe6] px-5 py-16 sm:py-[5.75rem]">
       <div className="mx-auto max-w-[1040px]">
-        <div className="max-w-[720px]">
+        <Reveal className="max-w-[720px]">
           <h2 className="[font-family:var(--font-nightfall-display)] text-[clamp(1.8rem,3.8vw,2.4rem)] font-extrabold leading-tight">
             What I am building next
           </h2>
           <p className="mt-3 text-[#6f6b63]">
             Shipped is marked shipped. Everything else is a plan, not a promise.
           </p>
-        </div>
+        </Reveal>
 
+        <Reveal delay={60}>
         <ul className="mt-10 flex flex-col gap-3">
           {ITEMS.map((item) => (
             <li
               key={item.title}
-              className="grid gap-3 rounded-2xl border border-[#eae5da] bg-white px-6 py-5 sm:grid-cols-[7.5rem_1fr] sm:items-start sm:gap-6"
+              className="grid gap-3 rounded-2xl border border-[#eae5da] bg-white px-6 py-5 transition-colors hover:border-[#d9d2c4] sm:grid-cols-[7.5rem_1fr] sm:items-start sm:gap-6"
             >
               <span
                 className={`w-fit rounded-full px-2.5 py-1 text-[0.68rem] font-extrabold uppercase tracking-[0.06em] ${STATUS_CLASSES[item.status]}`}
@@ -72,6 +75,7 @@ export default function Roadmap() {
             </li>
           ))}
         </ul>
+        </Reveal>
       </div>
     </section>
   );

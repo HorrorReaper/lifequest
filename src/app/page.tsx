@@ -11,6 +11,8 @@ import {
   StreakPanel,
   TemplatesPanel,
 } from "@/components/marketing/ProductPanels";
+import { Reveal } from "@/components/marketing/Reveal";
+import { StickyCta } from "@/components/marketing/StickyCta";
 import { nightfallBody, nightfallDisplay } from "@/lib/marketing-fonts";
 
 // Colours are literal rather than themed: this page sits outside (app) and
@@ -114,13 +116,14 @@ export default function LandingPage() {
       {/* HOW IT WORKS */}
       <section id="how" className="px-5 py-16 sm:py-[5.75rem]">
         <div className="mx-auto max-w-[1040px]">
-          <div className="max-w-[720px]">
+          <Reveal className="max-w-[720px]">
             <h2 className="[font-family:var(--font-nightfall-display)] text-[clamp(1.8rem,3.8vw,2.4rem)] font-extrabold leading-tight">
               How it works
             </h2>
             <p className="mt-3 text-[#6f6b63]">Three things, every day. Two minutes is enough.</p>
-          </div>
+          </Reveal>
 
+          <Reveal delay={60}>
           <ol className="mt-11 grid gap-7 sm:grid-cols-3 sm:gap-8">
             {STEPS.map((step, index) => (
               <li key={step.title} className="flex flex-col gap-2.5">
@@ -132,13 +135,14 @@ export default function LandingPage() {
               </li>
             ))}
           </ol>
+          </Reveal>
         </div>
       </section>
 
       {/* FEATURES */}
       <section id="features" className="border-t border-[#f3efe6] px-5 py-16 sm:py-[5.75rem]">
         <div className="mx-auto flex max-w-[1040px] flex-col gap-16 sm:gap-24">
-          <div className="grid items-center gap-8 md:grid-cols-2 md:gap-16">
+          <Reveal className="grid items-center gap-8 md:grid-cols-2 md:gap-16">
             <div className="flex flex-col gap-3.5">
               <p className="text-[0.74rem] font-bold uppercase tracking-[0.12em] text-[#9a6200]">Journal</p>
               <h2 className="text-balance [font-family:var(--font-nightfall-display)] text-[clamp(1.7rem,3.4vw,2.2rem)] font-extrabold leading-tight">
@@ -155,9 +159,9 @@ export default function LandingPage() {
               </p>
             </div>
             <TemplatesPanel />
-          </div>
+          </Reveal>
 
-          <div className="grid items-center gap-8 md:grid-cols-2 md:gap-16">
+          <Reveal className="grid items-center gap-8 md:grid-cols-2 md:gap-16">
             <div className="md:order-2 flex flex-col gap-3.5">
               <p className="text-[0.74rem] font-bold uppercase tracking-[0.12em] text-[#9a6200]">Habits</p>
               <h2 className="text-balance [font-family:var(--font-nightfall-display)] text-[clamp(1.7rem,3.4vw,2.2rem)] font-extrabold leading-tight">
@@ -172,9 +176,9 @@ export default function LandingPage() {
             <div className="md:order-1">
               <StreakPanel />
             </div>
-          </div>
+          </Reveal>
 
-          <div className="grid items-center gap-8 md:grid-cols-2 md:gap-16">
+          <Reveal className="grid items-center gap-8 md:grid-cols-2 md:gap-16">
             <div className="flex flex-col gap-3.5">
               <p className="text-[0.74rem] font-bold uppercase tracking-[0.12em] text-[#9a6200]">
                 Daily reflection
@@ -188,36 +192,39 @@ export default function LandingPage() {
               </p>
             </div>
             <ReflectionPanel />
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* EVERYTHING IN ONE PLACE */}
       <section className="border-t border-[#f3efe6] px-5 py-16 sm:py-[5.75rem]">
         <div className="mx-auto max-w-[1040px]">
-          <div className="max-w-[720px]">
+          <Reveal className="max-w-[720px]">
             <h2 className="[font-family:var(--font-nightfall-display)] text-[clamp(1.8rem,3.8vw,2.4rem)] font-extrabold leading-tight">
               Everything in one place
             </h2>
             <p className="mt-3 text-[#6f6b63]">
               So you stop keeping your life in four apps that don&apos;t talk to each other.
             </p>
-          </div>
+          </Reveal>
 
-          <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-[#eae5da] bg-[#eae5da] sm:grid-cols-2 lg:grid-cols-3">
+          <Reveal delay={60} className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-[#eae5da] bg-[#eae5da] sm:grid-cols-2 lg:grid-cols-3">
             {EVERYTHING.map((item) => (
-              <div key={item.title} className="flex flex-col gap-1.5 bg-white px-6 py-5">
+              <div
+                key={item.title}
+                className="flex flex-col gap-1.5 bg-white px-6 py-5 transition-colors hover:bg-[#fdfcf9]"
+              >
                 <b className="text-base font-bold">{item.title}</b>
                 <span className="text-[0.9rem] leading-relaxed text-[#6f6b63]">{item.body}</span>
               </div>
             ))}
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* MISSION */}
       <section className="border-t border-[#f3efe6] px-5 py-16 sm:py-[5.75rem]">
-        <div className="mx-auto flex max-w-[720px] flex-col gap-5">
+        <Reveal className="mx-auto flex max-w-[720px] flex-col gap-5">
           <p className="text-[0.74rem] font-bold uppercase tracking-[0.12em] text-[#9a6200]">
             Why this exists
           </p>
@@ -235,14 +242,14 @@ export default function LandingPage() {
           <p className="text-sm text-[#6f6b63]">
             <span className="font-bold text-[#1b1a17]">Patrick Eger</span> · Founder of LifeQuest
           </p>
-        </div>
+        </Reveal>
       </section>
 
       <Roadmap />
 
       {/* PRICING */}
       <section id="pricing" className="border-t border-[#f3efe6] px-5 py-16 sm:py-[5.75rem]">
-        <div className="mx-auto flex max-w-[720px] flex-col items-start gap-3.5">
+        <Reveal className="mx-auto flex max-w-[720px] flex-col items-start gap-3.5">
           <h2 className="[font-family:var(--font-nightfall-display)] text-[clamp(1.8rem,3.8vw,2.4rem)] font-extrabold leading-tight">
             Free. All of it.
           </h2>
@@ -251,12 +258,12 @@ export default function LandingPage() {
             nothing held back behind a tier that doesn&apos;t exist yet.
           </p>
           <PrimaryCta isMvp={is_MVP} onWaitlist={openWaitlist} className="mt-2" />
-        </div>
+        </Reveal>
       </section>
 
       {/* CLOSING */}
       <section className="border-t border-[#eae5da] bg-[#fdf4e2] px-5 py-16 sm:py-[5.75rem]">
-        <div className="mx-auto flex max-w-[720px] flex-col items-center gap-4 text-center">
+        <Reveal className="mx-auto flex max-w-[720px] flex-col items-center gap-4 text-center">
           <h2 className="[font-family:var(--font-nightfall-display)] text-[clamp(1.9rem,4.2vw,2.6rem)] font-extrabold leading-tight">
             Two minutes tonight.
           </h2>
@@ -264,7 +271,7 @@ export default function LandingPage() {
             Tomorrow there&apos;s a streak to keep, and that turns out to be enough.
           </p>
           <PrimaryCta isMvp={is_MVP} onWaitlist={openWaitlist} className="mt-1" />
-        </div>
+        </Reveal>
       </section>
 
       {/* FOOTER */}
@@ -283,6 +290,8 @@ export default function LandingPage() {
           </nav>
         </div>
       </footer>
+
+      <StickyCta isMvp={is_MVP} onWaitlist={openWaitlist} />
     </div>
   );
 }
