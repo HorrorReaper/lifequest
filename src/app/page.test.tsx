@@ -16,8 +16,8 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
-// jsdom has no IntersectionObserver, which framer-motion's `whileInView`
-// (used throughout the page's sections) requires at mount time.
+// jsdom has no IntersectionObserver, which framer-motion needs at mount time.
+// The page itself no longer animates, but the waitlist dialog still does.
 class MockIntersectionObserver {
   observe() {}
   unobserve() {}
@@ -31,45 +31,54 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+function pricingSection() {
+  const section = document.querySelector("#pricing") as HTMLElement | null;
+  expect(section).toBeTruthy();
+  return section as HTMLElement;
+}
+
 describe("LandingPage is_MVP branches", () => {
-  it("links the Pricing Free tier CTA and the Final CTA to /login when NEXT_PUBLIC_IS_MVP is true", () => {
+  it("sends every call to action to /login when NEXT_PUBLIC_IS_MVP is true", () => {
     vi.stubEnv("NEXT_PUBLIC_IS_MVP", "true");
     render(<LandingPage />);
 
-    const pricingSection = document.querySelector("#pricing") as HTMLElement;
-    expect(pricingSection).toBeTruthy();
-
-    const freeTierLinks = within(pricingSection).getAllByRole("link", {
-      name: /get started for free/i,
-    });
-    expect(freeTierLinks.length).toBeGreaterThan(0);
-    for (const link of freeTierLinks) {
-      expect(link.getAttribute("href")).toBe("/login");
+    // The page repeats one CTA — nav, hero, pricing, closing. Asserting over
+    // all of them rather than by section means moving a section around cannot
+    // quietly leave one of them pointing nowhere.
+    const ctas = screen.getAllByRole("link", { name: /get started/i });
+    expect(ctas.length).toBeGreaterThanOrEqual(4);
+    for (const cta of ctas) {
+      expect(cta.getAttribute("href")).toBe("/login");
     }
 
-    const finalCtaLinks = screen.getAllByRole("link", { name: /start your quest/i });
-    expect(finalCtaLinks.length).toBeGreaterThan(0);
-    for (const link of finalCtaLinks) {
-      expect(link.getAttribute("href")).toBe("/login");
-    }
+    expect(
+      within(pricingSection()).getByRole("link", { name: /get started/i })
+    ).toBeTruthy();
+
+    // Nothing may offer the waitlist once the app is reachable.
+    expect(screen.queryByRole("button", { name: /join the waitlist/i })).toBeNull();
   });
 
-  it("renders a clickable 'Join the waitlist' button (not a link) for the Pricing Free tier when NEXT_PUBLIC_IS_MVP is false", () => {
+  it("offers the waitlist as a real button when NEXT_PUBLIC_IS_MVP is false", () => {
     vi.stubEnv("NEXT_PUBLIC_IS_MVP", "false");
     render(<LandingPage />);
 
-    const pricingSection = document.querySelector("#pricing") as HTMLElement;
-    expect(pricingSection).toBeTruthy();
+    const waitlistButtons = screen.getAllByRole("button", { name: /join the waitlist/i });
+    expect(waitlistButtons.length).toBeGreaterThanOrEqual(4);
+    for (const button of waitlistButtons) {
+      expect(button.tagName).toBe("BUTTON");
+      expect((button as HTMLButtonElement).disabled).toBe(false);
+    }
 
-    const waitlistButtons = within(pricingSection).getAllByRole("button", {
+    const pricingCta = within(pricingSection()).getByRole("button", {
       name: /join the waitlist/i,
     });
-    const freeTierButton = waitlistButtons.find(
-      (btn) => !(btn as HTMLButtonElement).disabled
-    ) as HTMLButtonElement | undefined;
+    expect(() => pricingCta.click()).not.toThrow();
 
-    expect(freeTierButton).toBeTruthy();
-    expect(freeTierButton?.tagName).toBe("BUTTON");
-    expect(() => freeTierButton?.click()).not.toThrow();
+    // No sign-up route exists yet, so nothing may link to one.
+    expect(screen.queryByRole("link", { name: /get started/i })).toBeNull();
+    expect(
+      screen.queryAllByRole("link").filter((link) => link.getAttribute("href") === "/login")
+    ).toHaveLength(0);
   });
 });
