@@ -401,7 +401,7 @@ export function StreakPanel() {
   const dotClass = {
     done: "bg-[#eaf3ed] text-[#3f7d5b]",
     frozen: "bg-[#eef1fb] text-[#5a6bb8]",
-    today: "bg-[#d1870b] text-white",
+    today: "bg-[#d1870b] text-[#1b1a17]",
     open: "bg-[#f3efe6] text-[#6f6b63]",
   };
 
@@ -473,7 +473,7 @@ export function ReflectionPanel() {
         </p>
       </div>
 
-      <p className="mt-3.5 w-full rounded-xl bg-[#d1870b] px-5 py-3 text-center text-[0.92rem] font-bold text-white">
+      <p className="mt-3.5 w-full rounded-xl bg-[#d1870b] px-5 py-3 text-center text-[0.92rem] font-bold text-[#1b1a17]">
         Write about it
       </p>
       <p className="mt-2.5 text-center text-[0.78rem] text-[#6f6b63]">

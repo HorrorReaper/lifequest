@@ -64,7 +64,7 @@ function PrimaryCta({
   onWaitlist: () => void
   className?: string
 }) {
-  const classes = `inline-flex items-center justify-center gap-2 rounded-xl bg-[#d1870b] px-6 py-3.5 text-base font-bold text-white transition-colors hover:bg-[#9a6200] ${className}`;
+  const classes = `inline-flex items-center justify-center gap-2 rounded-xl bg-[#d1870b] px-6 py-3.5 text-base font-bold text-[#1b1a17] transition-colors hover:bg-[#c07b08] ${className}`;
 
   return isMvp ? (
     <Link href="/login" className={classes}>

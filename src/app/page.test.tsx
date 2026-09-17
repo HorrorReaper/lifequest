@@ -82,3 +82,19 @@ describe("LandingPage is_MVP branches", () => {
     ).toHaveLength(0);
   });
 });
+
+describe("LandingPage hero and call to action", () => {
+  it("never sets white text on the amber call to action", () => {
+    // White on #d1870b is 2.9:1, under the 4.5:1 WCAG AA needs for 16px
+    // bold. Dark text on the same amber is 5.9:1. The CTA repeats across the
+    // page, so this walks every copy rather than trusting one.
+    vi.stubEnv("NEXT_PUBLIC_IS_MVP", "true");
+    render(<LandingPage />);
+    const ctas = screen.getAllByRole("link", { name: /get started/i });
+    expect(ctas.length).toBeGreaterThanOrEqual(4);
+    for (const cta of ctas) {
+      expect(cta.className).toContain("bg-[#d1870b]");
+      expect(cta.className).not.toContain("text-white");
+    }
+  });
+});

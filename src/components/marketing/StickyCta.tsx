@@ -38,7 +38,7 @@ export function StickyCta({
 
   const label = isMvp ? "Get started — it's free" : "Join the waitlist";
   const classes =
-    "pointer-events-auto inline-flex items-center justify-center rounded-full bg-[#d1870b] px-6 py-3 text-[0.95rem] font-bold text-white shadow-lg shadow-[#1b1a17]/10 transition-colors hover:bg-[#9a6200]";
+    "pointer-events-auto inline-flex items-center justify-center rounded-full bg-[#d1870b] px-6 py-3 text-[0.95rem] font-bold text-[#1b1a17] shadow-lg shadow-[#1b1a17]/10 transition-colors hover:bg-[#c07b08]";
 
   return (
     <div

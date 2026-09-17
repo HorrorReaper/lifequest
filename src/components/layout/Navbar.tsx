@@ -10,7 +10,7 @@ export default function Navbar({
   setWaitlistOpen: (open: boolean) => void;
 }) {
   const cta =
-    "inline-flex items-center justify-center rounded-lg bg-[#d1870b] px-4 py-2.5 text-[0.92rem] font-bold text-white transition-colors hover:bg-[#9a6200]";
+    "inline-flex items-center justify-center rounded-lg bg-[#d1870b] px-4 py-2.5 text-[0.92rem] font-bold text-[#1b1a17] transition-colors hover:bg-[#c07b08]";
 
   return (
     <header className="sticky top-[env(safe-area-inset-top,0px)] z-50 border-b border-[#f3efe6] bg-[#fdfcf9]/95 px-5 backdrop-blur">

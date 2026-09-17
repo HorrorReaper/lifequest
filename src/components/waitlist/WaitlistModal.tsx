@@ -110,7 +110,7 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
             <div className="relative p-8">
               {success ? (
                 <div className="text-center space-y-4 py-4">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#d1870b] text-white">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#d1870b] text-[#1b1a17]">
                     <Check className="h-7 w-7" />
                   </div>
                   <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-[#1b1a17] [font-family:var(--font-nightfall-display)]">
@@ -121,7 +121,7 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                   </p>
                   <button
                     onClick={onClose}
-                    className="mt-2 rounded-xl bg-[#d1870b] px-6 py-3 font-bold text-white transition-colors hover:bg-[#9a6200]"
+                    className="mt-2 rounded-xl bg-[#d1870b] px-6 py-3 font-bold text-[#1b1a17] transition-colors hover:bg-[#c07b08]"
                   >
                     Close
                   </button>
@@ -206,7 +206,7 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="w-full group rounded-xl bg-[#d1870b] px-6 py-3 font-bold text-white transition-colors hover:bg-[#9a6200] disabled:opacity-60 disabled:pointer-events-none"
+                        className="w-full group rounded-xl bg-[#d1870b] px-6 py-3 font-bold text-[#1b1a17] transition-colors hover:bg-[#c07b08] disabled:opacity-60 disabled:pointer-events-none"
                       >
                         {submitting ? (
                           "Joining…"
