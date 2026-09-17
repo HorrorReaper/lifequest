@@ -7,6 +7,7 @@ import {
   randomReflectionPrompt,
   type ReflectionPrompt,
 } from "@/lib/daily-reflection";
+import { calculateHabitCheckInXp } from "@/lib/habit-xp";
 import { useCountUp } from "./useCountUp";
 
 // The product shots, drawn rather than photographed, and clickable where the
@@ -386,13 +387,13 @@ export function TemplatesPanel() {
   );
 }
 
-/** A week of habits, with the freeze that covers the day that got away. */
+/** A week of habits, paid at the rate the streak has earned. */
 export function StreakPanel() {
   const week = [
     { day: "M", state: "done" },
     { day: "T", state: "done" },
     { day: "W", state: "done" },
-    { day: "T", state: "frozen" },
+    { day: "T", state: "done" },
     { day: "F", state: "done" },
     { day: "S", state: "today" },
     { day: "S", state: "open" },
@@ -400,10 +401,15 @@ export function StreakPanel() {
 
   const dotClass = {
     done: "bg-[#eaf3ed] text-[#3f7d5b]",
-    frozen: "bg-[#eef1fb] text-[#5a6bb8]",
     today: "bg-[#d1870b] text-[#1b1a17]",
     open: "bg-[#f3efe6] text-[#6f6b63]",
   };
+
+  // Derived rather than typed, so the number beside each habit is what the
+  // app would actually pay at this streak — the comment at the top of the
+  // file promises as much, and a typed "+20" had already drifted from it.
+  const streak = 24;
+  const reward = calculateHabitCheckInXp(streak);
 
   return (
     <div className={CARD}>
@@ -411,7 +417,7 @@ export function StreakPanel() {
         <p className="[font-family:var(--font-nightfall-display)] text-lg font-extrabold text-[#1b1a17]">
           This week
         </p>
-        <p className="text-[0.82rem] tabular-nums text-[#6f6b63]">24 days running</p>
+        <p className="text-[0.82rem] tabular-nums text-[#6f6b63]">{streak} days running</p>
       </div>
 
       <div className="mt-4 flex gap-1.5">
@@ -425,13 +431,13 @@ export function StreakPanel() {
         ))}
       </div>
       <p className="mt-2.5 text-[0.8rem] text-[#6f6b63]">
-        Thursday was covered by a freeze. The streak held.
+        Every check-in pays {reward.xp} XP at this streak — up from 10 on day one.
       </p>
 
       <div className="mt-4 flex flex-col gap-2.5">
-        <Row emoji="💧" label="Drink 2L of water" trailing={<span className={PILL_GREEN}>+20 XP</span>} />
-        <Row emoji="📖" label="Read 10 pages" trailing={<span className={PILL_GREEN}>+20 XP</span>} />
-        <Row emoji="🏃" label="Move for 20 minutes" trailing={<span className={PILL}>+3 coins</span>} />
+        <Row emoji="💧" label="Drink 2L of water" trailing={<span className={PILL_GREEN}>+{reward.xp} XP</span>} />
+        <Row emoji="📖" label="Read 10 pages" trailing={<span className={PILL_GREEN}>+{reward.xp} XP</span>} />
+        <Row emoji="🏃" label="Move for 20 minutes" trailing={<span className={PILL}>+{reward.coins} coins</span>} />
       </div>
     </div>
   );

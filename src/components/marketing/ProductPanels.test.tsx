@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   DashboardPanel,
   ReflectionPanel,
+  StreakPanel,
   TemplatesPanel,
 } from "@/components/marketing/ProductPanels";
 import { REFLECTION_PROMPTS } from "@/lib/daily-reflection";
+import { calculateHabitCheckInXp } from "@/lib/habit-xp";
 
 afterEach(cleanup);
 
@@ -155,5 +157,19 @@ describe("ReflectionPanel", () => {
     expect(
       screen.getByText(new RegExp(`${REFLECTION_PROMPTS.length} questions`))
     ).toBeTruthy();
+  });
+});
+
+describe("StreakPanel", () => {
+  it("pays each habit what the app pays at the streak it shows", () => {
+    // The panel states a streak length; the XP beside each habit has to be
+    // what calculateHabitCheckInXp returns for that streak, not a typed
+    // number that drifts when the formula changes.
+    render(<StreakPanel />);
+    const streakLabel = screen.getByText(/days running/).textContent ?? "";
+    const streak = Number(streakLabel.match(/\d+/)?.[0]);
+    const expected = calculateHabitCheckInXp(streak).xp;
+    expect(screen.getAllByText(`+${expected} XP`).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/\+20 XP/)).toBeNull();
   });
 });

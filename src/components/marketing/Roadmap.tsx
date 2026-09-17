@@ -12,7 +12,7 @@ type RoadmapItem = {
 const ITEMS: RoadmapItem[] = [
   {
     title: "The daily loop",
-    desc: "Journal templates you can build yourself, habits, tasks, the day planner, XP, streaks with freezes, quests, and a character to spend coins on.",
+    desc: "Journal templates you can build yourself, habits, tasks, the day planner, XP, streaks, quests, and a character to spend coins on.",
     status: "Shipped",
   },
   {

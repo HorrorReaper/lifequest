@@ -106,3 +106,15 @@ describe("LandingPage hero and call to action", () => {
     }
   });
 });
+
+describe("LandingPage promises only what ships", () => {
+  it("never mentions a streak freeze", () => {
+    // Freezes are spent in the entry pipeline but nothing ever grants one, so
+    // the page must not sell them. This walks the whole rendered page, panels
+    // and roadmap included, rather than one section that could be rewritten
+    // while a mention survives elsewhere.
+    vi.stubEnv("NEXT_PUBLIC_IS_MVP", "true");
+    render(<LandingPage />);
+    expect(document.body.textContent).not.toMatch(/freez|frozen|forgives/i);
+  });
+});

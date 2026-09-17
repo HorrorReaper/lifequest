@@ -177,12 +177,12 @@ export default function LandingPage() {
             <div className="md:order-2 flex flex-col gap-3.5">
               <p className="text-[0.74rem] font-bold uppercase tracking-[0.12em] text-[#9a6200]">Habits</p>
               <h2 className="text-balance [font-family:var(--font-nightfall-display)] text-[clamp(1.7rem,3.4vw,2.2rem)] font-extrabold leading-tight">
-                A streak that forgives you
+                A streak that pays more the longer it runs
               </h2>
               <p className="text-[#6f6b63]">
-                Miss a day and a freeze covers it — nothing you earned gets taken away. The XP
-                per habit grows with your streak, up to double, so consistency pays more than
-                any single good day.
+                The XP per habit grows with your streak, up to double, so consistency pays more
+                than any single good day. And if the streak does break, everything you earned
+                stays earned.
               </p>
             </div>
             <div className="md:order-1">
@@ -247,8 +247,8 @@ export default function LandingPage() {
           </blockquote>
           <p className="text-[#6f6b63]">
             Every habit app I tried punished me for missing a day, and I stopped opening all of
-            them. LifeQuest is built the other way round: the streak can be frozen, nothing you
-            earned gets taken away, and the only pressure is a character standing there in gear
+            them. LifeQuest is built the other way round: nothing you earned gets taken away, and
+            the only pressure is a character standing there in gear
             you paid for with real days.
           </p>
           <p className="text-sm text-[#6f6b63]">
