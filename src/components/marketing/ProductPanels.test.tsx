@@ -1,6 +1,6 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DashboardPanel,
   ReflectionPanel,
@@ -10,12 +10,25 @@ import {
 import { REFLECTION_PROMPTS } from "@/lib/daily-reflection";
 import { calculateHabitCheckInXp } from "@/lib/habit-xp";
 
-afterEach(cleanup);
+beforeEach(() => {
+  // The counters tween through requestAnimationFrame over 600ms. jsdom paces
+  // those frames on its own schedule, which under load stretched well past
+  // the second findBy waits and turned these into the suite's only flaky
+  // tests. Running the callback synchronously, with a timestamp past the end
+  // of the tween, settles every counter in one call — so what is asserted
+  // below is the arithmetic, which is the point, and not a race with an
+  // animation.
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    callback(performance.now() + 10_000);
+    return 0;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+});
 
-// The counters tween over 600ms, and jsdom's requestAnimationFrame runs
-// slower than wall clock, so waiting for a settled number needs more than
-// findBy's default second.
-const SETTLED = { timeout: 3000 };
+afterEach(() => {
+  vi.unstubAllGlobals();
+  cleanup();
+});
 
 describe("DashboardPanel", () => {
   it("counts down to the next level the way the app's heroes do", () => {
@@ -37,8 +50,8 @@ describe("DashboardPanel", () => {
 
     // round(10 × (1 + 12×0.02)) = 12 XP, so 160 left becomes 148, and a flat
     // 3 coins on top.
-    expect(await screen.findByText(/^148 XP to Level 7$/, undefined, SETTLED)).toBeTruthy();
-    expect(await screen.findByText(/89 coins/, undefined, SETTLED)).toBeTruthy();
+    expect(screen.getByText(/^148 XP to Level 7$/)).toBeTruthy();
+    expect(screen.getByText(/89 coins/)).toBeTruthy();
   });
 
   it("pays a completed task 5 XP and no coins", async () => {
@@ -47,7 +60,7 @@ describe("DashboardPanel", () => {
 
     await user.click(screen.getByRole("button", { name: /send the project update/i }));
 
-    expect(await screen.findByText(/^155 XP to Level 7$/, undefined, SETTLED)).toBeTruthy();
+    expect(screen.getByText(/^155 XP to Level 7$/)).toBeTruthy();
     // Tasks pay no coins in the app, so the balance must not move.
     expect(screen.getByText(/86 coins/)).toBeTruthy();
   });
@@ -59,8 +72,8 @@ describe("DashboardPanel", () => {
     await user.click(screen.getByRole("button", { name: /move for 20 minutes/i }));
     await user.click(screen.getByRole("button", { name: /reset/i }));
 
-    expect(await screen.findByText(/^160 XP to Level 7$/, undefined, SETTLED)).toBeTruthy();
-    expect(await screen.findByText(/86 coins/, undefined, SETTLED)).toBeTruthy();
+    expect(screen.getByText(/^160 XP to Level 7$/)).toBeTruthy();
+    expect(screen.getByText(/86 coins/)).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /move for 20 minutes/i }).getAttribute("aria-pressed")
     ).toBe("false");
