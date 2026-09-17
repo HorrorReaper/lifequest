@@ -84,6 +84,14 @@ describe("LandingPage is_MVP branches", () => {
 });
 
 describe("LandingPage hero and call to action", () => {
+  it("opens on the streak, not on the game", () => {
+    vi.stubEnv("NEXT_PUBLIC_IS_MVP", "true");
+    render(<LandingPage />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Two minutes a night. A streak worth keeping."
+    );
+  });
+
   it("never sets white text on the amber call to action", () => {
     // White on #d1870b is 2.9:1, under the 4.5:1 WCAG AA needs for 16px
     // bold. Dark text on the same amber is 5.9:1. The CTA repeats across the
