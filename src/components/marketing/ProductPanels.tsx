@@ -46,6 +46,12 @@ const LEVEL_CEILING = 1400;
 const BASE_XP = 1240;
 const BASE_COINS = 86;
 
+// The seeded Daily Reflection template's own reward, and its own field
+// placeholder -- see the migration that creates them,
+// 20260911120000_create_daily_reflection_template.sql.
+const REFLECTION_XP = 10;
+const REFLECTION_QUESTION = "What gave you energy today, and what quietly drained it?";
+
 interface Checkable {
   id: string
   emoji: string
@@ -118,6 +124,12 @@ export function DashboardPanel() {
   const [done, setDone] = useState<string[]>([]);
   // Keyed so the same badge can replay on a second tick.
   const [burst, setBurst] = useState<{ key: number; xp: number; coins: number } | null>(null);
+  const [writing, setWriting] = useState(false);
+  const [draft, setDraft] = useState("");
+  // Terminal once set, like the app: an entry that exists cannot be unsaved,
+  // and the dashboard then offers to read it rather than to write it again.
+  const [saved, setSaved] = useState<string | null>(null);
+  const draftId = useId();
 
   const earnedXp = CHECKABLE.filter((item) => done.includes(item.id)).reduce(
     (total, item) => total + item.xp,
@@ -128,13 +140,13 @@ export function DashboardPanel() {
     0
   );
 
-  const xp = BASE_XP + earnedXp;
+  const xp = BASE_XP + earnedXp + (saved === null ? 0 : REFLECTION_XP);
   const coins = BASE_COINS + earnedCoins;
   const shownRemaining = useCountUp(Math.max(0, LEVEL_CEILING - xp));
   const shownCoins = useCountUp(coins);
   // 25 for the evening review already written today, plus whatever gets
   // ticked here.
-  const shownToday = useCountUp(25 + earnedXp);
+  const shownToday = useCountUp(25 + earnedXp + (saved === null ? 0 : REFLECTION_XP));
   const percent = Math.round(((xp - LEVEL_FLOOR) / (LEVEL_CEILING - LEVEL_FLOOR)) * 100);
 
   useEffect(() => {
@@ -149,6 +161,14 @@ export function DashboardPanel() {
       setBurst({ key: Date.now(), xp: item.xp, coins: item.coins });
       return [...current, item.id];
     });
+  }
+
+  function save() {
+    const text = draft.trim();
+    if (text.length === 0) return;
+    setSaved(text);
+    setWriting(false);
+    setBurst({ key: Date.now(), xp: REFLECTION_XP, coins: 0 });
   }
 
   return (
@@ -225,27 +245,55 @@ export function DashboardPanel() {
           Today&apos;s question
         </p>
         <p className="mt-2 [font-family:var(--font-nightfall-display)] text-[1.1rem] font-bold leading-snug text-[#1b1a17]">
-          What gave you energy today, and what quietly drained it?
+          {REFLECTION_QUESTION}
         </p>
-        <p className="mt-3 text-[0.88rem] font-bold text-[#9a6200]">Write about it →</p>
-      </div>
-
-      <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8rem] text-[#6f6b63]">
-        {done.length > 0 ? (
-          <>
-            <span>That is real: the app pays exactly this.</span>
-            <button
-              type="button"
-              onClick={() => setDone([])}
-              className="cursor-pointer font-bold text-[#9a6200] underline underline-offset-2"
-            >
-              Reset
-            </button>
-          </>
-        ) : (
-          <span>Tick something. This panel pays out like the real one.</span>
+        {saved === null && !writing && (
+          <button
+            type="button"
+            onClick={() => setWriting(true)}
+            className="mt-3 cursor-pointer text-[0.88rem] font-bold text-[#9a6200] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d1870b]"
+          >
+            Write about it →
+          </button>
         )}
-      </p>
+
+        {writing && (
+          <div className="mt-3">
+            <textarea
+              id={draftId}
+              autoFocus
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              rows={3}
+              aria-label={REFLECTION_QUESTION}
+              placeholder="Whatever comes to mind. No one else reads this."
+              className="w-full resize-none rounded-xl border border-[#eae5da] bg-[#fdfcf9] px-3.5 py-3 text-[0.92rem] leading-6 text-[#1b1a17] placeholder:text-[#8d887f] focus:border-[#d1870b] focus:outline-none focus:ring-2 focus:ring-[#d1870b]/30"
+            />
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={save}
+                disabled={draft.trim().length === 0}
+                className="cursor-pointer rounded-lg bg-[#d1870b] px-4 py-2 text-[0.85rem] font-bold text-[#1b1a17] transition-colors hover:bg-[#c07b08] disabled:cursor-default disabled:opacity-45"
+              >
+                Save reflection
+              </button>
+              <span className="text-[0.78rem] text-[#6f6b63]">Pays {REFLECTION_XP} XP</span>
+            </div>
+          </div>
+        )}
+
+        {saved !== null && (
+          <div className="mt-3">
+            <p className="whitespace-pre-wrap rounded-xl border border-[#eae5da] bg-[#fdfcf9] px-3.5 py-3 text-[0.92rem] leading-6 text-[#1b1a17]">
+              {saved}
+            </p>
+            <p className="mt-2 text-[0.78rem] font-semibold text-[#3f7d5b]">
+              Saved · +{REFLECTION_XP} XP
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

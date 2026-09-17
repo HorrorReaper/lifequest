@@ -65,18 +65,70 @@ describe("DashboardPanel", () => {
     expect(screen.getByText(/86 coins/)).toBeTruthy();
   });
 
-  it("puts everything back with Reset", async () => {
+  it("takes the reward back when a row is unticked", async () => {
     const user = userEvent.setup();
     render(<DashboardPanel />);
 
-    await user.click(screen.getByRole("button", { name: /move for 20 minutes/i }));
-    await user.click(screen.getByRole("button", { name: /reset/i }));
+    // The Reset link is gone; the rows are toggles, so unticking is the way
+    // back and nothing was lost by dropping it.
+    const row = () => screen.getByRole("button", { name: /move for 20 minutes/i });
+    await user.click(row());
+    await user.click(row());
 
     expect(screen.getByText(/^160 XP to Level 7$/)).toBeTruthy();
     expect(screen.getByText(/86 coins/)).toBeTruthy();
+    expect(row().getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("opens a box to write in, and pays the reflection's own 10 XP for it", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel />);
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /write about it/i }));
+    const box = screen.getByRole("textbox");
+
+    // Nothing written yet, so there is nothing to save.
+    const saveButton = screen.getByRole("button", { name: /save reflection/i }) as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(true);
+
+    await user.type(box, "The walk at lunch, and the third meeting.");
+    expect(saveButton.disabled).toBe(false);
+
+    await user.click(saveButton);
+
+    // The seeded template pays 10, so 160 left becomes 150.
+    expect(screen.getByText(/^150 XP to Level 7$/)).toBeTruthy();
+    expect(screen.getByText("The walk at lunch, and the third meeting.")).toBeTruthy();
+    expect(screen.getByText(/Saved · \+10 XP/)).toBeTruthy();
+    // Writing pays XP but no coins, the same as every other entry.
+    expect(screen.getByText(/86 coins/)).toBeTruthy();
+  });
+
+  it("will not save blank space", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel />);
+
+    await user.click(screen.getByRole("button", { name: /write about it/i }));
+    await user.type(screen.getByRole("textbox"), "   ");
+
     expect(
-      screen.getByRole("button", { name: /move for 20 minutes/i }).getAttribute("aria-pressed")
-    ).toBe("false");
+      (screen.getByRole("button", { name: /save reflection/i }) as HTMLButtonElement).disabled
+    ).toBe(true);
+    expect(screen.getByText(/^160 XP to Level 7$/)).toBeTruthy();
+  });
+
+  it("keeps a saved reflection, the way an entry cannot be unsaved", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel />);
+
+    await user.click(screen.getByRole("button", { name: /write about it/i }));
+    await user.type(screen.getByRole("textbox"), "Enough for today.");
+    await user.click(screen.getByRole("button", { name: /save reflection/i }));
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("button", { name: /write about it/i })).toBeNull();
   });
 });
 
