@@ -351,7 +351,6 @@ const TEMPLATES: TemplateTab[] = [
       "Best moment of the week",
       "Biggest struggle this week",
       "What I want to do differently next week",
-      "Next week's theme or focus",
       "Overall week rating",
       "Free reflection",
     ],

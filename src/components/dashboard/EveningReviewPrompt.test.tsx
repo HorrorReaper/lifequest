@@ -105,4 +105,28 @@ describe('EveningReviewPrompt', () => {
 
     expect(screen.getByText('How was your day, Alex?')).toBeTruthy()
   })
+
+  it('stays closed while a weekly prompt it yields to is still unanswered', () => {
+    render(
+      <EveningReviewPrompt
+        {...defaultProps}
+        heldBackBy="lifequest-weekly-review-dismissed-2026-07-27"
+      />
+    )
+
+    expect(screen.queryByText('How was your day, Alex?')).toBeNull()
+  })
+
+  it('opens once the weekly prompt it yields to has been dismissed', () => {
+    window.localStorage.setItem('lifequest-weekly-review-dismissed-2026-07-27', '1')
+
+    render(
+      <EveningReviewPrompt
+        {...defaultProps}
+        heldBackBy="lifequest-weekly-review-dismissed-2026-07-27"
+      />
+    )
+
+    expect(screen.getByText('How was your day, Alex?')).toBeTruthy()
+  })
 })

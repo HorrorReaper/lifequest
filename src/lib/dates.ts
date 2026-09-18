@@ -123,3 +123,20 @@ export function formatDateOnly(
     ...options,
   })
 }
+
+/**
+ * The weekday of a date key, Monday = 0 through Sunday = 6.
+ *
+ * Monday-first because the app's week is Monday to Sunday: the weekly
+ * review closes it on Sunday and the weekly plan opens the next on Monday.
+ * Derived from the day number so no zone can shift the weekday.
+ */
+export function weekdayOf(dateKey: string): number {
+  // Day 0 (1970-01-01) was a Thursday, i.e. weekday 3 in Monday-first terms.
+  return (((dayNumber(dateKey) + 3) % 7) + 7) % 7
+}
+
+/** The Monday that starts the week `dateKey` falls in. */
+export function weekStart(dateKey: string): string {
+  return addDays(dateKey, -weekdayOf(dateKey))
+}

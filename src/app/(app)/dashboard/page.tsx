@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { addDays, dateInTimezone } from '@/lib/dates'
+import { addDays, dateInTimezone, weekStart } from '@/lib/dates'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import type { Database } from '@/lib/supabase/database.types'
 import { ThemedDashboardHero } from '@/components/dashboard/ThemedDashboardHero'
@@ -35,6 +35,17 @@ import { parseTodayPlanNotes } from '@/lib/today-plan'
 import { FirstRunWelcome } from '@/components/dashboard/FirstRunWelcome'
 import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
 import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
+import { WeeklyReviewPrompt } from '@/components/dashboard/WeeklyReviewPrompt'
+import { WeeklyPlanPrompt } from '@/components/dashboard/WeeklyPlanPrompt'
+import {
+  WEEKLY_PLAN_TEMPLATE_ID,
+  WEEKLY_REVIEW_TEMPLATE_ID,
+  isWeeklyPlanWindow,
+  isWeeklyReviewWindow,
+  weeklyEntryExists,
+  weeklyPlanDismissKey,
+  weeklyReviewDismissKey,
+} from '@/lib/weekly-rituals'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 import { ScorecardSection } from '@/components/dashboard/ScorecardSection'
@@ -147,6 +158,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
   const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
+  const thisWeekStart = weekStart(today)
 
   // Scorecard rows come from targets, not the tracked-metric list, so fetch
   // targets first and only pay for the list when something actually needs
@@ -200,6 +212,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     dashboardLearnings,
     openTasksRes,
     tasksCompletedTodayRes,
+    tasksCompletedThisWeekRes,
+    weeklyEntriesRes,
   ] = await Promise.all([
     supabase
       .from('habits')
@@ -262,6 +276,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('is_completed', true)
       .gte('completed_at', `${today}T00:00:00`)
       .lt('completed_at', `${addDays(today, 1)}T00:00:00`),
+    supabase
+      .from('tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_completed', true)
+      .gte('completed_at', `${thisWeekStart}T00:00:00`)
+      .lt('completed_at', `${addDays(today, 1)}T00:00:00`),
+    // Both weekly rituals at once: the review closes the week that is
+    // ending, the plan opens the one that is starting, and on any given day
+    // "this week" means the same Monday-to-Sunday span for both.
+    supabase
+      .from('journal_entries')
+      .select('template_id, entry_date')
+      .eq('user_id', user.id)
+      .eq('is_complete', true)
+      .in('template_id', [WEEKLY_REVIEW_TEMPLATE_ID, WEEKLY_PLAN_TEMPLATE_ID])
+      .gte('entry_date', thisWeekStart)
+      .lte('entry_date', addDays(thisWeekStart, 6)),
   ])
 
   const habitLogRows = (briefingHabitLogsRes.data ?? []) as HabitLogRow[]
@@ -313,6 +345,28 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const eveningReviewDone = eveningReviewTemplate?.completedToday ?? false
   const habitsCompletedToday = briefingHabits.filter((habit) => habit.completed).length
   const tasksCompletedToday = tasksCompletedTodayRes.count ?? 0
+  // The streak window already holds every completed log back to well before
+  // Monday, so the week's check-ins are a filter rather than another query.
+  const habitsCompletedThisWeek = habitLogRows.filter(
+    (log) => log.log_date >= thisWeekStart && log.log_date <= today
+  ).length
+  const tasksCompletedThisWeek = tasksCompletedThisWeekRes.count ?? 0
+  const weeklyEntries = (weeklyEntriesRes.data ?? []) as {
+    template_id: string
+    entry_date: string
+  }[]
+  const weeklyReviewDone = weeklyEntryExists(weeklyEntries, WEEKLY_REVIEW_TEMPLATE_ID, today)
+  const weeklyPlanDone = weeklyEntryExists(weeklyEntries, WEEKLY_PLAN_TEMPLATE_ID, today)
+  const weeklyReviewWindow = isWeeklyReviewWindow(today, nowMinutes)
+  const weeklyPlanWindow = isWeeklyPlanWindow(today)
+  // While a weekly prompt is live, the daily one on the same evening or
+  // morning waits for it; see usePromptHeldBack. Null once the weekly entry
+  // exists or the window is closed, so the daily prompt is not held by a
+  // prompt that will never show.
+  const eveningReviewHeldBackBy =
+    weeklyReviewWindow && !weeklyReviewDone ? weeklyReviewDismissKey(thisWeekStart) : null
+  const dailyPlanHeldBackBy =
+    weeklyPlanWindow && !weeklyPlanDone ? weeklyPlanDismissKey(thisWeekStart) : null
   const dayPlan = dayPlanRes.data as {
     blocks?: DayPlanBlock[]
     notes?: string | null
@@ -373,7 +427,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         />
 
         <FirstRunWelcome show={showWelcome} />
-        <DailyPlanPrompt today={today} planCommitted={planCommitted} username={profile.username} />
+        <DailyPlanPrompt
+          today={today}
+          planCommitted={planCommitted}
+          username={profile.username}
+          heldBackBy={dailyPlanHeldBackBy}
+        />
         <EveningReviewPrompt
           today={today}
           isEvening={isEvening}
@@ -383,6 +442,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           habitsCompleted={habitsCompletedToday}
           habitsTotal={briefingHabits.length}
           tasksCompletedToday={tasksCompletedToday}
+          heldBackBy={eveningReviewHeldBackBy}
+        />
+        <WeeklyPlanPrompt
+          weekStart={thisWeekStart}
+          isWindow={weeklyPlanWindow}
+          planDone={weeklyPlanDone}
+          username={profile.username}
+          openTaskCount={openTasksRes.count ?? 0}
+        />
+        <WeeklyReviewPrompt
+          weekStart={thisWeekStart}
+          isWindow={weeklyReviewWindow}
+          reviewDone={weeklyReviewDone}
+          username={profile.username}
+          habitsCompletedThisWeek={habitsCompletedThisWeek}
+          tasksCompletedThisWeek={tasksCompletedThisWeek}
         />
 
         {shows('today_plan') && (
