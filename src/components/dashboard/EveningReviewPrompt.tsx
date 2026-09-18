@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useSyncExternalStore } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Moon } from 'lucide-react'
 import {
@@ -13,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { usePromptDismissal, usePromptHeldBack } from '@/components/dashboard/prompt-dismissal'
 
 interface EveningReviewPromptProps {
   /** The user's local date key (YYYY-MM-DD), so the dismissal resets every day. */
@@ -28,6 +28,11 @@ interface EveningReviewPromptProps {
   habitsCompleted: number
   habitsTotal: number
   tasksCompletedToday: number
+  /**
+   * The dismissal key of a weekly prompt that takes precedence today, or
+   * null. See usePromptHeldBack.
+   */
+  heldBackBy?: string | null
 }
 
 /**
@@ -41,18 +46,6 @@ function dismissKey(today: string) {
   return `${EVENING_REVIEW_DISMISS_PREFIX}${today}`
 }
 
-function subscribeToDismissal(onChange: () => void) {
-  window.addEventListener('storage', onChange)
-  return () => window.removeEventListener('storage', onChange)
-}
-
-// Server and the pre-hydration client paint agree the prompt is dismissed so
-// it never flashes open before hydration; see DailyPlanPrompt.tsx for the
-// same reasoning applied to the morning prompt.
-function readDismissedOnServer() {
-  return true
-}
-
 export function EveningReviewPrompt({
   today,
   isEvening,
@@ -62,22 +55,14 @@ export function EveningReviewPrompt({
   habitsCompleted,
   habitsTotal,
   tasksCompletedToday,
+  heldBackBy = null,
 }: EveningReviewPromptProps) {
   const reduceMotion = useReducedMotion()
-  const dismissed = useSyncExternalStore(
-    subscribeToDismissal,
-    () => window.localStorage.getItem(dismissKey(today)) === '1',
-    readDismissedOnServer
-  )
+  const { dismissed, dismiss } = usePromptDismissal(dismissKey(today))
 
-  function dismiss() {
-    window.localStorage.setItem(dismissKey(today), '1')
-    // localStorage's native "storage" event only fires in other tabs; dispatch
-    // one manually so this tab's useSyncExternalStore re-reads immediately.
-    window.dispatchEvent(new Event('storage'))
-  }
+  const heldBack = usePromptHeldBack(heldBackBy)
 
-  const open = isEvening && !reviewDone && !dismissed && templateId !== null
+  const open = isEvening && !reviewDone && !dismissed && !heldBack && templateId !== null
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss() }}>

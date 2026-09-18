@@ -71,4 +71,32 @@ describe('DailyPlanPrompt', () => {
 
     expect(screen.getByText('Welcome back, Alex 👋')).toBeTruthy()
   })
+
+  it('stays closed while a weekly prompt it yields to is still unanswered', () => {
+    render(
+      <DailyPlanPrompt
+        today={TODAY}
+        planCommitted={false}
+        username="Alex"
+        heldBackBy="lifequest-weekly-plan-dismissed-2026-07-27"
+      />
+    )
+
+    expect(screen.queryByText('Welcome back, Alex 👋')).toBeNull()
+  })
+
+  it('opens once the weekly prompt it yields to has been dismissed', () => {
+    window.localStorage.setItem('lifequest-weekly-plan-dismissed-2026-07-27', '1')
+
+    render(
+      <DailyPlanPrompt
+        today={TODAY}
+        planCommitted={false}
+        username="Alex"
+        heldBackBy="lifequest-weekly-plan-dismissed-2026-07-27"
+      />
+    )
+
+    expect(screen.getByText('Welcome back, Alex 👋')).toBeTruthy()
+  })
 })
