@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, CalendarClock } from 'lucide-react'
+import { ArrowRight, CalendarRange } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -12,23 +12,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import {
-  usePromptDismissal,
-  usePromptHeldBack,
-  type PromptCopy,
-} from '@/components/dashboard/prompt-dismissal'
+import { usePromptDismissal, type PromptCopy } from '@/components/dashboard/prompt-dismissal'
 import { ritualDismissKey } from '@/lib/rituals'
 
-interface DailyPlanPromptProps {
-  /** The user's local date key (YYYY-MM-DD), so the dismissal resets every day. */
-  today: string
-  planCommitted: boolean
+interface WeeklyPlanPromptProps {
+  /** The Monday of the current week (YYYY-MM-DD), so the dismissal resets weekly. */
+  weekStart: string
+  /** Whether it is Monday in the user's own timezone. */
+  isWindow: boolean
+  /** Whether a Weekly Plan entry already exists for this week. */
+  planDone: boolean
+  /** Where the call to action leads, or null when the ritual has no target -- then the prompt stays closed. */
+  href: string | null
   copy: PromptCopy
-  /**
-   * The dismissal key of a weekly prompt that takes precedence today, or
-   * null. See usePromptHeldBack.
-   */
-  heldBackBy?: string | null
+  openTaskCount: number
   /**
    * When set, the dialog is a preview: it opens regardless of window, entry
    * and dismissal, and closing calls this instead of remembering a
@@ -38,16 +35,22 @@ interface DailyPlanPromptProps {
   onPreviewClose?: () => void
 }
 
-export function DailyPlanPrompt({
-  today,
-  planCommitted,
+/**
+ * The weekly counterpart of DailyPlanPrompt: on Monday, set the week's theme
+ * and top outcomes before the days start deciding for you. Writes into a
+ * journal template rather than its own planner, so it stays a few minutes.
+ */
+export function WeeklyPlanPrompt({
+  weekStart,
+  isWindow,
+  planDone,
+  href,
   copy,
-  heldBackBy = null,
+  openTaskCount,
   onPreviewClose,
-}: DailyPlanPromptProps) {
+}: WeeklyPlanPromptProps) {
   const reduceMotion = useReducedMotion()
-  const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('daily_plan', today))
-  const heldBack = usePromptHeldBack(heldBackBy)
+  const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('weekly_plan', weekStart))
 
   // Preview mode is "an admin is looking at this", so it must not touch the
   // dismissal the real prompt reads -- closing here calls the handler
@@ -58,7 +61,7 @@ export function DailyPlanPrompt({
     else dismiss()
   }
 
-  const open = preview || (!planCommitted && !dismissed && !heldBack)
+  const open = preview || (isWindow && !planDone && !dismissed && href !== null)
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) close() }}>
@@ -71,7 +74,7 @@ export function DailyPlanPrompt({
             animate={reduceMotion ? undefined : { y: [0, -6, 0], rotate: [0, 1.5, 0] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <CalendarClock className="size-7" />
+            <CalendarRange className="size-7" />
           </motion.span>
           <motion.div
             className="space-y-2"
@@ -83,12 +86,15 @@ export function DailyPlanPrompt({
             <DialogDescription>{copy.description}</DialogDescription>
           </motion.div>
         </DialogHeader>
+        <div className="relative rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
+          {openTaskCount} open {openTaskCount === 1 ? 'task' : 'tasks'}
+        </div>
         <DialogFooter className="relative">
           <Button variant="ghost" onClick={close}>
             Not now
           </Button>
           <Button asChild onClick={close} className="group">
-            <Link href="/plan" onClick={(event) => { if (preview) event.preventDefault() }}>
+            <Link href={href ?? '#'} onClick={(event) => { if (preview) event.preventDefault() }}>
               {copy.ctaLabel}
               <ArrowRight className="ml-1 size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>

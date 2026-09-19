@@ -8,6 +8,8 @@ import {
   hourInTimezone,
   localDateKey,
   parseLocalDate,
+  weekStart,
+  weekdayOf,
 } from '@/lib/dates'
 
 describe('dateInTimezone', () => {
@@ -91,5 +93,25 @@ describe('formatDateOnly', () => {
     expect(formatDateOnly('2026-07-25', { month: 'long', day: 'numeric' })).toBe(
       'July 25'
     )
+  })
+})
+
+describe('weekdayOf', () => {
+  it('numbers Monday 0 through Sunday 6', () => {
+    expect(weekdayOf('2026-09-14')).toBe(0) // Monday
+    expect(weekdayOf('2026-09-18')).toBe(4) // Friday
+    expect(weekdayOf('2026-09-20')).toBe(6) // Sunday
+  })
+})
+
+describe('weekStart', () => {
+  it('is the Monday of the week the date falls in', () => {
+    expect(weekStart('2026-09-14')).toBe('2026-09-14')
+    expect(weekStart('2026-09-18')).toBe('2026-09-14')
+    expect(weekStart('2026-09-20')).toBe('2026-09-14')
+  })
+
+  it('crosses month and year boundaries on day numbers', () => {
+    expect(weekStart('2026-01-01')).toBe('2025-12-29')
   })
 })

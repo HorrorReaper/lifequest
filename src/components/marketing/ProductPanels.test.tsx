@@ -159,8 +159,10 @@ describe("TemplatesPanel", () => {
     expect(within(panel).getByText("Today's positive affirmation")).toBeTruthy();
 
     await user.click(screen.getByRole("tab", { name: /weekly review/i }));
-    expect(within(panel).getByText("Next week's theme or focus")).toBeTruthy();
+    expect(within(panel).getByText("Overall week rating")).toBeTruthy();
     expect(within(panel).getByText("Free reflection")).toBeTruthy();
+    // The theme moved to the Weekly Plan template, so the review no longer asks it.
+    expect(within(panel).queryByText("Next week's theme or focus")).toBeNull();
 
     await user.click(screen.getByRole("tab", { name: /quick insight/i }));
     expect(within(panel).getByText("One insight or thought worth remembering")).toBeTruthy();

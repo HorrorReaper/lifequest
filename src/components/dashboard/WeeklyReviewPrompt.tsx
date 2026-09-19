@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Moon } from 'lucide-react'
+import { CalendarCheck } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -12,31 +12,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import {
-  usePromptDismissal,
-  usePromptHeldBack,
-  type PromptCopy,
-} from '@/components/dashboard/prompt-dismissal'
+import { usePromptDismissal, type PromptCopy } from '@/components/dashboard/prompt-dismissal'
 import { ritualDismissKey } from '@/lib/rituals'
 
-interface EveningReviewPromptProps {
-  /** The user's local date key (YYYY-MM-DD), so the dismissal resets every day. */
-  today: string
-  /** Whether the ritual's window is open right now (see isRitualWindow). */
-  isEvening: boolean
-  /** Whether an entry of the target template already exists for today. */
+interface WeeklyReviewPromptProps {
+  /** The Monday of the current week (YYYY-MM-DD), so the dismissal resets weekly. */
+  weekStart: string
+  /** Whether it is Sunday at or past 6pm in the user's own timezone. */
+  isWindow: boolean
+  /** Whether a Weekly Review entry already exists for this week. */
   reviewDone: boolean
   /** Where the call to action leads, or null when the ritual has no target -- then the prompt stays closed. */
   href: string | null
   copy: PromptCopy
-  habitsCompleted: number
-  habitsTotal: number
-  tasksCompletedToday: number
-  /**
-   * The dismissal key of a weekly prompt that takes precedence today, or
-   * null. See usePromptHeldBack.
-   */
-  heldBackBy?: string | null
+  habitsCompletedThisWeek: number
+  tasksCompletedThisWeek: number
   /**
    * When set, the dialog is a preview: it opens regardless of window, entry
    * and dismissal, and closing calls this instead of remembering a
@@ -46,21 +36,23 @@ interface EveningReviewPromptProps {
   onPreviewClose?: () => void
 }
 
-export function EveningReviewPrompt({
-  today,
-  isEvening,
+/**
+ * The weekly counterpart of EveningReviewPrompt: Sunday evening, close the
+ * week the way the evening prompt closes the day. Same dialog, same
+ * dismissal, one week wide instead of one day.
+ */
+export function WeeklyReviewPrompt({
+  weekStart,
+  isWindow,
   reviewDone,
   href,
   copy,
-  habitsCompleted,
-  habitsTotal,
-  tasksCompletedToday,
-  heldBackBy = null,
+  habitsCompletedThisWeek,
+  tasksCompletedThisWeek,
   onPreviewClose,
-}: EveningReviewPromptProps) {
+}: WeeklyReviewPromptProps) {
   const reduceMotion = useReducedMotion()
-  const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('evening_review', today))
-  const heldBack = usePromptHeldBack(heldBackBy)
+  const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('weekly_review', weekStart))
 
   // Preview mode is "an admin is looking at this", so it must not touch the
   // dismissal the real prompt reads -- closing here calls the handler
@@ -71,7 +63,7 @@ export function EveningReviewPrompt({
     else dismiss()
   }
 
-  const open = preview || (isEvening && !reviewDone && !dismissed && !heldBack && href !== null)
+  const open = preview || (isWindow && !reviewDone && !dismissed && href !== null)
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) close() }}>
@@ -82,7 +74,7 @@ export function EveningReviewPrompt({
             animate={reduceMotion ? undefined : { y: [0, -6, 0], rotate: [0, -1.5, 0] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <Moon className="size-6" />
+            <CalendarCheck className="size-6" />
           </motion.span>
           <motion.div
             className="space-y-2"
@@ -95,11 +87,9 @@ export function EveningReviewPrompt({
           </motion.div>
         </DialogHeader>
         <div className="flex gap-2 rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
-          <span>
-            {habitsCompleted}/{habitsTotal} habits
-          </span>
+          <span>{habitsCompletedThisWeek} habit check-ins</span>
           <span aria-hidden>·</span>
-          <span>{tasksCompletedToday} tasks completed</span>
+          <span>{tasksCompletedThisWeek} tasks completed</span>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={close}>

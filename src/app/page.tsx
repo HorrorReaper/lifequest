@@ -23,7 +23,7 @@ import { nightfallBody, nightfallDisplay } from "@/lib/marketing-fonts";
 const STEPS = [
   {
     title: "Write",
-    body: "Pick a template and answer a few fields. Morning, evening, weekly — or one you built yourself.",
+    body: "Pick a template and answer a few fields. Morning, evening, weekly — or one that you have built yourself.",
     image: "/images/how-write.png",
     alt: "The Morning Reflection entry: a mood picker, and a bar showing one of its four required fields answered.",
   },
@@ -93,13 +93,12 @@ export default function LandingPage() {
       {/* HERO */}
       <header className="px-5 pt-14 sm:pt-20">
         <div className="mx-auto flex max-w-[1040px] flex-col items-center gap-5 text-center">
-          <TypedHeading
-            text="Two minutes a night. A streak worth keeping."
+<TypedHeading
+            text={"Your life is a game.\nTime to start playing!"}
             className="max-w-[14ch] text-balance [font-family:var(--font-nightfall-display)] text-[clamp(2.5rem,6.2vw,4rem)] font-extrabold leading-[1.04]"
           />
           <p className="max-w-[40ch] text-[clamp(1.05rem,2.2vw,1.22rem)] leading-relaxed text-[#6f6b63]">
-            A journal, your habits and your tasks in one place — and a game underneath that
-            makes you come back tomorrow.
+            Your journal, habits, daily plan and tasks in one place. <br></br>An app that rewards you for showing up, and nothing that punishes you for missing a day.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <PrimaryCta isMvp={is_MVP} onWaitlist={openWaitlist} />
@@ -110,9 +109,6 @@ export default function LandingPage() {
               See how it works
             </a>
           </div>
-          <p className="text-sm text-[#6f6b63]">
-            {is_MVP ? "Free forever. No card needed." : "Free forever when it launches. No card needed."}
-          </p>
         </div>
 
         {/* Narrower than the page's own column: at full width the rows stretch
