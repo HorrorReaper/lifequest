@@ -126,6 +126,10 @@ describe('fillName', () => {
   it('leaves text without a placeholder alone', () => {
     expect(fillName('Plan the week', 'Alex')).toBe('Plan the week')
   })
+
+  it('treats the username literally, not as a replacement pattern', () => {
+    expect(fillName('Hi {name}', '$&')).toBe('Hi $&')
+  })
 })
 
 describe('ritualDismissKey', () => {

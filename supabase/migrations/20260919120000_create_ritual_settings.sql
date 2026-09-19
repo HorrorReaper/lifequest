@@ -64,7 +64,7 @@ values
     -- once, here. Null where no such template exists, which hides the
     -- prompt on that environment -- what happened there before too.
     (select id from public.journal_templates
-      where is_system = true and name = 'Evening Review'
+      where is_system = true and name = 'Evening Review' and is_active = true
       order by created_at limit 1),
     'How was your day, {name}?',
     'Close the loop before you switch off. A couple of minutes to reflect on today and set tomorrow''s focus.',

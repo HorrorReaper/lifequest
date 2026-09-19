@@ -167,7 +167,7 @@ const NAME_FALLBACK = 'Adventurer'
 
 /** Puts the user's name into admin-written copy wherever it says `{name}`. */
 export function fillName(text: string, username: string | null): string {
-  return text.replaceAll('{name}', username ?? NAME_FALLBACK)
+  return text.replaceAll('{name}', () => username ?? NAME_FALLBACK)
 }
 
 /**

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BellRing } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
+import { supabaseUpdateWhereReturning } from '@/lib/supabase/helpers'
 import {
   RITUAL_IDS,
   fillName,
@@ -165,7 +165,7 @@ function RitualCard({
       return
     }
     setSaving(true)
-    const { error: saveError } = await supabaseUpdateWhere(
+    const { data, error: saveError } = await supabaseUpdateWhereReturning(
       supabase,
       'ritual_settings',
       {
@@ -180,11 +180,19 @@ function RitualCard({
         updated_by: userId,
       },
       'ritual',
-      ritual
+      ritual,
+      'ritual'
     )
     setSaving(false)
     if (saveError) {
       setError(saveError.message)
+      return
+    }
+    // The update policy filters rather than rejects: a non-admin session
+    // gets error: null and zero rows back rather than a thrown error, so an
+    // empty result is the only signal that nothing was actually saved.
+    if (!data || data.length === 0) {
+      setError('Not saved: this account is not allowed to change ritual settings.')
       return
     }
     setSaved(draft)

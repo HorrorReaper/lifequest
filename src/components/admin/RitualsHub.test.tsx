@@ -8,7 +8,7 @@ const refresh = vi.fn()
 
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ client: true }) }))
 vi.mock('@/lib/supabase/helpers', () => ({
-  supabaseUpdateWhere: (...args: unknown[]) => update(...args),
+  supabaseUpdateWhereReturning: (...args: unknown[]) => update(...args),
 }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }))
 
@@ -27,7 +27,7 @@ function card(name: RegExp) {
 }
 
 beforeEach(() => {
-  update.mockReset().mockResolvedValue({ error: null })
+  update.mockReset().mockResolvedValue({ data: [{ ritual: 'x' }], error: null })
   refresh.mockReset()
 })
 
@@ -139,15 +139,28 @@ describe('RitualsHub', () => {
     expect(update).not.toHaveBeenCalled()
   })
 
-  it('shows the database error inline when the save is rejected', async () => {
-    update.mockResolvedValue({ error: { message: 'new row violates row-level security policy' } })
+  it('reports an RLS-filtered no-op as not saved, without showing "Saved" or refreshing', async () => {
+    update.mockResolvedValue({ data: [], error: null })
     render(<RitualsHub userId="admin-1" trusted settings={settings} templates={templates} />)
     const region = card(/daily plan/i)
 
     fireEvent.change(region.querySelector('input[name="title"]')!, { target: { value: 'Morning, {name}' } })
     fireEvent.submit(region.querySelector('form')!)
 
-    expect(await screen.findByText(/row-level security/i)).toBeTruthy()
+    expect(await screen.findByText(/not allowed to change ritual settings/i)).toBeTruthy()
+    expect(screen.queryByText(/^saved$/i)).toBeNull()
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('shows the database error inline when the save is rejected', async () => {
+    update.mockResolvedValue({ data: null, error: { message: 'connection lost' } })
+    render(<RitualsHub userId="admin-1" trusted settings={settings} templates={templates} />)
+    const region = card(/daily plan/i)
+
+    fireEvent.change(region.querySelector('input[name="title"]')!, { target: { value: 'Morning, {name}' } })
+    fireEvent.submit(region.querySelector('form')!)
+
+    expect(await screen.findByText(/connection lost/i)).toBeTruthy()
   })
 
   it('renders read-only for an allowlist admin', () => {
