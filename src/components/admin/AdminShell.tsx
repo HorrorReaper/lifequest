@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, BookOpenText, Dumbbell, FlaskConical, FolderKanban, GraduationCap, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
+import { ArrowLeft, BellRing, BookOpenText, Dumbbell, FlaskConical, FolderKanban, GraduationCap, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const sections = [
   { href: '/admin/productivity', label: 'Productivity', icon: LayoutDashboard },
+  { href: '/admin/rituals', label: 'Rituals', icon: BellRing },
   { href: '/admin/workouts', label: 'Training', icon: Dumbbell },
   { href: '/admin/nutrition', label: 'Nutrition', icon: Salad },
   { href: '/admin/learning', label: 'Learning', icon: GraduationCap },

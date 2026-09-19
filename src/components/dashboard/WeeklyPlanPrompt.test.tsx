@@ -1,16 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { WeeklyPlanPrompt } from './WeeklyPlanPrompt'
-import { WEEKLY_PLAN_TEMPLATE_ID } from '@/lib/weekly-rituals'
 import { installLocalStorageStub } from '../../../test/local-storage-stub'
 
 const WEEK_START = '2026-09-21'
+
+const copy = { title: 'New week, Alex 🗓️', description: 'Give the week a theme.', ctaLabel: 'Plan the week' }
 
 const defaultProps = {
   weekStart: WEEK_START,
   isWindow: true,
   planDone: false,
-  username: 'Alex',
+  href: '/journal/new/weekly-plan-id',
+  copy,
   openTaskCount: 9,
 }
 
@@ -29,12 +31,6 @@ describe('WeeklyPlanPrompt', () => {
     expect(screen.getByText('New week, Alex 🗓️')).toBeTruthy()
   })
 
-  it('falls back to the same default name as the daily prompts', () => {
-    render(<WeeklyPlanPrompt {...defaultProps} username={null} />)
-
-    expect(screen.getByText('New week, Adventurer 🗓️')).toBeTruthy()
-  })
-
   it('stays closed outside the window', () => {
     render(<WeeklyPlanPrompt {...defaultProps} isWindow={false} />)
 
@@ -43,6 +39,12 @@ describe('WeeklyPlanPrompt', () => {
 
   it('stays closed once this week\'s plan exists', () => {
     render(<WeeklyPlanPrompt {...defaultProps} planDone />)
+
+    expect(screen.queryByText('New week, Alex 🗓️')).toBeNull()
+  })
+
+  it('stays closed when the ritual has no target to open', () => {
+    render(<WeeklyPlanPrompt {...defaultProps} href={null} />)
 
     expect(screen.queryByText('New week, Alex 🗓️')).toBeNull()
   })
@@ -63,7 +65,7 @@ describe('WeeklyPlanPrompt', () => {
     render(<WeeklyPlanPrompt {...defaultProps} />)
 
     const link = screen.getByRole('link', { name: 'Plan the week' })
-    expect(link.getAttribute('href')).toBe(`/journal/new/${WEEKLY_PLAN_TEMPLATE_ID}`)
+    expect(link.getAttribute('href')).toBe('/journal/new/weekly-plan-id')
   })
 
   it('closes and remembers the dismissal for the rest of the week on "Not now"', () => {
@@ -72,7 +74,7 @@ describe('WeeklyPlanPrompt', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
     expect(screen.queryByText('New week, Alex 🗓️')).toBeNull()
     expect(
-      window.localStorage.getItem(`lifequest-weekly-plan-dismissed-${WEEK_START}`)
+      window.localStorage.getItem(`lifequest-ritual-weekly_plan-dismissed-${WEEK_START}`)
     ).toBe('1')
 
     unmount()
@@ -81,7 +83,7 @@ describe('WeeklyPlanPrompt', () => {
   })
 
   it('reopens in a new week even if last week was dismissed', () => {
-    window.localStorage.setItem('lifequest-weekly-plan-dismissed-2026-09-14', '1')
+    window.localStorage.setItem('lifequest-ritual-weekly_plan-dismissed-2026-09-14', '1')
 
     render(<WeeklyPlanPrompt {...defaultProps} />)
 

@@ -12,11 +12,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { usePromptDismissal } from '@/components/dashboard/prompt-dismissal'
-import {
-  WEEKLY_PLAN_TEMPLATE_ID,
-  weeklyPlanDismissKey,
-} from '@/lib/weekly-rituals'
+import { usePromptDismissal, type PromptCopy } from '@/components/dashboard/prompt-dismissal'
+import { ritualDismissKey } from '@/lib/rituals'
 
 interface WeeklyPlanPromptProps {
   /** The Monday of the current week (YYYY-MM-DD), so the dismissal resets weekly. */
@@ -25,8 +22,9 @@ interface WeeklyPlanPromptProps {
   isWindow: boolean
   /** Whether a Weekly Plan entry already exists for this week. */
   planDone: boolean
-  /** Matches the DashboardHero fallback so the greeting reads the same across the page. */
-  username: string | null
+  /** Where the call to action leads, or null when the ritual has no target -- then the prompt stays closed. */
+  href: string | null
+  copy: PromptCopy
   openTaskCount: number
 }
 
@@ -39,13 +37,14 @@ export function WeeklyPlanPrompt({
   weekStart,
   isWindow,
   planDone,
-  username,
+  href,
+  copy,
   openTaskCount,
 }: WeeklyPlanPromptProps) {
   const reduceMotion = useReducedMotion()
-  const { dismissed, dismiss } = usePromptDismissal(weeklyPlanDismissKey(weekStart))
+  const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('weekly_plan', weekStart))
 
-  const open = isWindow && !planDone && !dismissed
+  const open = isWindow && !planDone && !dismissed && href !== null
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss() }}>
@@ -66,13 +65,8 @@ export function WeeklyPlanPrompt({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.3 }}
           >
-            <DialogTitle className="text-2xl font-bold tracking-tight">
-              New week, {username ?? 'Adventurer'} 🗓️
-            </DialogTitle>
-            <DialogDescription>
-              Give the week a theme and three outcomes before the days start
-              deciding for you. Each morning&apos;s briefing gets easier with them set.
-            </DialogDescription>
+            <DialogTitle className="text-2xl font-bold tracking-tight">{copy.title}</DialogTitle>
+            <DialogDescription>{copy.description}</DialogDescription>
           </motion.div>
         </DialogHeader>
         <div className="relative rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
@@ -83,8 +77,8 @@ export function WeeklyPlanPrompt({
             Not now
           </Button>
           <Button asChild onClick={dismiss} className="group">
-            <Link href={`/journal/new/${WEEKLY_PLAN_TEMPLATE_ID}`}>
-              Plan the week
+            <Link href={href ?? '#'}>
+              {copy.ctaLabel}
               <ArrowRight className="ml-1 size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </Button>

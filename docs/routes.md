@@ -70,6 +70,7 @@ All admin pages live under the immersive `AdminShell`.
 | --- | --- |
 | `/admin` | Redirects to `/admin/productivity` |
 | `/admin/productivity` | Tasks, top-three priorities, focus timer, habits, goals, routines, and plan summary |
+| `/admin/rituals` | Global settings for the four dashboard ritual prompts: enabled, window, target template, copy (saving needs the trusted admin role) |
 | `/admin/workouts` | Exercise library, routines, active workout, history, statistics |
 | `/admin/nutrition` | Diary, foods, portions, saved meals, recipes, targets |
 | `/admin/challenges` | Challenge template authoring and publishing |

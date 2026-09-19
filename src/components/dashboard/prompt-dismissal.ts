@@ -61,3 +61,13 @@ export function usePromptHeldBack(heldBackBy: string | null | undefined): boolea
   const { dismissed } = usePromptDismissal(heldBackBy ?? NEVER_DISMISSED_KEY)
   return heldBackBy != null && !dismissed
 }
+
+/**
+ * What a ritual prompt says, as an admin wrote it at /admin/rituals with
+ * `{name}` already filled in by the page. The prompts print these as-is.
+ */
+export interface PromptCopy {
+  title: string
+  description: string
+  ctaLabel: string
+}
