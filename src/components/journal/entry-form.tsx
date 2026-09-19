@@ -27,7 +27,6 @@ import { cleanLearningDraft, type LearningFieldValue } from '@/lib/learnings'
 import { normalizeInsightTags } from '@/lib/insights'
 import { calculateEntryBonusXp } from '@/lib/gamification'
 import {
-  BookOpenCheck,
   Building2,
   CheckCircle2,
   Flame,
@@ -36,19 +35,20 @@ import {
   X,
 } from 'lucide-react'
 import { DraftTask } from './TasksInput'
-import { MobileJournalDiscardDialog } from './mobile-journal-discard-dialog'
-import { MobileJournalNavigation } from './mobile-journal-navigation'
+import { JournalDiscardDialog } from './journal-discard-dialog'
+import { JournalNavigation } from './journal-navigation'
 import {
-  advanceMobileJournalStep,
-  buildMobileJournalSteps,
+  advanceJournalStep,
+  buildJournalSteps,
+  JournalStepProgress,
   isDisplayOnlyJournalField,
   isJournalFieldComplete,
   journalDraftKey,
-  MobileJournalStepPanel,
+  JournalStepPanel,
   removeStoredJournalDraft,
   restoreJournalDraft,
   serializeJournalDraft,
-} from './mobile-journal-wizard'
+} from './journal-wizard'
 
 interface EntryFormProps {
   userId: string
@@ -69,7 +69,7 @@ interface EntryFormProps {
   /**
    * The question this entry answers, for templates whose prompt rotates
    * rather than living on a field -- the Daily Reflection. Shown above the
-   * fields and kept on screen through every step of the mobile wizard, so
+   * fields and kept on screen through every step of the wizard, so
    * the question stays visible while the answer is being written.
    */
   prompt?: string | null
@@ -233,15 +233,11 @@ export function EntryForm({
   const completedRequiredFields = requiredFields.filter((field) =>
     isJournalFieldComplete(field, values[field.id])
   ).length
-  const progressPercent =
-    requiredFields.length > 0
-      ? Math.round((completedRequiredFields / requiredFields.length) * 100)
-      : 100
   const visibleFields = fields.filter(
     (field) => !isDuplicateTemplateHeading(field, template)
   )
-  const mobileSteps = useMemo(
-    () => buildMobileJournalSteps(visibleFields),
+  const steps = useMemo(
+    () => buildJournalSteps(visibleFields),
     [visibleFields]
   )
   const draftStorageKey = useMemo(
@@ -253,7 +249,7 @@ export function EntryForm({
   useEffect(() => {
     try {
       const rawDraft = window.sessionStorage.getItem(draftStorageKey)
-      const draft = restoreJournalDraft(rawDraft, fields, mobileSteps.length)
+      const draft = restoreJournalDraft(rawDraft, fields, steps.length)
 
       if (draft) {
         setValues((currentValues) => ({ ...currentValues, ...draft.values }))
@@ -266,7 +262,7 @@ export function EntryForm({
     } finally {
       setDraftReady(true)
     }
-  }, [draftStorageKey, fields, mobileSteps.length])
+  }, [draftStorageKey, fields, steps.length])
 
   useEffect(() => {
     if (!draftReady) return
@@ -324,9 +320,9 @@ export function EntryForm({
   }
 
   function handleNextStep() {
-    const advance = advanceMobileJournalStep({
+    const advance = advanceJournalStep({
       activeStep,
-      steps: mobileSteps,
+      steps: steps,
       values,
     })
 
@@ -346,7 +342,7 @@ export function EntryForm({
         (field) => !isJournalFieldComplete(field, values[field.id])
       )
       const firstIncompleteStep = firstIncompleteField
-        ? mobileSteps.findIndex((step) => step.answerField?.id === firstIncompleteField.id)
+        ? steps.findIndex((step) => step.answerField?.id === firstIncompleteField.id)
         : -1
 
       if (firstIncompleteField) setFieldErrorId(firstIncompleteField.id)
@@ -766,32 +762,15 @@ export function EntryForm({
             <div className="min-w-0 text-center">
               <p className="truncate text-sm font-semibold">{template.name}</p>
               <p className="text-xs text-muted-foreground">
-                Step {Math.min(activeStep + 1, Math.max(mobileSteps.length, 1))} of{' '}
-                {Math.max(mobileSteps.length, 1)}
+                Step {Math.min(activeStep + 1, Math.max(steps.length, 1))} of{' '}
+                {Math.max(steps.length, 1)}
               </p>
             </div>
             <span className="min-w-11 text-right text-xs font-semibold text-primary">
               +{template.xp_reward} XP
             </span>
           </div>
-          <div
-            className="mt-3 flex gap-1.5"
-            aria-hidden="true"
-            data-testid="journal-step-progress"
-          >
-            {Array.from({ length: Math.max(mobileSteps.length, 1) }).map((_, index) => (
-              <span
-                key={index}
-                className={`h-1.5 min-w-0 flex-1 rounded-full transition-colors ${
-                  index <= activeStep ? 'bg-primary' : 'bg-muted'
-                }`}
-              />
-            ))}
-          </div>
-          <span className="sr-only" aria-live="polite">
-            Step {Math.min(activeStep + 1, Math.max(mobileSteps.length, 1))} of{' '}
-            {Math.max(mobileSteps.length, 1)}
-          </span>
+          <JournalStepProgress activeStep={activeStep} stepCount={steps.length} />
         </header>
 
         <section className="hidden overflow-hidden rounded-[2rem] border bg-card shadow-sm md:block">
@@ -820,21 +799,22 @@ export function EntryForm({
                 </span>
               </div>
 
+              {/* The step counter the phone header carries, in the shape of
+                  this card. The required-field meter it replaces counted
+                  fields that are no longer all on screen at once. */}
               <div className="rounded-2xl border bg-background/70 p-3">
-                <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center justify-between gap-3 text-xs">
                   <span className="font-medium text-muted-foreground">
+                    Step {Math.min(activeStep + 1, Math.max(steps.length, 1))} of{' '}
+                    {Math.max(steps.length, 1)}
+                  </span>
+                  <span className="font-semibold text-primary">
                     {requiredFields.length > 0
-                      ? `${completedRequiredFields}/${requiredFields.length} required fields`
+                      ? `${completedRequiredFields}/${requiredFields.length} required`
                       : 'Optional reflection'}
                   </span>
-                  <span className="font-semibold text-primary">{progressPercent}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-300"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
+                <JournalStepProgress activeStep={activeStep} stepCount={steps.length} />
               </div>
             </div>
           </div>
@@ -852,8 +832,8 @@ export function EntryForm({
             </div>
           )}
 
-          {mobileSteps.map((step, stepIndex) => (
-            <MobileJournalStepPanel
+          {steps.map((step, stepIndex) => (
+            <JournalStepPanel
               key={step.id}
               active={stepIndex === activeStep}
             >
@@ -889,7 +869,7 @@ export function EntryForm({
                   )}
                 </motion.div>
               ))}
-            </MobileJournalStepPanel>
+            </JournalStepPanel>
           ))}
 
           {error && (
@@ -912,9 +892,9 @@ export function EntryForm({
         </main>
 
         <div className="sticky bottom-0 z-40 border-t bg-background/95 p-3 pb-[calc(var(--safe-area-bottom)+0.75rem)] shadow-[0_-12px_32px_-24px_rgba(0,0,0,0.45)] backdrop-blur md:hidden">
-          <MobileJournalNavigation
+          <JournalNavigation
             activeStep={activeStep}
-            stepCount={mobileSteps.length}
+            stepCount={steps.length}
             submitting={submitting}
             onBack={() => {
                 setFieldErrorId(null)
@@ -925,28 +905,34 @@ export function EntryForm({
         </div>
 
         <div className="sticky bottom-[calc(var(--safe-area-bottom)+0.75rem)] z-40 hidden rounded-2xl border bg-background/95 p-3 shadow-lg backdrop-blur md:block">
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex items-stretch gap-3">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={() => router.back()}
-              className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
+              className="h-auto min-h-14 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="h-auto min-h-14 flex-1 rounded-xl px-4 py-3.5 text-[0.95rem] sm:min-h-12 sm:py-2.5"
-              disabled={submitting}
-            >
-              <BookOpenCheck className="mr-1.5 size-5" />
-              {submitting ? 'Saving...' : 'Save Reflection'}
-            </Button>
+            {/* The same Back/Next/Save the phone gets: one step is on screen
+                here too, so the page needs a way through them. */}
+            <div className="min-w-0 flex-1">
+              <JournalNavigation
+                activeStep={activeStep}
+                stepCount={steps.length}
+                submitting={submitting}
+                onBack={() => {
+                  setFieldErrorId(null)
+                  setActiveStep((current) => Math.max(current - 1, 0))
+                }}
+                onNext={handleNextStep}
+              />
+            </div>
           </div>
         </div>
       </form>
 
-      <MobileJournalDiscardDialog
+      <JournalDiscardDialog
         open={closeDialogOpen}
         onOpenChange={setCloseDialogOpen}
         onDiscard={discardDraft}

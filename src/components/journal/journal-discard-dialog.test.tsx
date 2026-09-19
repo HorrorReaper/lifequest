@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 
-import { MobileJournalDiscardDialog } from './mobile-journal-discard-dialog'
+import { JournalDiscardDialog } from './journal-discard-dialog'
 
 afterEach(() => {
   cleanup()
 })
 
-describe('MobileJournalDiscardDialog', () => {
+describe('JournalDiscardDialog', () => {
   it('lets the user continue without discarding', () => {
     const onOpenChange = vi.fn()
     const onDiscard = vi.fn()
     const view = render(
-      <MobileJournalDiscardDialog
+      <JournalDiscardDialog
         open
         onOpenChange={onOpenChange}
         onDiscard={onDiscard}
@@ -29,7 +29,7 @@ describe('MobileJournalDiscardDialog', () => {
     const onOpenChange = vi.fn()
     const onDiscard = vi.fn()
     const view = render(
-      <MobileJournalDiscardDialog
+      <JournalDiscardDialog
         open
         onOpenChange={onOpenChange}
         onDiscard={onDiscard}
