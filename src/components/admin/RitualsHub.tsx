@@ -206,119 +206,119 @@ function RitualCard({
           </div>
 
           <form onSubmit={save} className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor={`ritual-${ritual}-weekday`}>Weekday</Label>
-              {meta.weekly ? (
-                <select
-                  id={`ritual-${ritual}-weekday`}
-                  name="weekday"
-                  className="h-9 w-full rounded-lg border bg-background px-2 text-sm"
-                  value={draft.weekday ?? 0}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor={`ritual-${ritual}-weekday`}>Weekday</Label>
+                {meta.weekly ? (
+                  <select
+                    id={`ritual-${ritual}-weekday`}
+                    name="weekday"
+                    className="h-9 w-full rounded-lg border bg-background px-2 text-sm"
+                    value={draft.weekday ?? 0}
+                    disabled={!trusted}
+                    onChange={(event) => patch({ weekday: Number(event.target.value) })}
+                  >
+                    {WEEKDAYS.map((day, index) => (
+                      <option key={day} value={index}>{day}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="flex h-9 items-center text-sm text-muted-foreground">Every day</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`ritual-${ritual}-from`}>From</Label>
+                <Input
+                  id={`ritual-${ritual}-from`}
+                  name="from"
+                  type="time"
+                  value={draft.from}
                   disabled={!trusted}
-                  onChange={(event) => patch({ weekday: Number(event.target.value) })}
-                >
-                  {WEEKDAYS.map((day, index) => (
-                    <option key={day} value={index}>{day}</option>
-                  ))}
-                </select>
-              ) : (
-                <p className="flex h-9 items-center text-sm text-muted-foreground">Every day</p>
-              )}
+                  onChange={(event) => patch({ from: event.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`ritual-${ritual}-template`}>Opens</Label>
+                {meta.journal ? (
+                  <select
+                    id={`ritual-${ritual}-template`}
+                    name="template"
+                    className="h-9 w-full rounded-lg border bg-background px-2 text-sm"
+                    value={draft.templateId}
+                    disabled={!trusted}
+                    onChange={(event) => patch({ templateId: event.target.value })}
+                  >
+                    <option value="">— none —</option>
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.icon} {template.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="flex h-9 items-center text-sm text-muted-foreground">Today’s planner</p>
+                )}
+                {noTarget && (
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    Without a template this prompt will not show.
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`ritual-${ritual}-from`}>From</Label>
-              <Input
-                id={`ritual-${ritual}-from`}
-                name="from"
-                type="time"
-                value={draft.from}
-                disabled={!trusted}
-                onChange={(event) => patch({ from: event.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`ritual-${ritual}-template`}>Opens</Label>
-              {meta.journal ? (
-                <select
-                  id={`ritual-${ritual}-template`}
-                  name="template"
-                  className="h-9 w-full rounded-lg border bg-background px-2 text-sm"
-                  value={draft.templateId}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor={`ritual-${ritual}-title`}>Title</Label>
+                <Input
+                  id={`ritual-${ritual}-title`}
+                  name="title"
+                  value={draft.title}
                   disabled={!trusted}
-                  onChange={(event) => patch({ templateId: event.target.value })}
-                >
-                  <option value="">— none —</option>
-                  {templates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.icon} {template.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="flex h-9 items-center text-sm text-muted-foreground">Today’s planner</p>
-              )}
-              {noTarget && (
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  Without a template this prompt will not show.
+                  onChange={(event) => patch({ title: event.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Preview: <span className="text-foreground">{fillName(draft.title, PREVIEW_NAME)}</span>
                 </p>
-              )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`ritual-${ritual}-cta`}>Call to action</Label>
+                <Input
+                  id={`ritual-${ritual}-cta`}
+                  name="cta"
+                  value={draft.ctaLabel}
+                  disabled={!trusted}
+                  onChange={(event) => patch({ ctaLabel: event.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor={`ritual-${ritual}-description`}>Description</Label>
+                <Textarea
+                  id={`ritual-${ritual}-description`}
+                  name="description"
+                  rows={3}
+                  value={draft.description}
+                  disabled={!trusted}
+                  onChange={(event) => patch({ description: event.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  <code>{'{name}'}</code> becomes the user’s name in any of these.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor={`ritual-${ritual}-title`}>Title</Label>
-              <Input
-                id={`ritual-${ritual}-title`}
-                name="title"
-                value={draft.title}
-                disabled={!trusted}
-                onChange={(event) => patch({ title: event.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                Preview: <span className="text-foreground">{fillName(draft.title, PREVIEW_NAME)}</span>
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`ritual-${ritual}-cta`}>Call to action</Label>
-              <Input
-                id={`ritual-${ritual}-cta`}
-                name="cta"
-                value={draft.ctaLabel}
-                disabled={!trusted}
-                onChange={(event) => patch({ ctaLabel: event.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor={`ritual-${ritual}-description`}>Description</Label>
-              <Textarea
-                id={`ritual-${ritual}-description`}
-                name="description"
-                rows={3}
-                value={draft.description}
-                disabled={!trusted}
-                onChange={(event) => patch({ description: event.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                <code>{'{name}'}</code> becomes the user’s name in any of these.
-              </p>
-            </div>
-          </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          {trusted && (
-            <div className="flex items-center justify-end gap-3">
-              {savedAt !== null && !dirty && (
-                <span className="text-xs text-muted-foreground">Saved</span>
-              )}
-              <Button type="submit" disabled={!dirty || saving}>
-                <BellRing className="mr-1.5 size-4" />
-                {saving ? 'Saving…' : 'Save'}
-              </Button>
-            </div>
-          )}
+            {trusted && (
+              <div className="flex items-center justify-end gap-3">
+                {savedAt !== null && !dirty && (
+                  <span className="text-xs text-muted-foreground">Saved</span>
+                )}
+                <Button type="submit" disabled={!dirty || saving}>
+                  <BellRing className="mr-1.5 size-4" />
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+              </div>
+            )}
           </form>
         </div>
       </CardContent>
