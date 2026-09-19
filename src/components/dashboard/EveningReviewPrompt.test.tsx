@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { EveningReviewPrompt } from './EveningReviewPrompt'
 import { installLocalStorageStub } from '../../../test/local-storage-stub'
@@ -110,6 +110,42 @@ describe('EveningReviewPrompt', () => {
         heldBackBy="lifequest-ritual-weekly_review-dismissed-2026-07-27"
       />
     )
+
+    expect(screen.getByText('How was your day, Alex?')).toBeTruthy()
+  })
+})
+
+describe('EveningReviewPrompt preview', () => {
+  it('opens regardless of state when a preview close handler is given', () => {
+    window.localStorage.setItem(`lifequest-ritual-evening_review-dismissed-${TODAY}`, '1')
+
+    render(
+      <EveningReviewPrompt
+        {...defaultProps}
+        isEvening={false}
+        reviewDone
+        onPreviewClose={() => {}}
+      />
+    )
+
+    expect(screen.getByText('How was your day, Alex?')).toBeTruthy()
+  })
+
+  it('closes through the handler without remembering a dismissal', () => {
+    const onPreviewClose = vi.fn()
+
+    render(<EveningReviewPrompt {...defaultProps} onPreviewClose={onPreviewClose} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+
+    expect(onPreviewClose).toHaveBeenCalledTimes(1)
+    expect(
+      window.localStorage.getItem(`lifequest-ritual-evening_review-dismissed-${TODAY}`)
+    ).toBeNull()
+  })
+
+  it('previews even when the ritual has no target to open', () => {
+    render(<EveningReviewPrompt {...defaultProps} href={null} onPreviewClose={() => {}} />)
 
     expect(screen.getByText('How was your day, Alex?')).toBeTruthy()
   })

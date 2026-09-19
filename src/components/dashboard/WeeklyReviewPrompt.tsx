@@ -27,6 +27,13 @@ interface WeeklyReviewPromptProps {
   copy: PromptCopy
   habitsCompletedThisWeek: number
   tasksCompletedThisWeek: number
+  /**
+   * When set, the dialog is a preview: it opens regardless of window, entry
+   * and dismissal, and closing calls this instead of remembering a
+   * dismissal. Used by the admin rituals hub to show what the prompt will
+   * look like; nothing on the dashboard passes it.
+   */
+  onPreviewClose?: () => void
 }
 
 /**
@@ -42,14 +49,24 @@ export function WeeklyReviewPrompt({
   copy,
   habitsCompletedThisWeek,
   tasksCompletedThisWeek,
+  onPreviewClose,
 }: WeeklyReviewPromptProps) {
   const reduceMotion = useReducedMotion()
   const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('weekly_review', weekStart))
 
-  const open = isWindow && !reviewDone && !dismissed && href !== null
+  // Preview mode is "an admin is looking at this", so it must not touch the
+  // dismissal the real prompt reads -- closing here calls the handler
+  // instead, and the call to action goes nowhere.
+  const preview = onPreviewClose !== undefined
+  function close() {
+    if (onPreviewClose) onPreviewClose()
+    else dismiss()
+  }
+
+  const open = preview || (isWindow && !reviewDone && !dismissed && href !== null)
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss() }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) close() }}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <motion.span
@@ -75,11 +92,11 @@ export function WeeklyReviewPrompt({
           <span>{tasksCompletedThisWeek} tasks completed</span>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={dismiss}>
+          <Button variant="outline" onClick={close}>
             Not now
           </Button>
-          <Button asChild onClick={dismiss}>
-            <Link href={href ?? '#'}>{copy.ctaLabel}</Link>
+          <Button asChild onClick={close}>
+            <Link href={href ?? '#'} onClick={(event) => { if (preview) event.preventDefault() }}>{copy.ctaLabel}</Link>
           </Button>
         </DialogFooter>
       </DialogContent>
