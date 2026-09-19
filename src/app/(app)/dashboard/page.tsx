@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { addDays, dateInTimezone, weekStart } from '@/lib/dates'
+import { addDays, dateInTimezone, weekStart, weekdayOf } from '@/lib/dates'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import type { Database } from '@/lib/supabase/database.types'
 import { ThemedDashboardHero } from '@/components/dashboard/ThemedDashboardHero'
@@ -40,12 +40,9 @@ import { WeeklyPlanPrompt } from '@/components/dashboard/WeeklyPlanPrompt'
 import {
   WEEKLY_PLAN_TEMPLATE_ID,
   WEEKLY_REVIEW_TEMPLATE_ID,
-  isWeeklyPlanWindow,
-  isWeeklyReviewWindow,
   weeklyEntryExists,
-  weeklyPlanDismissKey,
-  weeklyReviewDismissKey,
 } from '@/lib/weekly-rituals'
+import { DEFAULT_RITUAL_SETTINGS, fillName, ritualDismissKey } from '@/lib/rituals'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 import { ScorecardSection } from '@/components/dashboard/ScorecardSection'
@@ -98,6 +95,14 @@ function parseQuickAction(value: string | string[] | undefined): QuickActionTarg
 function minutesFromTime(time: string) {
   const [hours, minutes] = time.split(':').map(Number)
   return hours * 60 + minutes
+}
+
+function promptCopy(setting: { title: string; description: string; ctaLabel: string }, username: string | null) {
+  return {
+    title: fillName(setting.title, username),
+    description: fillName(setting.description, username),
+    ctaLabel: fillName(setting.ctaLabel, username),
+  }
 }
 
 function currentMinutesInTimezone(timezone: string) {
@@ -357,16 +362,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }[]
   const weeklyReviewDone = weeklyEntryExists(weeklyEntries, WEEKLY_REVIEW_TEMPLATE_ID, today)
   const weeklyPlanDone = weeklyEntryExists(weeklyEntries, WEEKLY_PLAN_TEMPLATE_ID, today)
-  const weeklyReviewWindow = isWeeklyReviewWindow(today, nowMinutes)
-  const weeklyPlanWindow = isWeeklyPlanWindow(today)
+  const weeklyReviewWindow = weekdayOf(today) === 6 && nowMinutes >= 18 * 60
+  const weeklyPlanWindow = weekdayOf(today) === 0
   // While a weekly prompt is live, the daily one on the same evening or
   // morning waits for it; see usePromptHeldBack. Null once the weekly entry
   // exists or the window is closed, so the daily prompt is not held by a
   // prompt that will never show.
   const eveningReviewHeldBackBy =
-    weeklyReviewWindow && !weeklyReviewDone ? weeklyReviewDismissKey(thisWeekStart) : null
+    weeklyReviewWindow && !weeklyReviewDone ? ritualDismissKey('weekly_review', thisWeekStart) : null
   const dailyPlanHeldBackBy =
-    weeklyPlanWindow && !weeklyPlanDone ? weeklyPlanDismissKey(thisWeekStart) : null
+    weeklyPlanWindow && !weeklyPlanDone ? ritualDismissKey('weekly_plan', thisWeekStart) : null
   const dayPlan = dayPlanRes.data as {
     blocks?: DayPlanBlock[]
     notes?: string | null
@@ -430,15 +435,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <DailyPlanPrompt
           today={today}
           planCommitted={planCommitted}
-          username={profile.username}
+          copy={promptCopy(DEFAULT_RITUAL_SETTINGS.daily_plan, profile.username)}
           heldBackBy={dailyPlanHeldBackBy}
         />
         <EveningReviewPrompt
           today={today}
           isEvening={isEvening}
           reviewDone={eveningReviewDone}
-          templateId={eveningReviewTemplateId}
-          username={profile.username}
+          href={eveningReviewTemplateId ? `/journal/new/${eveningReviewTemplateId}` : null}
+          copy={promptCopy(DEFAULT_RITUAL_SETTINGS.evening_review, profile.username)}
           habitsCompleted={habitsCompletedToday}
           habitsTotal={briefingHabits.length}
           tasksCompletedToday={tasksCompletedToday}
@@ -448,14 +453,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           weekStart={thisWeekStart}
           isWindow={weeklyPlanWindow}
           planDone={weeklyPlanDone}
-          username={profile.username}
+          href={`/journal/new/${WEEKLY_PLAN_TEMPLATE_ID}`}
+          copy={promptCopy(DEFAULT_RITUAL_SETTINGS.weekly_plan, profile.username)}
           openTaskCount={openTasksRes.count ?? 0}
         />
         <WeeklyReviewPrompt
           weekStart={thisWeekStart}
           isWindow={weeklyReviewWindow}
           reviewDone={weeklyReviewDone}
-          username={profile.username}
+          href={`/journal/new/${WEEKLY_REVIEW_TEMPLATE_ID}`}
+          copy={promptCopy(DEFAULT_RITUAL_SETTINGS.weekly_review, profile.username)}
           habitsCompletedThisWeek={habitsCompletedThisWeek}
           tasksCompletedThisWeek={tasksCompletedThisWeek}
         />

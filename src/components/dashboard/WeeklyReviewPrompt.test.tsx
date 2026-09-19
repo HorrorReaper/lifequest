@@ -1,16 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { WeeklyReviewPrompt } from './WeeklyReviewPrompt'
-import { WEEKLY_REVIEW_TEMPLATE_ID } from '@/lib/weekly-rituals'
 import { installLocalStorageStub } from '../../../test/local-storage-stub'
 
 const WEEK_START = '2026-09-14'
+
+const copy = { title: 'How was your week, Alex?', description: 'Step back.', ctaLabel: 'Start weekly review' }
 
 const defaultProps = {
   weekStart: WEEK_START,
   isWindow: true,
   reviewDone: false,
-  username: 'Alex',
+  href: '/journal/new/weekly-review-id',
+  copy,
   habitsCompletedThisWeek: 12,
   tasksCompletedThisWeek: 7,
 }
@@ -30,12 +32,6 @@ describe('WeeklyReviewPrompt', () => {
     expect(screen.getByText('How was your week, Alex?')).toBeTruthy()
   })
 
-  it('falls back to the same default name as the daily prompts', () => {
-    render(<WeeklyReviewPrompt {...defaultProps} username={null} />)
-
-    expect(screen.getByText('How was your week, Adventurer?')).toBeTruthy()
-  })
-
   it('stays closed outside the window', () => {
     render(<WeeklyReviewPrompt {...defaultProps} isWindow={false} />)
 
@@ -44,6 +40,12 @@ describe('WeeklyReviewPrompt', () => {
 
   it('stays closed once this week\'s review exists', () => {
     render(<WeeklyReviewPrompt {...defaultProps} reviewDone />)
+
+    expect(screen.queryByText('How was your week, Alex?')).toBeNull()
+  })
+
+  it('stays closed when the ritual has no target to open', () => {
+    render(<WeeklyReviewPrompt {...defaultProps} href={null} />)
 
     expect(screen.queryByText('How was your week, Alex?')).toBeNull()
   })
@@ -59,7 +61,7 @@ describe('WeeklyReviewPrompt', () => {
     render(<WeeklyReviewPrompt {...defaultProps} />)
 
     const link = screen.getByRole('link', { name: 'Start weekly review' })
-    expect(link.getAttribute('href')).toBe(`/journal/new/${WEEKLY_REVIEW_TEMPLATE_ID}`)
+    expect(link.getAttribute('href')).toBe('/journal/new/weekly-review-id')
   })
 
   it('closes and remembers the dismissal for the rest of the week on "Not now"', () => {
@@ -68,7 +70,7 @@ describe('WeeklyReviewPrompt', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
     expect(screen.queryByText('How was your week, Alex?')).toBeNull()
     expect(
-      window.localStorage.getItem(`lifequest-weekly-review-dismissed-${WEEK_START}`)
+      window.localStorage.getItem(`lifequest-ritual-weekly_review-dismissed-${WEEK_START}`)
     ).toBe('1')
 
     unmount()
@@ -77,7 +79,7 @@ describe('WeeklyReviewPrompt', () => {
   })
 
   it('reopens in a new week even if last week was dismissed', () => {
-    window.localStorage.setItem('lifequest-weekly-review-dismissed-2026-09-07', '1')
+    window.localStorage.setItem('lifequest-ritual-weekly_review-dismissed-2026-09-07', '1')
 
     render(<WeeklyReviewPrompt {...defaultProps} />)
 

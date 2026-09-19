@@ -12,14 +12,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { usePromptDismissal, usePromptHeldBack } from '@/components/dashboard/prompt-dismissal'
+import {
+  usePromptDismissal,
+  usePromptHeldBack,
+  type PromptCopy,
+} from '@/components/dashboard/prompt-dismissal'
+import { ritualDismissKey } from '@/lib/rituals'
 
 interface DailyPlanPromptProps {
   /** The user's local date key (YYYY-MM-DD), so the dismissal resets every day. */
   today: string
   planCommitted: boolean
-  /** Matches the DashboardHero fallback so the greeting reads the same across the page. */
-  username: string | null
+  copy: PromptCopy
   /**
    * The dismissal key of a weekly prompt that takes precedence today, or
    * null. See usePromptHeldBack.
@@ -27,19 +31,14 @@ interface DailyPlanPromptProps {
   heldBackBy?: string | null
 }
 
-function dismissKey(today: string) {
-  return `lifequest-plan-prompt-dismissed-${today}`
-}
-
 export function DailyPlanPrompt({
   today,
   planCommitted,
-  username,
+  copy,
   heldBackBy = null,
 }: DailyPlanPromptProps) {
   const reduceMotion = useReducedMotion()
-  const { dismissed, dismiss } = usePromptDismissal(dismissKey(today))
-
+  const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('daily_plan', today))
   const heldBack = usePromptHeldBack(heldBackBy)
 
   const open = !planCommitted && !dismissed && !heldBack
@@ -63,13 +62,8 @@ export function DailyPlanPrompt({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.3 }}
           >
-            <DialogTitle className="text-2xl font-bold tracking-tight">
-              Welcome back, {username ?? 'Adventurer'} 👋
-            </DialogTitle>
-            <DialogDescription>
-              Want to start with your daily briefing? A few minutes now to set your Top
-              Three makes the rest of the day easier to navigate.
-            </DialogDescription>
+            <DialogTitle className="text-2xl font-bold tracking-tight">{copy.title}</DialogTitle>
+            <DialogDescription>{copy.description}</DialogDescription>
           </motion.div>
         </DialogHeader>
         <DialogFooter className="relative">
@@ -78,7 +72,7 @@ export function DailyPlanPrompt({
           </Button>
           <Button asChild onClick={dismiss} className="group">
             <Link href="/plan">
-              Start briefing
+              {copy.ctaLabel}
               <ArrowRight className="ml-1 size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </Button>

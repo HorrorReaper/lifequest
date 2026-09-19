@@ -12,11 +12,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { usePromptDismissal } from '@/components/dashboard/prompt-dismissal'
-import {
-  WEEKLY_REVIEW_TEMPLATE_ID,
-  weeklyReviewDismissKey,
-} from '@/lib/weekly-rituals'
+import { usePromptDismissal, type PromptCopy } from '@/components/dashboard/prompt-dismissal'
+import { ritualDismissKey } from '@/lib/rituals'
 
 interface WeeklyReviewPromptProps {
   /** The Monday of the current week (YYYY-MM-DD), so the dismissal resets weekly. */
@@ -25,8 +22,9 @@ interface WeeklyReviewPromptProps {
   isWindow: boolean
   /** Whether a Weekly Review entry already exists for this week. */
   reviewDone: boolean
-  /** Matches the DashboardHero fallback so the greeting reads the same across the page. */
-  username: string | null
+  /** Where the call to action leads, or null when the ritual has no target -- then the prompt stays closed. */
+  href: string | null
+  copy: PromptCopy
   habitsCompletedThisWeek: number
   tasksCompletedThisWeek: number
 }
@@ -40,14 +38,15 @@ export function WeeklyReviewPrompt({
   weekStart,
   isWindow,
   reviewDone,
-  username,
+  href,
+  copy,
   habitsCompletedThisWeek,
   tasksCompletedThisWeek,
 }: WeeklyReviewPromptProps) {
   const reduceMotion = useReducedMotion()
-  const { dismissed, dismiss } = usePromptDismissal(weeklyReviewDismissKey(weekStart))
+  const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('weekly_review', weekStart))
 
-  const open = isWindow && !reviewDone && !dismissed
+  const open = isWindow && !reviewDone && !dismissed && href !== null
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss() }}>
@@ -66,11 +65,8 @@ export function WeeklyReviewPrompt({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.3 }}
           >
-            <DialogTitle>How was your week, {username ?? 'Adventurer'}?</DialogTitle>
-            <DialogDescription>
-              Step back before the next one starts. A few minutes on what worked,
-              what did not, and what you want to change.
-            </DialogDescription>
+            <DialogTitle>{copy.title}</DialogTitle>
+            <DialogDescription>{copy.description}</DialogDescription>
           </motion.div>
         </DialogHeader>
         <div className="flex gap-2 rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
@@ -83,7 +79,7 @@ export function WeeklyReviewPrompt({
             Not now
           </Button>
           <Button asChild onClick={dismiss}>
-            <Link href={`/journal/new/${WEEKLY_REVIEW_TEMPLATE_ID}`}>Start weekly review</Link>
+            <Link href={href ?? '#'}>{copy.ctaLabel}</Link>
           </Button>
         </DialogFooter>
       </DialogContent>

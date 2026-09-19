@@ -1,34 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { EveningReviewPrompt } from './EveningReviewPrompt'
+import { installLocalStorageStub } from '../../../test/local-storage-stub'
 
 const TODAY = '2026-08-02'
-const TEMPLATE_ID = 'evening-review-template-id'
 
-// Node 22+'s experimental global `localStorage` shadows jsdom's real
-// implementation in this project's Vitest setup (throws/undefined without
-// --localstorage-file), so window.localStorage is unusable as-is here. A
-// minimal in-memory stand-in keeps this test self-contained rather than
-// changing shared Vitest config for one test file.
-function installLocalStorageStub() {
-  const store = new Map<string, string>()
-  Object.defineProperty(window, 'localStorage', {
-    configurable: true,
-    value: {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => void store.set(key, value),
-      removeItem: (key: string) => void store.delete(key),
-      clear: () => store.clear(),
-    },
-  })
-}
+const copy = { title: 'How was your day, Alex?', description: 'Close the loop.', ctaLabel: 'Start evening review' }
 
 const defaultProps = {
   today: TODAY,
   isEvening: true,
   reviewDone: false,
-  templateId: TEMPLATE_ID,
-  username: 'Alex',
+  href: '/journal/new/evening-review-template-id',
+  copy,
   habitsCompleted: 2,
   habitsTotal: 3,
   tasksCompletedToday: 4,
@@ -49,12 +33,6 @@ describe('EveningReviewPrompt', () => {
     expect(screen.getByText('How was your day, Alex?')).toBeTruthy()
   })
 
-  it('falls back to the same default name as the morning prompt when there is no username', () => {
-    render(<EveningReviewPrompt {...defaultProps} username={null} />)
-
-    expect(screen.getByText('How was your day, Adventurer?')).toBeTruthy()
-  })
-
   it('stays closed before 8pm', () => {
     render(<EveningReviewPrompt {...defaultProps} isEvening={false} />)
 
@@ -67,10 +45,16 @@ describe('EveningReviewPrompt', () => {
     expect(screen.queryByText('How was your day, Alex?')).toBeNull()
   })
 
-  it('stays closed when the Evening Review template could not be found', () => {
-    render(<EveningReviewPrompt {...defaultProps} templateId={null} />)
+  it('stays closed when the ritual has no target to open', () => {
+    render(<EveningReviewPrompt {...defaultProps} href={null} />)
 
     expect(screen.queryByText('How was your day, Alex?')).toBeNull()
+  })
+
+  it('links where the page told it to', () => {
+    render(<EveningReviewPrompt {...defaultProps} />)
+
+    expect(screen.getByRole('link', { name: 'Start evening review' }).getAttribute('href')).toBe('/journal/new/evening-review-template-id')
   })
 
   it('shows the day summary and links straight into the journal entry', () => {
@@ -80,7 +64,7 @@ describe('EveningReviewPrompt', () => {
     expect(screen.getByText('4 tasks completed')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: 'Start evening review' }).getAttribute('href')
-    ).toBe(`/journal/new/${TEMPLATE_ID}`)
+    ).toBe('/journal/new/evening-review-template-id')
   })
 
   it('closes and remembers the dismissal for the rest of the day when the user picks "Not now"', () => {
@@ -89,7 +73,7 @@ describe('EveningReviewPrompt', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
     expect(screen.queryByText('How was your day, Alex?')).toBeNull()
     expect(
-      window.localStorage.getItem(`lifequest-evening-review-dismissed-${TODAY}`)
+      window.localStorage.getItem(`lifequest-ritual-evening_review-dismissed-${TODAY}`)
     ).toBe('1')
 
     // Simulate a fresh page load later the same evening: still dismissed.
@@ -99,7 +83,7 @@ describe('EveningReviewPrompt', () => {
   })
 
   it('reopens on a new day even if yesterday was dismissed', () => {
-    window.localStorage.setItem('lifequest-evening-review-dismissed-2026-08-01', '1')
+    window.localStorage.setItem('lifequest-ritual-evening_review-dismissed-2026-08-01', '1')
 
     render(<EveningReviewPrompt {...defaultProps} />)
 
@@ -110,7 +94,7 @@ describe('EveningReviewPrompt', () => {
     render(
       <EveningReviewPrompt
         {...defaultProps}
-        heldBackBy="lifequest-weekly-review-dismissed-2026-07-27"
+        heldBackBy="lifequest-ritual-weekly_review-dismissed-2026-07-27"
       />
     )
 
@@ -118,12 +102,12 @@ describe('EveningReviewPrompt', () => {
   })
 
   it('opens once the weekly prompt it yields to has been dismissed', () => {
-    window.localStorage.setItem('lifequest-weekly-review-dismissed-2026-07-27', '1')
+    window.localStorage.setItem('lifequest-ritual-weekly_review-dismissed-2026-07-27', '1')
 
     render(
       <EveningReviewPrompt
         {...defaultProps}
-        heldBackBy="lifequest-weekly-review-dismissed-2026-07-27"
+        heldBackBy="lifequest-ritual-weekly_review-dismissed-2026-07-27"
       />
     )
 
