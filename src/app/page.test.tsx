@@ -84,12 +84,18 @@ describe("LandingPage is_MVP branches", () => {
 });
 
 describe("LandingPage hero and call to action", () => {
-  it("opens on the streak, not on the game", () => {
+  it("reads as one sentence, though it is typed a character at a time", () => {
     vi.stubEnv("NEXT_PUBLIC_IS_MVP", "true");
     render(<LandingPage />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
-      "Two minutes a night. A streak worth keeping."
-    );
+
+    // The name rather than textContent: the heading carries a hard break the
+    // copy asks for, and a <br> leaves no gap in textContent at all.
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Your life is a game. Time to start playing!",
+      })
+    ).toBeTruthy();
   });
 
   it("never sets white text on the amber call to action", () => {

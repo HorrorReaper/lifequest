@@ -34,11 +34,15 @@ export function TypedHeading({
 
   return (
     // The characters are split across elements, which some screen readers
-    // announce one at a time; the label keeps the heading a single string.
-    <h1 className={`lq-typed ${className}`} aria-label={text}>
+    // announce one at a time; the label keeps the heading a single string,
+    // with any hard break read as the space it stands for.
+    <h1 className={`lq-typed ${className}`} aria-label={text.replace(/\s+/g, " ").trim()}>
       {[...text].map((character, position) => {
         const delay = elapsed;
         elapsed += CHARACTER_MS + (character === "." ? SENTENCE_MS : 0);
+
+        // A newline in the text is a break the author asked for.
+        if (character === "\n") return <br key={position} />;
 
         // Spaces have no glyph to reveal, and leaving them as plain text keeps
         // the line-break opportunities exactly where they would be anyway.
