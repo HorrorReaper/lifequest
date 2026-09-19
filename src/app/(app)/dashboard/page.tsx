@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { addDays, dateInTimezone, weekStart, weekdayOf } from '@/lib/dates'
+import { addDays, dateInTimezone, weekStart } from '@/lib/dates'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import type { Database } from '@/lib/supabase/database.types'
 import { ThemedDashboardHero } from '@/components/dashboard/ThemedDashboardHero'
@@ -37,12 +37,14 @@ import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
 import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
 import { WeeklyReviewPrompt } from '@/components/dashboard/WeeklyReviewPrompt'
 import { WeeklyPlanPrompt } from '@/components/dashboard/WeeklyPlanPrompt'
+import { weeklyEntryExists } from '@/lib/weekly-rituals'
 import {
-  WEEKLY_PLAN_TEMPLATE_ID,
-  WEEKLY_REVIEW_TEMPLATE_ID,
-  weeklyEntryExists,
-} from '@/lib/weekly-rituals'
-import { DEFAULT_RITUAL_SETTINGS, fillName, ritualDismissKey } from '@/lib/rituals'
+  fillName,
+  isRitualWindow,
+  normalizeRitualSettings,
+  ritualDismissKey,
+  type RitualSetting,
+} from '@/lib/rituals'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 import { ScorecardSection } from '@/components/dashboard/ScorecardSection'
@@ -97,7 +99,7 @@ function minutesFromTime(time: string) {
   return hours * 60 + minutes
 }
 
-function promptCopy(setting: { title: string; description: string; ctaLabel: string }, username: string | null) {
+function promptCopy(setting: RitualSetting, username: string | null) {
   return {
     title: fillName(setting.title, username),
     description: fillName(setting.description, username),
@@ -149,10 +151,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const cityTier = getCityTier(level)
   const progress = getXpProgress(profile.total_xp)
 
-  const [{ data: cityRowData }, avatarState] = await Promise.all([
+  const [{ data: cityRowData }, avatarState, { data: ritualRows }] = await Promise.all([
     supabase.from('city_states').select('coins').eq('user_id', user.id).single(),
     fetchAvatarState(supabase, user.id),
+    // Which prompts run, when, and where they lead. Read on every load so an
+    // admin's change at /admin/rituals is live on the next dashboard visit;
+    // a missing or malformed row falls back to the code's defaults.
+    supabase.from('ritual_settings').select('*'),
   ])
+  const rituals = normalizeRitualSettings(ritualRows)
   const coins = (cityRowData as { coins: number } | null)?.coins ?? 0
 
   // Its own sequential await, so skipping it shortens the page load rather
@@ -296,7 +303,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .select('template_id, entry_date')
       .eq('user_id', user.id)
       .eq('is_complete', true)
-      .in('template_id', [WEEKLY_REVIEW_TEMPLATE_ID, WEEKLY_PLAN_TEMPLATE_ID])
+      .in(
+        'template_id',
+        [rituals.weekly_review.templateId, rituals.weekly_plan.templateId].filter(
+          (id): id is string => id !== null
+        )
+      )
       .gte('entry_date', thisWeekStart)
       .lte('entry_date', addDays(thisWeekStart, 6)),
   ])
@@ -340,14 +352,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     completedToday: completedTemplateIds.has(template.id),
   }))
   const nowMinutes = currentMinutesInTimezone(profile.timezone ?? 'UTC')
-  const isEvening = nowMinutes >= 20 * 60
-  // journal_templates has no stable slug/key, only a DB id and a human name,
-  // so this matches on name — if the system template is ever renamed or
-  // removed, the prompt just stays hidden rather than erroring.
-  const eveningReviewTemplate =
-    briefingJournals.find((template) => template.name === 'Evening Review') ?? null
-  const eveningReviewTemplateId = eveningReviewTemplate?.id ?? null
-  const eveningReviewDone = eveningReviewTemplate?.completedToday ?? false
+  const eveningReviewTemplateId = rituals.evening_review.templateId
+  const eveningReviewDone =
+    eveningReviewTemplateId !== null && completedTemplateIds.has(eveningReviewTemplateId)
   const habitsCompletedToday = briefingHabits.filter((habit) => habit.completed).length
   const tasksCompletedToday = tasksCompletedTodayRes.count ?? 0
   // The streak window already holds every completed log back to well before
@@ -360,18 +367,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     template_id: string
     entry_date: string
   }[]
-  const weeklyReviewDone = weeklyEntryExists(weeklyEntries, WEEKLY_REVIEW_TEMPLATE_ID, today)
-  const weeklyPlanDone = weeklyEntryExists(weeklyEntries, WEEKLY_PLAN_TEMPLATE_ID, today)
-  const weeklyReviewWindow = weekdayOf(today) === 6 && nowMinutes >= 18 * 60
-  const weeklyPlanWindow = weekdayOf(today) === 0
-  // While a weekly prompt is live, the daily one on the same evening or
-  // morning waits for it; see usePromptHeldBack. Null once the weekly entry
-  // exists or the window is closed, so the daily prompt is not held by a
-  // prompt that will never show.
+  const weeklyReviewDone = weeklyEntryExists(weeklyEntries, rituals.weekly_review.templateId, today)
+  const weeklyPlanDone = weeklyEntryExists(weeklyEntries, rituals.weekly_plan.templateId, today)
+  const dailyPlanWindow = isRitualWindow(rituals.daily_plan, today, nowMinutes)
+  const eveningReviewWindow = isRitualWindow(rituals.evening_review, today, nowMinutes)
+  const weeklyReviewWindow = isRitualWindow(rituals.weekly_review, today, nowMinutes)
+  const weeklyPlanWindow = isRitualWindow(rituals.weekly_plan, today, nowMinutes)
+  // While a weekly prompt is live, the daily one of the same kind waits for
+  // it; see usePromptHeldBack. Null once the weekly entry exists or the
+  // window is closed, so the daily prompt is not held by a prompt that will
+  // never show. With admin-set windows the pair can meet on any day, not
+  // only Sunday and Monday; the rule is the same.
   const eveningReviewHeldBackBy =
-    weeklyReviewWindow && !weeklyReviewDone ? ritualDismissKey('weekly_review', thisWeekStart) : null
+    weeklyReviewWindow && !weeklyReviewDone && rituals.weekly_review.templateId !== null
+      ? ritualDismissKey('weekly_review', thisWeekStart)
+      : null
   const dailyPlanHeldBackBy =
-    weeklyPlanWindow && !weeklyPlanDone ? ritualDismissKey('weekly_plan', thisWeekStart) : null
+    weeklyPlanWindow && !weeklyPlanDone && rituals.weekly_plan.templateId !== null
+      ? ritualDismissKey('weekly_plan', thisWeekStart)
+      : null
   const dayPlan = dayPlanRes.data as {
     blocks?: DayPlanBlock[]
     notes?: string | null
@@ -434,16 +448,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <FirstRunWelcome show={showWelcome} />
         <DailyPlanPrompt
           today={today}
-          planCommitted={planCommitted}
-          copy={promptCopy(DEFAULT_RITUAL_SETTINGS.daily_plan, profile.username)}
+          planCommitted={planCommitted || !dailyPlanWindow}
+          copy={promptCopy(rituals.daily_plan, profile.username)}
           heldBackBy={dailyPlanHeldBackBy}
         />
         <EveningReviewPrompt
           today={today}
-          isEvening={isEvening}
+          isEvening={eveningReviewWindow}
           reviewDone={eveningReviewDone}
           href={eveningReviewTemplateId ? `/journal/new/${eveningReviewTemplateId}` : null}
-          copy={promptCopy(DEFAULT_RITUAL_SETTINGS.evening_review, profile.username)}
+          copy={promptCopy(rituals.evening_review, profile.username)}
           habitsCompleted={habitsCompletedToday}
           habitsTotal={briefingHabits.length}
           tasksCompletedToday={tasksCompletedToday}
@@ -453,16 +467,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           weekStart={thisWeekStart}
           isWindow={weeklyPlanWindow}
           planDone={weeklyPlanDone}
-          href={`/journal/new/${WEEKLY_PLAN_TEMPLATE_ID}`}
-          copy={promptCopy(DEFAULT_RITUAL_SETTINGS.weekly_plan, profile.username)}
+          href={rituals.weekly_plan.templateId ? `/journal/new/${rituals.weekly_plan.templateId}` : null}
+          copy={promptCopy(rituals.weekly_plan, profile.username)}
           openTaskCount={openTasksRes.count ?? 0}
         />
         <WeeklyReviewPrompt
           weekStart={thisWeekStart}
           isWindow={weeklyReviewWindow}
           reviewDone={weeklyReviewDone}
-          href={`/journal/new/${WEEKLY_REVIEW_TEMPLATE_ID}`}
-          copy={promptCopy(DEFAULT_RITUAL_SETTINGS.weekly_review, profile.username)}
+          href={rituals.weekly_review.templateId ? `/journal/new/${rituals.weekly_review.templateId}` : null}
+          copy={promptCopy(rituals.weekly_review, profile.username)}
           habitsCompletedThisWeek={habitsCompletedThisWeek}
           tasksCompletedThisWeek={tasksCompletedThisWeek}
         />
