@@ -12,6 +12,7 @@ import {
   TemplatesPanel,
 } from "@/components/marketing/ProductPanels";
 import { StepShot } from "@/components/marketing/StepArt";
+import { TypedHeading } from "@/components/marketing/TypedHeading";
 import { Reveal } from "@/components/marketing/Reveal";
 import { StickyCta } from "@/components/marketing/StickyCta";
 import { nightfallBody, nightfallDisplay } from "@/lib/marketing-fonts";
@@ -92,9 +93,10 @@ export default function LandingPage() {
       {/* HERO */}
       <header className="px-5 pt-14 sm:pt-20">
         <div className="mx-auto flex max-w-[1040px] flex-col items-center gap-5 text-center">
-          <h1 className="max-w-[14ch] text-balance [font-family:var(--font-nightfall-display)] text-[clamp(2.5rem,6.2vw,4rem)] font-extrabold leading-[1.04]">
-            Your life is a game.<br></br> Time to start playing!
-          </h1>
+<TypedHeading
+            text={"Your life is a game.\nTime to start playing!"}
+            className="max-w-[14ch] text-balance [font-family:var(--font-nightfall-display)] text-[clamp(2.5rem,6.2vw,4rem)] font-extrabold leading-[1.04]"
+          />
           <p className="max-w-[40ch] text-[clamp(1.05rem,2.2vw,1.22rem)] leading-relaxed text-[#6f6b63]">
             Your journal, habits, daily plan and tasks in one place. <br></br>An app that rewards you for showing up, and nothing that punishes you for missing a day.
           </p>
