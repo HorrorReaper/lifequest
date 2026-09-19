@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, NotebookPen, Building2, Settings } from 'lucide-react'
+import { Home, NotebookPen, Settings, UserCircle2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { createClient } from '@/lib/supabase/client'
@@ -14,7 +14,10 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/journal', label: 'Journal', icon: NotebookPen },
   // { label: "Analytics", href: "/analytics", icon: BarChart3 },
-  { href: '/city', label: 'City', icon: Building2 },
+  // City itself is retired as a reachable feature; this slot is its
+  // replacement rather than a new one. See
+  // docs/superpowers/specs/2026-08-30-avatar-nature-redesign-design.md.
+  { href: '/profile', label: 'Avatar', icon: UserCircle2 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 

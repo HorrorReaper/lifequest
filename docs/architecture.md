@@ -111,11 +111,19 @@ Some older browser workflows still perform sequential multi-table writes, notabl
 
 ## Date and timezone strategy
 
-- Profiles store an IANA timezone.
-- Dashboard, Today Plan, habits, nutrition, and many admin tools derive date keys from that timezone.
-- Task date-only helpers parse at local noon to prevent UTC date shifts.
-- Habit analytics uses date-only arithmetic in UTC day numbers.
-- Journal landing recommendations currently use `Europe/Berlin`, while journal entry submission uses ISO-derived dates. This is a known consistency gap.
+`src/lib/dates.ts` is the single source for every date key in the application. Nothing else may define one.
+
+It separates two concepts that the codebase previously mixed:
+
+- A **date key** is a `YYYY-MM-DD` string naming a calendar day, with no time or zone attached. Arithmetic on it goes through day numbers (`addDays`, `daysBetween`), so a daylight-saving transition cannot produce a 23- or 25-hour day.
+- An **instant** is a `Date`. Converting one to a date key always requires naming a zone, which is why `dateInTimezone(date, timezone)` and `hourInTimezone(date, timezone)` take the timezone as a required argument — no caller can silently fall back to the server's zone.
+
+Rules:
+
+- Profiles store an IANA timezone, and it is the answer to "what day is it for this user". Dashboard, Today Plan, habits, the journal landing page, and journal entry submission all derive their date keys from it.
+- `localDateKey` reads the calendar fields off a `Date` and is only for a `Date` whose fields the user chose directly, such as a date picker's selection. Never use `toISOString()` for this: local midnight in any zone ahead of UTC serializes to the previous day.
+- `parseLocalDate` and `formatDateOnly` handle a date key at noon so that no zone offset can move it into an adjacent day.
+- A page that needs "today" resolves it on the server with `dateInTimezone(new Date(), profileTimezone)` and passes the date key to its client components as a prop. Client components must not compute it themselves: it avoids a hydration mismatch at the midnight boundary, and it keeps the UI in step with the RPCs that enforce the same day server-side.
 
 ## Design system
 

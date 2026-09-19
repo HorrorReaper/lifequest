@@ -51,6 +51,12 @@ interface QuestPageClientProps {
   defaultQuests: DefaultQuestWithStatus[]
   initialCustomQuests: CustomQuest[]
   initialChallengePrograms: ChallengeProgram[]
+  /**
+   * The user's current day as a date key, resolved from their profile
+   * timezone on the server. Passed in rather than read from the browser so
+   * the challenge cards cannot offer an action the RPCs then reject.
+   */
+  today: string
 }
 
 function questDeleteClient(supabase: ReturnType<typeof createClient>): QuestDeleteClient {
@@ -66,7 +72,7 @@ function getDeleteErrorMessage(error: unknown): string {
   return 'Could not delete this quest.'
 }
 
-export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, initialChallengePrograms }: QuestPageClientProps) {
+export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, initialChallengePrograms, today }: QuestPageClientProps) {
   const supabase = createClient()
   const addXp = useUserStore((s) => s.addXp)
   const setCoins = useUserStore((s) => s.setCoins)
@@ -177,11 +183,13 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
     const challengeDay = program.days.find((day) => day.day_number === result.completed_day)
     if (!challengeDay) return
     const now = new Date().toISOString()
-    const today = result.completion_date
+    // The server's date for this completion; not the same thing as the
+    // `today` prop, which is the day the card was rendered for.
+    const completionDate = result.completion_date
     setChallengePrograms((current) => current.map((item) => item.template.id !== program.template.id ? item : {
       ...item,
       enrollment: item.enrollment ? { ...item.enrollment, status: result.challenge_completed ? 'completed' : 'active', completed_at: result.challenge_completed ? now : null, updated_at: now } : null,
-      progress: item.progress.some((entry) => entry.day_number === result.completed_day) ? item.progress : [...item.progress, { id: `${program.enrollment!.id}-${result.completed_day}`, enrollment_id: program.enrollment!.id, challenge_day_id: challengeDay.id, user_id: userId, day_number: result.completed_day, completed_on: today, note: note.trim() || null, created_at: now }],
+      progress: item.progress.some((entry) => entry.day_number === result.completed_day) ? item.progress : [...item.progress, { id: `${program.enrollment!.id}-${result.completed_day}`, enrollment_id: program.enrollment!.id, challenge_day_id: challengeDay.id, user_id: userId, day_number: result.completed_day, completed_on: completionDate, note: note.trim() || null, created_at: now }],
     }))
     if (result.challenge_completed) {
       addXp(program.template.xp_reward, result.total_xp - program.template.xp_reward)
@@ -306,7 +314,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
       {/* Guided challenges tab */}
       {tab === 'challenges' && (
         <div className="space-y-3">
-          {challengePrograms.length === 0 ? <div className="rounded-xl border border-dashed p-8 text-center"><BookOpenText className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 font-medium">No guided challenges available</p><p className="mt-1 text-sm text-muted-foreground">Published programs from LifeQuest Labs will appear here.</p></div> : challengePrograms.map((program) => <ChallengeProgramCard key={program.template.id} program={program} onStart={handleStartProgram} onRestart={handleRestartProgram} onCompleteDay={handleCompleteProgramDay} />)}
+          {challengePrograms.length === 0 ? <div className="rounded-xl border border-dashed p-8 text-center"><BookOpenText className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 font-medium">No guided challenges available</p><p className="mt-1 text-sm text-muted-foreground">Published programs from LifeQuest Labs will appear here.</p></div> : challengePrograms.map((program) => <ChallengeProgramCard key={program.template.id} program={program} onStart={handleStartProgram} onRestart={handleRestartProgram} onCompleteDay={handleCompleteProgramDay} today={today} />)}
         </div>
       )}
 
@@ -422,6 +430,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
                 onComplete={handleCompleteCustom}
                 onDelete={handleDeleteCustom}
                 onCheckIn={handleCheckInChallenge}
+                today={today}
               />
             ))}
           </div>
@@ -463,6 +472,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
                     onComplete={handleCompleteCustom}
                     onDelete={handleDeleteCustom}
                     onCheckIn={handleCheckInChallenge}
+                    today={today}
                   />
                 ))}
               </div>

@@ -6,8 +6,46 @@ import type {
   DayPlanSourceType,
 } from "@/lib/types";
 import { isValidMoodValue } from "@/lib/mood";
+import {
+  MOOD_REASON_NOTE_MAX,
+  normalizeMoodReasons,
+} from "@/lib/mood-reasons";
 
 export const TODAY_PLAN_NOTES_PREFIX = "LIFEQUEST_TODAY_PLAN_V1:";
+
+/** The last minute a plan block may reach. */
+const END_OF_DAY_MINUTES = 23 * 60 + 59;
+
+/**
+ * The shortest gap the generated schedule leaves between two blocks.
+ *
+ * Chaining commitments back to back plans a day nobody can actually walk
+ * through; this is the room to stand up and switch context.
+ */
+export const MIN_TRANSITION_MINUTES = 10;
+
+/**
+ * Generated start times land on this grid.
+ *
+ * Chaining "previous end + transition" alone drifts onto times no person
+ * would ever choose -- 09:40, then 11:45, then 12:35. Rounding each start up
+ * to a quarter hour keeps the schedule readable, and the few minutes it adds
+ * become buffer rather than being lost.
+ */
+export const PLAN_TIME_GRID_MINUTES = 15;
+
+/**
+ * The next grid-aligned minute a block may start on, given what came before.
+ *
+ * Always at least MIN_TRANSITION_MINUTES after `previousEnd`, so rounding can
+ * widen a gap but never close one.
+ */
+export function nextGridStart(previousEnd: number): number {
+  const earliest = previousEnd + MIN_TRANSITION_MINUTES;
+  const aligned =
+    Math.ceil(earliest / PLAN_TIME_GRID_MINUTES) * PLAN_TIME_GRID_MINUTES;
+  return Math.min(aligned, END_OF_DAY_MINUTES);
+}
 
 const OUTCOME_ROLES: DayPlanOutcomeRole[] = [
   "must_win",
@@ -42,8 +80,12 @@ export interface TodayPlanAnchor {
 export interface TodayPlanMetadata {
   version: 1;
   intention: string;
-  /** How the user said they felt when starting today's ritual; one of the shared mood vocabulary values, or null if skipped. */
+  /** How the user said they felt when starting today's ritual; one of the shared mood vocabulary values. Null only for a plan made before the mood step became mandatory, or one not started yet. */
   mood: string | null;
+  /** Why it feels that way, as ids from MOOD_REASONS. Optional and possibly several; empty for a plan made before this was asked. */
+  mood_reasons: string[];
+  /** A reason in the user's own words, when none of the offered ones fit. Empty when unused. */
+  mood_reason_note: string;
   outcomes: TodayPlanOutcome[];
   anchors: TodayPlanAnchor[];
   day_start: string;
@@ -75,6 +117,8 @@ export function createDefaultTodayPlanMetadata(): TodayPlanMetadata {
     version: 1,
     intention: "",
     mood: null,
+    mood_reasons: [],
+    mood_reason_note: "",
     outcomes: [],
     anchors: [],
     day_start: "08:00",
@@ -94,9 +138,22 @@ function isTime(value: unknown): value is string {
   return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
 }
 
+/**
+ * The range a planned duration is kept inside.
+ *
+ * Exported so the field a user types into and the parser that reads it back
+ * cannot drift apart: a value the form accepts but the parser clamps would
+ * silently change after a reload.
+ */
+export const MIN_OUTCOME_MINUTES = 5;
+export const MAX_OUTCOME_MINUTES = 240;
+
 function boundedMinutes(value: unknown, fallback: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.min(240, Math.max(5, Math.round(value)));
+  return Math.min(
+    MAX_OUTCOME_MINUTES,
+    Math.max(MIN_OUTCOME_MINUTES, Math.round(value))
+  );
 }
 
 function normalizeOutcome(value: unknown): TodayPlanOutcome | null {
@@ -173,6 +230,11 @@ function normalizeMetadata(value: unknown): TodayPlanMetadata | null {
         ? value.intention.trim().slice(0, 500)
         : "",
     mood: isValidMoodValue(value.mood) ? value.mood : null,
+    mood_reasons: normalizeMoodReasons(value.mood_reasons),
+    mood_reason_note:
+      typeof value.mood_reason_note === "string"
+        ? value.mood_reason_note.trim().slice(0, MOOD_REASON_NOTE_MAX)
+        : "",
     outcomes,
     anchors,
     day_start: dayStart,
@@ -264,6 +326,269 @@ export function shiftEndTime(
   return minutesToTime(nextStartMinutes + span);
 }
 
+function byStartTime(a: DayPlanBlock, b: DayPlanBlock) {
+  return a.start_time.localeCompare(b.start_time);
+}
+
+/** Vertical pixels the timeline gives one minute. */
+export const TIMELINE_PX_PER_MINUTE = 1.2;
+
+/** Dragging resolves to this many minutes. */
+export const TIMELINE_DRAG_GRID_MINUTES = 5;
+
+/** The shortest a block may be dragged down to. */
+export const MIN_BLOCK_MINUTES = 10;
+
+/**
+ * The span the timeline draws, in whole hours.
+ *
+ * Widened past the planned day whenever a block sits outside it, because a
+ * block you cannot see is a block you cannot fix -- and the old form-based
+ * step let people put one at 22:00 inside an 08:00-18:00 day.
+ */
+export function timelineWindow(
+  blocks: DayPlanBlock[],
+  dayStart: string,
+  dayEnd: string
+): { startMinutes: number; endMinutes: number } {
+  const starts: number[] = [];
+  const ends: number[] = [];
+
+  const rawStart = timeToMinutes(dayStart);
+  const rawEnd = timeToMinutes(dayEnd);
+  if (Number.isFinite(rawStart)) starts.push(rawStart);
+  if (Number.isFinite(rawEnd)) ends.push(rawEnd);
+
+  for (const block of blocks) {
+    const start = timeToMinutes(block.start_time);
+    const end = timeToMinutes(block.end_time);
+    if (Number.isFinite(start)) starts.push(start);
+    if (Number.isFinite(end)) ends.push(end);
+  }
+
+  if (starts.length === 0 || ends.length === 0) {
+    return { startMinutes: 8 * 60, endMinutes: 18 * 60 };
+  }
+
+  const startMinutes = Math.max(0, Math.floor(Math.min(...starts) / 60) * 60);
+  const endMinutes = Math.min(
+    24 * 60,
+    Math.ceil(Math.max(...ends, startMinutes + 60) / 60) * 60
+  );
+  return { startMinutes, endMinutes };
+}
+
+/** How long a block created by clicking empty time runs, when there is room. */
+export const DEFAULT_NEW_BLOCK_MINUTES = 60;
+
+export interface TimelineGap {
+  startMinutes: number;
+  endMinutes: number;
+}
+
+/**
+ * The stretches of the day nothing is planned in.
+ *
+ * Only gaps at least MIN_BLOCK_MINUTES long are returned: a shorter one
+ * cannot hold a valid block, so offering to fill it would be a dead end.
+ * Overlapping blocks are walked as one occupied run rather than producing a
+ * negative gap between them.
+ */
+export function findTimelineGaps(
+  blocks: DayPlanBlock[],
+  windowStart: number,
+  windowEnd: number
+): TimelineGap[] {
+  const placed = blocks
+    .map((block) => ({
+      start: timeToMinutes(block.start_time),
+      end: timeToMinutes(block.end_time),
+    }))
+    .filter(
+      (span) =>
+        Number.isFinite(span.start) &&
+        Number.isFinite(span.end) &&
+        span.end > span.start
+    )
+    .sort((a, b) => a.start - b.start);
+
+  const gaps: TimelineGap[] = [];
+  let cursor = windowStart;
+
+  for (const span of placed) {
+    if (span.start - cursor >= MIN_BLOCK_MINUTES) {
+      gaps.push({ startMinutes: cursor, endMinutes: span.start });
+    }
+    cursor = Math.max(cursor, span.end);
+  }
+
+  if (windowEnd - cursor >= MIN_BLOCK_MINUTES) {
+    gaps.push({ startMinutes: cursor, endMinutes: windowEnd });
+  }
+
+  return gaps;
+}
+
+/**
+ * Where a block dropped into free time should begin and end.
+ *
+ * One hour, running from the full hour at or before the pointer to the full
+ * hour after it -- 12:37 gives 12:00 to 13:00 -- so a block placed by hand
+ * lands on the same round times a person would have picked.
+ *
+ * Both ends give way to what is already planned. When the whole hour does
+ * not fit before the next block, the span slides back to end against it;
+ * when the hour would start inside the previous block, it begins at that
+ * block's end instead. A gap too narrow for an hour is filled exactly,
+ * rather than being left with an unusable sliver on one side.
+ */
+export function blockSpanForGap(
+  gap: TimelineGap,
+  atMinutes: number
+): { startMinutes: number; endMinutes: number } {
+  const available = gap.endMinutes - gap.startMinutes;
+  const duration = Math.min(DEFAULT_NEW_BLOCK_MINUTES, available);
+
+  const onTheHour = Math.floor(atMinutes / 60) * 60;
+  const startMinutes = Math.min(
+    Math.max(onTheHour, gap.startMinutes),
+    gap.endMinutes - duration
+  );
+
+  return { startMinutes, endMinutes: startMinutes + duration };
+}
+
+/** Rounds a minute value to the drag grid. */
+export function snapToDragGrid(minutes: number): number {
+  return (
+    Math.round(minutes / TIMELINE_DRAG_GRID_MINUTES) *
+    TIMELINE_DRAG_GRID_MINUTES
+  );
+}
+
+/**
+ * Edits one block's times and carries everything after it along.
+ *
+ * Without this, moving the second of eight blocks leaves the other six
+ * standing where they were, so the planner asks you to retype every later
+ * time by hand -- and punishes the first overlap you create on the way. The
+ * tail moves as a rigid chain: every duration and every gap after the edited
+ * block is preserved exactly, including deliberate ones like a fixed lunch.
+ *
+ * Returns the blocks in their original array order, so React keys and the
+ * rendered list stay stable.
+ */
+export function applyBlockTimeChange(
+  blocks: DayPlanBlock[],
+  id: string,
+  patch: Pick<Partial<DayPlanBlock>, "start_time" | "end_time">
+): DayPlanBlock[] {
+  const target = blocks.find((block) => block.id === id);
+  if (!target) return blocks;
+
+  const edited = { ...target, ...patch };
+  const previousEnd = timeToMinutes(target.end_time);
+  const nextEnd = timeToMinutes(edited.end_time);
+  const nextStart = timeToMinutes(edited.start_time);
+
+  const applyEditOnly = () =>
+    blocks.map((block) => (block.id === id ? edited : block));
+
+  // A half-typed time ("1:" while reaching for 13:00) or an inverted span is
+  // not something to ripple; leave it for findTodayPlanBlockProblems to flag.
+  if (
+    !Number.isFinite(previousEnd) ||
+    !Number.isFinite(nextEnd) ||
+    !Number.isFinite(nextStart) ||
+    nextEnd <= nextStart
+  ) {
+    return applyEditOnly();
+  }
+
+  const delta = nextEnd - previousEnd;
+  if (delta === 0) return applyEditOnly();
+
+  const ordered = blocks.slice().sort(byStartTime);
+  const targetIndex = ordered.findIndex((block) => block.id === id);
+  const tail = ordered.slice(targetIndex + 1);
+  if (tail.length === 0) return applyEditOnly();
+
+  // Shift the whole tail by one clamped amount rather than per block, so the
+  // chain cannot compress against the end of the day: the gaps a user can see
+  // survive even when the day runs out of room.
+  let shift = delta;
+  if (shift > 0) {
+    const latestEnd = tail.reduce(
+      (latest, block) => Math.max(latest, timeToMinutes(block.end_time) || 0),
+      0
+    );
+    shift = Math.min(shift, END_OF_DAY_MINUTES - latestEnd);
+  } else {
+    const earliestStart = tail.reduce(
+      (earliest, block) =>
+        Math.min(earliest, timeToMinutes(block.start_time) || 0),
+      END_OF_DAY_MINUTES
+    );
+    shift = Math.max(shift, -earliestStart);
+  }
+  if (shift === 0) return applyEditOnly();
+
+  const shiftedIds = new Set(tail.map((block) => block.id));
+  return blocks.map((block) => {
+    if (block.id === id) return edited;
+    if (!shiftedIds.has(block.id)) return block;
+    return {
+      ...block,
+      start_time: minutesToTime(timeToMinutes(block.start_time) + shift),
+      end_time: minutesToTime(timeToMinutes(block.end_time) + shift),
+    };
+  });
+}
+
+/**
+ * Pushes overlapping blocks apart, keeping their order and their durations.
+ *
+ * The planner used to detect an overlap and then simply refuse to move on,
+ * leaving the user to solve it by arithmetic. Only blocks that actually
+ * collide are moved, and only ever later, so a schedule that is already
+ * clean comes back untouched.
+ */
+export function resolveOverlaps(blocks: DayPlanBlock[]): DayPlanBlock[] {
+  const ordered = blocks.slice().sort(byStartTime);
+  const resolved = new Map<string, DayPlanBlock>();
+  let previousEnd: number | null = null;
+
+  for (const block of ordered) {
+    const start = timeToMinutes(block.start_time);
+    const end = timeToMinutes(block.end_time);
+
+    // An invalid block has no duration to preserve, so it cannot be placed;
+    // it stays put and stays flagged.
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      resolved.set(block.id, block);
+      continue;
+    }
+
+    if (previousEnd !== null && start < previousEnd) {
+      const nextStart = nextGridStart(previousEnd);
+      const duration = end - start;
+      const nextEnd = Math.min(nextStart + duration, END_OF_DAY_MINUTES);
+      resolved.set(block.id, {
+        ...block,
+        start_time: minutesToTime(nextStart),
+        end_time: minutesToTime(nextEnd),
+      });
+      previousEnd = nextEnd;
+      continue;
+    }
+
+    resolved.set(block.id, block);
+    previousEnd = end;
+  }
+
+  return blocks.map((block) => resolved.get(block.id) ?? block);
+}
+
 export function blockDurationMinutes(block: DayPlanBlock): number {
   const start = timeToMinutes(block.start_time);
   const end = timeToMinutes(block.end_time);
@@ -349,12 +674,36 @@ function outcomeMission(role: DayPlanOutcomeRole): {
   return { category: "deep_work", missionType: "side_quest" };
 }
 
+/**
+ * Whether an anchor is a commitment that occupies the clock.
+ *
+ * A workout genuinely takes an hour of the day and belongs on the timeline.
+ * A habit or a journal prompt does not: giving "Smile 5 times a day" a slot
+ * from 12:10 to 12:25 invents a meeting that will never happen, and pushes
+ * everything real later. Those ride along with the day as a checklist
+ * instead -- they still live in metadata.anchors, they just never become
+ * blocks.
+ */
+export function anchorTakesTime(anchor: TodayPlanAnchor): boolean {
+  return anchor.source_type === "workout";
+}
+
 function anchorCategory(
   sourceType: TodayPlanAnchor["source_type"]
 ): DayPlanCategory {
   if (sourceType === "workout") return "exercise";
   if (sourceType === "journal") return "personal";
   return "other";
+}
+
+/**
+ * An id for a new plan block.
+ *
+ * Guarded because crypto.randomUUID is absent in some test environments and
+ * in older browsers, where an unguarded call throws while adding a block.
+ */
+export function planBlockId(): string {
+  return defaultId();
 }
 
 function defaultId() {
@@ -377,15 +726,15 @@ export function buildTodayPlanSchedule({
   idFactory?: () => string;
 }): DayPlanBlock[] {
   const next = blocks.map((block) => ({ ...block }));
+  const dayStart = timeToMinutes(metadata.day_start) || 8 * 60;
   const latestEnd = next.reduce(
     (latest, block) =>
       Math.max(latest, timeToMinutes(block.end_time) || 0),
-    timeToMinutes(metadata.day_start) || 8 * 60
+    dayStart
   );
-  let cursor = Math.min(
-    latestEnd + (next.length > 0 ? 10 : 0),
-    23 * 60
-  );
+  // The first generated block may begin exactly when the day does; anything
+  // after an existing block needs the transition gap and the grid.
+  let cursor = next.length > 0 ? nextGridStart(latestEnd) : dayStart;
 
   function append(
     title: string,
@@ -395,7 +744,7 @@ export function buildTodayPlanSchedule({
       "category" | "mission_type" | "source_type" | "source_id" | "outcome_role"
     >
   ) {
-    const end = Math.min(cursor + duration, 23 * 60 + 59);
+    const end = Math.min(cursor + duration, END_OF_DAY_MINUTES);
     if (end <= cursor) return;
     next.push({
       id: idFactory(),
@@ -404,7 +753,7 @@ export function buildTodayPlanSchedule({
       title,
       ...details,
     });
-    cursor = Math.min(end + 10, 23 * 60 + 59);
+    cursor = nextGridStart(end);
   }
 
   for (const outcome of metadata.outcomes) {
@@ -421,12 +770,16 @@ export function buildTodayPlanSchedule({
   }
 
   for (const anchor of metadata.anchors) {
+    if (!anchorTakesTime(anchor)) continue;
+    // Match the identity `append` actually writes below. Falling back to the
+    // title instead would never match an anchor without a source_id, because
+    // the block's title carries the emoji and the anchor's does not -- which
+    // duplicated the workout block every time the schedule was rebuilt.
+    const anchorKey = anchor.source_id ?? anchor.id;
     const alreadyScheduled = next.some(
       (block) =>
         block.source_type === anchor.source_type &&
-        (anchor.source_id
-          ? block.source_id === anchor.source_id
-          : block.title === anchor.title)
+        block.source_id === anchorKey
     );
     if (alreadyScheduled) continue;
     append(`${anchor.emoji} ${anchor.title}`.trim(), anchor.duration_minutes, {

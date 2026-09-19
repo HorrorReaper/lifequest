@@ -25,6 +25,7 @@ export function MoodSelector({
           key={option.value}
           type="button"
           disabled={disabled}
+          aria-pressed={value === option.value}
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => onChange(option.value)}

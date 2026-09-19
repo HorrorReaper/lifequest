@@ -17,6 +17,17 @@ Each path has three units, six lessons, and 24 exercises. The v1 catalog therefo
 
 The original 13 article/quiz lessons remain available as the foundation archive.
 
+## Who sees what
+
+The Academy courses are admin-only while the curriculum is still being authored. `/learn` asks `showAdminUi`:
+
+- An admin sees the three paths, the path progress panel, and the article archive underneath them.
+- Everyone else sees only the articles, presented as the whole page rather than an archive.
+
+`/learn/[lessonId]` is a Server Component that applies the same gate before anything renders: a non-admin who opens a course lesson slug is redirected to `/learn`, and the client never requests the catalog RPC for them. Because an admin previewing as a normal user goes through `showAdminUi`, the preview shows the article-only page too.
+
+This is a view filter, not the authorization boundary. `get_published_learning_catalog()` and `submit_learning_exercise()` are still granted to every authenticated user; restricting them would need a migration and is listed under remaining backend work.
+
 ## Backend implementation
 
 Migrations:
@@ -151,7 +162,11 @@ The new learning-path backend is complete for the three Academy paths. These cro
    - Add drag-and-drop ordering.
    - Add a version history/diff view and enrollment counts before publication.
 
-5. Platform security backlog found by advisor review
+5. Course visibility
+   - Decide whether the courses stay admin-only or open to everyone.
+   - If they stay admin-only beyond the authoring phase, move the gate into the learner RPCs so the catalog is not merely hidden in the UI.
+
+6. Platform security backlog found by advisor review
    - Existing functions outside this module still have mutable search paths or overly broad execution grants.
    - Supabase leaked-password protection is disabled.
    - Existing non-learning tables have unrelated missing foreign-key indexes.

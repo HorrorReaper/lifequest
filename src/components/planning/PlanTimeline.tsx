@@ -1,0 +1,500 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { GripHorizontal, Plus } from "lucide-react";
+import type { DayPlanBlock, DayPlanCategory, DayPlanMissionType } from "@/lib/types";
+import {
+  applyBlockTimeChange,
+  blockSpanForGap,
+  findTimelineGaps,
+  formatPlanMinutes,
+  type TimelineGap,
+  MIN_BLOCK_MINUTES,
+  minutesToTime,
+  snapToDragGrid,
+  timelineWindow,
+  timeToMinutes,
+  TIMELINE_DRAG_GRID_MINUTES,
+  TIMELINE_PX_PER_MINUTE,
+} from "@/lib/today-plan";
+import { cn } from "@/lib/utils";
+
+interface PlanTimelineProps {
+  blocks: DayPlanBlock[];
+  dayStart: string;
+  dayEnd: string;
+  invalidBlockIds: string[];
+  overlappingBlockIds: string[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  onChange: (blocks: DayPlanBlock[]) => void;
+  /** Called with "HH:mm" bounds when empty time is clicked. */
+  onCreateBlock: (startTime: string, endTime: string) => void;
+}
+
+/**
+ * Below this, a block only gets its title.
+ *
+ * At 1.2px per minute a 25-minute block is 30px; two lines plus padding do
+ * not fit under that without clipping the title itself.
+ */
+const COMPACT_BLOCK_MINUTES = 25;
+
+type DragMode = "move" | "resize";
+
+/** The block a click would create right now, and which gap it belongs to. */
+interface GapPreview {
+  gapStart: number;
+  startMinutes: number;
+  endMinutes: number;
+}
+
+interface DragState {
+  id: string;
+  mode: DragMode;
+  pointerId: number;
+  originY: number;
+  originStart: number;
+  originEnd: number;
+  originBlocks: DayPlanBlock[];
+}
+
+// Kept in step with the dashboard's plan section: a block should read as the
+// same kind of work in both places. Mission wins over category.
+const MISSION_ACCENT: Record<DayPlanMissionType, string> = {
+  main_quest: "border-l-primary bg-primary/8",
+  side_quest: "border-l-purple-500 bg-purple-500/8",
+  anchor: "border-l-blue-500 bg-blue-500/8",
+  recovery: "border-l-green-500 bg-green-500/8",
+};
+
+const CATEGORY_ACCENT: Record<string, string> = {
+  deep_work: "border-l-purple-500 bg-purple-500/8",
+  meeting: "border-l-blue-500 bg-blue-500/8",
+  break: "border-l-yellow-500 bg-yellow-500/8",
+  personal: "border-l-green-500 bg-green-500/8",
+  exercise: "border-l-red-500 bg-red-500/8",
+  other: "border-l-muted-foreground/40 bg-muted/40",
+};
+
+function accentFor(block: DayPlanBlock) {
+  if (block.mission_type) return MISSION_ACCENT[block.mission_type];
+  return CATEGORY_ACCENT[block.category as DayPlanCategory] ?? CATEGORY_ACCENT.other;
+}
+
+/**
+ * The day at scale: a block is as tall as it is long.
+ *
+ * Replaces a list of identically sized cards where a 90-minute commitment and
+ * a 15-minute one looked the same and the gaps between them were invisible.
+ * Blocks are dragged to move and pulled at the bottom edge to resize; both go
+ * through applyBlockTimeChange, so the rest of the day follows along.
+ */
+export function PlanTimeline({
+  blocks,
+  dayStart,
+  dayEnd,
+  invalidBlockIds,
+  overlappingBlockIds,
+  selectedId,
+  onSelect,
+  onChange,
+  onCreateBlock,
+}: PlanTimelineProps) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  // A pointer gesture ends in a click on the same element. Now that a click
+  // opens a modal, a drag that actually moved must not also open it.
+  const movedRef = useRef(false);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [preview, setPreview] = useState<GapPreview | null>(null);
+
+  const { startMinutes, endMinutes } = timelineWindow(blocks, dayStart, dayEnd);
+  const spanMinutes = Math.max(60, endMinutes - startMinutes);
+  const height = spanMinutes * TIMELINE_PX_PER_MINUTE;
+
+  const hours: number[] = [];
+  for (let minute = startMinutes; minute <= endMinutes; minute += 60) {
+    hours.push(minute);
+  }
+
+  const ordered = blocks
+    .slice()
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+  function offsetOf(minutes: number) {
+    return (minutes - startMinutes) * TIMELINE_PX_PER_MINUTE;
+  }
+
+  function beginDrag(
+    event: React.PointerEvent<HTMLElement>,
+    block: DayPlanBlock,
+    mode: DragMode
+  ) {
+    // Only a primary pointer drags; a right-click or a second finger would
+    // otherwise start a second, conflicting gesture.
+    if (event.button !== 0) return;
+    const start = timeToMinutes(block.start_time);
+    const end = timeToMinutes(block.end_time);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    movedRef.current = false;
+    dragRef.current = {
+      id: block.id,
+      mode,
+      pointerId: event.pointerId,
+      originY: event.clientY,
+      originStart: start,
+      originEnd: end,
+      // Snapshot the day as it was when the gesture began, so every move is
+      // measured from one fixed origin. Applying each move to the previous
+      // result instead would let rounding accumulate across a drag.
+      originBlocks: blocks,
+    };
+    setDragging(block.id);
+  }
+
+  function moveDrag(event: React.PointerEvent<HTMLElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const deltaMinutes = snapToDragGrid(
+      (event.clientY - drag.originY) / TIMELINE_PX_PER_MINUTE
+    );
+    if (deltaMinutes !== 0) movedRef.current = true;
+    if (drag.mode === "move") {
+      const duration = drag.originEnd - drag.originStart;
+      const nextStart = Math.min(
+        Math.max(drag.originStart + deltaMinutes, 0),
+        24 * 60 - 1 - duration
+      );
+      onChange(
+        applyBlockTimeChange(drag.originBlocks, drag.id, {
+          start_time: minutesToTime(nextStart),
+          end_time: minutesToTime(nextStart + duration),
+        })
+      );
+      return;
+    }
+
+    const nextEnd = Math.min(
+      Math.max(drag.originEnd + deltaMinutes, drag.originStart + MIN_BLOCK_MINUTES),
+      24 * 60 - 1
+    );
+    onChange(
+      applyBlockTimeChange(drag.originBlocks, drag.id, {
+        end_time: minutesToTime(nextEnd),
+      })
+    );
+  }
+
+  function endDrag(event: React.PointerEvent<HTMLElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    setDragging(null);
+  }
+
+  /**
+   * Arrow keys do what dragging does.
+   *
+   * A pointer gesture is the fast path, not the only one: without this the
+   * timeline would be unusable by keyboard, and the old time fields at least
+   * worked.
+   */
+  function handleKeyDown(
+    event: React.KeyboardEvent<HTMLElement>,
+    block: DayPlanBlock
+  ) {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+    const start = timeToMinutes(block.start_time);
+    const end = timeToMinutes(block.end_time);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+
+    event.preventDefault();
+    const step =
+      (event.key === "ArrowDown" ? 1 : -1) * TIMELINE_DRAG_GRID_MINUTES;
+
+    if (event.shiftKey) {
+      const nextEnd = Math.min(
+        Math.max(end + step, start + MIN_BLOCK_MINUTES),
+        24 * 60 - 1
+      );
+      onChange(
+        applyBlockTimeChange(blocks, block.id, {
+          end_time: minutesToTime(nextEnd),
+        })
+      );
+      return;
+    }
+
+    const duration = end - start;
+    const nextStart = Math.min(
+      Math.max(start + step, 0),
+      24 * 60 - 1 - duration
+    );
+    onChange(
+      applyBlockTimeChange(blocks, block.id, {
+        start_time: minutesToTime(nextStart),
+        end_time: minutesToTime(nextStart + duration),
+      })
+    );
+  }
+
+  const gaps = findTimelineGaps(blocks, startMinutes, endMinutes);
+
+  /**
+   * The span a pointer at `clientY` would place inside `gap`.
+   *
+   * The preview and the click both go through this, so what is highlighted
+   * is exactly what gets created.
+   */
+  function spanAt(gap: TimelineGap, clientY: number) {
+    const track = trackRef.current;
+    // Without a measurable track there is no position to read, so fall back
+    // to the top of the gap rather than refusing to place anything.
+    const atMinutes = track
+      ? startMinutes +
+        (clientY - track.getBoundingClientRect().top) / TIMELINE_PX_PER_MINUTE
+      : gap.startMinutes;
+    return blockSpanForGap(gap, atMinutes);
+  }
+
+  function showPreview(gap: TimelineGap, clientY: number) {
+    const span = spanAt(gap, clientY);
+    // Only re-render when the span actually moves, which happens on crossing
+    // an hour boundary rather than on every pixel of travel.
+    setPreview((current) =>
+      current &&
+      current.gapStart === gap.startMinutes &&
+      current.startMinutes === span.startMinutes &&
+      current.endMinutes === span.endMinutes
+        ? current
+        : { gapStart: gap.startMinutes, ...span }
+    );
+  }
+
+  function createInGap(
+    event: React.MouseEvent<HTMLButtonElement>,
+    gap: TimelineGap
+  ) {
+    // detail is 0 when the button was activated from the keyboard, where
+    // there is no pointer position; place at the top of the gap, which is
+    // what focusing it previews.
+    const span =
+      event.detail === 0
+        ? blockSpanForGap(gap, gap.startMinutes)
+        : spanAt(gap, event.clientY);
+
+    setPreview(null);
+    onCreateBlock(
+      minutesToTime(span.startMinutes),
+      minutesToTime(span.endMinutes)
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-[3.25rem_1fr] rounded-2xl border bg-background/55 p-3 sm:p-4">
+      {/* Hour gutter */}
+      <div className="relative" style={{ height }}>
+        {hours.map((minute) => (
+          <span
+            key={minute}
+            className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-muted-foreground"
+            style={{ top: offsetOf(minute) }}
+          >
+            {minutesToTime(minute)}
+          </span>
+        ))}
+      </div>
+
+      <div ref={trackRef} className="relative border-l" style={{ height }}>
+        {hours.map((minute) => (
+          <span
+            key={minute}
+            aria-hidden="true"
+            className="absolute inset-x-0 border-t border-dashed border-border/70"
+            style={{ top: offsetOf(minute) }}
+          />
+        ))}
+
+        {/* Empty time is clickable. Rendered before the blocks so a block
+            always wins the pointer where the two meet. */}
+        {gaps.map((gap) => {
+          const available = gap.endMinutes - gap.startMinutes;
+          const shown =
+            preview && preview.gapStart === gap.startMinutes ? preview : null;
+
+          return (
+            <button
+              key={`gap-${gap.startMinutes}`}
+              type="button"
+              onMouseMove={(event) => showPreview(gap, event.clientY)}
+              onMouseLeave={() => setPreview(null)}
+              onFocus={() =>
+                setPreview({
+                  gapStart: gap.startMinutes,
+                  ...blockSpanForGap(gap, gap.startMinutes),
+                })
+              }
+              onBlur={() => setPreview(null)}
+              onClick={(event) => createInGap(event, gap)}
+              aria-label={`Add a block between ${minutesToTime(gap.startMinutes)} and ${minutesToTime(gap.endMinutes)}`}
+              className="absolute inset-x-1 left-2 cursor-pointer rounded-lg focus-visible:outline-none"
+              style={{
+                top: offsetOf(gap.startMinutes),
+                height: available * TIMELINE_PX_PER_MINUTE,
+              }}
+            >
+              {/* The whole gap is the hit area, but only the hour that would
+                  actually be created is drawn -- highlighting the entire
+                  stretch promised a block the size of the afternoon. */}
+              {shown && (
+                <span
+                  aria-hidden="true"
+                  data-slot="gap-preview"
+                  className="absolute inset-x-0 flex items-center justify-center rounded-lg border border-dashed border-primary/50 bg-primary/10"
+                  style={{
+                    top:
+                      (shown.startMinutes - gap.startMinutes) *
+                      TIMELINE_PX_PER_MINUTE,
+                    height:
+                      (shown.endMinutes - shown.startMinutes) *
+                      TIMELINE_PX_PER_MINUTE,
+                  }}
+                >
+                  <span className="flex items-center gap-1.5 rounded-full border bg-background px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                    <Plus className="size-3" />
+                    {/* Name the times, since the span snaps to the hour and
+                        gives way to whatever is already planned. */}
+                    {minutesToTime(shown.startMinutes)}&ndash;
+                    {minutesToTime(shown.endMinutes)}
+                  </span>
+                </span>
+              )}
+            </button>
+          );
+        })}
+
+        {ordered.map((block, index) => {
+          const start = timeToMinutes(block.start_time);
+          const end = timeToMinutes(block.end_time);
+          const invalid = invalidBlockIds.includes(block.id);
+          const overlapping = overlappingBlockIds.includes(block.id);
+          const selected = selectedId === block.id;
+
+          // An unparseable block has no place on a time axis. Rather than
+          // drop it -- which would hide the very thing that needs fixing --
+          // it is listed after the axis by the parent's editor.
+          if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+            return null;
+          }
+
+          const duration = end - start;
+          // Too short to carry the padding and the second line without
+          // swallowing the title.
+          const compact = duration < COMPACT_BLOCK_MINUTES;
+          const previous = ordered[index - 1];
+          const gapBefore = previous
+            ? start - (timeToMinutes(previous.end_time) || start)
+            : 0;
+
+          return (
+            <div key={block.id}>
+              {gapBefore >= 20 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background px-2 text-[10px] tabular-nums text-muted-foreground"
+                  style={{ top: offsetOf(start) - (gapBefore / 2) * TIMELINE_PX_PER_MINUTE }}
+                >
+                  {formatPlanMinutes(gapBefore)} free
+                </span>
+              )}
+
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label={`${block.title || "Untitled block"}, ${block.start_time} to ${block.end_time}`}
+                aria-current={selected ? "true" : undefined}
+                onPointerDown={(event) => beginDrag(event, block, "move")}
+                onPointerMove={moveDrag}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                onKeyDown={(event) => handleKeyDown(event, block)}
+                onClick={() => {
+                  if (movedRef.current) {
+                    movedRef.current = false;
+                    return;
+                  }
+                  onSelect(block.id);
+                }}
+                className={cn(
+                  // Centred rather than flowing from the top: a block is as
+                  // tall as it is long, so anything past a short one left its
+                  // label stranded above a pool of empty colour. The resize
+                  // handle is absolute, so it stays on the bottom edge.
+                  "absolute inset-x-1 left-2 flex touch-none flex-col justify-center overflow-hidden rounded-lg border border-l-[3px] px-2.5 text-left select-none transition-shadow",
+                  compact ? "py-0" : "py-1.5",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  accentFor(block),
+                  dragging === block.id
+                    ? "cursor-grabbing shadow-lg"
+                    : "cursor-grab hover:shadow-sm",
+                  selected && "ring-2 ring-ring",
+                  (invalid || overlapping) && "border-destructive/60 bg-destructive/10"
+                )}
+                style={{
+                  top: offsetOf(start),
+                  // The drawn height is the real duration. Padding it out to
+                  // a readable minimum made a 15-minute block reach into the
+                  // next one, which is exactly the lie a proportional axis
+                  // exists to avoid. The floor is the shortest block the
+                  // planner will make, so only data from below its own
+                  // minimum can still collide.
+                  height: Math.max(
+                    duration * TIMELINE_PX_PER_MINUTE,
+                    MIN_BLOCK_MINUTES * TIMELINE_PX_PER_MINUTE
+                  ),
+                }}
+              >
+                <p
+                  className={cn(
+                    "truncate font-medium",
+                    compact ? "text-[11px] leading-none" : "text-xs leading-tight"
+                  )}
+                >
+                  {block.title || "Untitled block"}
+                </p>
+                {!compact && (
+                  <p className="truncate text-[10px] tabular-nums text-muted-foreground">
+                    {block.start_time}&ndash;{block.end_time} &middot;{" "}
+                    {formatPlanMinutes(duration)}
+                    {overlapping && " · overlaps"}
+                  </p>
+                )}
+
+                {/* Resize handle. Sits inside the block so the whole bottom
+                    edge is grabbable, and stops the move gesture from
+                    starting underneath it. */}
+                <span
+                  aria-hidden="true"
+                  onPointerDown={(event) => beginDrag(event, block, "resize")}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                  className="absolute inset-x-0 bottom-0 flex h-3 cursor-ns-resize items-center justify-center opacity-0 transition-opacity hover:opacity-100"
+                >
+                  <GripHorizontal className="size-3 text-muted-foreground" />
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

@@ -19,7 +19,6 @@ import {
   Dumbbell,
   Flame,
   HeartPulse,
-  MoonStar,
   Plus,
   Sparkles,
   Target,
@@ -44,20 +43,32 @@ import { upsertDayPlan } from "@/lib/day-plans";
 import { createTask } from "@/lib/tasks";
 import { MoodSelector } from "@/components/journal/mood-selector";
 import { DEFAULT_MOOD_OPTIONS } from "@/lib/mood";
+import {
+  MOOD_REASON_NOTE_MAX,
+  MOOD_REASONS,
+} from "@/lib/mood-reasons";
 import { TaskCombobox } from "@/components/planning/TaskCombobox";
+import { PlanTimeline } from "@/components/planning/PlanTimeline";
 import type {
   DayPlanBlock,
   DayPlanCategory,
   DayPlanOutcomeRole,
 } from "@/lib/types";
 import {
+  anchorTakesTime,
+  applyBlockTimeChange,
   buildTodayPlanSchedule,
   calculateTodayPlanCapacity,
   createDefaultTodayPlanMetadata,
   findTodayPlanBlockProblems,
   formatPlanMinutes,
+  MAX_OUTCOME_MINUTES,
+  MIN_OUTCOME_MINUTES,
   minutesToTime,
+  nextGridStart,
   parseTodayPlanNotes,
+  planBlockId,
+  resolveOverlaps,
   serializeTodayPlanNotes,
   shiftEndTime,
   timeToMinutes,
@@ -100,6 +111,14 @@ interface TodayPlannerProps {
   habits: TodayPlannerHabit[];
   journals: TodayPlannerJournal[];
   workoutsEnabled: boolean;
+  /**
+   * Skips straight to a later step.
+   *
+   * Set by the route only when there is already a plan to edit; walking
+   * someone through mood and outcomes again to move one block is the reason
+   * this exists.
+   */
+  startAt?: PlannerEntryPoint;
 }
 
 interface PlannerDraft {
@@ -109,70 +128,93 @@ interface PlannerDraft {
 
 const STEPS = [
   {
-    label: "Reset",
-    eyebrow: "Step back",
-    title: "Reset the board",
-    description: "Clear the noise and decide what a good day should feel like.",
+    label: "Mood",
+    title: "How are you feeling right now?",
+    description: "Name it before you plan around it. One tap is enough.",
+  },
+  {
+    label: "Intention",
+    title: "What quality should guide today?",
+    description: "A short line you can hold every later tradeoff against.",
   },
   {
     label: "Top Three",
-    eyebrow: "Choose deliberately",
-    title: "Set your Top Three",
-    description: "One must-win, one progress move, and one health commitment.",
+    title: "Set up your Top Three for Today",
+    description: "A Main Quest is required. The other two are yours to skip.",
   },
   {
     label: "Anchors",
-    eyebrow: "Protect the essentials",
     title: "Add your daily anchors",
     description: "Make room for habits, reflection, training, and shutdown.",
   },
   {
     label: "Timeline",
-    eyebrow: "Make it real",
     title: "Shape the timeline",
     description: "Give each commitment a place, not just a priority.",
   },
   {
     label: "Commit",
-    eyebrow: "Reality check",
     title: "Commit to the day",
     description: "Check capacity, resolve conflicts, and start with clarity.",
   },
 ] as const;
 
+/**
+ * Where each step sits in STEPS.
+ *
+ * Two steps have been inserted into the middle of this flow already, and
+ * every `step === 3` scattered through validation and rendering had to be
+ * found and shifted by hand. Naming them keeps that to one edit.
+ */
+const MOOD_STEP = 0;
+const INTENTION_STEP = 1;
+const OUTCOMES_STEP = 2;
+const ANCHORS_STEP = 3;
+const TIMELINE_STEP = 4;
+const COMMIT_STEP = 5;
+
+/** Where the planner may be asked to open, via ?step= on the route. */
+export type PlannerEntryPoint = "timeline";
+
+/**
+ * One name per role, not two.
+ *
+ * The card used to show "Must Win" beside a "Main Quest" badge, and the same
+ * doubling for the other two -- two names for one thing, on the step where
+ * the user has learned neither. The quest name is the one that survives: it
+ * is what the timeline and the dashboard call the block afterwards, while
+ * "Must Win" appeared here and nowhere else. The helper line now carries the
+ * meaning that label used to.
+ */
 const OUTCOME_META: Record<
   DayPlanOutcomeRole,
   {
     label: string;
     helper: string;
-    mission: string;
     icon: typeof Target;
     style: string;
     defaultDuration: number;
   }
 > = {
   must_win: {
-    label: "Must Win",
-    helper: "If only one meaningful thing moves today, it is this.",
-    mission: "Main Quest",
+    label: "Main Quest",
+    helper: "The one thing that has to move today.",
     icon: Target,
     style:
       "border-violet-500/35 bg-violet-500/8 text-violet-700 dark:text-violet-300",
     defaultDuration: 90,
   },
   progress: {
-    label: "Progress",
-    helper: "A concrete move that compounds toward your bigger goals.",
-    mission: "Side Quest",
+    label: "Side Quest",
+    helper: "A concrete move toward something bigger.",
     icon: Sparkles,
     style:
       "border-blue-500/35 bg-blue-500/8 text-blue-700 dark:text-blue-300",
     defaultDuration: 60,
   },
   health: {
-    label: "Health",
-    helper: "The action that protects your body, energy, or recovery.",
-    mission: "Recovery Quest",
+    label: "Recovery Quest",
+    helper: "What protects your body, energy, or recovery.",
     icon: HeartPulse,
     style:
       "border-emerald-500/35 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300",
@@ -198,8 +240,6 @@ const MISSION_LABELS: Record<
   anchor: "Anchor",
   recovery: "Recovery",
 };
-
-const DURATION_OPTIONS = [15, 25, 45, 60, 90, 120];
 
 function fingerprint(value: PlannerDraft) {
   return JSON.stringify(value);
@@ -257,6 +297,7 @@ export function TodayPlanner({
   habits,
   journals,
   workoutsEnabled,
+  startAt,
 }: TodayPlannerProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -274,7 +315,9 @@ export function TodayPlanner({
   const [metadata, setMetadata] =
     useState<TodayPlanMetadata>(initialMetadata);
   const [blocks, setBlocks] = useState<DayPlanBlock[]>(initialBlocks);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(
+    startAt === "timeline" ? TIMELINE_STEP : MOOD_STEP
+  );
   // Seeded from the server-loaded prop, then grown locally so a task created
   // inline from any outcome's combobox shows up immediately in the other
   // two comboboxes without a round trip back to the server.
@@ -290,6 +333,13 @@ export function TodayPlanner({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  // What is being typed into a block-length field, per role, while it is not
+  // yet a usable number. Committing on every keystroke instead would clamp
+  // "9" up to the minimum before "90" could ever be finished.
+  const [lengthDrafts, setLengthDrafts] = useState<
+    Partial<Record<DayPlanOutcomeRole, string>>
+  >({});
   const [draftReady, setDraftReady] = useState(false);
   const [restoredDraft, setRestoredDraft] = useState(false);
 
@@ -354,6 +404,16 @@ export function TodayPlanner({
     setStepError(null);
   }
 
+  function toggleMoodReason(id: string) {
+    setMetadata((current) => ({
+      ...current,
+      mood_reasons: current.mood_reasons.includes(id)
+        ? current.mood_reasons.filter((item) => item !== id)
+        : [...current.mood_reasons, id],
+    }));
+    setStepError(null);
+  }
+
   function updateOutcome(
     role: DayPlanOutcomeRole,
     patch: Partial<TodayPlanOutcome>
@@ -376,6 +436,35 @@ export function TodayPlanner({
       };
     });
     setStepError(null);
+  }
+
+  function changeBlockLength(role: DayPlanOutcomeRole, raw: string) {
+    const digits = raw.replace(/[^0-9]/g, "").slice(0, 3);
+    setLengthDrafts((current) => ({ ...current, [role]: digits }));
+
+    const minutes = Number(digits);
+    if (
+      digits !== "" &&
+      minutes >= MIN_OUTCOME_MINUTES &&
+      minutes <= MAX_OUTCOME_MINUTES
+    ) {
+      updateOutcome(role, { duration_minutes: minutes });
+    }
+  }
+
+  /**
+   * Drops the draft so the field falls back to the stored value.
+   *
+   * Anything half-typed or out of range never reached the outcome, so this
+   * is what snaps a field showing "3" or "900" back to what is actually
+   * planned, rather than leaving a number on screen that is not real.
+   */
+  function commitBlockLength(role: DayPlanOutcomeRole) {
+    setLengthDrafts((current) => {
+      const next = { ...current };
+      delete next[role];
+      return next;
+    });
   }
 
   function assignTaskToRole(role: DayPlanOutcomeRole, task: TodayPlannerTask) {
@@ -437,40 +526,78 @@ export function TodayPlanner({
     setStepError(null);
   }
 
+  /**
+   * Retimes a block and carries the rest of the day with it.
+   *
+   * Separate from updateBlock because only a time change ripples -- renaming
+   * a block or switching its category must leave the schedule alone.
+   */
+  function updateBlockTime(
+    id: string,
+    patch: Pick<Partial<DayPlanBlock>, "start_time" | "end_time">
+  ) {
+    setBlocks((current) => applyBlockTimeChange(current, id, patch));
+    setStepError(null);
+  }
+
+  function newBlock(
+    startTime: string,
+    endTime: string,
+    category: DayPlanCategory = "other"
+  ): DayPlanBlock {
+    return {
+      id: planBlockId(),
+      start_time: startTime,
+      end_time: endTime,
+      title: category === "break" ? "Recovery break" : "New plan block",
+      category,
+      mission_type: category === "break" ? "recovery" : "side_quest",
+      source_type: "manual",
+    };
+  }
+
   function addManualBlock(category: DayPlanCategory = "other") {
-    const start = Math.min(
-      lastScheduledMinute(blocks, metadata.day_start) + (blocks.length ? 10 : 0),
-      23 * 60
-    );
+    const last = lastScheduledMinute(blocks, metadata.day_start);
+    const start = blocks.length
+      ? nextGridStart(last)
+      : Math.min(last, 23 * 60);
     const end = Math.min(start + 30, 23 * 60 + 59);
-    setBlocks((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        start_time: minutesToTime(start),
-        end_time: minutesToTime(end),
-        title: category === "break" ? "Recovery break" : "New plan block",
-        category,
-        mission_type: category === "break" ? "recovery" : "side_quest",
-        source_type: "manual",
-      },
-    ]);
+    const block = newBlock(minutesToTime(start), minutesToTime(end), category);
+    setBlocks((current) => [...current, block]);
+    setSelectedBlockId(block.id);
+  }
+
+  /**
+   * Adds a block into free time on the axis.
+   *
+   * The timeline sized it to fit the gap it was dropped into, so this never
+   * ripples the rest of the day -- it cannot collide with anything. Selected
+   * straight away, since an untitled block is the next thing to deal with.
+   */
+  function createBlockAt(startTime: string, endTime: string) {
+    const block = newBlock(startTime, endTime);
+    setBlocks((current) => [...current, block]);
+    setSelectedBlockId(block.id);
+    setStepError(null);
   }
 
   function validateCurrentStep() {
-    if (step === 1 && !mainOutcome?.title.trim()) {
+    if (step === MOOD_STEP && !metadata.mood) {
+      return "Pick how you are feeling before moving on.";
+    }
+    if (step === OUTCOMES_STEP && !mainOutcome?.title.trim()) {
       return "Choose one Must Win before moving on.";
     }
     if (
-      step === 2 &&
+      step === ANCHORS_STEP &&
       timeToMinutes(metadata.day_end) <= timeToMinutes(metadata.day_start)
     ) {
       return "Your day must end after it starts.";
     }
-    if (step === 3 && problems.invalidBlockIds.length > 0) {
+    if (step === TIMELINE_STEP && problems.invalidBlockIds.length > 0) {
       return "Every block needs a title and an end time after its start.";
     }
-    if (step === 3 && problems.overlappingBlockIds.length > 0) {
+    if (step === TIMELINE_STEP && problems.overlappingBlockIds.length > 0) {
       return "Resolve overlapping blocks before the final check.";
     }
     return null;
@@ -482,7 +609,7 @@ export function TodayPlanner({
       setStepError(error);
       return;
     }
-    if (step === 2) {
+    if (step === ANCHORS_STEP) {
       setBlocks((current) =>
         buildTodayPlanSchedule({ blocks: current, metadata })
       );
@@ -578,9 +705,42 @@ export function TodayPlanner({
       : []),
   ];
 
+  // Habits and journal prompts chosen as anchors, which no longer take a slot
+  // on the timeline. They stay in metadata.anchors either way, so committing
+  // still records what the day was meant to carry.
+  const ridingAlong = metadata.anchors.filter(
+    (anchor) => !anchorTakesTime(anchor)
+  );
+
+  function anchorCompletedToday(anchor: TodayPlanAnchor) {
+    if (anchor.source_type === "habit") {
+      return Boolean(
+        habits.find((habit) => habit.id === anchor.source_id)?.completedToday
+      );
+    }
+    if (anchor.source_type === "journal") {
+      return Boolean(
+        journals.find((journal) => journal.id === anchor.source_id)
+          ?.completedToday
+      );
+    }
+    return false;
+  }
+
   const sortedBlocks = blocks
     .slice()
     .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+  const selectedBlock =
+    blocks.find((block) => block.id === selectedBlockId) ?? null;
+
+  // Blocks the axis cannot draw, because their times do not parse or run
+  // backwards. The editor still reaches them through the list below it.
+  const unplaceableBlocks = sortedBlocks.filter((block) => {
+    const start = timeToMinutes(block.start_time);
+    const end = timeToMinutes(block.end_time);
+    return !Number.isFinite(start) || !Number.isFinite(end) || end <= start;
+  });
 
   return (
     <main className="min-h-svh bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_38%),hsl(var(--background))] pb-28 sm:pb-10">
@@ -632,7 +792,7 @@ export function TodayPlanner({
             </div>
             <button
               type="button"
-              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+              className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground"
               onClick={() => setRestoredDraft(false)}
             >
               Dismiss
@@ -642,12 +802,9 @@ export function TodayPlanner({
 
         <section aria-labelledby={`planner-step-${step}`}>
           <div className="mb-7 max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-              {STEPS[step].eyebrow}
-            </p>
             <h1
               id={`planner-step-${step}`}
-              className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
+              className="text-3xl font-semibold tracking-tight sm:text-4xl"
             >
               {STEPS[step].title}
             </h1>
@@ -656,37 +813,97 @@ export function TodayPlanner({
             </p>
           </div>
 
-          {step === 0 && (
+          {step === MOOD_STEP && (
             <div className="mx-auto grid w-full max-w-2xl gap-5">
               <Card className="rounded-3xl">
-                <CardContent className="space-y-5 p-5 sm:p-6">
-                  <div>
-                    <p className="text-sm font-semibold">
-                      How are you feeling right now?
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Optional, but useful context for the intention below.
-                    </p>
-                    <div className="mt-3">
-                      <MoodSelector
-                        options={DEFAULT_MOOD_OPTIONS}
-                        value={metadata.mood}
-                        onChange={(mood) => updateMetadata({ mood })}
-                      />
-                    </div>
-                  </div>
+                <CardContent className="space-y-4 p-5 sm:p-6">
+                  <MoodSelector
+                    options={DEFAULT_MOOD_OPTIONS}
+                    value={metadata.mood}
+                    onChange={(mood) => updateMetadata({ mood })}
+                  />
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Required. How a day starts changes what is reasonable to
+                    plan into it.
+                  </p>
 
-                  <div>
-                    <label
-                      htmlFor="plan-intention"
-                      className="text-sm font-semibold"
-                    >
-                      What quality should guide today?
-                    </label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      A short intention helps you make better tradeoffs later.
-                    </p>
-                  </div>
+                  {/* Only after there is a feeling to explain -- asking why
+                      before asking whether puts the answer first. */}
+                  {metadata.mood && (
+                    <div className="space-y-3 border-t pt-4">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          What is behind that?
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Optional, and as many as apply.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {MOOD_REASONS.map((reason) => {
+                          const chosen = metadata.mood_reasons.includes(
+                            reason.id
+                          );
+                          return (
+                            <button
+                              key={reason.id}
+                              type="button"
+                              aria-pressed={chosen}
+                              onClick={() => toggleMoodReason(reason.id)}
+                              className={cn(
+                                "flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors",
+                                chosen
+                                  ? "border-primary/35 bg-primary/10 text-primary"
+                                  : "border-border/60 bg-background/70 hover:border-primary/25"
+                              )}
+                            >
+                              <span aria-hidden="true" className="text-base">
+                                {reason.emoji}
+                              </span>
+                              {reason.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="plan-mood-reason-note"
+                          className="text-xs font-medium text-muted-foreground"
+                        >
+                          Something else
+                        </label>
+                        <Input
+                          id="plan-mood-reason-note"
+                          value={metadata.mood_reason_note}
+                          onChange={(event) =>
+                            updateMetadata({
+                              mood_reason_note: event.target.value,
+                            })
+                          }
+                          maxLength={MOOD_REASON_NOTE_MAX}
+                          placeholder="In your own words"
+                          className="h-11 rounded-xl"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {step === INTENTION_STEP && (
+            <div className="mx-auto grid w-full max-w-2xl gap-5">
+              <Card className="rounded-3xl">
+                <CardContent className="space-y-3 p-5 sm:p-6">
+                  {/* The step heading already asks the question, so repeating
+                      it on screen would be noise -- but the field still needs
+                      a name for anyone not reading the heading. */}
+                  <label htmlFor="plan-intention" className="sr-only">
+                    What quality should guide today?
+                  </label>
                   <Textarea
                     id="plan-intention"
                     value={metadata.intention}
@@ -703,11 +920,10 @@ export function TodayPlanner({
                   </div>
                 </CardContent>
               </Card>
-
             </div>
           )}
 
-          {step === 1 && (
+          {step === OUTCOMES_STEP && (
             <div className="space-y-4">
               {(Object.keys(OUTCOME_META) as DayPlanOutcomeRole[]).map(
                 (role) => {
@@ -733,15 +949,21 @@ export function TodayPlanner({
                             <Icon className="size-5" />
                           </span>
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-baseline gap-2">
                               <h2 className="font-semibold">{item.label}</h2>
-                              <Badge
-                                variant="outline"
-                                className={cn("rounded-full", item.style)}
-                              >
-                                {item.mission}
-                              </Badge>
+                              {role === "must_win" ? (
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  Required
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  Optional
+                                </span>
+                              )}
                             </div>
+                            {/* The question, asked once. It used to be here
+                                and again inside the field, in slightly
+                                different words. */}
                             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                               {item.helper}
                             </p>
@@ -760,50 +982,53 @@ export function TodayPlanner({
                             void createAndAssignTask(role, title)
                           }
                           creating={creatingRole === role}
-                          placeholder={
-                            role === "must_win"
-                              ? "What must move today? Search or create a task…"
-                              : role === "progress"
-                                ? "What creates forward momentum? Search or create a task…"
-                                : "What protects your energy? Search or create a task…"
-                          }
+                          // Says what the field does, not what to think
+                          // about -- the helper above already asked.
+                          placeholder="Search your tasks, or write something new"
                         />
                         {createTaskError?.role === role && (
                           <p role="alert" className="text-xs text-destructive">
                             {createTaskError.message}
                           </p>
                         )}
+                        {/* Nothing to say about an empty field. This used
+                            to read "Standalone outcome" under three blank
+                            inputs, where there was no outcome yet. */}
+                        {outcome?.title.trim() && (
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-xs text-muted-foreground">
                             {outcome?.task_id
                               ? "Linked to a task"
-                              : "Standalone outcome"}
+                              : "Not saved as a task"}
                           </span>
                           <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                            Budget
-                            <select
-                              aria-label={`${item.label} time budget`}
-                              value={
-                                outcome?.duration_minutes ??
-                                item.defaultDuration
-                              }
-                              onChange={(event) =>
-                                updateOutcome(role, {
-                                  duration_minutes: Number(
-                                    event.target.value
-                                  ),
-                                })
-                              }
-                              className="h-9 rounded-lg border bg-background px-2 text-foreground"
-                            >
-                              {DURATION_OPTIONS.map((minutes) => (
-                                <option key={minutes} value={minutes}>
-                                  {formatPlanMinutes(minutes)}
-                                </option>
-                              ))}
-                            </select>
+                            {/* Named for what it becomes on the timeline,
+                                rather than "Budget", which said nothing
+                                about where the number goes. */}
+                            Block length
+                            <span className="flex items-center gap-1.5">
+                              <Input
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                aria-label={`${item.label} block length in minutes`}
+                                value={
+                                  lengthDrafts[role] ??
+                                  String(
+                                    outcome?.duration_minutes ??
+                                      item.defaultDuration
+                                  )
+                                }
+                                onChange={(event) =>
+                                  changeBlockLength(role, event.target.value)
+                                }
+                                onBlur={() => commitBlockLength(role)}
+                                className="h-9 w-16 px-2 text-center tabular-nums"
+                              />
+                              min
+                            </span>
                           </label>
                         </div>
+                        )}
                       </CardContent>
                     </Card>
                   );
@@ -812,7 +1037,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 2 && (
+          {step === ANCHORS_STEP && (
             <div className="grid gap-5 lg:grid-cols-[1fr_0.75fr]">
               <div className="space-y-5">
                 <Card className="rounded-3xl">
@@ -822,7 +1047,9 @@ export function TodayPlanner({
                       <h2 className="font-semibold">Daily anchors</h2>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Select only the rituals worth protecting today.
+                      Select only the rituals worth protecting today. Habits and
+                      reflections ride along with the day; only training takes a
+                      slot on the timeline.
                     </p>
                     {anchorOptions.length > 0 ? (
                       <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -853,7 +1080,7 @@ export function TodayPlanner({
                               aria-pressed={selected}
                               onClick={() => toggleAnchor(anchor)}
                               className={cn(
-                                "flex min-h-16 items-center gap-3 rounded-2xl border p-3 text-left transition",
+                                "flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl border p-3 text-left transition",
                                 selected
                                   ? "border-primary bg-primary/8 ring-1 ring-primary/15"
                                   : "hover:border-primary/30 hover:bg-primary/5"
@@ -869,7 +1096,9 @@ export function TodayPlanner({
                                 <span className="mt-0.5 block text-xs text-muted-foreground">
                                   {completed
                                     ? "Already completed"
-                                    : `${formatPlanMinutes(anchor.duration_minutes)} anchor`}
+                                    : anchorTakesTime(anchor)
+                                      ? `${formatPlanMinutes(anchor.duration_minutes)} on the timeline`
+                                      : "Rides along, no time slot"}
                                 </span>
                               </span>
                               <span
@@ -901,6 +1130,12 @@ export function TodayPlanner({
                     <Clock3 className="size-4 text-violet-500" />
                     <h2 className="font-semibold">Day boundaries</h2>
                   </div>
+                  {/* Three fields of the same kind, so they get the same
+                      cell and the same treatment. The shutdown field used to
+                      sit full width below with a moon icon inside it, which
+                      collided with the digits: Input carries sm:px-2.5, and a
+                      breakpointless pl-10 does not survive that from 640px
+                      up. The label already says what the field is. */}
                   <div className="grid grid-cols-2 gap-3">
                     <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
                       Day starts
@@ -931,21 +1166,18 @@ export function TodayPlanner({
                         className="h-11 rounded-xl text-foreground"
                       />
                     </label>
-                  </div>
-                  <label className="block space-y-1.5 text-xs font-medium text-muted-foreground">
-                    Shutdown ritual
-                    <div className="relative">
-                      <MoonStar className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                      Shutdown ritual
                       <Input
                         type="time"
                         value={metadata.shutdown_time}
                         onChange={(event) =>
                           updateMetadata({ shutdown_time: event.target.value })
                         }
-                        className="h-11 rounded-xl pl-10 text-foreground"
+                        className="h-11 rounded-xl text-foreground"
                       />
-                    </div>
-                  </label>
+                    </label>
+                  </div>
                   <p className="rounded-2xl bg-muted/55 p-3 text-xs leading-relaxed text-muted-foreground">
                     A shutdown time turns planning into a bounded commitment.
                     Unused capacity is recovery, not failure.
@@ -955,12 +1187,13 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 3 && (
+          {step === TIMELINE_STEP && (
             <div className="grid gap-5 lg:grid-cols-[1fr_17rem]">
               <div className="space-y-3">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm text-muted-foreground">
-                    Changes remain local until you commit on the next step.
+                    Moving a block moves everything after it. Changes remain
+                    local until you commit on the next step.
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -972,16 +1205,73 @@ export function TodayPlanner({
                       <HeartPulse className="mr-1.5 size-4" />
                       Add break
                     </Button>
+                    {/* Mobile gets the round button in the footer instead,
+                        so exactly one control named "Add block" exists at
+                        any width. */}
                     <Button
                       type="button"
                       size="sm"
                       onClick={() => addManualBlock()}
+                      className="hidden sm:inline-flex"
                     >
                       <Plus className="mr-1.5 size-4" />
                       Add block
                     </Button>
                   </div>
                 </div>
+
+                {ridingAlong.length > 0 && (
+                  // Read-only on purpose: checking a habit here would write to
+                  // the database, and this step promises that nothing is saved
+                  // until the final step. Checking them off stays on the home
+                  // screen, where it already works.
+                  <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border bg-background/65 p-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Rides along
+                    </span>
+                    {ridingAlong.map((anchor) => {
+                      const done = anchorCompletedToday(anchor);
+                      return (
+                        <span
+                          key={anchor.id}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs",
+                            done
+                              ? "border-emerald-500/40 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300"
+                              : "bg-muted/40"
+                          )}
+                        >
+                          {done && <Check className="size-3" />}
+                          <span aria-hidden="true">{anchor.emoji}</span>
+                          {anchor.title}
+                        </span>
+                      );
+                    })}
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      No time slot needed
+                    </span>
+                  </div>
+                )}
+
+                {problems.overlappingBlockIds.length > 0 && (
+                  <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/35 bg-destructive/8 p-4 text-sm">
+                    <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                    <p className="min-w-0 flex-1">
+                      Two blocks want the same minutes.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBlocks((current) => resolveOverlaps(current));
+                        setStepError(null);
+                      }}
+                    >
+                      Space them out
+                    </Button>
+                  </div>
+                )}
 
                 {sortedBlocks.length === 0 ? (
                   <div className="rounded-3xl border border-dashed bg-background/65 p-8 text-center">
@@ -992,157 +1282,52 @@ export function TodayPlanner({
                     </p>
                   </div>
                 ) : (
-                  <ol className="relative space-y-3 before:absolute before:bottom-6 before:left-[1.18rem] before:top-6 before:w-px before:bg-border sm:before:left-[2.18rem]">
-                    {sortedBlocks.map((block, index) => {
-                      const invalid = problems.invalidBlockIds.includes(
-                        block.id
-                      );
-                      const overlapping =
-                        problems.overlappingBlockIds.includes(block.id);
-                      return (
-                        <li
-                          key={block.id}
-                          className="relative grid grid-cols-[2.4rem_1fr] gap-2 sm:grid-cols-[4.4rem_1fr] sm:gap-3"
-                        >
-                          <div className="relative z-10 flex items-start justify-center pt-5">
-                            <span
-                              className={cn(
-                                "flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-semibold",
-                                block.mission_type === "main_quest" &&
-                                  "bg-primary text-primary-foreground",
-                                (invalid || overlapping) &&
-                                  "bg-destructive text-destructive-foreground"
-                              )}
+                  <>
+                    <PlanTimeline
+                      blocks={blocks}
+                      dayStart={metadata.day_start}
+                      dayEnd={metadata.day_end}
+                      invalidBlockIds={problems.invalidBlockIds}
+                      overlappingBlockIds={problems.overlappingBlockIds}
+                      selectedId={selectedBlockId}
+                      onSelect={setSelectedBlockId}
+                      onChange={(next) => {
+                        setBlocks(next);
+                        setStepError(null);
+                      }}
+                      onCreateBlock={createBlockAt}
+                    />
+
+                    <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
+                      Drag a block to move it, pull its bottom edge to make it
+                      longer. Tap one to rename it or change its type.
+                    </p>
+
+                    {/* A block with an unreadable time cannot be drawn on a
+                        time axis, so it would vanish exactly when it needs
+                        fixing. Listed here until it is valid again. */}
+                    {unplaceableBlocks.length > 0 && (
+                      <ul className="mt-3 space-y-2">
+                        {unplaceableBlocks.map((block) => (
+                          <li key={block.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBlockId(block.id)}
+                              className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-destructive/55 bg-destructive/8 px-3 py-2 text-left text-sm"
                             >
-                              {index + 1}
-                            </span>
-                          </div>
-                          <Card
-                            className={cn(
-                              "rounded-2xl",
-                              (invalid || overlapping) &&
-                                "border-destructive/55"
-                            )}
-                          >
-                            <CardContent className="space-y-3 p-4">
-                              <div className="flex items-start gap-2">
-                                <Input
-                                  aria-label={`Plan block ${index + 1} title`}
-                                  value={block.title}
-                                  onChange={(event) =>
-                                    updateBlock(block.id, {
-                                      title: event.target.value,
-                                    })
-                                  }
-                                  maxLength={160}
-                                  className="h-11 min-w-0 flex-1 rounded-xl font-medium"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label={`Delete ${block.title}`}
-                                  onClick={() =>
-                                    setBlocks((current) =>
-                                      current.filter(
-                                        (item) => item.id !== block.id
-                                      )
-                                    )
-                                  }
-                                  className="text-muted-foreground hover:text-destructive"
-                                >
-                                  <Trash2 className="size-4" />
-                                </Button>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.25fr]">
-                                <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-                                  Start
-                                  <Input
-                                    type="time"
-                                    value={block.start_time}
-                                    onChange={(event) =>
-                                      updateBlock(block.id, {
-                                        start_time: event.target.value,
-                                        end_time: shiftEndTime(
-                                          block.start_time,
-                                          block.end_time,
-                                          event.target.value
-                                        ),
-                                      })
-                                    }
-                                    className="h-10 rounded-xl text-foreground"
-                                  />
-                                </label>
-                                <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-                                  End
-                                  <Input
-                                    type="time"
-                                    value={block.end_time}
-                                    onChange={(event) =>
-                                      updateBlock(block.id, {
-                                        end_time: event.target.value,
-                                      })
-                                    }
-                                    className="h-10 rounded-xl text-foreground"
-                                  />
-                                </label>
-                                <label className="col-span-2 space-y-1 text-[11px] font-medium text-muted-foreground sm:col-span-1">
-                                  Type
-                                  <select
-                                    value={block.category}
-                                    onChange={(event) =>
-                                      updateBlock(block.id, {
-                                        category: event.target
-                                          .value as DayPlanCategory,
-                                      })
-                                    }
-                                    className="h-10 w-full rounded-xl border bg-background px-3 text-sm text-foreground"
-                                  >
-                                    {Object.entries(CATEGORY_LABELS).map(
-                                      ([value, label]) => (
-                                        <option key={value} value={value}>
-                                          {label}
-                                        </option>
-                                      )
-                                    )}
-                                  </select>
-                                </label>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                {block.mission_type && (
-                                  <Badge
-                                    variant="outline"
-                                    className="rounded-full text-[10px]"
-                                  >
-                                    {MISSION_LABELS[block.mission_type]}
-                                  </Badge>
-                                )}
-                                <span className="text-xs text-muted-foreground">
-                                  {formatPlanMinutes(
-                                    Math.max(
-                                      0,
-                                      timeToMinutes(block.end_time) -
-                                        timeToMinutes(block.start_time)
-                                    )
-                                  )}
-                                </span>
-                                {invalid && (
-                                  <span className="text-xs text-destructive">
-                                    Check title and time
-                                  </span>
-                                )}
-                                {overlapping && (
-                                  <span className="text-xs text-destructive">
-                                    Overlaps another block
-                                  </span>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </li>
-                      );
-                    })}
-                  </ol>
+                              <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                              <span className="min-w-0 flex-1 truncate">
+                                {block.title || "Untitled block"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                needs a valid time
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1180,7 +1365,7 @@ export function TodayPlanner({
             </div>
           )}
 
-          {step === 4 && (
+          {step === COMMIT_STEP && (
             <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
               <div className="space-y-5">
                 <Card className="overflow-hidden rounded-3xl border-primary/25">
@@ -1210,7 +1395,7 @@ export function TodayPlanner({
                             className="rounded-2xl border bg-background/70 p-4"
                           >
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              {OUTCOME_META[outcome.role].mission}
+                              {OUTCOME_META[outcome.role].label}
                             </p>
                             <p className="mt-1 text-sm font-medium">
                               {outcome.title}
@@ -1400,11 +1585,28 @@ export function TodayPlanner({
             type="button"
             variant="ghost"
             size="lg"
-            onClick={step === 0 ? requestClose : goBack}
+            onClick={step === MOOD_STEP ? requestClose : goBack}
           >
             <ArrowLeft className="mr-1.5 size-4" />
-            {step === 0 ? "Dashboard" : "Back"}
+            {step === MOOD_STEP ? "Dashboard" : "Back"}
           </Button>
+
+          {/* The timeline's own Add block sits at the top of a scrolling
+              column, which on a phone is wherever you are not. This takes the
+              gap the footer already leaves between Back and Next, and matches
+              the round button the home screen puts in the same place.
+              Creating selects, so the properties open with it. */}
+          {step === TIMELINE_STEP && (
+            <Button
+              type="button"
+              aria-label="Add block"
+              onClick={() => addManualBlock()}
+              className="relative -top-5 size-14 shrink-0 rounded-full border-4 border-background p-0 shadow-[0_16px_40px_rgba(0,0,0,0.22)] transition-transform hover:scale-105 sm:hidden white-mode:shadow-[0_12px_30px_rgba(68,64,60,0.14)]"
+            >
+              <Plus className="size-7" />
+            </Button>
+          )}
+
           {step < STEPS.length - 1 ? (
             <Button type="button" size="lg" onClick={goNext}>
               Next
@@ -1423,6 +1625,171 @@ export function TodayPlanner({
           )}
         </div>
       </footer>
+
+      {/* The block's properties belong on top of the day, not underneath it:
+          on a phone an editor below the axis is off-screen exactly when it
+          opens, and the block it describes is no longer in view. */}
+      <Dialog
+        open={Boolean(selectedBlock)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedBlockId(null);
+        }}
+      >
+        {/* Centred at every width: the block being edited is the thing on
+            screen, so the editor belongs in front of it rather than sliding
+            up from an edge. Scrolls inside itself on a short screen. */}
+        <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit block</DialogTitle>
+            <DialogDescription>
+              Times here are exact; dragging on the timeline is faster.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBlock && (
+            <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <Input
+                    aria-label="Block title"
+                    value={selectedBlock.title}
+                    onChange={(event) =>
+                      updateBlock(selectedBlock.id, {
+                        title: event.target.value,
+                      })
+                    }
+                    maxLength={160}
+                    className="h-11 min-w-0 flex-1 rounded-xl font-medium"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Delete ${selectedBlock.title}`}
+                    onClick={() => {
+                      setBlocks((current) =>
+                        current.filter(
+                          (item) => item.id !== selectedBlock.id
+                        )
+                      );
+                      setSelectedBlockId(null);
+                    }}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+
+                {/* The fields stay alongside the drag gesture: a
+                    pointer is faster, typing is exact, and a keyboard
+                    user needs a way in that is not a drag. */}
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.25fr]">
+                  <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+                    Start
+                    <Input
+                      type="time"
+                      value={selectedBlock.start_time}
+                      onChange={(event) =>
+                        updateBlockTime(selectedBlock.id, {
+                          start_time: event.target.value,
+                          end_time: shiftEndTime(
+                            selectedBlock.start_time,
+                            selectedBlock.end_time,
+                            event.target.value
+                          ),
+                        })
+                      }
+                      className="h-10 rounded-xl text-foreground"
+                    />
+                  </label>
+                  <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
+                    End
+                    <Input
+                      type="time"
+                      value={selectedBlock.end_time}
+                      onChange={(event) =>
+                        updateBlockTime(selectedBlock.id, {
+                          end_time: event.target.value,
+                        })
+                      }
+                      className="h-10 rounded-xl text-foreground"
+                    />
+                  </label>
+                  <label className="col-span-2 space-y-1 text-[11px] font-medium text-muted-foreground sm:col-span-1">
+                    Type
+                    <select
+                      value={selectedBlock.category}
+                      onChange={(event) =>
+                        updateBlock(selectedBlock.id, {
+                          category: event.target
+                            .value as DayPlanCategory,
+                        })
+                      }
+                      className="h-10 w-full rounded-xl border bg-background px-3 text-sm text-foreground"
+                    >
+                      {Object.entries(CATEGORY_LABELS).map(
+                        ([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {selectedBlock.mission_type && (
+                    <Badge
+                      variant="outline"
+                      className="rounded-full text-[10px]"
+                    >
+                      {MISSION_LABELS[selectedBlock.mission_type]}
+                    </Badge>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {formatPlanMinutes(
+                      Math.max(
+                        0,
+                        timeToMinutes(selectedBlock.end_time) -
+                          timeToMinutes(selectedBlock.start_time)
+                      )
+                    )}
+                  </span>
+                  {problems.invalidBlockIds.includes(
+                    selectedBlock.id
+                  ) && (
+                    <span className="text-xs text-destructive">
+                      Check title and time
+                    </span>
+                  )}
+                </div>
+
+                {/* The banner behind the dialog carries this too, but a
+                    modal makes it unreachable -- and typing a time in here
+                    is the likeliest way to cause an overlap in the first
+                    place. */}
+                {problems.overlappingBlockIds.includes(selectedBlock.id) && (
+                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/35 bg-destructive/8 p-3">
+                    <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                    <p className="min-w-0 flex-1 text-xs">
+                      Overlaps another block.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBlocks((current) => resolveOverlaps(current));
+                        setStepError(null);
+                      }}
+                    >
+                      Space them out
+                    </Button>
+                  </div>
+                )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={closeOpen} onOpenChange={setCloseOpen}>
         <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl sm:bottom-auto sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 sm:rounded-2xl">

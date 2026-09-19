@@ -66,7 +66,9 @@ The editor uses a full-height sheet on mobile and a centered dialog on desktop.
 
 ### Dates
 
-Task due dates are stored as `YYYY-MM-DD`. Helpers parse date-only values at local noon to prevent an accidental shift to the previous day in negative UTC offsets.
+Task due dates are stored as `YYYY-MM-DD`. Helpers parse date-only values at local noon so that neither a positive nor a negative UTC offset can shift them into an adjacent day.
+
+`taskViewForDate`, `filterTasks`, and `countTaskViews` take the current day as a required argument, and `TaskManager` receives it as a prop resolved from the profile timezone on the server. Do not reintroduce a `localDateKey()` default: it silently swaps the profile day for the device day, which is how the Today column used to roll over at a different moment than the dashboard and habits.
 
 ### Mutation behavior and XP
 
@@ -90,7 +92,7 @@ Each habit shows its emoji, color, today's state, current streak, and seven-day 
 
 ### Supported operations
 
-- Create/edit name, emoji, and color.
+- Create/edit name, emoji, color, and an optional skill category.
 - Daily cadence display; richer schedules are intentionally unsupported.
 - Check or uncheck today.
 - Check a past, non-future day after the habit's creation date.
@@ -102,6 +104,12 @@ Each habit shows its emoji, color, today's state, current streak, and seven-day 
 Active habits cannot share the same normalized name.
 
 Unchecking updates the matching log to `completed=false`; it does not delete the row. This preserves history and any journal linkage.
+
+### Check-in rewards
+
+Checking a habit true for the day grants XP and coins; unchecking claws them back. See [Gamification](./gamification.md#habit-check-in-xp) for the streak-multiplier formula and dedup guarantee. Reward failures are caught separately from the log save — a failed reward grant is logged to the console but does not roll back the check-in itself, since the log write is the source of truth for completion state.
+
+The optional skill category set on a habit is copied onto its XP events, feeding the per-category totals on `/analytics`.
 
 ### Timezone
 

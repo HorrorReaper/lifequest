@@ -2,6 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { GripVertical, Pencil, Trash2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { getFieldDefinition } from '@/lib/field-registry'
@@ -63,19 +64,7 @@ export function SortableFieldItem({
             className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground p-1"
             aria-label="Drag to reorder"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-            >
-              <circle cx="5" cy="3" r="1.5" />
-              <circle cx="11" cy="3" r="1.5" />
-              <circle cx="5" cy="8" r="1.5" />
-              <circle cx="11" cy="8" r="1.5" />
-              <circle cx="5" cy="13" r="1.5" />
-              <circle cx="11" cy="13" r="1.5" />
-            </svg>
+            <GripVertical className="size-4" />
           </button>
 
           {/* Field icon + type */}
@@ -101,16 +90,18 @@ export function SortableFieldItem({
               size="sm"
               onClick={() => onEdit(field)}
               className="h-8 w-8 p-0"
+              aria-label={`Edit ${field.label || definition.label}`}
             >
-              ✏️
+              <Pencil className="size-4" />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onDelete(field.id)}
               className="h-8 w-8 p-0 hover:text-destructive"
+              aria-label={`Delete ${field.label || definition.label}`}
             >
-              🗑️
+              <Trash2 className="size-4" />
             </Button>
           </div>
         </CardContent>

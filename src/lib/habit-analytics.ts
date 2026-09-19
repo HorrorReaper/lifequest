@@ -1,3 +1,5 @@
+import { addDays, dateFromDayNumber, dayNumber } from '@/lib/dates'
+
 const DAY_MS = 86_400_000
 
 export type HabitAnalyticsPeriod = 30 | 90 | 'all'
@@ -44,19 +46,6 @@ export interface HabitAnalytics {
   recentCompletions: string[]
 }
 
-function dayNumber(date: string) {
-  const [year, month, day] = date.slice(0, 10).split('-').map(Number)
-  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS)
-}
-
-function dateFromDayNumber(value: number) {
-  return new Date(value * DAY_MS).toISOString().slice(0, 10)
-}
-
-function addDays(date: string, amount: number) {
-  return dateFromDayNumber(dayNumber(date) + amount)
-}
-
 function inclusiveDayCount(start: string, end: string) {
   return Math.max(0, dayNumber(end) - dayNumber(start) + 1)
 }
@@ -81,6 +70,33 @@ function calculateLongestStreak(completionDays: number[]) {
   }
 
   return longest
+}
+
+/**
+ * Consecutive completed days ending at `endDate`, walking backwards.
+ *
+ * Exported for the dashboard, which needs the streak *through yesterday*: it
+ * lets the Habits section derive both the streak and a check-in's XP without
+ * shipping log history to the browser, since checking today simply makes it
+ * `streakThroughYesterday + 1`.
+ *
+ * The walk stops at the first day not present in `completionDates`, so a
+ * caller passing a bounded window under-reports a streak longer than that
+ * window.
+ */
+export function calculateStreakEndingOn(
+  completionDates: ReadonlySet<string>,
+  endDate: string
+): number {
+  let cursor = endDate
+  let streak = 0
+
+  while (completionDates.has(cursor)) {
+    streak += 1
+    cursor = addDays(cursor, -1)
+  }
+
+  return streak
 }
 
 function calculateCurrentStreak(

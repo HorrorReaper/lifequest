@@ -1,8 +1,8 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowLeft, ListTodo } from 'lucide-react'
+import { ListTodo } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { TaskList } from '@/components/tasks/TaskList'
+import { dateInTimezone } from '@/lib/dates'
 
 export default async function TasksPage() {
   const supabase = await createClient()
@@ -12,17 +12,18 @@ export default async function TasksPage() {
 
   if (!user) redirect('/login')
 
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
+  const today = dateInTimezone(new Date(), timezone)
+
   return (
     <main className="min-h-svh bg-background p-4 pb-24 sm:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
         <header>
-          <Link
-            href="/dashboard"
-            className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-            Dashboard
-          </Link>
           <div className="flex items-center gap-3">
             <span className="flex size-11 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
               <ListTodo className="size-5" />
@@ -36,7 +37,7 @@ export default async function TasksPage() {
           </div>
         </header>
 
-        <TaskList userId={user.id} />
+        <TaskList userId={user.id} today={today} />
       </div>
     </main>
   )

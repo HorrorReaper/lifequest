@@ -5,6 +5,7 @@ import { CalendarCheck, Coins, Zap, CheckCircle, Lock, Trophy, Trash2 } from 'lu
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { DefaultQuestWithStatus, CustomQuest, QuestDifficulty } from '@/lib/quests'
+import { getChallengeProgress } from '@/lib/challenges'
 
 const DIFFICULTY_LABELS: Record<QuestDifficulty, string> = {
   easy: 'Easy',
@@ -160,49 +161,16 @@ interface CustomQuestCardProps {
   onComplete: (quest: CustomQuest) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onCheckIn?: (quest: CustomQuest) => Promise<void>
+  /** The user's current day, resolved from their profile timezone. */
+  today: string
 }
 
-function dateKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-function addDays(date: string, days: number) {
-  const value = new Date(`${date}T00:00:00Z`)
-  value.setUTCDate(value.getUTCDate() + days)
-  return value.toISOString().slice(0, 10)
-}
-
-function getChallengeProgress(quest: CustomQuest) {
-  if (quest.quest_type !== 'daily_challenge' || !quest.challenge_days || !quest.challenge_start_date) {
-    return null
-  }
-
-  const today = dateKey(new Date())
-  const endDate = addDays(quest.challenge_start_date, quest.challenge_days - 1)
-  const logDates = new Set(
-    (quest.daily_logs ?? [])
-      .map((log) => log.log_date)
-      .filter((logDate) => logDate >= quest.challenge_start_date! && logDate <= endDate)
-  )
-  const completedDays = logDates.size
-
-  return {
-    today,
-    endDate,
-    completedDays,
-    percent: Math.min(100, Math.round((completedDays / quest.challenge_days) * 100)),
-    checkedToday: logDates.has(today),
-    insideWindow: today >= quest.challenge_start_date && today <= endDate,
-    ready: completedDays >= quest.challenge_days,
-  }
-}
-
-export function CustomQuestCard({ quest, onComplete, onDelete, onCheckIn }: CustomQuestCardProps) {
+export function CustomQuestCard({ quest, onComplete, onDelete, onCheckIn, today }: CustomQuestCardProps) {
   const [loading, setLoading] = useState(false)
   const [checkingIn, setCheckingIn] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const progress = getChallengeProgress(quest)
+  const progress = getChallengeProgress(quest, today)
   const isChallenge = quest.quest_type === 'daily_challenge'
 
   async function handleComplete() {

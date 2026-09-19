@@ -29,15 +29,14 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { useUserStore } from '@/lib/stores/user-store'
 import { createClient } from '@/lib/supabase/client'
+import { addDays } from '@/lib/dates'
 import {
   countTaskViews,
   filterTasks,
   formatTaskDate,
-  localDateKey,
   removeTaskLocally,
   sortTasks,
   TASK_VIEW_LABELS,
-  tomorrowDateKey,
   type TaskPriorityFilter,
   type TaskView,
 } from '@/lib/task-manager'
@@ -60,6 +59,13 @@ import {
 
 interface TaskManagerProps {
   userId: string
+  /**
+   * The user's current day as a date key, resolved from their profile
+   * timezone by the server. Grouping and "defer to tomorrow" both key off
+   * it, so reading it from the browser instead would roll the Today column
+   * over at a different moment than the rest of the application.
+   */
+  today: string
   compact?: boolean
   limit?: number
   onlyOpen?: boolean
@@ -99,6 +105,7 @@ function errorMessage(error: unknown, fallback: string): string {
 
 export function TaskManager({
   userId,
+  today,
   compact = false,
   limit,
   onlyOpen = false,
@@ -281,7 +288,7 @@ export function TaskManager({
     const key = `defer:${task.id}`
     if (!beginMutation(key)) return
     const previous = task
-    const dueDate = tomorrowDateKey()
+    const dueDate = addDays(today, 1)
     setMutationError(null)
     setTasks((current) =>
       current.map((item) =>
@@ -366,24 +373,23 @@ export function TaskManager({
     }
   }
 
-  const todayKey = localDateKey()
   const counts = useMemo(
-    () => countTaskViews(tasks, todayKey),
-    [tasks, todayKey]
+    () => countTaskViews(tasks, today),
+    [tasks, today]
   )
   const displayedTasks = useMemo(
     () =>
       compact
         ? sortTasks(tasks).slice(0, limit)
-        : filterTasks(tasks, view, { search, priority }, todayKey),
-    [compact, limit, priority, search, tasks, todayKey, view]
+        : filterTasks(tasks, view, { search, priority }, today),
+    [compact, limit, priority, search, tasks, today, view]
   )
 
   const taskRows = (
     <TaskRows
       tasks={displayedTasks}
       compact={compact}
-      todayKey={todayKey}
+      todayKey={today}
       mutationKeys={mutationKeys}
       onToggle={(task) => void performToggle(task, !task.is_completed)}
       onEdit={openEdit}

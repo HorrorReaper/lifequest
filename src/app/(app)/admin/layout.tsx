@@ -1,13 +1,15 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { hasTrustedAdminRole, isAdminUser } from '@/lib/admin'
+import { hasTrustedAdminRole, showAdminUi } from '@/lib/admin'
 import { AdminShell } from '@/components/admin/AdminShell'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  if (!isAdminUser(user)) notFound()
+  // Also 404s while previewing as a normal user -- a preview that still let
+  // you walk into the admin workspace would not be showing you their app.
+  if (!(await showAdminUi(user))) notFound()
 
   const trusted = hasTrustedAdminRole(user)
   const { data: appStats } = trusted

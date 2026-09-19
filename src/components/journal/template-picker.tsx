@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { JournalTemplate } from '@/lib/types'
-import { ArrowRight, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface TemplatePickerProps {
@@ -30,6 +30,13 @@ export function TemplatePicker({ templates, recommendedTemplateId = null }: Temp
         <p className="mt-1 text-sm text-muted-foreground">
           Create a template to start shaping your journaling ritual.
         </p>
+        <Link
+          href="/journal/templates/new"
+          className="mt-4 inline-flex items-center gap-2 rounded-full border bg-background/70 px-4 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <Plus className="size-4" />
+          Create a template
+        </Link>
       </div>
     )
   }
@@ -84,6 +91,23 @@ export function TemplatePicker({ templates, recommendedTemplateId = null }: Temp
           </Link>
         </motion.div>
       ))}
+
+      {/* Spans the grid so it reads as a step after the presets rather than a
+          seventh template competing with them. */}
+      <motion.div
+        className="sm:col-span-2"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: templates.length * 0.05 }}
+      >
+        <Link
+          href="/journal/templates/new"
+          className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/80 px-4 py-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.03] hover:text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <Plus className="size-4" />
+          Or create a new template
+        </Link>
+      </motion.div>
     </div>
   )
 }

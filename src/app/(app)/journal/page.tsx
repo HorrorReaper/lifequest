@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { TemplatePicker } from '@/components/journal/template-picker'
 import { EntryTimeline } from '@/components/journal/entry-timeline'
 import { JournalTemplate, JournalEntry } from '@/lib/types'
+import { dateInTimezone, formatDateOnly, hourInTimezone } from '@/lib/dates'
 import { ArrowRight, BookOpen, BookOpenCheck, LayoutList, LayoutTemplate, LineChart } from 'lucide-react'
 
 type EntryTypeJoin = { entry_type: string } | { entry_type: string }[] | null
@@ -12,40 +13,16 @@ interface TodayEntryTypeRow {
   journal_templates: EntryTypeJoin
 }
 
-function getBerlinToday() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Berlin',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-}
-
-function getBerlinHour() {
-  const hour = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Berlin',
-    hour: '2-digit',
-    hour12: false,
-  }).format(new Date())
-
-  return Number(hour)
-}
-
-function formatTodayLabel(today: string) {
-  return new Date(`${today}T12:00:00`).toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
-}
-
 function entryTypeFromJoin(join: EntryTypeJoin) {
   if (Array.isArray(join)) return join[0]?.entry_type ?? null
   return join?.entry_type ?? null
 }
 
-function pickRecommendedTemplate(templates: JournalTemplate[], completedTypes: Set<string>) {
-  const hour = getBerlinHour()
+function pickRecommendedTemplate(
+  templates: JournalTemplate[],
+  completedTypes: Set<string>,
+  hour: number
+) {
   const preferredTypes =
     hour < 12
       ? ['morning', 'free_write']
@@ -74,8 +51,23 @@ export default async function JournalPage() {
 
   if (!user) redirect('/login')
 
-  const today = getBerlinToday()
-  const todayLabel = formatTodayLabel(today)
+  // The user's own day, not the server's and not a hard-coded zone: near
+  // midnight these disagree, and picking the wrong one recommends yesterday's
+  // template and counts today's entries against the wrong date.
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
+
+  const now = new Date()
+  const today = dateInTimezone(now, timezone)
+  const todayLabel = formatDateOnly(today, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  })
 
   const [{ data: templates }, { data: entries }, { data: todayEntries }] = await Promise.all([
     supabase
@@ -121,7 +113,11 @@ export default async function JournalPage() {
       .map((entry) => entryTypeFromJoin(entry.journal_templates))
       .filter((entryType): entryType is string => Boolean(entryType))
   )
-  const recommendation = pickRecommendedTemplate(activeTemplates, completedTypes)
+  const recommendation = pickRecommendedTemplate(
+    activeTemplates,
+    completedTypes,
+    hourInTimezone(now, timezone)
+  )
   const recommendedTemplate = recommendation.template
   const completedTodayCount = completedTypes.size
 

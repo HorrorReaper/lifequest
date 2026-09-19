@@ -24,20 +24,20 @@
 | Route | Purpose |
 | --- | --- |
 | `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
-| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, quests, and admin-only widgets |
+| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, the daily reflection prompt, quests, and admin-only widgets |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
 | `/plan` | Five-step Today Plan ritual |
 | `/tasks` | Full task manager |
 | `/habits` | Today/history/archived habit manager |
 | `/habits/[habitId]` | Habit detail and analytics |
 | `/quests` | Default quests, custom quests, daily challenges, and challenge programs |
-| `/learn` | Lesson library |
-| `/learn/[lessonId]` | Lesson reader and completion quiz |
+| `/learn` | Article library; admins additionally get the interactive Academy courses |
+| `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
 | `/city` | Virtual city view/build mode |
 | `/settings` | Appearance, profile, timezone, AI consent, sign-out, account deletion |
-| `/analytics` | Currently redirects to `/dashboard` |
+| `/analytics` | Journal stats, mood/activity charts, and a Skills tab with per-category XP levels |
 | `/learnings` | Redirects to `/journal/insights` |
 
 ## Journal pages
@@ -70,6 +70,7 @@ All admin pages live under the immersive `AdminShell`.
 | --- | --- |
 | `/admin` | Redirects to `/admin/productivity` |
 | `/admin/productivity` | Tasks, top-three priorities, focus timer, habits, goals, routines, and plan summary |
+| `/admin/rituals` | Global settings for the four dashboard ritual prompts: enabled, window, target template, copy (saving needs the trusted admin role) |
 | `/admin/workouts` | Exercise library, routines, active workout, history, statistics |
 | `/admin/nutrition` | Diary, foods, portions, saved meals, recipes, targets |
 | `/admin/challenges` | Challenge template authoring and publishing |

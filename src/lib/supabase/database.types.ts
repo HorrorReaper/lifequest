@@ -12,6 +12,9 @@ export type WorkoutSessionExerciseRow = { id: string; session_id: string; exerci
 export type WorkoutSetType = 'warmup' | 'working' | 'drop' | 'failure'
 export type WorkoutSetRow = { id: string; session_exercise_id: string; set_order: number; set_type: WorkoutSetType; reps: number | null; weight_kg: number | null; assistance_kg: number | null; duration_seconds: number | null; distance_meters: number | null; rir: number | null; is_complete: boolean; completed_at: string | null; created_at: string; updated_at: string }
 export type WorkoutPreferenceRow = { user_id: string; default_rest_seconds: number; previous_scope: 'same_template' | 'any_workout'; weight_unit: 'kg'; distance_unit: 'km'; timer_sound: boolean; timer_vibration: boolean; created_at: string; updated_at: string }
+export type MetricTargetRow = { user_id: string; field_id: string; target_value: number; direction: 'at_least' | 'at_most'; created_at: string; updated_at: string }
+export type RitualId = 'daily_plan' | 'evening_review' | 'weekly_review' | 'weekly_plan'
+export type RitualSettingRow = { ritual: RitualId; enabled: boolean; weekday: number | null; from_minutes: number; template_id: string | null; title: string; description: string; cta_label: string; updated_at: string; updated_by: string | null }
 export type ExercisePreferenceRow = { user_id: string; exercise_id: string; is_favorite: boolean; rest_seconds: number | null; created_at: string; updated_at: string }
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other'
 export type NutritionTargetRow = { user_id: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number | null; sodium_mg: number | null; created_at: string; updated_at: string }
@@ -72,6 +75,8 @@ export interface Database {
           streak_freezes: number
           last_journal_date: string | null
           timezone: string
+          dashboard_sections: Record<string, boolean>
+          birth_year: number | null
           onboarding_complete: boolean
           ai_assistant_enabled: boolean
           ai_consent_at: string | null
@@ -88,6 +93,8 @@ export interface Database {
           streak_freezes?: number
           last_journal_date?: string | null
           timezone?: string
+          dashboard_sections?: Record<string, boolean>
+          birth_year?: number | null
           onboarding_complete?: boolean
           ai_assistant_enabled?: boolean
           ai_consent_at?: string | null
@@ -104,6 +111,8 @@ export interface Database {
           streak_freezes?: number
           last_journal_date?: string | null
           timezone?: string
+          dashboard_sections?: Record<string, boolean>
+          birth_year?: number | null
           onboarding_complete?: boolean
           ai_assistant_enabled?: boolean
           ai_consent_at?: string | null
@@ -474,6 +483,8 @@ export interface Database {
       workout_session_exercises: MutableTable<WorkoutSessionExerciseRow, 'session_id' | 'exercise_id'>
       workout_sets: MutableTable<WorkoutSetRow, 'session_exercise_id'>
       workout_preferences: MutableTable<WorkoutPreferenceRow, 'user_id'>
+      metric_targets: MutableTable<MetricTargetRow, 'user_id' | 'field_id'>
+      ritual_settings: MutableTable<RitualSettingRow, 'ritual' | 'title' | 'description' | 'cta_label'>
       exercise_preferences: MutableTable<ExercisePreferenceRow, 'user_id' | 'exercise_id'>
       nutrition_targets: MutableTable<NutritionTargetRow, 'user_id'>
       nutrition_entries: MutableTable<NutritionEntryRow, 'user_id' | 'entry_date' | 'name'>
@@ -603,6 +614,32 @@ export interface Database {
           early_access?: boolean
           newsletter?: boolean
           created_at?: string
+        }
+      },
+      avatar_states: {
+        Row: {
+          id: string
+          user_id: string
+          unlocked_item_ids: string[]
+          equipped_items: Record<string, string | null>
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          unlocked_item_ids?: string[]
+          equipped_items?: Record<string, string | null>
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          unlocked_item_ids?: string[]
+          equipped_items?: Record<string, string | null>
+          created_at?: string
+          updated_at?: string
         }
       },
       city_states: {

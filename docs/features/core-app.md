@@ -53,6 +53,16 @@ The widget is shared dashboard wiring. When changing tasks, habits, planning, or
 
 `TodayPlanWidget` presents the committed intention, outcomes, blocks, current activity, and past activities. The complete editing ritual lives at `/plan`; see [Planning, tasks, habits, and routines](./planning-tasks-habits.md).
 
+### Daily Reflection
+
+One question a day, and one step from reading it to answering it.
+
+The prompts are authored in `src/lib/daily-reflection.ts` and walked one per calendar day, so the list's length is the rotation and the same date always yields the same question — on the dashboard, in the entry form it opens, and when the entry is read back later. That derivation is why the list is append-only: reordering it rewrites what older reflections appear to have asked.
+
+The answer is written through the normal journal entry form against the `Daily Reflection` system template, seeded by `supabase/migrations/20260911120000_create_daily_reflection_template.sql` and referenced by a fixed id rather than by name. Reflections therefore earn XP, count towards the streak, and can be marked as insights like every other entry. Once today's reflection exists the section links to it instead of starting a second one.
+
+The section is in the visibility registry as `reflection`, so it can be turned off in settings like the others.
+
 ### Admin-only dashboard additions
 
 Trusted or route-allowlisted admins may also see:

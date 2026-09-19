@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildHabitAnalytics } from "@/lib/habit-analytics";
+import { buildHabitAnalytics, calculateStreakEndingOn } from "@/lib/habit-analytics";
 
 describe("buildHabitAnalytics", () => {
   it("keeps the current streak alive until the current day ends", () => {
@@ -69,3 +69,25 @@ describe("buildHabitAnalytics", () => {
     expect(analytics.recentCompletions).toEqual(["2026-07-20"]);
   });
 });
+
+describe('calculateStreakEndingOn', () => {
+  it('counts consecutive days back from the end date', () => {
+    const dates = new Set(['2026-08-28', '2026-08-29', '2026-08-30'])
+    expect(calculateStreakEndingOn(dates, '2026-08-30')).toBe(3)
+  })
+
+  it('is zero when the end date itself is missing', () => {
+    const dates = new Set(['2026-08-28', '2026-08-29'])
+    expect(calculateStreakEndingOn(dates, '2026-08-30')).toBe(0)
+  })
+
+  it('stops at the first gap rather than counting every completion', () => {
+    const dates = new Set(['2026-08-25', '2026-08-26', '2026-08-29', '2026-08-30'])
+    expect(calculateStreakEndingOn(dates, '2026-08-30')).toBe(2)
+  })
+
+  it('crosses a month boundary', () => {
+    const dates = new Set(['2026-07-30', '2026-07-31', '2026-08-01'])
+    expect(calculateStreakEndingOn(dates, '2026-08-01')).toBe(3)
+  })
+})

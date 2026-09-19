@@ -45,18 +45,12 @@ import {
   setHabitLogCompletion,
   updateHabit,
 } from "@/lib/habits";
-import {
-  calculateHabitCheckInXp,
-  checkInHabitReward,
-  undoHabitCheckInReward,
-} from "@/lib/habit-xp";
+import { addDays, dateInTimezone, formatDateOnly } from "@/lib/dates";
+import { applyHabitCheckInReward } from "@/lib/habit-check-in";
 import { useUserStore } from "@/lib/stores/user-store";
 import {
-  addDays,
   buildDateWindow,
   buildHabitSummary,
-  dateInTimezone,
-  formatDateOnly,
   habitLogKey,
   indexHabitLogs,
   moveHabit,
@@ -77,7 +71,7 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   HabitEditorDialog,
-  habitColorClass,
+  habitTintClass,
   type HabitEditorValue,
 } from "@/components/habits/HabitEditorDialog";
 
@@ -219,37 +213,26 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         savedLog,
       ]);
       try {
-        const wasCompleted = previousLog?.completed ?? false;
-        if (completed && !wasCompleted) {
-          const summary = buildHabitSummary({
-            habit,
-            logs: [
-              ...logs.filter((log) => log.habit_id === habit.id),
-              savedLog,
-            ],
-            today,
-            timezone,
-          });
-          const { xp } = calculateHabitCheckInXp(summary.currentStreak);
-          const result = await checkInHabitReward(supabase, {
-            habitId: habit.id,
-            date,
-            xp,
-            skillCategory: habit.skill_category ?? null,
-          });
-          if (result.awarded) {
-            addXp(xp, result.totalXp - xp);
-            setCoins(result.coins);
-          }
-        } else if (!completed && wasCompleted) {
-          const result = await undoHabitCheckInReward(supabase, {
-            habitId: habit.id,
-            date,
-          });
-          if (result.reversed) {
-            setCoins(result.coins);
-            addXp(0, result.totalXp);
-          }
+        // buildHabitSummary runs over the logs including the one just saved,
+        // so currentStreak already counts this check-in -- which is the streak
+        // applyHabitCheckInReward expects.
+        const summary = buildHabitSummary({
+          habit,
+          logs: [...logs.filter((log) => log.habit_id === habit.id), savedLog],
+          today,
+          timezone,
+        });
+        const outcome = await applyHabitCheckInReward(supabase, {
+          habitId: habit.id,
+          date,
+          completed,
+          wasCompleted: previousLog?.completed ?? false,
+          streak: summary.currentStreak,
+          skillCategory: habit.skill_category ?? null,
+        });
+        if (outcome) {
+          addXp(outcome.xpDelta, outcome.totalXp - outcome.xpDelta);
+          setCoins(outcome.coins);
         }
       } catch (rewardError) {
         console.error("Failed to apply habit check-in reward", rewardError);
@@ -838,7 +821,11 @@ function SortableHabitCard({
           className={cn(
             "mt-2 grid size-8 shrink-0 place-items-center rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45",
             completed
-              ? cn("border-transparent text-white", habitColorClass(habit.color))
+              // The tint carries the fill and the hue; border-current picks
+              // that same hue up at full strength, so the circle keeps an
+              // edge without a third class per colour. A white tick would
+              // have been invisible on the lighter ground.
+              ? cn("border-current", habitTintClass(habit.color))
               : "border-border bg-transparent"
           )}
         >
@@ -847,8 +834,8 @@ function SortableHabitCard({
         <span
           aria-hidden
           className={cn(
-            "grid size-12 shrink-0 place-items-center rounded-2xl text-xl text-white shadow-sm",
-            habitColorClass(habit.color)
+            "grid size-12 shrink-0 place-items-center rounded-2xl text-xl",
+            habitTintClass(habit.color)
           )}
         >
           {habit.emoji}
@@ -942,8 +929,8 @@ function ArchivedHabitCard({
     <article className="flex items-center gap-3 rounded-2xl border bg-card p-4">
       <span
         className={cn(
-          "grid size-11 shrink-0 place-items-center rounded-xl text-lg text-white",
-          habitColorClass(habit.color)
+          "grid size-11 shrink-0 place-items-center rounded-xl text-lg",
+          habitTintClass(habit.color)
         )}
       >
         {habit.emoji}

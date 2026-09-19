@@ -44,4 +44,5 @@ next-env.d.ts
 .superpowers/
 
 # Claude Code local state, skills, and nested git worktrees
+# local agent/editor configuration (machine-specific paths)
 .claude/

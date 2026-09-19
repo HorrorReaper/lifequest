@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   HabitEditorDialog,
-  habitColorClass,
+  habitTintClass,
   type HabitEditorValue,
 } from "@/components/habits/HabitEditorDialog";
 
@@ -262,8 +262,8 @@ export function HabitDashboardWidget({
                 />
                 <span
                   className={cn(
-                    "grid size-8 shrink-0 place-items-center rounded-lg text-sm text-white",
-                    habitColorClass(habit.color)
+                    "grid size-8 shrink-0 place-items-center rounded-lg text-sm",
+                    habitTintClass(habit.color)
                   )}
                 >
                   {habit.emoji}

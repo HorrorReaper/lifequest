@@ -1,26 +1,83 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { addDays, dateInTimezone, weekStart } from '@/lib/dates'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import type { Database } from '@/lib/supabase/database.types'
-import { DashboardHero } from '@/components/dashboard/DashboardHero'
+import { ThemedDashboardHero } from '@/components/dashboard/ThemedDashboardHero'
+import { TrailPageSpine } from '@/components/dashboard/TrailPageSpine'
+import { JournalNudge } from '@/components/dashboard/JournalNudge'
+import { TodayPlanSection } from '@/components/dashboard/TodayPlanSection'
+import { HabitsSection } from '@/components/dashboard/HabitsSection'
+import { TasksSection } from '@/components/dashboard/TasksSection'
+import {
+  buildDashboardHabits,
+  completedHabitIdsFor,
+  habitStreakWindowStart,
+  type HabitLogRow,
+  type HabitRow,
+} from '@/lib/dashboard-habits'
+import {
+  DASHBOARD_TASK_FETCH_LIMIT,
+  partitionDashboardTasks,
+  type TaskRow,
+} from '@/lib/dashboard-tasks'
+import { fetchAvatarState } from '@/lib/avatar'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
-import { DailyBriefingWidget } from '@/components/dashboard/DailyBriefingWidget'
 import type { DayPlanBlock } from '@/lib/types'
-import { fetchGoals } from '@/lib/goals'
 import { calculateRoutineProgress, fetchRoutines } from '@/lib/routines'
 import { RoutinesDashboardWidget } from '@/components/dashboard/RoutinesDashboardWidget'
-import { isAdminUser } from '@/lib/admin'
+import { showAdminUi } from '@/lib/admin'
 import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
 import { parseTodayPlanNotes } from '@/lib/today-plan'
 import { FirstRunWelcome } from '@/components/dashboard/FirstRunWelcome'
 import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
 import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
+import { WeeklyReviewPrompt } from '@/components/dashboard/WeeklyReviewPrompt'
+import { WeeklyPlanPrompt } from '@/components/dashboard/WeeklyPlanPrompt'
+import { weeklyEntryExists } from '@/lib/weekly-rituals'
+import {
+  fillName,
+  isRitualWindow,
+  normalizeRitualSettings,
+  ritualDismissKey,
+  type RitualSetting,
+} from '@/lib/rituals'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
+import { ScorecardSection } from '@/components/dashboard/ScorecardSection'
+import { ReflectionSection } from '@/components/dashboard/ReflectionSection'
+import {
+  DAILY_REFLECTION_TEMPLATE_ID,
+  reflectionPromptForDate,
+} from '@/lib/daily-reflection'
+import {
+  buildScorecardRows,
+  fetchLatestMetricValues,
+  fetchMetricTargets,
+} from '@/lib/metric-targets'
+import {
+  isSectionVisible,
+  normalizeDashboardSections,
+  sectionsFor,
+  visibleSectionCount,
+} from '@/lib/dashboard-sections'
 
-type QuickActionTarget = 'task' | 'plan' | 'habit' | 'goal' | 'routine'
+type QuickActionTarget = 'task' | 'plan' | 'habit' | 'routine'
+
+/**
+ * Where a ?quick= link lands now that Today Focus -- which used to open these
+ * as panels in place -- is off the dashboard. Kept so older links and
+ * bookmarks still arrive somewhere useful rather than on a silent dashboard.
+ */
+const QUICK_ACTION_ROUTES: Record<QuickActionTarget, string> = {
+  plan: '/plan',
+  task: '/tasks',
+  habit: '/habits',
+  routine: '/routines',
+}
 
 interface DashboardPageProps {
   searchParams?: Promise<{
@@ -31,28 +88,10 @@ interface DashboardPageProps {
 
 function parseQuickAction(value: string | string[] | undefined): QuickActionTarget | null {
   const quick = Array.isArray(value) ? value[0] : value
-  if (quick === 'task' || quick === 'plan' || quick === 'habit' || quick === 'goal' || quick === 'routine') {
+  if (quick === 'task' || quick === 'plan' || quick === 'habit' || quick === 'routine') {
     return quick
   }
   return null
-}
-
-function dateInTimezone(timezone: string) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-}
-
-function dayLabel(timezone: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date())
 }
 
 function minutesFromTime(time: string) {
@@ -60,10 +99,12 @@ function minutesFromTime(time: string) {
   return hours * 60 + minutes
 }
 
-function nextDate(dateKey: string) {
-  const next = new Date(`${dateKey}T00:00:00Z`)
-  next.setUTCDate(next.getUTCDate() + 1)
-  return next.toISOString().slice(0, 10)
+function promptCopy(setting: RitualSetting, username: string | null) {
+  return {
+    title: fillName(setting.title, username),
+    description: fillName(setting.description, username),
+    ctaLabel: fillName(setting.ctaLabel, username),
+  }
 }
 
 function currentMinutesInTimezone(timezone: string) {
@@ -83,7 +124,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const params = searchParams ? await searchParams : {}
   const quickAction = parseQuickAction(params.quick)
   const showWelcome = params.welcome === '1'
-  if (quickAction === 'plan') redirect('/plan')
+  if (quickAction) redirect(QUICK_ACTION_ROUTES[quickAction])
   const supabase = await createClient()
   const {
     data: { user },
@@ -101,31 +142,56 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   if (!profile?.onboarding_complete) redirect('/onboarding')
 
-  const isAdmin = isAdminUser(user)
+  const isAdmin = await showAdminUi(user)
+
+  const sectionPrefs = normalizeDashboardSections(profile.dashboard_sections)
+  const shows = (id: string) => isSectionVisible(sectionPrefs, id)
 
   const level = getLevel(profile.total_xp)
   const cityTier = getCityTier(level)
   const progress = getXpProgress(profile.total_xp)
 
-  const { data: cityRowData } = await supabase
-    .from('city_states')
-    .select('coins')
-    .eq('user_id', user.id)
-    .single()
+  const [{ data: cityRowData }, avatarState, { data: ritualRows }] = await Promise.all([
+    supabase.from('city_states').select('coins').eq('user_id', user.id).single(),
+    fetchAvatarState(supabase, user.id),
+    // Which prompts run, when, and where they lead. Read on every load so an
+    // admin's change at /admin/rituals is live on the next dashboard visit;
+    // a missing or malformed row falls back to the code's defaults.
+    supabase.from('ritual_settings').select('*'),
+  ])
+  const rituals = normalizeRitualSettings(ritualRows)
   const coins = (cityRowData as { coins: number } | null)?.coins ?? 0
 
-  const { annotated, customQuests } = await fetchQuestPageData(supabase, user.id)
+  // Its own sequential await, so skipping it shortens the page load rather
+  // than only the page.
+  const { annotated, customQuests } = shows('quests')
+    ? await fetchQuestPageData(supabase, user.id)
+    : { annotated: [], customQuests: [] }
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
-  const activeGoals = isAdmin
-    ? await fetchGoals(supabase, user.id, { status: 'active' })
-    : []
-  const today = dateInTimezone(profile.timezone ?? 'UTC')
+  const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
+  const thisWeekStart = weekStart(today)
 
-  const trackedMetrics = await fetchTrackedMetrics(supabase, user.id)
-  const trackedMetricSeries = await Promise.all(
-    trackedMetrics.map((metric) => fetchMetricSeries(supabase, user.id, metric.fieldId))
-  )
+  // Scorecard rows come from targets, not the tracked-metric list, so fetch
+  // targets first and only pay for the list when something actually needs
+  // it: the chart (shows('metric')) or a scorecard that has targets set.
+  // The scorecard is on by default with no targets on day one, so gating
+  // the list this way removes two wasted sequential queries for exactly the
+  // population that sees no section.
+  const metricTargets = shows('scorecard')
+    ? await fetchMetricTargets(supabase, user.id)
+    : []
+  const trackedMetrics =
+    shows('metric') || metricTargets.length > 0
+      ? await fetchTrackedMetrics(supabase, user.id)
+      : []
+  const trackedMetricSeries = shows('metric')
+    ? await Promise.all(
+        trackedMetrics.map((metric) =>
+          fetchMetricSeries(supabase, user.id, metric.fieldId)
+        )
+      )
+    : []
   // Prefer a metric that actually has data over the first one alphabetically/
   // by creation order, so a brand-new, still-empty metric doesn't bump one
   // the user is already filling in off the dashboard.
@@ -134,6 +200,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     primaryMetricIndex >= 0 ? trackedMetrics[primaryMetricIndex] : trackedMetrics[0] ?? null
   const primaryMetricSeries =
     primaryMetricIndex >= 0 ? trackedMetricSeries[primaryMetricIndex] : []
+
+  const scorecardRows = shows('scorecard')
+    ? buildScorecardRows({
+        metrics: trackedMetrics,
+        targets: metricTargets,
+        latest: await fetchLatestMetricValues(
+          supabase,
+          user.id,
+          metricTargets.map((target) => target.fieldId)
+        ),
+      })
+    : []
 
   const [
     briefingHabitsRes,
@@ -144,21 +222,28 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     dayPlanRes,
     routines,
     dashboardLearnings,
+    openTasksRes,
     tasksCompletedTodayRes,
+    tasksCompletedThisWeekRes,
+    weeklyEntriesRes,
   ] = await Promise.all([
     supabase
       .from('habits')
-      .select('id, name, emoji')
+      .select('id, name, emoji, skill_category')
       .eq('user_id', user.id)
       .eq('is_archived', false)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
+    // Widened from today-only because the Habits section pays streak-scaled
+    // XP, so it needs the streak as well as today's state. 400 days is the
+    // ceiling: a longer streak is under-reported rather than paged for.
     supabase
       .from('habit_logs')
-      .select('habit_id')
+      .select('habit_id, log_date')
       .eq('user_id', user.id)
-      .eq('log_date', today)
-      .eq('completed', true),
+      .eq('completed', true)
+      .gte('log_date', habitStreakWindowStart(today))
+      .lte('log_date', today),
     supabase
       .from('tasks')
       .select('id, title, due_date, priority')
@@ -167,7 +252,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .or(`due_date.lte.${today},due_date.is.null`)
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
-      .limit(8),
+      .limit(DASHBOARD_TASK_FETCH_LIMIT),
     supabase
       .from('journal_templates')
       .select('id, name, icon')
@@ -187,45 +272,75 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .eq('user_id', user.id)
       .eq('plan_date', today)
       .maybeSingle(),
-    isAdmin ? fetchRoutines(supabase, user.id, false) : Promise.resolve([]),
+    isAdmin && shows('routines')
+      ? fetchRoutines(supabase, user.id, false)
+      : Promise.resolve([]),
     isAdmin ? fetchDashboardLearnings(supabase, user.id) : Promise.resolve([]),
+    supabase
+      .from('tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_completed', false),
     supabase
       .from('tasks')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('is_completed', true)
       .gte('completed_at', `${today}T00:00:00`)
-      .lt('completed_at', `${nextDate(today)}T00:00:00`),
+      .lt('completed_at', `${addDays(today, 1)}T00:00:00`),
+    supabase
+      .from('tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_completed', true)
+      .gte('completed_at', `${thisWeekStart}T00:00:00`)
+      .lt('completed_at', `${addDays(today, 1)}T00:00:00`),
+    // Both weekly rituals at once: the review closes the week that is
+    // ending, the plan opens the one that is starting, and on any given day
+    // "this week" means the same Monday-to-Sunday span for both.
+    supabase
+      .from('journal_entries')
+      .select('template_id, entry_date')
+      .eq('user_id', user.id)
+      .eq('is_complete', true)
+      .in(
+        'template_id',
+        [rituals.weekly_review.templateId, rituals.weekly_plan.templateId].filter(
+          (id): id is string => id !== null
+        )
+      )
+      .gte('entry_date', thisWeekStart)
+      .lte('entry_date', addDays(thisWeekStart, 6)),
   ])
 
-  const completedHabitIds = new Set(
-    ((briefingHabitLogsRes.data ?? []) as { habit_id: string }[]).map((log) => log.habit_id)
+  const habitLogRows = (briefingHabitLogsRes.data ?? []) as HabitLogRow[]
+  const completedHabitIds = completedHabitIdsFor(habitLogRows, today)
+  const dashboardHabits = buildDashboardHabits(
+    (briefingHabitsRes.data ?? []) as HabitRow[],
+    habitLogRows,
+    today
   )
-  const briefingHabits = ((briefingHabitsRes.data ?? []) as {
-    id: string
-    name: string
-    emoji: string | null
-  }[]).map((habit) => ({
-    id: habit.id,
-    name: habit.name,
-    emoji: habit.emoji ?? '✅',
-    completed: completedHabitIds.has(habit.id),
+  const briefingHabits = dashboardHabits.map(({ id, name, emoji, completed }) => ({
+    id,
+    name,
+    emoji,
+    completed,
   }))
-  const briefingTasks = ((briefingTasksRes.data ?? []) as {
+  const { dueTasks, undatedTasks } = partitionDashboardTasks(
+    (briefingTasksRes.data ?? []) as TaskRow[],
+    today
+  )
+  const todayEntries = (todayEntriesRes.data ?? []) as {
     id: string
-    title: string
-    due_date: string | null
-    priority: 'low' | 'medium' | 'high' | null
-  }[]).map((task) => ({
-    id: task.id,
-    title: task.title,
-    dueDate: task.due_date,
-    priority: task.priority ?? 'medium',
-    isOverdue: task.due_date !== null && task.due_date < today,
-  }))
+    template_id: string
+  }[]
   const completedTemplateIds = new Set(
-    ((todayEntriesRes.data ?? []) as { template_id: string }[]).map((entry) => entry.template_id)
+    todayEntries.map((entry) => entry.template_id)
   )
+  // Reuses the entries already fetched for the journal nudge rather than
+  // asking again: today's reflection is just one of today's entries.
+  const reflectionEntryId =
+    todayEntries.find((entry) => entry.template_id === DAILY_REFLECTION_TEMPLATE_ID)?.id ?? null
   const briefingJournals = ((briefingTemplatesRes.data ?? []) as {
     id: string
     name: string
@@ -237,24 +352,46 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     completedToday: completedTemplateIds.has(template.id),
   }))
   const nowMinutes = currentMinutesInTimezone(profile.timezone ?? 'UTC')
-  const isEvening = nowMinutes >= 20 * 60
-  // journal_templates has no stable slug/key, only a DB id and a human name,
-  // so this matches on name — if the system template is ever renamed or
-  // removed, the prompt just stays hidden rather than erroring.
-  const eveningReviewTemplate =
-    briefingJournals.find((template) => template.name === 'Evening Review') ?? null
-  const eveningReviewTemplateId = eveningReviewTemplate?.id ?? null
-  const eveningReviewDone = eveningReviewTemplate?.completedToday ?? false
+  const eveningReviewTemplateId = rituals.evening_review.templateId
+  const eveningReviewDone =
+    eveningReviewTemplateId !== null && completedTemplateIds.has(eveningReviewTemplateId)
   const habitsCompletedToday = briefingHabits.filter((habit) => habit.completed).length
   const tasksCompletedToday = tasksCompletedTodayRes.count ?? 0
+  // The streak window already holds every completed log back to well before
+  // Monday, so the week's check-ins are a filter rather than another query.
+  const habitsCompletedThisWeek = habitLogRows.filter(
+    (log) => log.log_date >= thisWeekStart && log.log_date <= today
+  ).length
+  const tasksCompletedThisWeek = tasksCompletedThisWeekRes.count ?? 0
+  const weeklyEntries = (weeklyEntriesRes.data ?? []) as {
+    template_id: string
+    entry_date: string
+  }[]
+  const weeklyReviewDone = weeklyEntryExists(weeklyEntries, rituals.weekly_review.templateId, today)
+  const weeklyPlanDone = weeklyEntryExists(weeklyEntries, rituals.weekly_plan.templateId, today)
+  const dailyPlanWindow = isRitualWindow(rituals.daily_plan, today, nowMinutes)
+  const eveningReviewWindow = isRitualWindow(rituals.evening_review, today, nowMinutes)
+  const weeklyReviewWindow = isRitualWindow(rituals.weekly_review, today, nowMinutes)
+  const weeklyPlanWindow = isRitualWindow(rituals.weekly_plan, today, nowMinutes)
+  // While a weekly prompt is live, the daily one of the same kind waits for
+  // it; see usePromptHeldBack. Null once the weekly entry exists or the
+  // window is closed, so the daily prompt is not held by a prompt that will
+  // never show. With admin-set windows the pair can meet on any day, not
+  // only Sunday and Monday; the rule is the same.
+  const eveningReviewHeldBackBy =
+    weeklyReviewWindow && !weeklyReviewDone && rituals.weekly_review.templateId !== null
+      ? ritualDismissKey('weekly_review', thisWeekStart)
+      : null
+  const dailyPlanHeldBackBy =
+    weeklyPlanWindow && !weeklyPlanDone && rituals.weekly_plan.templateId !== null
+      ? ritualDismissKey('weekly_plan', thisWeekStart)
+      : null
   const dayPlan = dayPlanRes.data as {
     blocks?: DayPlanBlock[]
     notes?: string | null
   } | null
   const planMetadata = parseTodayPlanNotes(dayPlan?.notes).metadata
   const planCommitted = Boolean(planMetadata?.ritual_completed_at)
-  const mainQuestTitle =
-    planMetadata?.outcomes.find((outcome) => outcome.role === 'must_win')?.title ?? null
   const planBlocks = ((dayPlan?.blocks ?? [])
     .slice()
     .sort((a, b) => a.start_time.localeCompare(b.start_time))
@@ -289,8 +426,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
-      <div className="max-w-2xl mx-auto space-y-5">
-        <DashboardHero
+      <TrailPageSpine />
+      <div className="relative max-w-2xl mx-auto space-y-5">
+        <ThemedDashboardHero
           username={profile.username}
           level={level}
           cityTierLabel={CITY_TIER_LABELS[cityTier]}
@@ -299,48 +437,74 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           pct={progress.pct}
           coins={coins}
           streak={profile.current_streak}
+          equippedItems={avatarState.equippedItems}
+        />
+
+        <JournalNudge
+          journals={briefingJournals}
+          completedJournalCount={todayEntries.length}
         />
 
         <FirstRunWelcome show={showWelcome} />
-        <DailyPlanPrompt today={today} planCommitted={planCommitted} username={profile.username} />
+        <DailyPlanPrompt
+          today={today}
+          planCommitted={planCommitted || !dailyPlanWindow}
+          copy={promptCopy(rituals.daily_plan, profile.username)}
+          heldBackBy={dailyPlanHeldBackBy}
+        />
         <EveningReviewPrompt
           today={today}
-          isEvening={isEvening}
+          isEvening={eveningReviewWindow}
           reviewDone={eveningReviewDone}
-          templateId={eveningReviewTemplateId}
-          username={profile.username}
+          href={eveningReviewTemplateId ? `/journal/new/${eveningReviewTemplateId}` : null}
+          copy={promptCopy(rituals.evening_review, profile.username)}
           habitsCompleted={habitsCompletedToday}
           habitsTotal={briefingHabits.length}
           tasksCompletedToday={tasksCompletedToday}
+          heldBackBy={eveningReviewHeldBackBy}
+        />
+        <WeeklyPlanPrompt
+          weekStart={thisWeekStart}
+          isWindow={weeklyPlanWindow}
+          planDone={weeklyPlanDone}
+          href={rituals.weekly_plan.templateId ? `/journal/new/${rituals.weekly_plan.templateId}` : null}
+          copy={promptCopy(rituals.weekly_plan, profile.username)}
+          openTaskCount={openTasksRes.count ?? 0}
+        />
+        <WeeklyReviewPrompt
+          weekStart={thisWeekStart}
+          isWindow={weeklyReviewWindow}
+          reviewDone={weeklyReviewDone}
+          href={rituals.weekly_review.templateId ? `/journal/new/${rituals.weekly_review.templateId}` : null}
+          copy={promptCopy(rituals.weekly_review, profile.username)}
+          habitsCompletedThisWeek={habitsCompletedThisWeek}
+          tasksCompletedThisWeek={tasksCompletedThisWeek}
         />
 
-        <DailyBriefingWidget
-          key={`briefing-${quickAction ?? 'default'}`}
-          userId={user.id}
-          todayDate={today}
-          todayLabel={dayLabel(profile.timezone ?? 'UTC')}
-          habits={briefingHabits}
-          tasks={briefingTasks}
-          journals={briefingJournals}
-          planBlocks={planBlocks}
-          mainQuestTitle={mainQuestTitle}
-          planCommitted={planCommitted}
-          goals={activeGoals}
-          goalsEnabled={isAdmin}
-          completedJournalCount={(todayEntriesRes.data ?? []).length}
-          routinesEnabled={isAdmin}
-          initialOpenPanel={
-            quickAction === 'routine'
-              ? (isAdmin ? 'routine' : null)
-              : quickAction === 'goal'
-                ? (isAdmin ? 'goal' : null)
-              : quickAction === 'task' || quickAction === 'habit'
-              ? quickAction
-              : null
-          }
-        />
+        {shows('today_plan') && (
+          <TodayPlanSection blocks={planBlocks} nowMinutes={nowMinutes} />
+        )}
 
-        {primaryMetric && (
+        {shows('habits') && (
+          <HabitsSection
+            userId={user.id}
+            today={today}
+            habits={dashboardHabits}
+          />
+        )}
+
+        {shows('tasks') && (
+          <TasksSection
+            userId={user.id}
+            dueTasks={dueTasks}
+            undatedTasks={undatedTasks}
+            openTaskCount={openTasksRes.count ?? 0}
+          />
+        )}
+
+        {shows('scorecard') && <ScorecardSection rows={scorecardRows} />}
+
+        {shows('metric') && primaryMetric && (
           <MetricDashboardWidget
             label={primaryMetric.label}
             unit={primaryMetric.unit}
@@ -356,12 +520,42 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
         )}
 
-        {isAdmin && <RoutinesDashboardWidget routines={dashboardRoutines} />}
+        {isAdmin && shows('routines') && (
+          <RoutinesDashboardWidget routines={dashboardRoutines} />
+        )}
 
-        <QuestDashboardWidget
-          claimable={claimableQuests}
-          activeCustom={activeCustomQuests}
-        />
+        {shows('reflection') && (
+          <ReflectionSection
+            prompt={reflectionPromptForDate(today)}
+            writtenToday={reflectionEntryId !== null}
+            entryId={reflectionEntryId}
+            timezone={profile.timezone ?? 'UTC'}
+            userId={user.id}
+          />
+        )}
+
+        {shows('quests') && (
+          <QuestDashboardWidget
+            claimable={claimableQuests}
+            activeCustom={activeCustomQuests}
+          />
+        )}
+
+        {/* Without this, someone who turned everything off sees a hero and
+            some prompts and cannot tell that from a broken page. */}
+        {visibleSectionCount(sectionPrefs, { isAdmin }) === 0 && (
+          <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+            All {sectionsFor({ isAdmin }).length} dashboard sections are
+            hidden.{' '}
+            <Link
+              href="/settings"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Turn some back on
+            </Link>
+            .
+          </p>
+        )}
       </div>
     </div>
   )

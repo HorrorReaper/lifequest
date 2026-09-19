@@ -1,39 +1,6 @@
 import type { Habit, HabitLog } from "@/lib/types";
 import { buildHabitAnalytics } from "@/lib/habit-analytics";
-
-const DAY_MS = 86_400_000;
-
-function dayNumber(date: string) {
-  const [year, month, day] = date.slice(0, 10).split("-").map(Number);
-  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS);
-}
-
-export function dateFromDayNumber(value: number) {
-  return new Date(value * DAY_MS).toISOString().slice(0, 10);
-}
-
-export function addDays(date: string, amount: number) {
-  return dateFromDayNumber(dayNumber(date) + amount);
-}
-
-export function dateInTimezone(date: Date, timezone: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-export function formatDateOnly(
-  date: string,
-  options: Intl.DateTimeFormatOptions
-) {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
-    timeZone: "UTC",
-    ...options,
-  });
-}
+import { addDays, dateInTimezone } from "@/lib/dates";
 
 export function buildDateWindow(endDate: string, length: number) {
   return Array.from({ length }, (_, index) =>

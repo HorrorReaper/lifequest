@@ -1,17 +1,9 @@
 import { redirect } from "next/navigation";
 import { TodayPlanner } from "@/components/planning/TodayPlanner";
-import { isAdminUser } from "@/lib/admin";
+import { showAdminUi } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
+import { dateInTimezone } from "@/lib/dates";
 import type { DayPlanBlock } from "@/lib/types";
-
-function dateInTimezone(timezone: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
 
 function dateLabel(timezone: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -24,7 +16,12 @@ function dateLabel(timezone: string) {
 
 const priorityRank = { high: 0, medium: 1, low: 2 };
 
-export default async function TodayPlanPage() {
+export default async function TodayPlanPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ step?: string }>;
+}) {
+  const requestedStep = searchParams ? (await searchParams).step : undefined;
   const supabase = await createClient();
   const {
     data: { user },
@@ -44,7 +41,7 @@ export default async function TodayPlanPage() {
   if (!profile?.onboarding_complete) redirect("/onboarding");
 
   const timezone = profile.timezone ?? "UTC";
-  const today = dateInTimezone(timezone);
+  const today = dateInTimezone(new Date(), timezone);
 
   const [
     tasksResult,
@@ -159,17 +156,25 @@ export default async function TodayPlanPage() {
     notes?: string | null;
   } | null;
 
+  const blocks: DayPlanBlock[] = Array.isArray(plan?.blocks) ? plan.blocks : [];
+
   return (
     <TodayPlanner
       userId={user.id}
       date={today}
       dateLabel={dateLabel(timezone)}
-      initialBlocks={Array.isArray(plan?.blocks) ? plan.blocks : []}
+      initialBlocks={blocks}
       initialNotes={plan?.notes ?? null}
       tasks={tasks}
       habits={habits}
       journals={journals}
-      workoutsEnabled={isAdminUser(user)}
+      workoutsEnabled={await showAdminUi(user)}
+      // Only with blocks to manage. Landing on the timeline without a Main
+      // Quest lets someone edit their way to the commit step and be refused
+      // there, for a reason nothing on that screen explains.
+      startAt={
+        requestedStep === "timeline" && blocks.length > 0 ? "timeline" : undefined
+      }
     />
   );
 }

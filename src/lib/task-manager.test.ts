@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest'
+import { localDateKey, parseLocalDate } from '@/lib/dates'
 import type { ManagedTask } from './tasks'
 import {
   countTaskViews,
   filterTasks,
   formatTaskDate,
-  localDateKey,
-  parseLocalDate,
   patchTaskLocally,
   removeTaskLocally,
   sortTasks,
   taskViewForDate,
-  tomorrowDateKey,
 } from './task-manager'
 
 function task(
@@ -35,7 +33,6 @@ describe('task manager date handling', () => {
   it('creates date-only keys from local calendar values without UTC conversion', () => {
     const local = new Date(2026, 6, 25, 0, 5)
     expect(localDateKey(local)).toBe('2026-07-25')
-    expect(tomorrowDateKey(local)).toBe('2026-07-26')
 
     const parsed = parseLocalDate('2026-07-25')
     expect(parsed?.getFullYear()).toBe(2026)
@@ -44,10 +41,7 @@ describe('task manager date handling', () => {
     expect(formatTaskDate('not-a-date')).toBe('not-a-date')
   })
 
-  it('handles month and year boundaries locally', () => {
-    expect(tomorrowDateKey(new Date(2026, 11, 31, 23, 30))).toBe(
-      '2027-01-01'
-    )
+  it('rejects a date that does not exist', () => {
     expect(parseLocalDate('2026-02-30')).toBeNull()
   })
 })

@@ -59,6 +59,7 @@ async function openQuestForm() {
       defaultQuests={[]}
       initialCustomQuests={[]}
       initialChallengePrograms={[]}
+      today="2026-08-01"
     />
   )
 

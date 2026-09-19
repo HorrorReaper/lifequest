@@ -30,7 +30,7 @@ const QUICK_ACTIONS = [
     icon: BookOpen,
   },
   {
-    href: '/dashboard?quick=task',
+    href: '/tasks',
     title: 'Task',
     description: 'Capture something that needs doing.',
     icon: ListTodo,
@@ -42,13 +42,13 @@ const QUICK_ACTIONS = [
     icon: CalendarClock,
   },
   {
-    href: '/dashboard?quick=habit',
+    href: '/habits',
     title: 'Habit',
     description: 'Add a small action to repeat.',
     icon: Flame,
   },
   {
-    href: '/dashboard?quick=routine',
+    href: '/routines',
     title: 'Routine',
     description: 'Run a guided chain of habits.',
     icon: Sparkles,
@@ -65,7 +65,7 @@ export function QuickActionButton({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false)
   const TriggerIcon = open ? X : Plus
   const visibleActions = QUICK_ACTIONS.filter(
-    (action) => action.href !== '/dashboard?quick=routine' || isAdmin
+    (action) => action.href !== '/routines' || isAdmin
   )
 
   return (

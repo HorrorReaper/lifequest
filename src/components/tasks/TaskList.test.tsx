@@ -78,6 +78,7 @@ describe('TaskList compact mode', () => {
   it('keeps the compact dashboard props and presentation working', async () => {
     render(
       <TaskList
+        today="2026-07-25"
         userId="user-1"
         compact
         limit={5}
@@ -103,7 +104,7 @@ describe('TaskList compact mode', () => {
       .mockRejectedValueOnce(new Error('Offline'))
       .mockResolvedValueOnce({ ...openTask, is_completed: true })
 
-    render(<TaskList userId="user-1" compact onlyOpen />)
+    render(<TaskList userId="user-1" today="2026-07-25" compact onlyOpen />)
 
     await user.click(
       await screen.findByRole('checkbox', {

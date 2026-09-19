@@ -1188,6 +1188,16 @@ After five minutes, stop. You've written your entry.`,
   },
 ]
 
+/**
+ * Whether this id belongs to the article library rather than an Academy path.
+ *
+ * The two live behind the same `/learn/[lessonId]` URL, so this is what tells
+ * a reader-only route apart from a course lesson before anything is rendered.
+ */
+export function isArticleLessonId(lessonId: string) {
+  return LESSONS.some((lesson) => lesson.id === lessonId)
+}
+
 export function annotateLessons(
   completedIds: string[],
   completionTimes: Record<string, string>

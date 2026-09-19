@@ -19,6 +19,7 @@ export const config = {
     '/journal/:path*',
     '/plan/:path*',
     '/city/:path*',
+    '/profile/:path*',
     '/settings/:path*',
     '/routines/:path*',
     '/onboarding/:path*',

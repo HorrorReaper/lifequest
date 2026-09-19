@@ -27,13 +27,17 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { EmojiPicker } from '@/components/ui/emoji-picker'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Eye } from 'lucide-react'
 import {
   SortableFieldItem,
   BuilderField,
 } from '@/components/template-builder/sortable-field-item'
 import { FieldConfigEditor } from '@/components/template-builder/field-config-editor'
 import { AddFieldPanel } from '@/components/template-builder/add-field-panel'
-import { FieldTypeDefinition } from '@/lib/field-registry'
+import { TemplatePreview } from '@/components/template-builder/template-preview'
+import { FieldTypeDefinition, getFieldDefinition } from '@/lib/field-registry'
 
 interface TemplateBuilderProps {
   templateId?: string
@@ -52,11 +56,6 @@ const ENTRY_TYPES = [
   { value: 'weekly', label: '📝 Weekly' },
   { value: 'free_write', label: '✍️ Free Write' },
   { value: 'custom', label: '🎨 Custom' },
-]
-
-const TEMPLATE_ICONS = [
-  '📓', '🌅', '🌙', '📝', '✍️', '💡', '🎯', '🧠',
-  '💪', '🙏', '🌟', '🔥', '📖', '💭', '🎨', '🏆',
 ]
 
 export function TemplateBuilder({
@@ -81,6 +80,9 @@ export function TemplateBuilder({
   const [editingField, setEditingField] = useState<BuilderField | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Below lg the preview cannot sit beside the builder, so it moves into a
+  // sheet the same way the dashboard puts its day management in one.
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   const sensors = useSensors( // DnD Kit Sensoren für Maus und Tastatur
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -160,6 +162,29 @@ export function TemplateBuilder({
       let savedTemplateId = templateId
 
       if (savedTemplateId && !isSystem) {
+        // Nothing may be written before we know the fields can be replaced.
+        // This check used to run after the metadata update, which left a
+        // refused save with a changed name, icon and XP reward on a template
+        // whose fields had not moved.
+        const { data: existingFields } = await supabase
+          .from('template_fields')
+          .select('id')
+          .eq('template_id', savedTemplateId)
+
+        const fieldIds = (existingFields ?? []).map((f: { id: string }) => f.id)
+        if (fieldIds.length > 0) {
+          const { count } = await supabase
+            .from('journal_responses')
+            .select('id', { count: 'exact', head: true })
+            .in('field_id', fieldIds)
+
+          if ((count ?? 0) > 0) {
+            setError('Cannot modify template fields because there are existing responses. Duplicate or archive the template first.')
+            setSaving(false)
+            return
+          }
+        }
+
         // Update existing template
         const { error: updateError } = await supabaseFrom(supabase, 'journal_templates')
           .update({
@@ -174,37 +199,14 @@ export function TemplateBuilder({
           .eq('user_id', user.id)
 
         if (updateError) throw updateError
-        // Before removing fields, ensure there are no existing journal responses
-        const { data: existingFields } = await supabase
-          .from('template_fields')
-          .select('id')
-          .eq('template_id', savedTemplateId)
-
-        const fieldIds = (existingFields ?? []).map((f: any) => f.id)
-        if (fieldIds.length > 0) {
-          const { count } = await supabase
-            .from('journal_responses')
-            .select('id', { count: 'exact', head: true })
-            .in('field_id', fieldIds)
-
-          if ((count ?? 0) > 0) {
-            setError('Cannot modify template fields because there are existing responses. Duplicate or archive the template first.')
-            setSaving(false)
-            return
-          }
-        }
 
         // Delete existing fields and re-insert (safe because no responses reference them)
-        const { data: deletedFields, error: deleteError } = await supabase
+        const { error: deleteError } = await supabase
           .from('template_fields')
           .delete()
           .eq('template_id', savedTemplateId)
 
         if (deleteError) throw deleteError
-        // Debug: log deletion count
-        // eslint-disable-next-line no-console
-        const deleted = deletedFields as any
-        console.log('Deleted template_fields for', savedTemplateId, deleted?.length)
       } else {
         // Create new template
         const { data: newTemplate, error: insertError } = await supabaseFrom(supabase, 'journal_templates')
@@ -229,7 +231,9 @@ export function TemplateBuilder({
       const fieldInserts = fields.map((field, index) => ({
         template_id: savedTemplateId!,
         field_type: field.field_type,
-        label: field.label || field.field_type,
+        // Falls back to the type's readable name: an unnamed field used to
+        // reach the journal labelled "mood" or "textarea".
+        label: field.label || getFieldDefinition(field.field_type).label,
         description: field.description,
         placeholder: field.placeholder,
         is_required: field.is_required,
@@ -237,10 +241,6 @@ export function TemplateBuilder({
         config: field.config,
         xp_rules: field.xp_rules ?? [],
       }))
-
-      // Debug: log what's being inserted
-      // eslint-disable-next-line no-console
-      console.log('Inserting template fields for', savedTemplateId, fieldInserts)
 
       const { error: fieldsError } = await supabaseInsert(supabase, 'template_fields', fieldInserts as any)
 
@@ -256,29 +256,28 @@ export function TemplateBuilder({
     }
   }
 
+  const renderPreview = (showLabel: boolean) => (
+    <TemplatePreview
+      icon={icon}
+      name={name}
+      description={description}
+      fields={fields}
+      showLabel={showLabel}
+    />
+  )
+
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:items-start">
+      <div className="space-y-6">
       {/* Template Metadata */}
       <Card className="border-border/50">
         <CardContent className="space-y-4 pt-6">
           <div className="flex items-start gap-4">
-            {/* Icon picker */}
+            {/* Icon picker -- the same one habits use, so both are chosen the
+                same way and the choice is not limited to a fixed handful. */}
             <div className="space-y-2">
               <Label>Icon</Label>
-              <div className="relative">
-                <button
-                  type="button"
-                  className="flex h-14 w-14 items-center justify-center rounded-xl border border-border/50 bg-card text-3xl hover:bg-muted/50 transition-colors"
-                  onClick={() => {
-                    const currentIndex = TEMPLATE_ICONS.indexOf(icon)
-                    const nextIndex =
-                      (currentIndex + 1) % TEMPLATE_ICONS.length
-                    setIcon(TEMPLATE_ICONS[nextIndex])
-                  }}
-                >
-                  {icon}
-                </button>
-              </div>
+              <EmojiPicker value={icon} onChange={setIcon} label="Choose template icon" />
             </div>
 
             <div className="flex-1 space-y-3">
@@ -339,9 +338,20 @@ export function TemplateBuilder({
 
       {/* Fields List */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Fields ({fields.length})
-        </h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Fields ({fields.length})
+          </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setPreviewOpen(true)}
+          >
+            <Eye className="size-4" />
+            Preview
+          </Button>
+        </div>
 
         {fields.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/50 p-8 text-center">
@@ -417,6 +427,19 @@ export function TemplateBuilder({
         onClose={() => setEditingField(null)}
         onSave={handleSaveField}
       />
+      </div>
+
+      {/* Wide screens keep the preview in view while the builder scrolls. */}
+      <div className="hidden lg:sticky lg:top-8 lg:block">{renderPreview(true)}</div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="bottom-0 top-auto max-h-[92svh] max-w-none translate-y-0 gap-0 overflow-y-auto rounded-b-none rounded-t-3xl sm:bottom-auto sm:top-1/2 sm:max-w-lg sm:-translate-y-1/2 sm:rounded-xl">
+          <DialogHeader className="pr-10 text-left">
+            <DialogTitle>Preview</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">{renderPreview(false)}</div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
