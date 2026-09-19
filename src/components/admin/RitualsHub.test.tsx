@@ -111,6 +111,23 @@ describe('RitualsHub', () => {
     expect(region.textContent).toContain('will not show')
   })
 
+  it('keeps a null stored weekday concrete in the select and the saved payload', async () => {
+    const nullWeekdaySettings = {
+      ...settings,
+      weekly_review: { ...settings.weekly_review, weekday: null },
+    }
+    render(<RitualsHub userId="admin-1" trusted settings={nullWeekdaySettings} templates={templates} />)
+    const region = card(/weekly review/i)
+
+    expect((region.querySelector('select[name="weekday"]') as HTMLSelectElement).value).toBe('0')
+
+    fireEvent.change(region.querySelector('input[name="title"]')!, { target: { value: 'Weekly, {name}' } })
+    fireEvent.submit(region.querySelector('form')!)
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
+    expect(update.mock.calls[0][2]).toMatchObject({ weekday: 0 })
+  })
+
   it('refuses an empty title without calling the database', async () => {
     render(<RitualsHub userId="admin-1" trusted settings={settings} templates={templates} />)
     const region = card(/weekly plan/i)

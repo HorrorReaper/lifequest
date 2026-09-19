@@ -72,10 +72,16 @@ interface Draft {
   ctaLabel: string
 }
 
-function draftFrom(setting: RitualSetting): Draft {
+function draftFrom(setting: RitualSetting, weekly: boolean): Draft {
   return {
     enabled: setting.enabled,
-    weekday: setting.weekday,
+    // A weekly ritual's weekday select always shows a concrete day (0 =
+    // Monday is its default option), so a null stored weekday -- which the
+    // column permits and normalizeRitualSettings passes through -- is
+    // normalized here too. Otherwise the select would display Monday while
+    // draft.weekday stayed null, and saving an unrelated field would still
+    // write that null back, disagreeing with what was on screen.
+    weekday: weekly ? (setting.weekday ?? 0) : setting.weekday,
     from: minutesToTime(setting.fromMinutes),
     templateId: setting.templateId ?? '',
     title: setting.title,
@@ -133,7 +139,7 @@ function RitualCard({
   const meta = RITUAL_META[ritual]
   const router = useRouter()
   const [supabase] = useState(() => createClient())
-  const [saved, setSaved] = useState(() => draftFrom(setting))
+  const [saved, setSaved] = useState(() => draftFrom(setting, meta.weekly))
   const [draft, setDraft] = useState(saved)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -205,7 +211,7 @@ function RitualCard({
             />
           </div>
 
-          <form onSubmit={save} className="space-y-5">
+          <form onSubmit={save} aria-labelledby={headingId} className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor={`ritual-${ritual}-weekday`}>Weekday</Label>
