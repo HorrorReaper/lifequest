@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RitualsHub } from '@/components/admin/RitualsHub'
 import { DEFAULT_RITUAL_SETTINGS } from '@/lib/rituals'
+import { installLocalStorageStub } from '../../../test/local-storage-stub'
 
 const update = vi.fn()
 const refresh = vi.fn()
@@ -27,6 +28,7 @@ function card(name: RegExp) {
 }
 
 beforeEach(() => {
+  installLocalStorageStub()
   update.mockReset().mockResolvedValue({ data: [{ ritual: 'x' }], error: null })
   refresh.mockReset()
 })
@@ -170,5 +172,64 @@ describe('RitualsHub', () => {
     expect(screen.queryByRole('button', { name: /save/i })).toBeNull()
     expect((card(/daily plan/i).querySelector('input[name="title"]') as HTMLInputElement).disabled).toBe(true)
     expect(card(/daily plan/i).querySelector('[role="switch"]')!.getAttribute('aria-disabled') ?? card(/daily plan/i).querySelector('[role="switch"]')!.getAttribute('data-disabled')).not.toBeNull()
+  })
+})
+
+describe('RitualsHub preview', () => {
+  // The cards carry a live "Preview: <title>" line of their own, so every
+  // assertion about the dialog is scoped to the dialog.
+  function dialog() {
+    return within(screen.getByRole('dialog'))
+  }
+
+  it('opens the real prompt for the ritual whose Test button was pressed', () => {
+    render(<RitualsHub userId="admin-1" trusted settings={settings} templates={templates} />)
+
+    fireEvent.click(
+      card(/weekly plan/i).querySelector('button[name="preview"]') as HTMLButtonElement
+    )
+
+    expect(dialog().getByText('New week, Alex 🗓️')).toBeTruthy()
+    expect(dialog().queryByText('How was your day, Alex?')).toBeNull()
+    expect(dialog().getByText('9 open tasks')).toBeTruthy()
+  })
+
+  it('previews the copy being edited, not the copy that was saved', () => {
+    render(<RitualsHub userId="admin-1" trusted settings={settings} templates={templates} />)
+    const region = card(/evening review/i)
+
+    fireEvent.change(region.querySelector('input[name="title"]')!, {
+      target: { value: 'Long day, {name}?' },
+    })
+    fireEvent.click(region.querySelector('button[name="preview"]') as HTMLButtonElement)
+
+    expect(dialog().getByText('Long day, Alex?')).toBeTruthy()
+  })
+
+  it('closes the preview again without writing a dismissal', () => {
+    render(<RitualsHub userId="admin-1" trusted settings={settings} templates={templates} />)
+
+    fireEvent.click(
+      card(/daily plan/i).querySelector('button[name="preview"]') as HTMLButtonElement
+    )
+    fireEvent.click(dialog().getByRole('button', { name: 'Not now' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // The date the preview renders with; a real dismissal would land here.
+    expect(
+      window.localStorage.getItem('lifequest-ritual-daily_plan-dismissed-2026-01-01')
+    ).toBeNull()
+  })
+
+  it('lets an allowlist admin preview even though they cannot save', () => {
+    render(<RitualsHub userId="admin-1" trusted={false} settings={settings} templates={templates} />)
+
+    const preview = card(/weekly review/i).querySelector(
+      'button[name="preview"]'
+    ) as HTMLButtonElement
+    expect(preview.disabled).toBe(false)
+
+    fireEvent.click(preview)
+    expect(dialog().getByText('How was your week, Alex?')).toBeTruthy()
   })
 })

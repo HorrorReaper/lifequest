@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { WeeklyReviewPrompt } from './WeeklyReviewPrompt'
 import { installLocalStorageStub } from '../../../test/local-storage-stub'
@@ -84,5 +84,35 @@ describe('WeeklyReviewPrompt', () => {
     render(<WeeklyReviewPrompt {...defaultProps} />)
 
     expect(screen.getByText('How was your week, Alex?')).toBeTruthy()
+  })
+})
+
+describe('WeeklyReviewPrompt preview', () => {
+  it('opens regardless of state when a preview close handler is given', () => {
+    window.localStorage.setItem(`lifequest-ritual-weekly_review-dismissed-${WEEK_START}`, '1')
+
+    render(
+      <WeeklyReviewPrompt
+        {...defaultProps}
+        isWindow={false}
+        reviewDone
+        onPreviewClose={() => {}}
+      />
+    )
+
+    expect(screen.getByText('How was your week, Alex?')).toBeTruthy()
+  })
+
+  it('closes through the handler without remembering a dismissal', () => {
+    const onPreviewClose = vi.fn()
+
+    render(<WeeklyReviewPrompt {...defaultProps} onPreviewClose={onPreviewClose} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+
+    expect(onPreviewClose).toHaveBeenCalledTimes(1)
+    expect(
+      window.localStorage.getItem(`lifequest-ritual-weekly_review-dismissed-${WEEK_START}`)
+    ).toBeNull()
   })
 })

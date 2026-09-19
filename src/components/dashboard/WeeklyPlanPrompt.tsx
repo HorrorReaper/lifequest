@@ -26,6 +26,13 @@ interface WeeklyPlanPromptProps {
   href: string | null
   copy: PromptCopy
   openTaskCount: number
+  /**
+   * When set, the dialog is a preview: it opens regardless of window, entry
+   * and dismissal, and closing calls this instead of remembering a
+   * dismissal. Used by the admin rituals hub to show what the prompt will
+   * look like; nothing on the dashboard passes it.
+   */
+  onPreviewClose?: () => void
 }
 
 /**
@@ -40,14 +47,24 @@ export function WeeklyPlanPrompt({
   href,
   copy,
   openTaskCount,
+  onPreviewClose,
 }: WeeklyPlanPromptProps) {
   const reduceMotion = useReducedMotion()
   const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('weekly_plan', weekStart))
 
-  const open = isWindow && !planDone && !dismissed && href !== null
+  // Preview mode is "an admin is looking at this", so it must not touch the
+  // dismissal the real prompt reads -- closing here calls the handler
+  // instead, and the call to action goes nowhere.
+  const preview = onPreviewClose !== undefined
+  function close() {
+    if (onPreviewClose) onPreviewClose()
+    else dismiss()
+  }
+
+  const open = preview || (isWindow && !planDone && !dismissed && href !== null)
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss() }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) close() }}>
       <DialogContent className="overflow-hidden border-2 border-primary/20 shadow-2xl sm:max-w-sm">
         <div className="pointer-events-none absolute -top-24 -right-24 h-48 w-48 rounded-full bg-linear-to-br from-primary/30 to-purple-500/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-linear-to-tr from-purple-500/20 to-primary/20 blur-3xl" />
@@ -73,11 +90,11 @@ export function WeeklyPlanPrompt({
           {openTaskCount} open {openTaskCount === 1 ? 'task' : 'tasks'}
         </div>
         <DialogFooter className="relative">
-          <Button variant="ghost" onClick={dismiss}>
+          <Button variant="ghost" onClick={close}>
             Not now
           </Button>
-          <Button asChild onClick={dismiss} className="group">
-            <Link href={href ?? '#'}>
+          <Button asChild onClick={close} className="group">
+            <Link href={href ?? '#'} onClick={(event) => { if (preview) event.preventDefault() }}>
               {copy.ctaLabel}
               <ArrowRight className="ml-1 size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
