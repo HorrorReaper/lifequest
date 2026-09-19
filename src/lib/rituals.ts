@@ -1,4 +1,5 @@
 import type { RitualId } from '@/lib/supabase/database.types'
+import { weekdayOf } from '@/lib/dates'
 import {
   WEEKLY_PLAN_TEMPLATE_ID,
   WEEKLY_REVIEW_TEMPLATE_ID,
@@ -142,4 +143,40 @@ export function normalizeRitualSettings(rows: unknown): RitualSettings {
   }
 
   return settings
+}
+
+/**
+ * Whether a ritual's prompt may open right now.
+ *
+ * One rule for all four: on, on the right weekday (or any, for the daily
+ * ones), and past the start time. Whether the ritual is already *done*
+ * today or this week is the dashboard's question, answered from entries.
+ */
+export function isRitualWindow(
+  setting: RitualSetting,
+  today: string,
+  nowMinutes: number
+): boolean {
+  if (!setting.enabled) return false
+  if (setting.weekday !== null && weekdayOf(today) !== setting.weekday) return false
+  return nowMinutes >= setting.fromMinutes
+}
+
+/** Matches the DashboardHero fallback so the greeting reads the same across the page. */
+const NAME_FALLBACK = 'Adventurer'
+
+/** Puts the user's name into admin-written copy wherever it says `{name}`. */
+export function fillName(text: string, username: string | null): string {
+  return text.replaceAll('{name}', username ?? NAME_FALLBACK)
+}
+
+/**
+ * Where "Not now" on a ritual prompt is remembered in localStorage.
+ *
+ * `periodKey` is the date for the daily rituals and the week's Monday for
+ * the weekly ones, so the key expires on its own with the next period and
+ * nothing has to be cleaned up.
+ */
+export function ritualDismissKey(ritual: RitualId, periodKey: string): string {
+  return `lifequest-ritual-${ritual}-dismissed-${periodKey}`
 }

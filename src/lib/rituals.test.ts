@@ -3,6 +3,9 @@ import {
   DEFAULT_RITUAL_SETTINGS,
   RITUAL_IDS,
   normalizeRitualSettings,
+  fillName,
+  isRitualWindow,
+  ritualDismissKey,
 } from '@/lib/rituals'
 import { WEEKLY_PLAN_TEMPLATE_ID, WEEKLY_REVIEW_TEMPLATE_ID } from '@/lib/weekly-rituals'
 
@@ -80,5 +83,54 @@ describe('normalizeRitualSettings', () => {
     const settings = normalizeRitualSettings([{ ...row, ritual: 'lunch_break' }])
 
     expect(settings).toEqual(DEFAULT_RITUAL_SETTINGS)
+  })
+})
+
+describe('isRitualWindow', () => {
+  const SUNDAY = '2026-09-20'
+  const MONDAY = '2026-09-21'
+  const weekly = { ...DEFAULT_RITUAL_SETTINGS.weekly_review } // Sunday from 18:00
+  const daily = { ...DEFAULT_RITUAL_SETTINGS.evening_review } // every day from 20:00
+
+  it('is closed while the ritual is disabled, whatever the time', () => {
+    expect(isRitualWindow({ ...daily, enabled: false }, SUNDAY, 22 * 60)).toBe(false)
+  })
+
+  it('opens a daily ritual on any weekday once its time is reached', () => {
+    expect(isRitualWindow(daily, MONDAY, 20 * 60)).toBe(true)
+    expect(isRitualWindow(daily, SUNDAY, 20 * 60)).toBe(true)
+    expect(isRitualWindow(daily, MONDAY, 19 * 60 + 59)).toBe(false)
+  })
+
+  it('opens a weekly ritual only on its weekday', () => {
+    expect(isRitualWindow(weekly, SUNDAY, 18 * 60)).toBe(true)
+    expect(isRitualWindow(weekly, SUNDAY, 17 * 60 + 59)).toBe(false)
+    expect(isRitualWindow(weekly, MONDAY, 18 * 60)).toBe(false)
+  })
+
+  it('treats weekday 0 as Monday, not as "no weekday"', () => {
+    expect(isRitualWindow({ ...weekly, weekday: 0, fromMinutes: 0 }, MONDAY, 0)).toBe(true)
+    expect(isRitualWindow({ ...weekly, weekday: 0, fromMinutes: 0 }, SUNDAY, 0)).toBe(false)
+  })
+})
+
+describe('fillName', () => {
+  it('replaces every {name} with the username', () => {
+    expect(fillName('Hi {name}, {name}!', 'Alex')).toBe('Hi Alex, Alex!')
+  })
+
+  it('falls back to the same default name as the dashboard hero', () => {
+    expect(fillName('Hi {name}', null)).toBe('Hi Adventurer')
+  })
+
+  it('leaves text without a placeholder alone', () => {
+    expect(fillName('Plan the week', 'Alex')).toBe('Plan the week')
+  })
+})
+
+describe('ritualDismissKey', () => {
+  it('names the key by ritual and period', () => {
+    expect(ritualDismissKey('evening_review', '2026-09-20')).toBe('lifequest-ritual-evening_review-dismissed-2026-09-20')
+    expect(ritualDismissKey('weekly_plan', '2026-09-14')).toBe('lifequest-ritual-weekly_plan-dismissed-2026-09-14')
   })
 })
