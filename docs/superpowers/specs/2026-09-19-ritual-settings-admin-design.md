@@ -1,7 +1,7 @@
 # Ritual settings, editable by admins
 
 **Date:** 2026-09-19
-**Status:** Draft, awaiting review
+**Status:** Approved, implemented
 **Series:** 1 of 3 — followed by *user overrides for ritual times* and
 *admin editing of system templates*, each with its own spec.
 
