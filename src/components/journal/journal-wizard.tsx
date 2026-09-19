@@ -12,7 +12,7 @@ const DRAFT_VERSION = 1
 // silently fails validation and the whole draft gets discarded on restore.
 const INSIGHT_TYPES = new Set(['learning', 'problem', 'idea', 'decision', 'win'])
 
-export interface MobileJournalStep {
+export interface JournalStep {
   id: string
   fields: TemplateField[]
   answerField: TemplateField | null
@@ -23,7 +23,7 @@ export interface JournalDraft {
   values: Record<string, FieldValue>
 }
 
-export interface MobileJournalStepAdvance {
+export interface JournalStepAdvance {
   nextStep: number
   blockedFieldId: string | null
 }
@@ -40,8 +40,8 @@ export function isDisplayOnlyJournalField(field: TemplateField) {
   return (DISPLAY_ONLY_JOURNAL_FIELD_TYPES as readonly string[]).includes(field.field_type)
 }
 
-export function buildMobileJournalSteps(fields: TemplateField[]): MobileJournalStep[] {
-  const steps: MobileJournalStep[] = []
+export function buildJournalSteps(fields: TemplateField[]): JournalStep[] {
+  const steps: JournalStep[] = []
   let leadingDisplayFields: TemplateField[] = []
 
   for (const field of fields) {
@@ -127,15 +127,15 @@ export function isJournalFieldComplete(
   }
 }
 
-export function advanceMobileJournalStep({
+export function advanceJournalStep({
   activeStep,
   steps,
   values,
 }: {
   activeStep: number
-  steps: MobileJournalStep[]
+  steps: JournalStep[]
   values: Record<string, FieldValue>
-}): MobileJournalStepAdvance {
+}): JournalStepAdvance {
   const currentStep = steps[activeStep]
   const answerField = currentStep?.answerField
 
@@ -289,7 +289,7 @@ export function restoreJournalDraft(
   }
 }
 
-export function MobileJournalStepPanel({
+export function JournalStepPanel({
   active,
   children,
 }: {
@@ -298,10 +298,47 @@ export function MobileJournalStepPanel({
 }) {
   return (
     <section
-      className={`${active ? 'block' : 'hidden'} space-y-4 md:block`}
+      className={`${active ? 'block' : 'hidden'} space-y-4`}
       data-active={active ? 'true' : 'false'}
     >
       {children}
     </section>
+  )
+}
+
+/**
+ * "Step 2 of 5" with a segment per step.
+ *
+ * One component for both headers -- the phone's sticky bar and the desktop
+ * card -- so the two cannot drift apart. `aria-hidden` on the segments plus
+ * the live region below it: the bar is decoration, the sentence is what a
+ * screen reader announces.
+ */
+export function JournalStepProgress({
+  activeStep,
+  stepCount,
+}: {
+  activeStep: number
+  stepCount: number
+}) {
+  const total = Math.max(stepCount, 1)
+  const current = Math.min(activeStep + 1, total)
+
+  return (
+    <>
+      <div className="mt-3 flex gap-1.5" aria-hidden="true" data-testid="journal-step-progress">
+        {Array.from({ length: total }).map((_, index) => (
+          <span
+            key={index}
+            className={`h-1.5 min-w-0 flex-1 rounded-full transition-colors ${
+              index <= activeStep ? 'bg-primary' : 'bg-muted'
+            }`}
+          />
+        ))}
+      </div>
+      <span className="sr-only" aria-live="polite">
+        Step {current} of {total}
+      </span>
+    </>
   )
 }

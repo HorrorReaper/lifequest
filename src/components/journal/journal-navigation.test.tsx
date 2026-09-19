@@ -1,20 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 
-import { MobileJournalNavigation } from './mobile-journal-navigation'
+import { JournalNavigation } from './journal-navigation'
 
 afterEach(() => {
   cleanup()
 })
 
-describe('MobileJournalNavigation', () => {
+describe('JournalNavigation', () => {
   it('navigates intermediate steps without submitting and submits once on the final step', () => {
     const onBack = vi.fn()
     const onNext = vi.fn()
     const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault())
     const view = render(
       <form onSubmit={onSubmit}>
-        <MobileJournalNavigation
+        <JournalNavigation
           activeStep={0}
           stepCount={2}
           submitting={false}
@@ -30,7 +30,7 @@ describe('MobileJournalNavigation', () => {
 
     view.rerender(
       <form onSubmit={onSubmit}>
-        <MobileJournalNavigation
+        <JournalNavigation
           activeStep={1}
           stepCount={2}
           submitting={false}
