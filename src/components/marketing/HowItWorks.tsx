@@ -36,6 +36,42 @@ const STEPS: Step[] = [
 /** The trail's shape, in the track's own pixel coordinates. */
 type Trail = { segments: string[]; width: number; height: number };
 
+/**
+ * Where `el` sits inside `ancestor`, from layout alone.
+ *
+ * Not a single offsetTop read, because offsetTop is relative to the nearest
+ * offsetParent and that is not always `ancestor`: an element carrying a CSS
+ * transform is an offsetParent to everything inside it, and Reveal puts a
+ * translate on every row still below the fold. A row's screenshot then
+ * reports its position within the row -- a few pixels -- rather than within
+ * the track, and the whole trail collapses into the top of the section.
+ * Summing the chain up to `ancestor` is right whichever elements happen to
+ * be offsetParents on the way.
+ *
+ * Still offset*, not getBoundingClientRect, for the reason it always was:
+ * these are layout positions, untouched by whatever transform the fade has
+ * on the row at the moment of measuring.
+ */
+function offsetWithin(el: HTMLElement, ancestor: HTMLElement) {
+  let x = 0;
+  let y = 0;
+  let node: HTMLElement | null = el;
+  while (node && node !== ancestor) {
+    x += node.offsetLeft;
+    y += node.offsetTop;
+    node = node.offsetParent as HTMLElement | null;
+  }
+  // The chain never reached the track: something between is fixed, or the
+  // tree is not what this expects. Fall back to the rects rather than to a
+  // number that means nothing.
+  if (node !== ancestor) {
+    const a = ancestor.getBoundingClientRect();
+    const b = el.getBoundingClientRect();
+    return { x: b.left - a.left, y: b.top - a.top };
+  }
+  return { x, y };
+}
+
 export default function HowItWorks() {
   const trackRef = useRef<HTMLDivElement>(null);
   const shotsRef = useRef<(HTMLDivElement | null)[]>([]);
@@ -53,14 +89,14 @@ export default function HowItWorks() {
       const shots = shotsRef.current.filter((el): el is HTMLDivElement => el !== null);
       if (shots.length < 2) return;
 
-      // offsetLeft/offsetTop rather than getBoundingClientRect: Reveal holds
-      // a translate on any row still below the fold, and this wants where the
-      // layout put the screenshot, not where the fade currently has it.
-      const anchors = shots.map((el) => ({
-        x: el.offsetLeft + el.offsetWidth / 2,
-        top: el.offsetTop,
-        bottom: el.offsetTop + el.offsetHeight,
-      }));
+      const anchors = shots.map((el) => {
+        const at = offsetWithin(el, track);
+        return {
+          x: at.x + el.offsetWidth / 2,
+          top: at.y,
+          bottom: at.y + el.offsetHeight,
+        };
+      });
 
       // One column: every screenshot shares a centre line, and a trail between
       // them would have to cross the copy that sits in between. Nothing to draw.
