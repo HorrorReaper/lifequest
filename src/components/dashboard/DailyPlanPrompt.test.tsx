@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { DailyPlanPrompt } from './DailyPlanPrompt'
 import { installLocalStorageStub } from '../../../test/local-storage-stub'
@@ -66,5 +66,53 @@ describe('DailyPlanPrompt', () => {
     )
 
     expect(screen.getByText('Welcome back, Alex 👋')).toBeTruthy()
+  })
+})
+
+describe('DailyPlanPrompt preview', () => {
+  it('opens regardless of state when a preview close handler is given', () => {
+    window.localStorage.setItem(`lifequest-ritual-daily_plan-dismissed-${TODAY}`, '1')
+
+    render(
+      <DailyPlanPrompt today={TODAY} planCommitted copy={copy} onPreviewClose={() => {}} />
+    )
+
+    expect(screen.getByText('Welcome back, Alex 👋')).toBeTruthy()
+  })
+
+  it('closes through the handler without remembering a dismissal', () => {
+    const onPreviewClose = vi.fn()
+
+    render(
+      <DailyPlanPrompt
+        today={TODAY}
+        planCommitted={false}
+        copy={copy}
+        onPreviewClose={onPreviewClose}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+
+    expect(onPreviewClose).toHaveBeenCalledTimes(1)
+    expect(window.localStorage.getItem(`lifequest-ritual-daily_plan-dismissed-${TODAY}`)).toBeNull()
+  })
+
+  it('does not follow the call to action out of the preview', () => {
+    const onPreviewClose = vi.fn()
+
+    render(
+      <DailyPlanPrompt
+        today={TODAY}
+        planCommitted={false}
+        copy={copy}
+        onPreviewClose={onPreviewClose}
+      />
+    )
+
+    const click = fireEvent.click(screen.getByRole('link', { name: 'Start briefing' }))
+
+    expect(click).toBe(false) // preventDefault() was called
+    expect(onPreviewClose).toHaveBeenCalledTimes(1)
   })
 })

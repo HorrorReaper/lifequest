@@ -745,3 +745,23 @@
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
+
+/* The landing page headline types itself out. Each character carries its own
+   animation-delay; the keyframe only flips visibility, so a character holds
+   its space from the first frame and the heading never reflows. */
+
+.lq-typed > span {
+  visibility: hidden;
+  animation: lq-typed-char 1ms linear forwards;
+}
+
+@keyframes lq-typed-char {
+  to { visibility: visible; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lq-typed > span {
+    visibility: visible;
+    animation: none;
+  }
+}

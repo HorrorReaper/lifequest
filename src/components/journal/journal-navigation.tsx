@@ -4,7 +4,7 @@ import { BookOpenCheck, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
-interface MobileJournalNavigationProps {
+interface JournalNavigationProps {
   activeStep: number
   stepCount: number
   submitting: boolean
@@ -12,13 +12,13 @@ interface MobileJournalNavigationProps {
   onNext: () => void
 }
 
-export function MobileJournalNavigation({
+export function JournalNavigation({
   activeStep,
   stepCount,
   submitting,
   onBack,
   onNext,
-}: MobileJournalNavigationProps) {
+}: JournalNavigationProps) {
   const isFinalStep = activeStep >= Math.max(stepCount - 1, 0)
 
   return (

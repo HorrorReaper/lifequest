@@ -4,15 +4,15 @@ import { cleanup, fireEvent, render } from '@testing-library/react'
 
 import type { FieldValue, TemplateField } from '@/lib/types'
 import {
-  advanceMobileJournalStep,
-  buildMobileJournalSteps,
+  advanceJournalStep,
+  buildJournalSteps,
   isJournalFieldComplete,
   journalDraftKey,
-  MobileJournalStepPanel,
+  JournalStepPanel,
   removeStoredJournalDraft,
   restoreJournalDraft,
   serializeJournalDraft,
-} from './mobile-journal-wizard'
+} from './journal-wizard'
 
 function field(
   id: string,
@@ -42,7 +42,7 @@ afterEach(() => {
   cleanup()
 })
 
-describe('buildMobileJournalSteps', () => {
+describe('buildJournalSteps', () => {
   it('groups display-only fields with the next answerable field', () => {
     const heading = field('heading', 'heading')
     const prompt = field('prompt', 'prompt')
@@ -50,7 +50,7 @@ describe('buildMobileJournalSteps', () => {
     const divider = field('divider', 'divider')
     const mood = field('mood', 'mood')
 
-    const steps = buildMobileJournalSteps([heading, prompt, answer, divider, mood])
+    const steps = buildJournalSteps([heading, prompt, answer, divider, mood])
 
     expect(steps).toHaveLength(2)
     expect(steps[0].fields.map((item) => item.id)).toEqual([
@@ -71,7 +71,7 @@ describe('buildMobileJournalSteps', () => {
   })
 
   it('keeps trailing display content mounted with the final answer', () => {
-    const steps = buildMobileJournalSteps([
+    const steps = buildJournalSteps([
       field('answer', 'text'),
       field('trailing-divider', 'divider'),
     ])
@@ -84,11 +84,11 @@ describe('buildMobileJournalSteps', () => {
   })
 })
 
-describe('mobile journal validation and navigation', () => {
+describe('journal step validation and navigation', () => {
   it('blocks a required unanswered step and advances once it is complete', () => {
     const required = field('required-answer', 'text', { is_required: true })
     const optional = field('optional-answer', 'textarea')
-    const steps = buildMobileJournalSteps([required, optional])
+    const steps = buildJournalSteps([required, optional])
     const emptyValue: FieldValue = {
       field_id: required.id,
       value_text: '',
@@ -96,7 +96,7 @@ describe('mobile journal validation and navigation', () => {
 
     expect(isJournalFieldComplete(required, emptyValue)).toBe(false)
     expect(
-      advanceMobileJournalStep({
+      advanceJournalStep({
         activeStep: 0,
         steps,
         values: { [required.id]: emptyValue },
@@ -106,7 +106,7 @@ describe('mobile journal validation and navigation', () => {
     const completedValue = { ...emptyValue, value_text: 'A useful reflection' }
     expect(isJournalFieldComplete(required, completedValue)).toBe(true)
     expect(
-      advanceMobileJournalStep({
+      advanceJournalStep({
         activeStep: 0,
         steps,
         values: { [required.id]: completedValue },
@@ -115,13 +115,13 @@ describe('mobile journal validation and navigation', () => {
   })
 
   it('allows an optional prompt to be skipped', () => {
-    const steps = buildMobileJournalSteps([
+    const steps = buildJournalSteps([
       field('optional', 'textarea'),
       field('next', 'mood'),
     ])
 
     expect(
-      advanceMobileJournalStep({
+      advanceJournalStep({
         activeStep: 0,
         steps,
         values: {},
@@ -235,7 +235,7 @@ describe('journal drafts', () => {
   })
 })
 
-describe('MobileJournalStepPanel', () => {
+describe('JournalStepPanel', () => {
   function StatefulAnswer() {
     const [answer, setAnswer] = useState('')
 
@@ -252,21 +252,34 @@ describe('MobileJournalStepPanel', () => {
 
   it('keeps child-local state mounted while the panel becomes inactive', () => {
     const view = render(
-      <MobileJournalStepPanel active>
+      <JournalStepPanel active>
         <StatefulAnswer />
-      </MobileJournalStepPanel>
+      </JournalStepPanel>
     )
     const input = view.getByLabelText('Answer') as HTMLInputElement
     fireEvent.change(input, { target: { value: 'Still here' } })
 
     view.rerender(
-      <MobileJournalStepPanel active={false}>
+      <JournalStepPanel active={false}>
         <StatefulAnswer />
-      </MobileJournalStepPanel>
+      </JournalStepPanel>
     )
 
     const mountedInput = view.container.querySelector('input') as HTMLInputElement
     expect(mountedInput.value).toBe('Still here')
     expect(view.container.firstElementChild?.className).toContain('hidden')
+  })
+
+  it('hides an inactive step at every width, not only on a phone', () => {
+    // The visibility is a Tailwind class and jsdom loads no CSS, so the
+    // class list is the only place the rule can be read back. A `md:`
+    // override here would put every step back on one page at desktop width.
+    const view = render(
+      <JournalStepPanel active={false}>
+        <p>Answer</p>
+      </JournalStepPanel>
+    )
+
+    expect(view.container.firstElementChild?.className).not.toMatch(/md:/)
   })
 })

@@ -10,17 +10,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-interface MobileJournalDiscardDialogProps {
+interface JournalDiscardDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onDiscard: () => void
 }
 
-export function MobileJournalDiscardDialog({
+export function JournalDiscardDialog({
   open,
   onOpenChange,
   onDiscard,
-}: MobileJournalDiscardDialogProps) {
+}: JournalDiscardDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false}>

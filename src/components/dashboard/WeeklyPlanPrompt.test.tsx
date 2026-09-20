@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { WeeklyPlanPrompt } from './WeeklyPlanPrompt'
 import { installLocalStorageStub } from '../../../test/local-storage-stub'
@@ -88,5 +88,30 @@ describe('WeeklyPlanPrompt', () => {
     render(<WeeklyPlanPrompt {...defaultProps} />)
 
     expect(screen.getByText('New week, Alex 🗓️')).toBeTruthy()
+  })
+})
+
+describe('WeeklyPlanPrompt preview', () => {
+  it('opens regardless of state when a preview close handler is given', () => {
+    window.localStorage.setItem(`lifequest-ritual-weekly_plan-dismissed-${WEEK_START}`, '1')
+
+    render(
+      <WeeklyPlanPrompt {...defaultProps} isWindow={false} planDone onPreviewClose={() => {}} />
+    )
+
+    expect(screen.getByText('New week, Alex 🗓️')).toBeTruthy()
+  })
+
+  it('closes through the handler without remembering a dismissal', () => {
+    const onPreviewClose = vi.fn()
+
+    render(<WeeklyPlanPrompt {...defaultProps} onPreviewClose={onPreviewClose} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+
+    expect(onPreviewClose).toHaveBeenCalledTimes(1)
+    expect(
+      window.localStorage.getItem(`lifequest-ritual-weekly_plan-dismissed-${WEEK_START}`)
+    ).toBeNull()
   })
 })

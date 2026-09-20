@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { Check, RefreshCw } from "lucide-react";
+import { Check, Clock, Compass, RefreshCw, Target, Unlock } from "lucide-react";
+import { INSIGHT_TYPES } from "@/lib/insights";
+import { metTarget } from "@/lib/metric-targets";
 import {
   REFLECTION_PROMPTS,
   randomReflectionPrompt,
@@ -278,7 +280,6 @@ export function DashboardPanel() {
               >
                 Save reflection
               </button>
-              <span className="text-[0.78rem] text-[#6f6b63]">Pays {REFLECTION_XP} XP</span>
             </div>
           </div>
         )}
@@ -532,6 +533,271 @@ export function ReflectionPanel() {
       <p className="mt-2.5 text-center text-[0.78rem] text-[#6f6b63]">
         {REFLECTION_PROMPTS.length} questions, one a day, in a fixed rotation.
       </p>
+    </div>
+  );
+}
+
+// -- The tool library -----------------------------------------------------
+//
+// The four tools are the ones in TOOL_REGISTRY, transcribed rather than
+// imported: that module pulls all four tool components in with it, and none
+// of them belong in this page's bundle. Every title and one-liner below is
+// the registry's own wording -- rename a tool there and it has to be renamed
+// here too.
+const TOOLS = [
+  {
+    id: "vision",
+    title: "Vision",
+    icon: Compass,
+    description: "Write down where you are headed, and revisit how it has changed.",
+  },
+  {
+    id: "limiting-beliefs",
+    title: "Limiting Beliefs",
+    icon: Unlock,
+    description: "Name a belief that's holding you back, challenge it, and write a better one.",
+  },
+  {
+    id: "time-audit",
+    title: "Time Audit",
+    icon: Clock,
+    description: "Log a day in 15-minute blocks and see where the time actually goes.",
+  },
+  {
+    id: "goal-breakdown",
+    title: "Goal Breakdown",
+    icon: Target,
+    description: "Take a life goal apart into sub-goals and the actions that get you there.",
+  },
+];
+
+/** The library, with the four tools the app ships and their own wording. */
+export function ToolsPanel() {
+  const [activeId, setActiveId] = useState(TOOLS[1].id);
+  const active = TOOLS.find((tool) => tool.id === activeId) ?? TOOLS[0];
+  const panelId = useId();
+
+  return (
+    <div className={CARD}>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="[font-family:var(--font-nightfall-display)] text-lg font-extrabold text-[#1b1a17]">
+          Tools
+        </p>
+        <span className="text-[0.82rem] text-[#6f6b63]">{TOOLS.length} in the library</span>
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Tools"
+        aria-orientation="vertical"
+        className="mt-4 flex flex-col gap-2"
+      >
+        {TOOLS.map((tool) => {
+          const selected = tool.id === active.id;
+          const Icon = tool.icon;
+          return (
+            <button
+              key={tool.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={panelId}
+              onClick={() => setActiveId(tool.id)}
+              // The border colour lives in one branch or the other rather than
+              // in a shared class plus an override: two border-colour utilities
+              // on one element is a fight settled by stylesheet order, not by
+              // which one is written last.
+              className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d1870b] ${
+                selected
+                  ? "border-[#d9d2c4] bg-[#fdf4e2]"
+                  : "border-[#f3efe6] bg-white hover:border-[#eae5da]"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`grid size-8 shrink-0 place-items-center rounded-lg ${
+                  selected ? "bg-white text-[#9a6200]" : "bg-[#f3efe6] text-[#6f6b63]"
+                }`}
+              >
+                <Icon className="size-4" />
+              </span>
+              <span className="text-[0.95rem] font-semibold text-[#1b1a17]">{tool.title}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <p
+        id={panelId}
+        role="tabpanel"
+        key={active.id}
+        className="mt-3 min-h-[3.2em] rounded-xl border border-dashed border-[#eae5da] px-3.5 py-3 text-[0.88rem] leading-relaxed text-[#6f6b63] motion-safe:animate-[lq-fade_260ms_ease-out]"
+      >
+        {active.description}
+      </p>
+    </div>
+  );
+}
+
+// -- Metrics and learnings ------------------------------------------------
+//
+// A number field with "Track as metric" turned on becomes one of these. Which
+// bars count as met is metTarget()'s decision rather than this file's, so the
+// green here is the green a visitor would get for the same week.
+const SLEEP_TARGET = 7.5;
+const SLEEP_UNIT = "h";
+/** The chart's ceiling. A little above the best night, so the bar has room. */
+const SLEEP_SCALE = 9;
+const SLEEP = [
+  { day: "M", value: 6.5 },
+  { day: "T", value: 7 },
+  { day: "W", value: 8 },
+  { day: "T", value: 7.5 },
+  { day: "F", value: 6 },
+  { day: "S", value: 8.5 },
+  { day: "S", value: 7.5 },
+];
+
+/** One tracked number against its target, and the marks left on the entries. */
+export function MetricsPanel() {
+  const met = SLEEP.filter((night) => metTarget(night.value, SLEEP_TARGET, "at_least")).length;
+
+  return (
+    <div className={CARD}>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="[font-family:var(--font-nightfall-display)] text-lg font-extrabold text-[#1b1a17]">
+          Hours of sleep
+        </p>
+        <span className={PILL}>
+          at least {SLEEP_TARGET}
+          {SLEEP_UNIT}
+        </span>
+      </div>
+
+      <div className="relative mt-4 h-28">
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 border-t border-dashed border-[#d9d2c4]"
+          style={{ bottom: `${(SLEEP_TARGET / SLEEP_SCALE) * 100}%` }}
+        />
+        <div className="flex h-full items-end gap-1.5">
+          {SLEEP.map((night, index) => (
+            <div key={index} className="flex h-full flex-1 flex-col justify-end">
+              <div
+                className={`rounded-t-md ${
+                  metTarget(night.value, SLEEP_TARGET, "at_least")
+                    ? "bg-[#3f7d5b]"
+                    : "bg-[#eae5da]"
+                }`}
+                style={{ height: `${(night.value / SLEEP_SCALE) * 100}%` }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-1.5 flex gap-1.5">
+        {SLEEP.map((night, index) => (
+          <span key={index} className="flex-1 text-center text-[0.7rem] font-bold text-[#6f6b63]">
+            {night.day}
+          </span>
+        ))}
+      </div>
+      <p className="mt-2.5 text-[0.8rem] text-[#6f6b63]">
+        {met} of {SLEEP.length} nights on target this week.
+      </p>
+
+      <div className="mt-4 border-t border-[#f3efe6] pt-4">
+        <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[#9a6200]">
+          Marked while reflecting
+        </p>
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {INSIGHT_TYPES.map((type) => (
+            <span
+              key={type.value}
+              className="rounded-full bg-[#f3efe6] px-2.5 py-1 text-[0.76rem] font-bold text-[#6f6b63]"
+            >
+              {type.label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -- Tasks and the day planner --------------------------------------------
+//
+// The window is the planner's own default day, 08:00 to 18:00 (the DEFAULT
+// metadata in src/lib/today-plan.ts), and a finished task pays the same 5 XP
+// the dashboard panel at the top of this file pays for one.
+const DAY_START = "08:00";
+const DAY_END = "18:00";
+const TASK_XP = 5;
+
+const BLOCKS = [
+  { time: "09:00", title: "Deep work — the pitch deck" },
+  { time: "11:30", title: "Inbox and admin" },
+  { time: "14:00", title: "Move for 20 minutes" },
+];
+
+const TASKS: Array<{ title: string; priority: "high" | "medium" | "low" }> = [
+  { title: "Send the project update", priority: "high" },
+  { title: "Book the dentist", priority: "low" },
+];
+
+const PRIORITY_CLASS: Record<string, string> = {
+  high: "bg-[#fdf4e2] text-[#9a6200]",
+  medium: "bg-[#f3efe6] text-[#6f6b63]",
+  low: "bg-[#f3efe6] text-[#6f6b63]",
+};
+
+/** Tomorrow, blocked out, with the tasks still waiting for a slot. */
+export function PlannerPanel() {
+  return (
+    <div className={CARD}>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="[font-family:var(--font-nightfall-display)] text-lg font-extrabold text-[#1b1a17]">
+          Tomorrow
+        </p>
+        <span className="text-[0.82rem] tabular-nums text-[#6f6b63]">
+          {DAY_START} – {DAY_END}
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2">
+        {BLOCKS.map((block) => (
+          <div key={block.time} className="flex items-center gap-3">
+            <span className="w-12 shrink-0 text-[0.78rem] font-bold tabular-nums text-[#6f6b63]">
+              {block.time}
+            </span>
+            <span className="min-w-0 flex-1 rounded-xl border-l-[3px] border-[#d1870b] bg-[#faf7f0] px-3 py-2.5 text-[0.9rem] font-semibold text-[#1b1a17]">
+              {block.title}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 border-t border-[#f3efe6] pt-4">
+        <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-[#9a6200]">
+          Waiting for a slot
+        </p>
+        <div className="mt-2.5 flex flex-col gap-2">
+          {TASKS.map((task) => (
+            <div key={task.title} className={ROW}>
+              <Tick done={false} />
+              <span className="min-w-0 flex-1 text-[0.95rem] font-semibold text-[#1b1a17]">
+                {task.title}
+              </span>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[0.72rem] font-bold ${PRIORITY_CLASS[task.priority]}`}
+              >
+                {task.priority}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
