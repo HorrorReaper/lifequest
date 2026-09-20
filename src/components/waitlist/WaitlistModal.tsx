@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ArrowRight, Check } from "lucide-react";
-import { createClient } from "@/lib/supabase/client"; // adjust if your path differs
-import type { Database } from '@/lib/supabase/database.types'
-import { supabaseInsert } from '@/lib/supabase/helpers'
+import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   open: boolean;
@@ -23,6 +21,9 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
   const [interestedPro, setInterestedPro] = useState(false);
   const [earlyAccess, setEarlyAccess] = useState(false);
   const [newsletter, setNewsletter] = useState(false);
+  // Left empty by people, filled in by bots. The route drops anything that
+  // arrives with it set.
+  const [hp, setHp] = useState("");
   const supabase = createClient();
 
   useEffect(() => {
@@ -52,24 +53,33 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
     }
 
     setSubmitting(true);
-    const { error } = await supabaseInsert(supabase, 'waitlist_signups', {
-      email: trimmed,
-      name: name.trim() || null,
-      source,
-      interested_pro: interestedPro,
-      early_access: earlyAccess,
-      newsletter: newsletter,
-    } as any)
+    // Posted at our own route rather than at the table: it is the only side
+    // that can hold the rate limit, read the honeypot, and send the
+    // confirmation mail.
+    let ok = false;
+    try {
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: trimmed,
+          name: name.trim() || null,
+          source,
+          interested_pro: interestedPro,
+          early_access: earlyAccess,
+          newsletter,
+          hp,
+        }),
+      });
+      const data = await response.json().catch(() => null);
+      ok = response.ok && data?.ok === true;
+      if (!ok) setError(data?.error ?? "Something went wrong. Please try again.");
+    } catch {
+      setError("Network error. Please try again.");
+    }
     setSubmitting(false);
 
-    if (error) {
-      setError(
-        error.code === "23505"
-          ? "You're already on the waitlist 🎉"
-          : "Something went wrong. Please try again."
-      );
-      return;
-    }
+    if (!ok) return;
 
     setSuccess(true);
     setEmail("");
@@ -77,6 +87,7 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
     setInterestedPro(false);
     setEarlyAccess(false);
     setNewsletter(false);
+    setHp("");
     setCount((c) => (c == null ? c : c + 1));
   }
 
@@ -145,6 +156,19 @@ export default function WaitlistModal({ open, onClose, source = "marketing" }: P
                   </p>
 
                   <form onSubmit={submit} className="mt-6 space-y-3">
+                    {/* Out of the layout, out of the tab order and hidden from
+                        screen readers, so only something filling the form in
+                        blind ever puts anything in it. */}
+                    <input
+                      type="text"
+                      name="company"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      aria-hidden="true"
+                      value={hp}
+                      onChange={(e) => setHp(e.target.value)}
+                      className="pointer-events-none absolute h-0 w-0 opacity-0"
+                    />
                     <input
                       className="w-full rounded-lg border border-[#eae5da] bg-[#fdfcf9] px-4 py-3 text-sm text-[#1b1a17] placeholder:text-[#8d887f] focus:outline-none focus:ring-2 focus:ring-[#d1870b]/35 focus:border-[#d1870b] transition"
                       placeholder="Your name (optional)"

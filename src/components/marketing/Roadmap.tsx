@@ -17,12 +17,12 @@ const ITEMS: RoadmapItem[] = [
   },
   {
     title: "Insights and metrics",
-    desc: "Mark any answer as a learning and keep it in a library you can search. Turn any number into a chart, and give it a target you can check at a glance.",
+    desc: "Mark any answer as a learning and keep it in a library you can search through. Turn any number into a chart, and give it a target you can check at a glance.",
     status: "Shipped",
   },
   {
-    title: "Depth over breadth",
-    desc: "Fewer new features, better ones. Sharpening what is already here before anything else gets added.",
+    title: "Depth over breadth + Challenges",
+    desc: "Less new features, but better ones. Adding challenges to the daily loop.",
     status: "In progress",
   },
   {
@@ -33,6 +33,11 @@ const ITEMS: RoadmapItem[] = [
   {
     title: "Mobile apps",
     desc: "iOS and Android, so the two minutes happen wherever you are.",
+    status: "Planned",
+  },
+  {
+    title: "The social layer",
+    desc: "A way to share your progress and learnings with friends, and to support each other.",
     status: "Planned",
   },
 ];
@@ -47,13 +52,10 @@ export default function Roadmap() {
   return (
     <section id="roadmap" className="border-t border-[#f3efe6] px-5 py-16 sm:py-[5.75rem]">
       <div className="mx-auto max-w-[1040px]">
-        <Reveal className="max-w-[720px]">
-          <h2 className="[font-family:var(--font-nightfall-display)] text-[clamp(1.8rem,3.8vw,2.4rem)] font-extrabold leading-tight">
+        <Reveal className="mx-auto max-w-[720px] text-center">
+          <h2 className="[font-family:var(--font-nightfall-display)] text-[clamp(2.1rem,4.4vw,2.8rem)] font-extrabold leading-tight">
             What I am building next
           </h2>
-          <p className="mt-3 text-[#6f6b63]">
-            Shipped is marked shipped. Everything else is a plan, not a promise.
-          </p>
         </Reveal>
 
         <Reveal delay={60}>
