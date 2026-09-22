@@ -8,11 +8,12 @@ import {
 } from '@/lib/dashboard-sections'
 
 describe('DASHBOARD_SECTIONS', () => {
-  it('lists the seven sections, with routines marked admin-only', () => {
+  it('lists the eight sections, with routines marked admin-only', () => {
     expect(DASHBOARD_SECTIONS.map((section) => section.id)).toEqual([
       'today_plan',
       'habits',
       'tasks',
+      'goals',
       'scorecard',
       'metric',
       'reflection',
@@ -80,18 +81,23 @@ describe('sectionsFor', () => {
   it('hides the admin-only section from everyone else', () => {
     const ids = sectionsFor({ isAdmin: false }).map((section) => section.id)
     expect(ids).not.toContain('routines')
-    expect(ids).toHaveLength(7)
+    expect(ids).toHaveLength(8)
   })
 
   it('gives an admin the full list', () => {
-    expect(sectionsFor({ isAdmin: true })).toHaveLength(8)
+    expect(sectionsFor({ isAdmin: true })).toHaveLength(9)
+  })
+
+  it('offers goals to everyone, not only admins', () => {
+    const ids = sectionsFor({ isAdmin: false }).map((section) => section.id)
+    expect(ids).toContain('goals')
   })
 })
 
 describe('visibleSectionCount', () => {
   it('counts everything when nothing has been turned off', () => {
-    expect(visibleSectionCount({}, { isAdmin: false })).toBe(7)
-    expect(visibleSectionCount({}, { isAdmin: true })).toBe(8)
+    expect(visibleSectionCount({}, { isAdmin: false })).toBe(8)
+    expect(visibleSectionCount({}, { isAdmin: true })).toBe(9)
   })
 
   it('does not count a section the user could not see anyway', () => {
@@ -101,6 +107,7 @@ describe('visibleSectionCount', () => {
       today_plan: false,
       habits: false,
       tasks: false,
+      goals: false,
       scorecard: false,
       metric: false,
       reflection: false,

@@ -33,6 +33,11 @@ export const DASHBOARD_SECTIONS: DashboardSectionDef[] = [
     description: 'What is due today, and what is already overdue.',
   },
   {
+    id: 'goals',
+    label: 'Goals',
+    description: 'The longer-term goals your days are working towards.',
+  },
+  {
     id: 'scorecard',
     label: 'Scorecard',
     description: 'How your latest numbers stand against the targets you set.',
