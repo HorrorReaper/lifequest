@@ -42,11 +42,11 @@ describe("LandingPage is_MVP branches", () => {
     vi.stubEnv("NEXT_PUBLIC_IS_MVP", "true");
     render(<LandingPage />);
 
-    // The page repeats one CTA — nav, hero, pricing, closing. Asserting over
+    // The page repeats one CTA — nav, hero, pricing. Asserting over
     // all of them rather than by section means moving a section around cannot
     // quietly leave one of them pointing nowhere.
     const ctas = screen.getAllByRole("link", { name: /get started/i });
-    expect(ctas.length).toBeGreaterThanOrEqual(4);
+    expect(ctas.length).toBeGreaterThanOrEqual(3);
     for (const cta of ctas) {
       expect(cta.getAttribute("href")).toBe("/login");
     }
@@ -64,7 +64,7 @@ describe("LandingPage is_MVP branches", () => {
     render(<LandingPage />);
 
     const waitlistButtons = screen.getAllByRole("button", { name: /join the waitlist/i });
-    expect(waitlistButtons.length).toBeGreaterThanOrEqual(4);
+    expect(waitlistButtons.length).toBeGreaterThanOrEqual(3);
     for (const button of waitlistButtons) {
       expect(button.tagName).toBe("BUTTON");
       expect((button as HTMLButtonElement).disabled).toBe(false);
@@ -105,7 +105,7 @@ describe("LandingPage hero and call to action", () => {
     vi.stubEnv("NEXT_PUBLIC_IS_MVP", "true");
     render(<LandingPage />);
     const ctas = screen.getAllByRole("link", { name: /get started/i });
-    expect(ctas.length).toBeGreaterThanOrEqual(4);
+    expect(ctas.length).toBeGreaterThanOrEqual(3);
     for (const cta of ctas) {
       expect(cta.className).toContain("bg-[#d1870b]");
       expect(cta.className).not.toContain("text-white");
