@@ -2,14 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, FolderKanban, LayoutDashboard, ListTodo } from 'lucide-react'
+import { CalendarDays, Clock3, FolderKanban, LayoutDashboard, ListTodo } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const sections = [
   { href: '/admin/work', label: 'Today', icon: LayoutDashboard },
   { href: '/admin/work/projects', label: 'Projects', icon: FolderKanban },
   { href: '/admin/work/tasks', label: 'Tasks', icon: ListTodo },
-  { href: '/admin/work/plan', label: 'Daily Planner', icon: CalendarDays },
+  { href: '/admin/work/calendar', label: 'Calendar', icon: CalendarDays },
+  { href: '/admin/work/plan', label: 'Daily Planner', icon: Clock3 },
 ]
 
 export function WorkNavigation() {

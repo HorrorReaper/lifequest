@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, Clock3, FolderKanban, NotebookPen } from 'lucide-react'
+import { ArrowRight, CalendarDays, Clock3, FolderKanban, NotebookPen } from 'lucide-react'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { TodayPlanSection } from '@/components/dashboard/TodayPlanSection'
 import { TaskList } from '@/components/tasks/TaskList'
@@ -31,6 +31,10 @@ export default async function WorkPage() {
           </section>
         </div>
         <aside className="space-y-4" aria-label="Work shortcuts">
+          <Link href="/admin/work/calendar" className="block rounded-3xl border bg-card p-6 transition-colors hover:bg-muted/50">
+            <CalendarDays className="size-5 text-primary" /><h2 className="mt-4 font-semibold">See your calendar</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Browse planned time and upcoming task deadlines.</p>
+          </Link>
           <Link href="/admin/productivity" className="block rounded-3xl bg-primary p-6 text-primary-foreground transition-opacity hover:opacity-90">
             <Clock3 className="size-6" /><h2 className="mt-5 text-xl font-semibold">Make room for focus</h2>
             <p className="mt-2 text-sm opacity-85">Choose your priorities, start a session and see your focused time.</p>

@@ -8,9 +8,10 @@ Stand: 23.09.2026 · Status: Erster Integrationsabschnitt implementiert; weitere
 - Gemeinsamer Daily Planner unter `/plan` und `/admin/work/plan`, mit identischen Daten, Entwürfen und Speicherfunktionen.
 - Bestehende Projekte unter `/admin/work/projects`; Projektfilter und projektbezogene Neuanlage über den vorhandenen Task-Manager.
 - Verlinkung auf bestehende Fokus- und Knowledge-Bereiche; bisherige Routen bleiben erhalten.
+- Admin-Kalender mit Monats- und Wochenansicht über vorhandene Tagespläne und Task-Fälligkeiten. Der gewählte Tag zeigt Details; für heute öffnet sich der bestehende Daily Planner. Die Kalenderkomponente ist unabhängig vom Adminzugriff gebaut, damit sie später auch normalen Nutzern dienen kann.
 - Keine Datenbankmigration und kein separater Aufgaben-/Planungsbestand. Bestehende Tasks behalten ihre bisherige Sichtbarkeit beim jeweiligen Nutzer.
 
-Dies ist der erste Durchstich aus den Phasen 1–4, keine vollständige Abnahme dieser Phasen. Workspaces, zusätzliche private Datenscopes, Inbox, Whiteboards, Karten, Kalenderintegrationen, Import und Extension-Synchronisierung bleiben offen. Die angemeldete Oberfläche muss zusätzlich mit einem Admin-Konto visuell geprüft werden.
+Dies ist ein erster Durchstich aus den Phasen 1–4, keine vollständige Abnahme dieser Phasen. Workspaces, zusätzliche private Datenscopes, Inbox, Whiteboards, Karten, externe Kalenderintegrationen, Import und Extension-Synchronisierung bleiben offen. Die angemeldete Oberfläche muss zusätzlich mit einem Admin-Konto visuell geprüft werden.
 
 ## 1. Ziel und Umfang
 
