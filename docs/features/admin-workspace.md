@@ -48,6 +48,7 @@ Work is the shared entry point for the existing work tools. Its first release ad
 - `/admin/work/tasks`: the same `TaskList`/`TaskManager` as `/tasks`, optionally filtered by `?project=<id>`. New tasks inherit the selected project. Completing tasks in this admin surface does not award task XP.
 - `/admin/work/plan`: the same server-loaded `TodayPlanScreen` and `TodayPlanner` as `/plan`, embedded in the admin shell. Saving or closing returns to Work. The same draft key and `upsertDayPlan` persist the same plan.
 - `/admin/work/projects`: the existing `ProjectsHub`, with links to manage the selected project's tasks and open the Daily Planner.
+- `/admin/work/calendar`: a reusable month/week calendar over existing `day_plans.blocks` and task due dates. It shows selected-day details and opens the existing Daily Planner for today. The view does not create another plan record or edit future days.
 
 There are no new tables, separate task records or separate Work planning blocks.
 Tasks retain their existing ownership and visibility, including visibility in the
@@ -56,7 +57,7 @@ classification. New private-only data remains a later phase requiring explicit p
 
 Existing Productivity, Projects, Knowledge and public Tasks/Plan routes remain
 available. Focus and Knowledge open their existing admin screens. Extension capture,
-workspaces, whiteboards, calendar sync and import are not part of this first release.
+workspaces, whiteboards, external calendar sync and import are not part of this release.
 
 Work checks server-side admin access, including preview-as-user mode, before loading
 data. Profile timezone controls its day and timeline clock. Failed planner reads
