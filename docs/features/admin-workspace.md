@@ -29,6 +29,7 @@ The admin shell groups work into:
 
 | Section | Route | Purpose |
 | --- | --- | --- |
+| Work | `/admin/work` | Today, existing Tasks and Daily Planner, project boards and links to focus/Knowledge |
 | Productivity | `/admin/productivity` | Tasks, priorities, focus, habits, goals, routines, plan |
 | Training | `/admin/workouts` | Exercise, routine, workout, history, analytics |
 | Nutrition | `/admin/nutrition` | Food diary and food system |
@@ -38,6 +39,28 @@ The admin shell groups work into:
 | Tools | `/admin/tools` | Development/test controls |
 
 On desktop this is a sidebar. On mobile it becomes a compact horizontal navigation pattern.
+
+## Work
+
+Work is the shared entry point for the existing work tools. Its first release adds:
+
+- `/admin/work`: today's existing `day_plans` blocks and a compact view of existing tasks.
+- `/admin/work/tasks`: the same `TaskList`/`TaskManager` as `/tasks`, optionally filtered by `?project=<id>`. New tasks inherit the selected project. Completing tasks in this admin surface does not award task XP.
+- `/admin/work/plan`: the same server-loaded `TodayPlanScreen` and `TodayPlanner` as `/plan`, embedded in the admin shell. Saving or closing returns to Work. The same draft key and `upsertDayPlan` persist the same plan.
+- `/admin/work/projects`: the existing `ProjectsHub`, with links to manage the selected project's tasks and open the Daily Planner.
+
+There are no new tables, separate task records or separate Work planning blocks.
+Tasks retain their existing ownership and visibility, including visibility in the
+same user's public Tasks page. Work is an admin entry point, not a new private-data
+classification. New private-only data remains a later phase requiring explicit policies.
+
+Existing Productivity, Projects, Knowledge and public Tasks/Plan routes remain
+available. Focus and Knowledge open their existing admin screens. Extension capture,
+workspaces, whiteboards, calendar sync and import are not part of this first release.
+
+Work checks server-side admin access, including preview-as-user mode, before loading
+data. Profile timezone controls its day and timeline clock. Failed planner reads
+are shown as errors rather than offered as an empty plan that could replace saved work.
 
 ## Productivity Hub
 

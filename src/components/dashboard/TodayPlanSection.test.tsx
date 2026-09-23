@@ -39,6 +39,14 @@ afterEach(() => {
 })
 
 describe('TodayPlanSection', () => {
+  it('keeps planning links inside Work when embedded there', () => {
+    const { rerender } = render(<TodayPlanSection blocks={[]} nowMinutes={MIDDAY} plannerHref="/admin/work/plan" />)
+    expect(screen.getByRole('link', { name: /plan my day/i }).getAttribute('href')).toBe('/admin/work/plan')
+    rerender(<TodayPlanSection blocks={[block()]} nowMinutes={MIDDAY} plannerHref="/admin/work/plan" />)
+    expect(screen.getByRole('link', { name: /add block/i }).getAttribute('href')).toBe('/admin/work/plan?step=timeline')
+    expect(screen.getByRole('link', { name: /open planner/i }).getAttribute('href')).toBe('/admin/work/plan')
+  })
+
   it('leads with the block happening right now', () => {
     render(<TodayPlanSection blocks={day()} nowMinutes={MIDDAY} />)
 

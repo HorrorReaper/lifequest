@@ -122,4 +122,30 @@ describe('TaskList compact mode', () => {
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(mocks.toggleTask).toHaveBeenCalledTimes(2))
   })
+
+  it('uses the shared task mutation in Work without awarding admin task XP', async () => {
+    const user = userEvent.setup()
+    render(<TaskList userId="user-1" today="2026-07-25" projectId="project-1" awardCompletionXp={false} />)
+    await user.click(await screen.findByRole('checkbox', { name: 'Complete Review dashboard' }))
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalled())
+    expect(mocks.fetchTasks).toHaveBeenCalledWith(expect.anything(), 'user-1', expect.objectContaining({ projectId: 'project-1' }))
+    expect(mocks.toggleTask).toHaveBeenCalledWith(expect.anything(), 'task-1', true)
+    expect(mocks.awardTaskCompletionXp).not.toHaveBeenCalled()
+  })
+
+  it('still awards task XP from the existing public task manager', async () => {
+    const user = userEvent.setup()
+    render(<TaskList userId="user-1" today="2026-07-25" />)
+    await user.click(await screen.findByRole('checkbox', { name: 'Complete Review dashboard' }))
+    await waitFor(() => expect(mocks.awardTaskCompletionXp).toHaveBeenCalled())
+  })
+
+  it('creates tasks in the selected project using the existing editor', async () => {
+    const user = userEvent.setup()
+    mocks.createTask.mockResolvedValue({ ...openTask, id: 'task-2' })
+    render(<TaskList userId="user-1" today="2026-07-25" projectId="project-1" initiallyOpen awardCompletionXp={false} />)
+    await user.type(screen.getByLabelText('Task'), 'Project next step')
+    await user.click(screen.getByRole('button', { name: /create task/i }))
+    await waitFor(() => expect(mocks.createTask).toHaveBeenCalledWith(expect.anything(), 'user-1', expect.objectContaining({ title: 'Project next step', project_id: 'project-1' })))
+  })
 })
