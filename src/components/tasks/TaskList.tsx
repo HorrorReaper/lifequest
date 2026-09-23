@@ -14,6 +14,10 @@ export interface TaskListProps {
   onlyOpen?: boolean
   /** Open the add-task form when the widget mounts */
   initiallyOpen?: boolean
+  /** Filter the existing task collection; new tasks inherit this project. */
+  projectId?: string
+  /** Admin work does not award task XP. Defaults to the public Tasks behavior. */
+  awardCompletionXp?: boolean
 }
 
 /**

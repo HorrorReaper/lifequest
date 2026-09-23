@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, BellRing, BookOpenText, Dumbbell, FlaskConical, FolderKanban, GraduationCap, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
+import { ArrowLeft, BellRing, BookOpenText, BriefcaseBusiness, Dumbbell, FlaskConical, FolderKanban, GraduationCap, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const sections = [
+  { href: '/admin/work', label: 'Work', icon: BriefcaseBusiness },
   { href: '/admin/productivity', label: 'Productivity', icon: LayoutDashboard },
   { href: '/admin/rituals', label: 'Rituals', icon: BellRing },
   { href: '/admin/workouts', label: 'Training', icon: Dumbbell },
@@ -47,7 +48,7 @@ export function AdminShell({ children, trusted, userCount }: { children: React.R
         </div>
         <nav className="space-y-1" aria-label="Admin workspace">
           {sections.map(({ href, label, icon: Icon }) => {
-            const active = pathname.startsWith(href)
+            const active = pathname === href || pathname.startsWith(`${href}/`)
             return <Link key={href} href={href} className={cn('flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all', active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}><Icon className="size-4" />{label}</Link>
           })}
         </nav>
@@ -58,7 +59,7 @@ export function AdminShell({ children, trusted, userCount }: { children: React.R
         <header className="sticky top-0 z-30 border-b bg-background/92 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur lg:hidden">
           <div className="mb-2 flex items-center justify-between px-1"><Link href="/dashboard" className="grid size-10 place-items-center rounded-xl bg-muted" aria-label="Back to dashboard"><ArrowLeft className="size-4" /></Link><p className="text-sm font-semibold">LifeQuest Labs</p><div className="flex items-center gap-1 rounded-full bg-muted px-3 py-1 font-mono text-sm tabular-nums"><Users className="size-3.5 text-primary" />{userCount ?? '-'}</div></div>
           <nav className="flex overflow-x-auto" aria-label="Admin workspace">
-            {sections.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={cn('flex min-w-[5.5rem] flex-1 flex-col items-center gap-1 border-b-2 px-3 py-2 text-xs transition-colors', pathname.startsWith(href) ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground')}><Icon className="size-4" />{label}</Link>)}
+            {sections.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={cn('flex min-w-[5.5rem] flex-1 flex-col items-center gap-1 border-b-2 px-3 py-2 text-xs transition-colors', pathname === href || pathname.startsWith(`${href}/`) ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground')}><Icon className="size-4" />{label}</Link>)}
           </nav>
         </header>
         {!trusted && <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">The route allowlist granted access, but Supabase still needs <code>app_metadata.role = admin</code>. Tracker writes remain blocked until you assign the role and sign in again.</div>}

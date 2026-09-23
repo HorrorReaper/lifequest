@@ -119,6 +119,9 @@ interface TodayPlannerProps {
    * this exists.
    */
   startAt?: PlannerEntryPoint;
+  /** Embed the same planner inside Work without a second main landmark. */
+  embedded?: boolean;
+  returnHref?: string;
 }
 
 interface PlannerDraft {
@@ -298,6 +301,8 @@ export function TodayPlanner({
   journals,
   workoutsEnabled,
   startAt,
+  embedded = false,
+  returnHref = "/dashboard",
 }: TodayPlannerProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -627,13 +632,13 @@ export function TodayPlanner({
 
   function requestClose() {
     if (isDirty) setCloseOpen(true);
-    else router.push("/dashboard");
+    else router.push(returnHref);
   }
 
   function discardDraft() {
     sessionStorage.removeItem(draftKey(userId, date));
     setCloseOpen(false);
-    router.push("/dashboard");
+    router.push(returnHref);
   }
 
   async function commitPlan() {
@@ -662,7 +667,7 @@ export function TodayPlanner({
       });
       sessionStorage.removeItem(draftKey(userId, date));
       window.dispatchEvent(new CustomEvent("lifequest-data-updated"));
-      router.push("/dashboard");
+      router.push(returnHref);
       router.refresh();
     } catch (error) {
       console.error("Failed to commit today plan", error);
@@ -742,9 +747,11 @@ export function TodayPlanner({
     return !Number.isFinite(start) || !Number.isFinite(end) || end <= start;
   });
 
+  const Container = embedded ? "div" : "main";
+
   return (
-    <main className="min-h-svh bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_38%),hsl(var(--background))] pb-28 sm:pb-10">
-      <header className="sticky top-0 z-30 border-b bg-background/92 backdrop-blur-xl">
+    <Container className={cn("bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_38%),hsl(var(--background))]", embedded ? "rounded-3xl border pb-28 sm:pb-6" : "min-h-svh pb-28 sm:pb-10")}>
+      <header className={cn("border-b bg-background/92 backdrop-blur-xl", embedded ? "rounded-t-3xl" : "sticky top-0 z-30")}>
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-8">
           <Button
             type="button"
@@ -1808,7 +1815,7 @@ export function TodayPlanner({
               variant="outline"
               onClick={() => {
                 setCloseOpen(false);
-                router.push("/dashboard");
+                router.push(returnHref);
               }}
             >
               Leave and keep draft
@@ -1819,6 +1826,6 @@ export function TodayPlanner({
           </div>
         </DialogContent>
       </Dialog>
-    </main>
+    </Container>
   );
 }
