@@ -19,6 +19,7 @@ export interface TaskDraft {
   description?: string | null
   due_date?: string | null
   priority?: TaskPriority
+  project_id?: string
 }
 
 const TASK_SELECT =
@@ -45,7 +46,7 @@ function normalizeTask(value: unknown): ManagedTask {
 export async function fetchTasks(
   supabase: SupabaseClient,
   userId: string,
-  options?: { onlyOpen?: boolean; limit?: number }
+  options?: { onlyOpen?: boolean; limit?: number; projectId?: string }
 ): Promise<ManagedTask[]> {
   let query = supabase
     .from('tasks')
@@ -56,6 +57,7 @@ export async function fetchTasks(
     .order('created_at', { ascending: false })
 
   if (options?.onlyOpen) query = query.eq('is_completed', false)
+  if (options?.projectId) query = query.eq('project_id', options.projectId)
   if (options?.limit) query = query.limit(options.limit)
 
   const { data, error } = await query
@@ -76,6 +78,7 @@ export async function createTask(
       description: input.description?.trim() || null,
       due_date: input.due_date || null,
       priority: input.priority ?? 'medium',
+      ...(input.project_id ? { project_id: input.project_id } : {}),
     })
     .select(TASK_SELECT)
     .single()

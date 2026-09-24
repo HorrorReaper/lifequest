@@ -53,7 +53,7 @@ Insight metadata is stored on journal responses so a saved answer can be marked 
 | `habit_logs` | One user/habit/date completion record; false rows are preserved |
 | `routines` | Named habit groups |
 | `routine_items` | Ordered habit membership in a routine |
-| `goals` | Admin-restricted longer-term goals |
+| `goals` | User-owned longer-term goals (admin-only until `20260922120000_open_goals_to_all_users.sql`) |
 | `productivity_daily_priorities` | Admin top-three task priorities by date |
 | `focus_sessions` | Planned/actual admin focus sessions |
 
@@ -202,7 +202,7 @@ Functions that mutate protected data validate the authenticated user and, for ad
 Migrations currently cover:
 
 1. Atomic reward claims and fixes.
-2. Goals and later admin restriction.
+2. Goals, a later admin restriction, and reopening them to all users.
 3. Journal learnings and response insights.
 4. Routines and later admin restriction.
 5. Admin productivity, workout, and nutrition hubs.

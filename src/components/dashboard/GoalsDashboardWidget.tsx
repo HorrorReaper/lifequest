@@ -15,6 +15,12 @@ interface GoalsDashboardWidgetProps {
   userId: string
   initialGoals: Goal[]
   initiallyOpen?: boolean
+  /**
+   * Whether to offer AI quest suggestions. The route behind it calls a paid
+   * model and answers non-admins with a 403, so the button is only shown to
+   * the people it works for.
+   */
+  canSuggestQuests?: boolean
 }
 
 interface QuestSuggestion {
@@ -42,7 +48,12 @@ function formatTargetDate(date: string | null) {
   }).format(new Date(`${date}T00:00:00`))
 }
 
-export function GoalsDashboardWidget({ userId, initialGoals, initiallyOpen = false }: GoalsDashboardWidgetProps) {
+export function GoalsDashboardWidget({
+  userId,
+  initialGoals,
+  initiallyOpen = false,
+  canSuggestQuests = false,
+}: GoalsDashboardWidgetProps) {
   const supabase = createClient()
   const router = useRouter()
 
@@ -287,21 +298,23 @@ export function GoalsDashboardWidget({ userId, initialGoals, initiallyOpen = fal
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 sm:pl-11">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => handleGenerateQuests(goal)}
-                    disabled={generating || busy}
-                    className="h-10 text-xs sm:h-7"
-                  >
-                    {generating ? (
-                      <Loader2 className="mr-1 size-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-1 size-3.5" />
-                    )}
-                    {generated.length > 0 ? 'Regenerate quests' : 'Generate quests'}
-                  </Button>
+                  {canSuggestQuests && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleGenerateQuests(goal)}
+                      disabled={generating || busy}
+                      className="h-10 text-xs sm:h-7"
+                    >
+                      {generating ? (
+                        <Loader2 className="mr-1 size-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="mr-1 size-3.5" />
+                      )}
+                      {generated.length > 0 ? 'Regenerate quests' : 'Generate quests'}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     size="sm"

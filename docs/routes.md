@@ -24,7 +24,7 @@
 | Route | Purpose |
 | --- | --- |
 | `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
-| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, the daily reflection prompt, quests, and admin-only widgets |
+| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, the daily reflection prompt, goals, quests, and admin-only widgets |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
 | `/plan` | Five-step Today Plan ritual |
 | `/tasks` | Full task manager |
@@ -85,7 +85,7 @@ All admin pages live under the immersive `AdminShell`.
 | `POST /api/waitlist` | Public | Validates a waitlist signup and currently logs it server-side |
 | `DELETE /api/account` | User | Permanently deletes the authenticated account after email confirmation |
 | `POST /api/chat` | Admin + consent | Contextual AI assistant and supported app actions |
-| `POST /api/goals/[goalId]/quest-suggestions` | Admin | Generates three structured quest suggestions |
+| `POST /api/goals/[goalId]/quest-suggestions` | Admin | Generates three structured quest suggestions (goals themselves are open to all users; only this AI step is admin-only) |
 | `GET /api/admin/nutrition/foods/search?q=` | Trusted admin | Parallel USDA/Open Food Facts search |
 | `GET /api/admin/nutrition/foods/barcode/[code]` | Trusted admin | Barcode lookup with provider fallback |
 | `POST /api/admin/nutrition/foods/import` | Trusted admin | Refetches and caches an external food locally |
