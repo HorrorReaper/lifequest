@@ -160,7 +160,7 @@ Project tasks reuse `tasks` rather than having a separate task table.
 
 | Table | Purpose |
 | --- | --- |
-| `waitlist_signups` | Typed legacy/future waitlist storage; current endpoint does not insert into it |
+| `waitlist_signups` | Waitlist signups, written by `/api/waitlist`; counted for admins by `admin_app_stats` and `admin_signup_series` |
 
 ## Database functions
 
@@ -193,7 +193,8 @@ Project tasks reuse `tasks` rather than having a separate task table.
 
 ### Utility/admin functions
 
-- `admin_app_stats`
+- `admin_app_stats` — registered users and waitlist size
+- `admin_signup_series` — waitlist entries and new accounts per UTC day since a date
 - `get_level`
 - `get_city_tier`
 - `xp_to_next_level`

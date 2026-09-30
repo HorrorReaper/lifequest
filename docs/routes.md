@@ -80,7 +80,7 @@ All admin pages live under the immersive `AdminShell`.
 | `/admin/challenges` | Challenge Lab: authoring, completion rules per day, public link, publishing to all users |
 | `/admin/notes` | Markdown knowledge base |
 | `/admin/projects` | Project outcomes, task board/list, milestones |
-| `/admin/tools` | Private test and development controls |
+| `/admin/tools` | Signup analytics (`?range=30\|90\|365`) and private test and development controls |
 
 ## HTTP endpoints
 

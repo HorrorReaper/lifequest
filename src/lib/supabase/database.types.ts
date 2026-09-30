@@ -924,7 +924,11 @@ export interface Database {
       }
       admin_app_stats: {
         Args: Record<PropertyKey, never>
-        Returns: { total_users: number }[]
+        Returns: { total_users: number; waitlist_signups: number }[]
+      }
+      admin_signup_series: {
+        Args: { p_since: string }
+        Returns: { day: string; waitlist: number; users: number }[]
       }
       start_workout: {
         Args: { p_template_id?: string | null; p_name?: string }

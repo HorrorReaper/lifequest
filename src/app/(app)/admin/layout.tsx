@@ -15,7 +15,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { data: appStats } = trusted
     ? await supabase.rpc('admin_app_stats').single()
     : { data: null }
-  const stats = appStats as { total_users: number } | null
+  const stats = appStats as { total_users: number; waitlist_signups: number } | null
 
-  return <AdminShell trusted={trusted} userCount={stats?.total_users ?? null}>{children}</AdminShell>
+  return (
+    <AdminShell
+      trusted={trusted}
+      userCount={stats?.total_users ?? null}
+      waitlistCount={stats?.waitlist_signups ?? null}
+    >
+      {children}
+    </AdminShell>
+  )
 }

@@ -36,7 +36,7 @@ The admin shell groups work into:
 | Challenges | `/admin/challenges` | Challenge authoring |
 | Knowledge | `/admin/notes` | Markdown notes and linked knowledge |
 | Projects | `/admin/projects` | Outcomes, project tasks, milestones |
-| Tools | `/admin/tools` | Development/test controls |
+| Tools | `/admin/tools` | Signups over time, and development/test controls |
 
 On desktop this is a sidebar. On mobile it becomes a compact horizontal navigation pattern.
 
@@ -143,7 +143,9 @@ It can answer using task, habit, and journal context and can request supported a
 
 ## Registered-user count
 
-`AdminShell` can display application statistics returned by `admin_app_stats`. The function requires the trusted admin claim; allowlisting a route alone is insufficient.
+`AdminShell` shows the registered-user count and the waitlist size side by side, both returned by `admin_app_stats`. The function requires the trusted admin claim; allowlisting a route alone is insufficient, and an allowlist-only admin sees `-`.
+
+`/admin/tools` opens with a Signups card: new waitlist entries and new accounts per UTC day over 30 days, 90 days or a year (`?range=`), shown per day or cumulative, with a table view. The counts come from `admin_signup_series(p_since)`; gap-filling and the cumulative baseline are in `src/lib/signup-analytics.ts`. Both functions are `security definer` and return counts only, so admins never need a select policy on the waitlist's email addresses.
 
 ## Feature isolation rules
 
