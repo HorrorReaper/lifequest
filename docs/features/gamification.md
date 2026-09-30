@@ -85,11 +85,14 @@ Users can work with single-completion or daily challenge quests. Reward completi
 
 ### Challenge programs
 
-Published challenge programs contain ordered challenge days. Programs can enforce sequential or strict completion rules. Users can start or restart a program, check in each day, and complete the overall program.
+Admin-authored programs live at `/challenges` (overview) and `/challenges/[id]` (detail), and an active one shows as a card on the dashboard (section `challenge`, only while one runs). Every published program is available to every user.
 
-Both challenge surfaces derive their day from the profile timezone, resolved once on the server in `src/app/(app)/quests/page.tsx` and passed down as a date key. This has to match what `check_in_daily_challenge_quest` and `complete_challenge_program_day` compute, because those RPCs enforce the challenge window and the strict-schedule rule server-side. `getChallengeProgress` and `getProgramDayState` in `src/lib/challenges.ts` take the day as an argument for exactly this reason — never read it from the browser.
+- **One day per calendar day.** Sequential programs wait when a day is missed; strict programs require an unbroken run and offer a restart.
+- **Completion rules.** Each day is either manual (ticked off, optional reflection note) or automatic. Automatic rules are evaluated in SQL (`challenge_rule_count`), never trusted from the client: `complete_challenge_program_day` refuses an automatic day whose rule is not met, and `sync_challenge_progress` completes the ones that are. The sync runs whenever a challenge surface loads and on "Check progress". "State" rules (`habits_active`, `goals_active`) look at what exists now; "activity" rules count from the day the step unlocked. The vocabulary (labels, units, default deep links) is `src/lib/challenge-rules.ts` and must stay in step with the check constraint in `20260930120000_challenge_programs_v2.sql`.
+- **Rewards.** XP and coins for finishing the whole program, granted atomically by the completion RPC.
+- **Public landing page and funnel.** A published program with a slug has `/challenge/<slug>`. Its "Start" goes through `/challenge/<slug>/join`; a signed-out visitor gets a `lifequest-challenge-intent` cookie and sign-up, and after onboarding the middleware redirects the first `/dashboard` visit through the join route, which starts the challenge and clears the cookie. The start button ignores `NEXT_PUBLIC_IS_MVP`: a challenge link always leads to sign-up.
 
-The admin Challenge Lab is the authoring surface for templates and days.
+Challenge surfaces derive "today" from the profile timezone on the server (falling back to `Europe/Berlin`, as the RPCs do) and pass it down as a date key; `getProgramDayState` and `getChallengeView` in `src/lib/challenges.ts` take the day as an argument for exactly this reason — never read it from the browser. The same holds for the self-made daily-challenge quests on `/quests` (`getChallengeProgress`).
 
 ## Reward integrity
 
@@ -147,10 +150,12 @@ The building picker shows unlocked and affordable options. The grid stores user 
 - `src/lib/skill-categories.ts`
 - `src/lib/habit-xp.ts`
 - `src/lib/quests.ts`
+- `src/lib/challenges.ts`, `src/lib/challenge-programs.ts`, `src/lib/challenge-rules.ts`
 - `src/lib/lessons.ts`
 - `src/lib/city.ts`
 - `src/lib/city/`
 - `src/components/quests/`
+- `src/components/challenges/`
 - `src/components/learn/`
 - `src/components/city/`
 - `src/components/analytics/SkillLevels.tsx`

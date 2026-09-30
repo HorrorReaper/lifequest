@@ -1,8 +1,20 @@
 Thema: [[LifeQuest]]
-Stand: 2026-09-20 · Status: **Brainstorm, nichts gebaut**
+Stand: 2026-09-30 · Status: **System gebaut (Ansatz B), Inhalte der 14 Tage offen**
 Siehe auch: [[Audit + Ideas]] (dort eigener Zweifel: „free Version fungiert ja schon als Lead-Magnet“) · [[Rituale & Prompts]] · [[Competitive Landscape & USP]]
 
 # „Unfuck Your Life“ — 14-Tage-Challenge als Lead Magnet
+
+## Update 2026-09-30: gebaut
+
+Entschieden wurde am Ende **Ansatz B** (Regeln als Daten), weil der Admin künftig selbst Challenges mit Auto-Erkennung bauen soll:
+
+- Jeder Tag hat im Challenge Lab eine Regel: manuell oder automatisch (Habits, Habit-Check-ins, Journal-Einträge ggf. eines Templates, Tagespläne, Tasks angelegt/erledigt, Ziele, Learnings, Tool-Nutzung) mit Zielwert N, dazu ein Button (App-Pfad + Label). Ausgewertet wird in SQL (`challenge_rule_count`, `sync_challenge_progress`).
+- Für alle Nutzer: `/challenges` (Übersicht), `/challenges/[id]` (Detail), Dashboard-Karte (Sektion `challenge`), Quick Action.
+- Öffentliche Seite `/challenge/<slug>` + Funnel über `/challenge/<slug>/join` und das Cookie `lifequest-challenge-intent` (wird nach dem Onboarding beim ersten Dashboard-Aufruf eingelöst). Ignoriert `NEXT_PUBLIC_IS_MVP`.
+- Im Challenge Lab: Button „New ‚Unfuck Your Life‘ (14 days)“ legt den Rahmen an (Slug `unfuck-your-life`, 14 Tage mit Platzhalter). Speichern als Entwurf geht, veröffentlichen erst, wenn alle Tage Anleitungen haben.
+- Offen: die Inhalte der 14 Tage (kommen vom Admin), Sprache der Landingpage (UI-Texte sind englisch), Phase 2 (tägliche Mails).
+
+Der Text unten ist der Stand vor dem Bau.
 
 ## Getroffene Entscheidungen
 

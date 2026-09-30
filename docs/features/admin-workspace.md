@@ -81,12 +81,16 @@ The public `/tasks`, `/habits`, and `/plan` pages remain the user-facing focused
 
 `ChallengeLab` lets an admin:
 
-- Create or edit challenge templates.
-- Define ordered challenge days.
-- Publish or unpublish programs.
-- Delete challenge definitions.
+- Create or edit challenges (title, tagline, description, schedule, rewards).
+- Define ordered days, each with a completion rule: manual, or detected automatically from app activity (habits, habit check-ins, journal entries of any or one template, day plans, tasks created/completed, goals, learnings, tool use), with a target N.
+- Give each day a button (app path + label); rules have sensible defaults.
+- Give a challenge a slug, which makes a public landing page at `/challenge/<slug>` once published.
+- Publish or unpublish. Published challenges are available to every user at `/challenges`.
+- See how many people are in a challenge. Once someone joined, texts, rules and links can still be edited (changes apply immediately) but the number of days is frozen.
+- Start from the 14-day "Unfuck Your Life" frame: fourteen days with placeholder instructions that can be saved as a draft but not published until written.
+- Delete challenges nobody joined.
 
-Saving challenge definitions uses an admin RPC. User execution occurs on `/quests`.
+Saving uses `admin_save_challenge_template`. User execution happens on `/challenges` and the dashboard.
 
 ## Focus sessions
 

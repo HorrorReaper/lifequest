@@ -26,6 +26,7 @@ export const config = {
     '/tasks/:path*',
     '/habits/:path*',
     '/quests/:path*',
+    '/challenges/:path*',
     '/learn/:path*',
     '/learnings/:path*',
     '/analytics/:path*',
