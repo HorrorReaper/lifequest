@@ -5,7 +5,7 @@ import type { ChallengeCompletionType } from '@/lib/supabase/database.types'
  *
  * `manual` is ticked off by the user. Every other rule is detected from what
  * the user did in the app and evaluated in SQL (challenge_rule_count in
- * supabase/migrations/20260930120000_challenge_programs_v2.sql), which is the
+ * supabase/migrations/20260930130000_challenge_programs_v2.sql), which is the
  * only place that decides. This module is the vocabulary around it: labels
  * for the admin editor, wording for the user, and a default deep link. Keep
  * the ids in step with the check constraint in that migration.

@@ -99,10 +99,9 @@ External foods are owned cached records. Their primary import identity is `(user
 
 | Table | Purpose |
 | --- | --- |
-| `quests` | User/custom quest definitions and completion, optional `skill_category` |
-| `quest_daily_logs` | Date-keyed check-ins for daily quests |
+| `quests` | User/custom one-time quests and completion, optional `skill_category` |
 | `quest_completions` | Durable completion/claim record |
-| `challenge_templates` | Admin-authored program definition; optional unique `slug` (public landing page) and `tagline` |
+| `challenge_templates` | Program definition, admin-authored or personal (`is_personal`, owner = `created_by`, never published); optional unique `slug` (public landing page) and `tagline` |
 | `challenge_days` | Ordered day instructions, `completion_type`/`completion_target`/`completion_param` rule, optional `action_href`/`action_label` button |
 | `challenge_enrollments` | User enrollment and start state |
 | `challenge_day_progress` | Per-day completion in an enrollment |
@@ -177,7 +176,7 @@ Project tasks reuse `tasks` rather than having a separate task table.
 
 ### Challenge and reward functions
 
-- `check_in_daily_challenge_quest`
+- `create_personal_challenge`, `delete_personal_challenge`
 - `admin_save_challenge_template`
 - `start_challenge_program`
 - `restart_challenge_program`
@@ -211,7 +210,7 @@ Migrations currently cover:
 4. Routines and later admin restriction.
 5. Admin productivity, workout, and nutrition hubs.
 6. Admin application statistics.
-7. Daily challenge quests and challenge programs, and their second iteration (completion rules, public slugs, sync, and fixes for the start-policy recursion and the admin participant check).
+7. Daily challenge quests and challenge programs, their second iteration (completion rules, public slugs, sync, and fixes for the start-policy recursion and the admin participant check), and personal challenges, which absorbed the daily-challenge quests (`quest_daily_logs` and the `quests.quest_type`/`challenge_*` columns are gone).
 8. AI assistant consent.
 9. Workout/nutrition daily-driver expansion.
 10. Knowledge and projects.

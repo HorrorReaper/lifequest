@@ -83,6 +83,7 @@ describe('draftFromTemplate', () => {
         xp_reward: 1,
         coin_reward: 1,
         is_published: true,
+        is_personal: false,
         slug: null,
         tagline: null,
         created_at: '',

@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import {
   claimSystemQuest,
-  checkInDailyChallengeQuest,
   completeCustomQuest,
   createCustomQuest,
   type DefaultQuestWithStatus,
@@ -45,13 +44,6 @@ interface QuestPageClientProps {
   userId: string
   defaultQuests: DefaultQuestWithStatus[]
   initialCustomQuests: CustomQuest[]
-  /**
-   * The user's current day as a date key, resolved from their profile
-   * timezone on the server. Passed in rather than read from the browser so
-   * the daily-challenge quest cards cannot offer an action the RPCs then
-   * reject.
-   */
-  today: string
 }
 
 function questDeleteClient(supabase: ReturnType<typeof createClient>): QuestDeleteClient {
@@ -67,7 +59,7 @@ function getDeleteErrorMessage(error: unknown): string {
   return 'Could not delete this quest.'
 }
 
-export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, today }: QuestPageClientProps) {
+export function QuestPageClient({ userId, defaultQuests, initialCustomQuests }: QuestPageClientProps) {
   const supabase = createClient()
   const addXp = useUserStore((s) => s.addXp)
   const setCoins = useUserStore((s) => s.setCoins)
@@ -126,33 +118,6 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, to
       xp: quest.xp_reward,
       coins: quest.coin_reward,
     })
-  }
-
-  async function handleCheckInChallenge(quest: CustomQuest) {
-    const result = await checkInDailyChallengeQuest(supabase, quest.id)
-    const now = new Date().toISOString()
-    setCustomQuests((prev) =>
-      prev.map((q) => {
-        if (q.id !== quest.id) return q
-        const existingLogs = q.daily_logs ?? []
-        const hasLog = existingLogs.some((log) => log.log_date === result.log_date)
-        const daily_logs = hasLog
-          ? existingLogs.map((log) => log.log_date === result.log_date ? { ...log, created_at: now } : log)
-          : [
-              {
-                id: `${quest.id}-${result.log_date}`,
-                quest_id: quest.id,
-                user_id: userId,
-                log_date: result.log_date,
-                note: null,
-                created_at: now,
-              },
-              ...existingLogs,
-            ]
-
-        return { ...q, daily_logs }
-      })
-    )
   }
 
   async function handleDeleteCustom(id: string) {
@@ -384,8 +349,6 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, to
                 quest={q}
                 onComplete={handleCompleteCustom}
                 onDelete={handleDeleteCustom}
-                onCheckIn={handleCheckInChallenge}
-                today={today}
               />
             ))}
           </div>
@@ -426,8 +389,6 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, to
                     quest={q}
                     onComplete={handleCompleteCustom}
                     onDelete={handleDeleteCustom}
-                    onCheckIn={handleCheckInChallenge}
-                    today={today}
                   />
                 ))}
               </div>
