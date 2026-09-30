@@ -8,8 +8,9 @@ import {
 } from '@/lib/dashboard-sections'
 
 describe('DASHBOARD_SECTIONS', () => {
-  it('lists the eight sections, with routines marked admin-only', () => {
+  it('lists the ten sections, with routines marked admin-only', () => {
     expect(DASHBOARD_SECTIONS.map((section) => section.id)).toEqual([
+      'challenge',
       'today_plan',
       'habits',
       'tasks',
@@ -81,11 +82,11 @@ describe('sectionsFor', () => {
   it('hides the admin-only section from everyone else', () => {
     const ids = sectionsFor({ isAdmin: false }).map((section) => section.id)
     expect(ids).not.toContain('routines')
-    expect(ids).toHaveLength(8)
+    expect(ids).toHaveLength(9)
   })
 
   it('gives an admin the full list', () => {
-    expect(sectionsFor({ isAdmin: true })).toHaveLength(9)
+    expect(sectionsFor({ isAdmin: true })).toHaveLength(10)
   })
 
   it('offers goals to everyone, not only admins', () => {
@@ -96,14 +97,15 @@ describe('sectionsFor', () => {
 
 describe('visibleSectionCount', () => {
   it('counts everything when nothing has been turned off', () => {
-    expect(visibleSectionCount({}, { isAdmin: false })).toBe(8)
-    expect(visibleSectionCount({}, { isAdmin: true })).toBe(9)
+    expect(visibleSectionCount({}, { isAdmin: false })).toBe(9)
+    expect(visibleSectionCount({}, { isAdmin: true })).toBe(10)
   })
 
   it('does not count a section the user could not see anyway', () => {
     // Routines is admin-only, so leaving it on must not keep a non-admin
     // permanently above zero and swallow the "everything is hidden" notice.
     const allOff = {
+      challenge: false,
       today_plan: false,
       habits: false,
       tasks: false,

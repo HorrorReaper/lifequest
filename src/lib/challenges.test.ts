@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { getChallengeProgress, getProgramDayState } from '@/lib/challenges'
-import type { ChallengeProgram, CustomQuest } from '@/lib/quests'
+import { getChallengeProgress, getChallengeView, getProgramDayState, sortChallengePrograms } from '@/lib/challenges'
+import type { ChallengeProgram } from '@/lib/challenge-programs'
+import type { CustomQuest } from '@/lib/quests'
 
 function challengeQuest(patch: Partial<CustomQuest> = {}): CustomQuest {
   return {
@@ -115,6 +116,8 @@ function program(
       xp_reward: 200,
       coin_reward: 80,
       is_published: true,
+      slug: null,
+      tagline: null,
       created_at: '2026-07-01T00:00:00Z',
       updated_at: '2026-07-01T00:00:00Z',
     },
@@ -208,5 +211,86 @@ describe('getProgramDayState', () => {
 
     expect(state.strictMissed).toBe(false)
     expect(state.currentDayNumber).toBe(1)
+  })
+})
+
+describe('getChallengeView', () => {
+  function withDays(base: ChallengeProgram): ChallengeProgram {
+    return {
+      ...base,
+      days: Array.from({ length: 7 }, (_, index) => ({
+        id: `day-${index + 1}`,
+        template_id: 'template-1',
+        day_number: index + 1,
+        title: `Day ${index + 1}`,
+        instructions: 'Do it',
+        reflection_prompt: null,
+        completion_type: index === 1 ? ('habits_active' as const) : ('manual' as const),
+        completion_target: index === 1 ? 3 : 1,
+        completion_param: null,
+        action_href: null,
+        action_label: null,
+        created_at: '2026-07-01T00:00:00Z',
+      })),
+    }
+  }
+
+  it('reports a program nobody started', () => {
+    const view = getChallengeView({ ...withDays(program()), enrollment: null, progress: [] }, '2026-07-20')
+    expect(view.status).toBe('not_started')
+    expect(view.currentDayNumber).toBe(1)
+  })
+
+  it('takes rule progress from the matching sync row only', () => {
+    const base = withDays(program({ scheduleMode: 'sequential', completedDayNumbers: [1] }))
+    const sync = {
+      enrollment_id: 'enrollment-1',
+      day_number: 2,
+      completion_type: 'habits_active' as const,
+      progress: 2,
+      target: 3,
+      met: false,
+      available_from: '2026-07-21',
+      completed_now: false,
+      challenge_completed: false,
+    }
+    const view = getChallengeView(base, '2026-07-21', sync)
+    expect(view.automatic).toBe(true)
+    expect(view.ruleProgress).toBe(2)
+    expect(view.ruleTarget).toBe(3)
+
+    const stale = getChallengeView(base, '2026-07-21', { ...sync, day_number: 5 })
+    expect(stale.ruleProgress).toBe(0)
+    expect(stale.ruleTarget).toBe(3)
+  })
+
+  it('flags a day the sync just completed', () => {
+    const base = withDays(program({ scheduleMode: 'sequential', completedDayNumbers: [1, 2] }))
+    const view = getChallengeView(base, '2026-07-21', {
+      enrollment_id: 'enrollment-1',
+      day_number: 3,
+      completion_type: 'manual',
+      progress: 0,
+      target: 1,
+      met: false,
+      available_from: '2026-07-22',
+      completed_now: true,
+      challenge_completed: false,
+    })
+    expect(view.justCompleted).toBe(true)
+    expect(view.doneToday).toBe(true)
+  })
+})
+
+describe('sortChallengePrograms', () => {
+  it('puts running challenges first, then new, then finished', () => {
+    const active = program()
+    const fresh = { ...program(), template: { ...program().template, id: 'fresh' }, enrollment: null }
+    const done = { ...program({ status: 'completed' }), template: { ...program().template, id: 'done' } }
+    expect(sortChallengePrograms([done, fresh, active]).map((item) => item.template.id)).toEqual([
+      'template-1',
+      'fresh',
+      'done',
+    ])
   })
 })

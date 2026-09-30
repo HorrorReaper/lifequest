@@ -25,6 +25,9 @@ import {
 import { fetchAvatarState } from '@/lib/avatar'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
+import { fetchChallengePrograms, syncChallengeProgress } from '@/lib/challenge-programs'
+import { CHALLENGE_FALLBACK_TIMEZONE, getChallengeView } from '@/lib/challenges'
+import { ChallengeDashboardCard } from '@/components/challenges/ChallengeDashboardCard'
 import type { DayPlanBlock } from '@/lib/types'
 import { calculateRoutineProgress, fetchRoutines } from '@/lib/routines'
 import { RoutinesDashboardWidget } from '@/components/dashboard/RoutinesDashboardWidget'
@@ -170,6 +173,30 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ? await fetchQuestPageData(supabase, user.id)
     : { annotated: [], customQuests: [] }
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
+
+  // The sync is one cheap call that also says whether anything is running;
+  // programs are only read when it reports an active challenge.
+  const challengeSync = shows('challenge') ? await syncChallengeProgress(supabase) : []
+  const challengeToday = dateInTimezone(new Date(), profile.timezone ?? CHALLENGE_FALLBACK_TIMEZONE)
+  const activeChallenges =
+    challengeSync.length > 0
+      ? (await fetchChallengePrograms(supabase, user.id))
+          // A challenge the sync just finished stays for this one load, so
+          // its last day ends on a "complete" card rather than vanishing.
+          .filter(
+            (program) =>
+              program.enrollment?.status === 'active' ||
+              challengeSync.some((row) => row.enrollment_id === program.enrollment?.id && row.challenge_completed)
+          )
+          .map((program) => ({
+            program,
+            view: getChallengeView(
+              program,
+              challengeToday,
+              challengeSync.find((row) => row.enrollment_id === program.enrollment?.id) ?? null
+            ),
+          }))
+      : []
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
   const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
   const thisWeekStart = weekStart(today)
@@ -491,6 +518,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           habitsCompletedThisWeek={habitsCompletedThisWeek}
           tasksCompletedThisWeek={tasksCompletedThisWeek}
         />
+
+        {activeChallenges.map(({ program, view }) => (
+          <ChallengeDashboardCard key={program.template.id} program={program} view={view} />
+        ))}
 
         {shows('today_plan') && (
           <TodayPlanSection blocks={planBlocks} nowMinutes={nowMinutes} />

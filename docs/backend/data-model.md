@@ -102,8 +102,8 @@ External foods are owned cached records. Their primary import identity is `(user
 | `quests` | User/custom quest definitions and completion, optional `skill_category` |
 | `quest_daily_logs` | Date-keyed check-ins for daily quests |
 | `quest_completions` | Durable completion/claim record |
-| `challenge_templates` | Admin-authored program definition |
-| `challenge_days` | Ordered day instructions |
+| `challenge_templates` | Admin-authored program definition; optional unique `slug` (public landing page) and `tagline` |
+| `challenge_days` | Ordered day instructions, `completion_type`/`completion_target`/`completion_param` rule, optional `action_href`/`action_label` button |
 | `challenge_enrollments` | User enrollment and start state |
 | `challenge_day_progress` | Per-day completion in an enrollment |
 | `lesson_completions` | Idempotent user lesson completion |
@@ -181,7 +181,10 @@ Project tasks reuse `tasks` rather than having a separate task table.
 - `admin_save_challenge_template`
 - `start_challenge_program`
 - `restart_challenge_program`
-- `complete_challenge_program_day`
+- `complete_challenge_program_day` (refuses an automatic day whose rule is not met)
+- `sync_challenge_progress` (completes met automatic days, reports progress per active enrollment)
+- `get_public_challenge` (the only challenge data `anon` can read)
+- `challenge_rule_count` (internal; no client role may execute it)
 - `claim_system_quest_reward`
 - `complete_custom_quest_reward`
 - `complete_lesson_reward`
@@ -207,7 +210,7 @@ Migrations currently cover:
 4. Routines and later admin restriction.
 5. Admin productivity, workout, and nutrition hubs.
 6. Admin application statistics.
-7. Daily challenge quests and challenge programs.
+7. Daily challenge quests and challenge programs, and their second iteration (completion rules, public slugs, sync, and fixes for the start-policy recursion and the admin participant check).
 8. AI assistant consent.
 9. Workout/nutrition daily-driver expansion.
 10. Knowledge and projects.
