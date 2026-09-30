@@ -32,8 +32,8 @@
 | `/tasks` | Full task manager |
 | `/habits` | Today/history/archived habit manager |
 | `/habits/[habitId]` | Habit detail and analytics |
-| `/quests` | Default quests, custom quests, and self-made daily challenges; links to `/challenges` |
-| `/challenges` | Every published challenge program, running ones first |
+| `/quests` | Achievements and custom one-time quests; links to `/challenges` |
+| `/challenges` | Every published challenge plus the user's personal ones, running first; form to create a personal "X days of Y" challenge |
 | `/challenges/[id]` | One challenge: today's step (manual or auto-detected), deep link, all days |
 | `/learn` | Article library; admins additionally get the interactive Academy courses |
 | `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |

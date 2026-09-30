@@ -24,10 +24,6 @@ interface QuestSupabaseClient {
     fn: 'complete_custom_quest_reward',
     args: { p_quest_id: string }
   ): PromiseLike<SupabaseResult<{ total_xp: number; coins: number }[]>>
-  rpc(
-    fn: 'check_in_daily_challenge_quest',
-    args: { p_quest_id: string; p_note?: string | null }
-  ): PromiseLike<SupabaseResult<ChallengeCheckInResult[]>>
   from(table: string): QueryBuilder<unknown>
 }
 
@@ -80,32 +76,11 @@ export interface CustomQuest {
   description: string | null
   xp_reward: number
   coin_reward: number
-  quest_type: 'single' | 'daily_challenge'
-  challenge_days: number | null
-  challenge_task: string | null
-  challenge_start_date: string | null
   skill_category: SkillCategory | null
   is_completed: boolean
   completed_at: string | null
   created_at: string
   updated_at: string
-  daily_logs?: QuestDailyLog[]
-}
-
-export interface QuestDailyLog {
-  id: string
-  quest_id: string
-  user_id: string
-  log_date: string
-  note: string | null
-  created_at: string
-}
-
-export interface ChallengeCheckInResult {
-  log_date: string
-  completed_days: number
-  required_days: number
-  ready_to_complete: boolean
 }
 
 
@@ -307,30 +282,6 @@ export async function completeCustomQuest(
   callbacks.setCoins(rewardState.coins)
 }
 
-export async function checkInDailyChallengeQuest(
-  supabase: SupabaseClient,
-  questId: string,
-  note?: string
-): Promise<ChallengeCheckInResult> {
-  const client = questClient(supabase)
-  const { data, error } = await client.rpc('check_in_daily_challenge_quest', {
-    p_quest_id: questId,
-    p_note: note?.trim() || null,
-  })
-
-  if (error) {
-    throw new Error(getQuestErrorMessage(error, 'Could not check in for this challenge.'))
-  }
-
-  const result = Array.isArray(data) ? data[0] : data
-
-  if (!result?.log_date) {
-    throw new Error('Challenge check-in completed, but the progress state was invalid.')
-  }
-
-  return result
-}
-
 export async function createCustomQuest(
   supabase: SupabaseClient,
   userId: string,
@@ -339,10 +290,6 @@ export async function createCustomQuest(
     description: string
     xp_reward: number
     coin_reward: number
-    quest_type?: 'single' | 'daily_challenge'
-    challenge_days?: number | null
-    challenge_task?: string | null
-    challenge_start_date?: string | null
     skill_category?: SkillCategory | null
   }
 ): Promise<CustomQuest> {
@@ -358,14 +305,13 @@ export async function createCustomQuest(
 
 export async function fetchQuestPageData(supabase: SupabaseClient, userId: string) {
   const client = questClient(supabase)
-  const [profileRes, entriesRes, buildingsRes, completionsRes, customQuestsRes, dailyLogsRes] =
+  const [profileRes, entriesRes, buildingsRes, completionsRes, customQuestsRes] =
     await Promise.all([
       client.from('profiles').select('total_xp, best_streak').eq('id', userId).single(),
       client.from('journal_entries').select('id').eq('user_id', userId).eq('is_complete', true),
       client.from('city_buildings_placing').select('id').eq('user_id', userId),
       client.from('quest_completions').select('quest_key, completed_at').eq('user_id', userId),
       client.from('quests').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-      client.from('quest_daily_logs').select('*').eq('user_id', userId).order('log_date', { ascending: false }),
     ])
 
   const profile = (profileRes.data as QuestProfileStatsRow | null) ?? { total_xp: 0, best_streak: 0 }
@@ -383,15 +329,7 @@ export async function fetchQuestPageData(supabase: SupabaseClient, userId: strin
   )
 
   const annotated = annotateDefaultQuests(stats, claimedKeys, completionTimes)
-  const dailyLogs = ((dailyLogsRes.data as QuestDailyLog[] | null) ?? [])
-  const customQuests = ((customQuestsRes.data as CustomQuest[] | null) ?? []).map((quest) => ({
-    ...quest,
-    quest_type: quest.quest_type ?? 'single',
-    challenge_days: quest.challenge_days ?? null,
-    challenge_task: quest.challenge_task ?? null,
-    challenge_start_date: quest.challenge_start_date ?? null,
-    daily_logs: dailyLogs.filter((log) => log.quest_id === quest.id),
-  }))
+  const customQuests = (customQuestsRes.data as CustomQuest[] | null) ?? []
 
   return { stats, annotated, customQuests }
 }

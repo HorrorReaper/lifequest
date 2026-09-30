@@ -1,12 +1,13 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowRight, CalendarDays, Coins, Flame, Sparkles, Zap } from 'lucide-react'
+import { ArrowRight, CalendarDays, Coins, Flame, Lock, Sparkles, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { dateInTimezone } from '@/lib/dates'
 import { loadChallengesForUser } from '@/lib/challenge-programs'
 import { CHALLENGE_FALLBACK_TIMEZONE, getChallengeView, sortChallengePrograms } from '@/lib/challenges'
 import { isAutomaticRule } from '@/lib/challenge-rules'
 import { ChallengeProgressBar } from '@/components/challenges/ChallengeProgressBar'
+import { CreateChallengeForm } from '@/components/challenges/CreateChallengeForm'
 import { cn } from '@/lib/utils'
 
 export default async function ChallengesPage() {
@@ -29,15 +30,17 @@ export default async function ChallengesPage() {
         <div>
           <h1 className="text-2xl font-bold">Challenges</h1>
           <p className="text-sm text-muted-foreground">
-            Guided programs with one concrete action a day. Many days are detected automatically from what you do in LifeQuest.
+            One concrete action a day: follow a guided program, or set up your own “X days of Y”.
           </p>
         </div>
+
+        <CreateChallengeForm />
 
         {sorted.length === 0 ? (
           <div className="rounded-2xl border border-dashed p-8 text-center">
             <Flame className="mx-auto size-7 text-muted-foreground" />
             <p className="mt-3 font-medium">No challenges yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">New challenges will appear here as soon as they are published.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Create your own above. Guided challenges appear here as soon as they are published.</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -56,6 +59,12 @@ export default async function ChallengesPage() {
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge status={view.status} doneToday={view.doneToday} />
+                      {program.template.is_personal && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[10px] text-muted-foreground">
+                          <Lock className="size-3" />
+                          Personal
+                        </span>
+                      )}
                       <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[10px] text-muted-foreground">
                         <CalendarDays className="size-3" />
                         {program.template.duration_days} days

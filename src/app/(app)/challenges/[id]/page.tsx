@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, CalendarDays, Coins, Zap } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Coins, Lock, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { dateInTimezone } from '@/lib/dates'
 import { loadChallengesForUser } from '@/lib/challenge-programs'
@@ -8,6 +8,7 @@ import { CHALLENGE_FALLBACK_TIMEZONE, getChallengeView } from '@/lib/challenges'
 import { ChallengeDayList } from '@/components/challenges/ChallengeDayList'
 import { ChallengeProgressBar } from '@/components/challenges/ChallengeProgressBar'
 import { ChallengeTodayPanel } from '@/components/challenges/ChallengeTodayPanel'
+import { DeletePersonalChallengeButton } from '@/components/challenges/DeletePersonalChallengeButton'
 
 interface ChallengeDetailPageProps {
   params: Promise<{ id: string }>
@@ -49,6 +50,12 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
 
         <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {template.is_personal && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                <Lock className="size-3" />
+                Personal · only you can see it
+              </span>
+            )}
             <span className="inline-flex items-center gap-1">
               <CalendarDays className="size-3.5" />
               {template.duration_days} days · {template.schedule_mode === 'strict' ? 'strict' : 'at your pace'}
@@ -80,6 +87,8 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
             currentDayNumber={view.status === 'active' ? view.currentDayNumber : null}
           />
         </section>
+
+        {template.is_personal && <DeletePersonalChallengeButton templateId={template.id} title={template.title} />}
       </div>
     </div>
   )

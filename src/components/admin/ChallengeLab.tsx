@@ -49,7 +49,9 @@ export function ChallengeLab() {
     async (selectId?: string) => {
       setLoading(true)
       const [templateRes, dayRes, enrollmentRes, journalRes] = await Promise.all([
-        supabase.from('challenge_templates').select('*').order('updated_at', { ascending: false }),
+        // Personal challenges are the user's own; RLS already hides everyone
+        // else's, this also keeps the admin's own out of the catalogue.
+        supabase.from('challenge_templates').select('*').eq('is_personal', false).order('updated_at', { ascending: false }),
         supabase.from('challenge_days').select('*').order('day_number'),
         supabase.from('challenge_enrollments').select('template_id, status'),
         supabase.from('journal_templates').select('id, name').eq('is_system', true).order('sort_order'),

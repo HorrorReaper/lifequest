@@ -7,10 +7,11 @@ import type {
   ChallengeTemplateRow,
 } from '@/lib/supabase/database.types'
 import { getQuestErrorMessage } from '@/lib/quests'
+import type { PersonalChallengeInput } from '@/lib/personal-challenge'
 
-// Data access for admin-authored challenge programs (/challenges, the
-// dashboard card, the public landing page). The self-made "daily challenge"
-// quests are a separate, older mechanism and stay in src/lib/quests.ts.
+// Data access for challenge programs (/challenges, the dashboard card, the
+// public landing page): the ones admins publish and the personal ones users
+// create for themselves, which share every table and RPC.
 
 export interface ChallengeProgram {
   template: ChallengeTemplateRow
@@ -69,6 +70,11 @@ interface ChallengeRpcClient {
     fn: 'start_challenge_program' | 'restart_challenge_program',
     args: { p_template_id: string }
   ): PromiseLike<RpcResult<{ enrollment_id: string; start_date: string; status: string }[]>>
+  rpc(
+    fn: 'create_personal_challenge',
+    args: { p_title: string; p_task: string; p_days: number; p_description: string | null; p_schedule_mode: 'sequential' | 'strict' }
+  ): PromiseLike<RpcResult<{ template_id: string; enrollment_id: string }[]>>
+  rpc(fn: 'delete_personal_challenge', args: { p_template_id: string }): PromiseLike<RpcResult<null>>
   rpc(
     fn: 'complete_challenge_program_day',
     args: { p_enrollment_id: string; p_note?: string | null }
@@ -217,4 +223,24 @@ export async function completeChallengeProgramDay(
   const result = firstRow(data)
   if (!result?.completed_day) throw new Error('Challenge day completed, but the progress state was invalid.')
   return result
+}
+
+/** Creates the challenge and starts it today. Returns the new template id. */
+export async function createPersonalChallenge(supabase: SupabaseClient, input: PersonalChallengeInput): Promise<string> {
+  const { data, error } = await rpcClient(supabase).rpc('create_personal_challenge', {
+    p_title: input.title.trim(),
+    p_task: input.task.trim(),
+    p_days: input.days,
+    p_description: input.description.trim() || null,
+    p_schedule_mode: input.scheduleMode,
+  })
+  if (error) throw new Error(getQuestErrorMessage(error, 'Could not create this challenge.'))
+  const result = firstRow(data)
+  if (!result?.template_id) throw new Error('Challenge created, but the result was invalid.')
+  return result.template_id
+}
+
+export async function deletePersonalChallenge(supabase: SupabaseClient, templateId: string): Promise<void> {
+  const { error } = await rpcClient(supabase).rpc('delete_personal_challenge', { p_template_id: templateId })
+  if (error) throw new Error(getQuestErrorMessage(error, 'Could not delete this challenge.'))
 }

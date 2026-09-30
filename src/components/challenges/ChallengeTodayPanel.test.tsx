@@ -43,6 +43,7 @@ function program(completed: number[] = [], enrolled = true): ChallengeProgram {
       xp_reward: 1000,
       coin_reward: 500,
       is_published: true,
+      is_personal: false,
       slug: 'unfuck-your-life',
       tagline: null,
       created_at: '2026-09-01T00:00:00Z',

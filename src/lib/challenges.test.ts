@@ -1,94 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getChallengeProgress, getChallengeView, getProgramDayState, sortChallengePrograms } from '@/lib/challenges'
+import { getChallengeView, getProgramDayState, sortChallengePrograms } from '@/lib/challenges'
 import type { ChallengeProgram } from '@/lib/challenge-programs'
-import type { CustomQuest } from '@/lib/quests'
-
-function challengeQuest(patch: Partial<CustomQuest> = {}): CustomQuest {
-  return {
-    id: 'quest-1',
-    user_id: 'user-1',
-    title: 'Cold shower',
-    description: null,
-    xp_reward: 50,
-    coin_reward: 20,
-    quest_type: 'daily_challenge',
-    challenge_days: 3,
-    challenge_task: 'Take a cold shower',
-    challenge_start_date: '2026-07-20',
-    skill_category: null,
-    is_completed: false,
-    completed_at: null,
-    created_at: '2026-07-20T08:00:00Z',
-    updated_at: '2026-07-20T08:00:00Z',
-    daily_logs: [],
-    ...patch,
-  }
-}
-
-function log(date: string) {
-  return {
-    id: `log-${date}`,
-    quest_id: 'quest-1',
-    user_id: 'user-1',
-    log_date: date,
-    note: null,
-    created_at: `${date}T09:00:00Z`,
-  }
-}
-
-describe('getChallengeProgress', () => {
-  it('ignores quests that are not daily challenges', () => {
-    expect(
-      getChallengeProgress(challengeQuest({ quest_type: 'single' }), '2026-07-21')
-    ).toBeNull()
-  })
-
-  it('closes the window on the last day of the challenge', () => {
-    // A 3-day challenge starting on the 20th runs through the 22nd.
-    const quest = challengeQuest()
-
-    expect(getChallengeProgress(quest, '2026-07-22')?.insideWindow).toBe(true)
-    expect(getChallengeProgress(quest, '2026-07-23')?.insideWindow).toBe(false)
-  })
-
-  it('has not started before the start date', () => {
-    expect(
-      getChallengeProgress(challengeQuest(), '2026-07-19')?.insideWindow
-    ).toBe(false)
-  })
-
-  it('recognises a check-in for the given day only', () => {
-    const quest = challengeQuest({ daily_logs: [log('2026-07-21')] })
-
-    expect(getChallengeProgress(quest, '2026-07-21')?.checkedToday).toBe(true)
-    expect(getChallengeProgress(quest, '2026-07-22')?.checkedToday).toBe(false)
-  })
-
-  it('counts only logs that fall inside the window', () => {
-    const quest = challengeQuest({
-      daily_logs: [log('2026-07-19'), log('2026-07-20'), log('2026-07-23')],
-    })
-
-    expect(getChallengeProgress(quest, '2026-07-21')?.completedDays).toBe(1)
-  })
-
-  it('is ready once every required day is logged', () => {
-    const quest = challengeQuest({
-      daily_logs: [log('2026-07-20'), log('2026-07-21'), log('2026-07-22')],
-    })
-
-    expect(getChallengeProgress(quest, '2026-07-22')?.ready).toBe(true)
-  })
-
-  it('caps the percentage at 100', () => {
-    const quest = challengeQuest({
-      challenge_days: 2,
-      daily_logs: [log('2026-07-20'), log('2026-07-21')],
-    })
-
-    expect(getChallengeProgress(quest, '2026-07-21')?.percent).toBe(100)
-  })
-})
 
 function program(
   patch: {
@@ -116,6 +28,7 @@ function program(
       xp_reward: 200,
       coin_reward: 80,
       is_published: true,
+      is_personal: false,
       slug: null,
       tagline: null,
       created_at: '2026-07-01T00:00:00Z',
