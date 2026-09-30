@@ -2,6 +2,11 @@
 
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import {
+  CHALLENGE_INTENT_COOKIE,
+  challengeJoinPath,
+  readChallengeIntent,
+} from '@/lib/challenge-intent'
 
 // Middleware-Funktion, die die Supabase-Session synchronisiert und
 // basierend auf Authentifizierung / Onboarding-Status weiterleitet.
@@ -79,6 +84,20 @@ export async function updateSession(request: NextRequest) {
     if (profile && !profile.onboarding_complete) {
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding'
+      return NextResponse.redirect(url)
+    }
+
+    // Jemand hat vor dem Signup auf einer Challenge-Landingpage „Start“
+    // geklickt. Sobald Onboarding erledigt ist und das Dashboard geladen
+    // wird, schicken wir ihn über die Join-Route, die die Challenge startet
+    // und das Cookie löscht (siehe src/lib/challenge-intent.ts).
+    const challengeIntent = readChallengeIntent(
+      request.cookies.get(CHALLENGE_INTENT_COOKIE)?.value
+    )
+    if (challengeIntent && request.nextUrl.pathname === '/dashboard') {
+      const url = request.nextUrl.clone()
+      url.pathname = challengeJoinPath(challengeIntent)
+      url.search = ''
       return NextResponse.redirect(url)
     }
   }

@@ -18,6 +18,8 @@
 | `/reset-password` | Public callback target | Reached only via a valid Supabase recovery session forwarded by `/auth/callback`; sets a new password. No session redirects to `/login?error=reset_link_invalid` |
 | `/terms` | Public | Terms of Service |
 | `/privacy` | Public | Privacy Policy |
+| `/challenge/[slug]` | Public | Landing page of a published challenge that has a slug (title, copy, day titles, rewards); data via `get_public_challenge` |
+| `/challenge/[slug]/join` | Public route handler | "Start" button: signed out → remembers the challenge in a cookie and opens sign-up; not onboarded → onboarding first; otherwise starts the challenge and opens it. The middleware sends a user carrying the cookie from `/dashboard` back here |
 
 ## Core authenticated pages
 
@@ -30,7 +32,9 @@
 | `/tasks` | Full task manager |
 | `/habits` | Today/history/archived habit manager |
 | `/habits/[habitId]` | Habit detail and analytics |
-| `/quests` | Default quests, custom quests, daily challenges, and challenge programs |
+| `/quests` | Achievements and custom one-time quests; links to `/challenges` |
+| `/challenges` | Every published challenge plus the user's personal ones, running first; form to create a personal "X days of Y" challenge |
+| `/challenges/[id]` | One challenge: today's step (manual or auto-detected), deep link, all days |
 | `/learn` | Article library; admins additionally get the interactive Academy courses |
 | `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
@@ -73,10 +77,10 @@ All admin pages live under the immersive `AdminShell`.
 | `/admin/rituals` | Global settings for the four dashboard ritual prompts: enabled, window, target template, copy (saving needs the trusted admin role) |
 | `/admin/workouts` | Exercise library, routines, active workout, history, statistics |
 | `/admin/nutrition` | Diary, foods, portions, saved meals, recipes, targets |
-| `/admin/challenges` | Challenge template authoring and publishing |
+| `/admin/challenges` | Challenge Lab: authoring, completion rules per day, public link, publishing to all users |
 | `/admin/notes` | Markdown knowledge base |
 | `/admin/projects` | Project outcomes, task board/list, milestones |
-| `/admin/tools` | Private test and development controls |
+| `/admin/tools` | Signup analytics (`?range=30\|90\|365`) and private test and development controls |
 
 ## HTTP endpoints
 

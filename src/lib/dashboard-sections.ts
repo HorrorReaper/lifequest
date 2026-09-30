@@ -18,6 +18,11 @@ export interface DashboardSectionDef {
  */
 export const DASHBOARD_SECTIONS: DashboardSectionDef[] = [
   {
+    id: 'challenge',
+    label: 'Challenge',
+    description: "Today's step in the challenge you are doing. Only shows while one is running.",
+  },
+  {
     id: 'today_plan',
     label: "Today's Plan",
     description: 'The shape of your day, block by block.',

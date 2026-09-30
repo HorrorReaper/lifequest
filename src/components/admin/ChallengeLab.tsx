@@ -1,148 +1,143 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, Plus, Save, Sparkles, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Copy, ExternalLink, Eye, EyeOff, Flame, Plus, Save, Sparkles, Trash2, Users } from 'lucide-react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import type { ChallengeDayRow, ChallengeTemplateRow } from '@/lib/supabase/database.types'
+import {
+  blankChallengeDraft,
+  blankDay,
+  draftDaysPayload,
+  draftFromTemplate,
+  unfuckYourLifeDraft,
+  validateChallengeDraft,
+  type ChallengeDraft,
+  type DayDraft,
+} from '@/lib/challenge-draft'
+import { isAutomaticRule, slugifyChallengeTitle } from '@/lib/challenge-rules'
+import { TOOL_REGISTRY } from '@/lib/tools/registry'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { AdminPageHeader } from './AdminPageHeader'
+import { ChallengeDayEditor, type RuleParamOption } from './challenge-lab/ChallengeDayEditor'
 import { cn } from '@/lib/utils'
 
-type DayDraft = { title: string; instructions: string; reflection_prompt: string }
-type TemplateWithDays = ChallengeTemplateRow & { days: ChallengeDayRow[] }
-type Draft = {
-  id: string | null
-  title: string
-  description: string
-  schedule_mode: 'sequential' | 'strict'
-  xp_reward: number
-  coin_reward: number
-  is_published: boolean
-  days: DayDraft[]
-}
+type TemplateWithDays = ChallengeTemplateRow & { days: ChallengeDayRow[]; participants: number; active: number }
 
-const SOCIAL_SKILLS_DAYS = [
-  'Smile and make eye contact with three people',
-  'Ask someone an open-ended question',
-  'Give one sincere compliment',
-  'Start a two-minute conversation with someone new',
-  'Practice remembering and using someone’s name',
-  'Ask a follow-up question instead of changing the subject',
-  'Share one small personal story',
-  'Introduce yourself to someone you see regularly',
-  'Listen without planning your next response',
-  'Invite someone to have coffee or take a short walk',
-  'Ask someone what they are currently excited about',
-  'Practice a confident introduction in front of a mirror',
-  'Send a thoughtful message to an old contact',
-  'Join a group conversation and contribute once',
-  'Ask for a small recommendation',
-  'Hold eye contact for one extra second',
-  'Tell a short story with a clear beginning and ending',
-  'Ask someone about a challenge they recently solved',
-  'Express a different opinion respectfully',
-  'Introduce two people who could benefit from knowing each other',
-  'Practice leaving a conversation gracefully',
-  'Ask for feedback on how you communicate',
-  'Speak to someone you would normally avoid approaching',
-  'Replace one closed question with an open question',
-  'Make one specific observation that starts a conversation',
-  'Share appreciation with someone who has helped you',
-  'Practice speaking 10% slower in one conversation',
-  'Suggest a concrete plan instead of saying “we should meet”',
-  'Have a ten-minute conversation with your phone out of sight',
-  'Organize a small social activity or make the invitation',
-]
-
-function blankDraft(): Draft {
-  return { id: null, title: '', description: '', schedule_mode: 'sequential', xp_reward: 500, coin_reward: 250, is_published: false, days: [{ title: '', instructions: '', reflection_prompt: '' }] }
-}
+const TOOL_OPTIONS: RuleParamOption[] = TOOL_REGISTRY.map((tool) => ({ value: tool.id, label: tool.title }))
 
 export function ChallengeLab() {
   const [supabase] = useState(() => createClient() as unknown as SupabaseClient)
   const [templates, setTemplates] = useState<TemplateWithDays[]>([])
-  const [draft, setDraft] = useState<Draft>(blankDraft)
+  const [journalTemplates, setJournalTemplates] = useState<RuleParamOption[]>([])
+  const [draft, setDraft] = useState<ChallengeDraft>(blankChallengeDraft)
   const [bulk, setBulk] = useState('')
   const [showBulk, setShowBulk] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [origin, setOrigin] = useState('')
 
-  const load = useCallback(async (selectId?: string) => {
-    setLoading(true)
-    const [templateRes, dayRes] = await Promise.all([
-      supabase.from('challenge_templates').select('*').order('updated_at', { ascending: false }),
-      supabase.from('challenge_days').select('*').order('day_number'),
-    ])
-    const next = ((templateRes.data ?? []) as ChallengeTemplateRow[]).map((template) => ({
-      ...template,
-      days: ((dayRes.data ?? []) as ChallengeDayRow[]).filter((day) => day.template_id === template.id),
-    }))
-    setTemplates(next)
-    const selected = next.find((item) => item.id === selectId)
-    if (selected) editTemplate(selected)
-    setError(templateRes.error?.message ?? dayRes.error?.message ?? null)
-    setLoading(false)
-  }, [supabase])
+  const selected = useMemo(() => templates.find((item) => item.id === draft.id) ?? null, [templates, draft.id])
+  const lockedLength = Boolean(selected && selected.participants > 0)
 
-  useEffect(() => { queueMicrotask(() => void load()) }, [load])
+  const load = useCallback(
+    async (selectId?: string) => {
+      setLoading(true)
+      const [templateRes, dayRes, enrollmentRes, journalRes] = await Promise.all([
+        // Personal challenges are the user's own; RLS already hides everyone
+        // else's, this also keeps the admin's own out of the catalogue.
+        supabase.from('challenge_templates').select('*').eq('is_personal', false).order('updated_at', { ascending: false }),
+        supabase.from('challenge_days').select('*').order('day_number'),
+        supabase.from('challenge_enrollments').select('template_id, status'),
+        supabase.from('journal_templates').select('id, name').eq('is_system', true).order('sort_order'),
+      ])
+      const enrollments = (enrollmentRes.data ?? []) as { template_id: string; status: string }[]
+      const next = ((templateRes.data ?? []) as ChallengeTemplateRow[]).map((template) => ({
+        ...template,
+        days: ((dayRes.data ?? []) as ChallengeDayRow[]).filter((day) => day.template_id === template.id),
+        participants: enrollments.filter((item) => item.template_id === template.id).length,
+        active: enrollments.filter((item) => item.template_id === template.id && item.status === 'active').length,
+      }))
+      setTemplates(next)
+      setJournalTemplates(((journalRes.data ?? []) as { id: string; name: string }[]).map((row) => ({ value: row.id, label: row.name })))
+      const selectedTemplate = next.find((item) => item.id === selectId)
+      if (selectedTemplate) setDraft(draftFromTemplate(selectedTemplate, selectedTemplate.days))
+      setError(templateRes.error?.message ?? dayRes.error?.message ?? null)
+      setLoading(false)
+    },
+    [supabase]
+  )
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setOrigin(window.location.origin)
+      void load()
+    })
+  }, [load])
 
   function editTemplate(template: TemplateWithDays) {
-    setDraft({
-      id: template.id,
-      title: template.title,
-      description: template.description ?? '',
-      schedule_mode: template.schedule_mode,
-      xp_reward: template.xp_reward,
-      coin_reward: template.coin_reward,
-      is_published: template.is_published,
-      days: template.days.map((day) => ({ title: day.title, instructions: day.instructions, reflection_prompt: day.reflection_prompt ?? '' })),
-    })
+    setDraft(draftFromTemplate(template, template.days))
     setNotice(null)
+    setError(null)
   }
 
-  function updateDay(index: number, key: keyof DayDraft, value: string) {
-    setDraft((current) => ({ ...current, days: current.days.map((day, dayIndex) => dayIndex === index ? { ...day, [key]: value } : day) }))
+  function startNew(next: ChallengeDraft) {
+    setDraft(next)
+    setNotice(null)
+    setError(null)
+  }
+
+  function updateDay(index: number, patch: Partial<DayDraft>) {
+    setDraft((current) => ({
+      ...current,
+      days: current.days.map((day, dayIndex) => (dayIndex === index ? { ...day, ...patch } : day)),
+    }))
   }
 
   function moveDay(index: number, direction: -1 | 1) {
-    const next = index + direction
-    if (next < 0 || next >= draft.days.length) return
-    const days = [...draft.days]
-    ;[days[index], days[next]] = [days[next], days[index]]
-    setDraft({ ...draft, days })
+    setDraft((current) => {
+      const next = index + direction
+      if (next < 0 || next >= current.days.length) return current
+      const days = [...current.days]
+      ;[days[index], days[next]] = [days[next], days[index]]
+      return { ...current, days }
+    })
   }
 
   function applyBulk() {
-    const days = bulk.split('\n').map((line) => line.replace(/^\s*(?:day\s*)?\d+[.)\-:]?\s*/i, '').trim()).filter(Boolean)
-      .map((line) => ({ title: line, instructions: line, reflection_prompt: 'What did you notice, and what will you try next time?' }))
+    const days = bulk
+      .split('\n')
+      .map((line) => line.replace(/^\s*(?:(?:day|tag)\s*)?\d+[.)\-:]?\s*/i, '').trim())
+      .filter(Boolean)
+      .map((line) => blankDay({ title: line.slice(0, 120), instructions: line, reflection_prompt: 'What did you notice, and what will you try next time?' }))
     if (!days.length) return
-    setDraft({ ...draft, days })
+    setDraft((current) => ({ ...current, days }))
     setBulk('')
     setShowBulk(false)
   }
 
-  function loadSocialSkillsExample() {
-    setDraft({
-      id: null,
-      title: '30 Days of Social Skills',
-      description: 'Build confidence through one practical social action each day.',
-      schedule_mode: 'sequential',
-      xp_reward: 750,
-      coin_reward: 350,
-      is_published: false,
-      days: SOCIAL_SKILLS_DAYS.map((task) => ({ title: task, instructions: task, reflection_prompt: 'What happened, and what did you learn from the interaction?' })),
-    })
-  }
-
-  async function save(publish = draft.is_published) {
-    if (!draft.title.trim() || draft.days.some((day) => !day.title.trim() || !day.instructions.trim())) return
-    setSaving(true); setError(null); setNotice(null)
+  async function save(publish: boolean) {
+    const problem = validateChallengeDraft(draft, { publishing: publish })
+    if (problem) {
+      setError(problem)
+      setNotice(null)
+      return
+    }
+    if (
+      selected &&
+      selected.active > 0 &&
+      !window.confirm(`${selected.active} people are doing this challenge right now. Your changes apply to them immediately. Save?`)
+    ) {
+      return
+    }
+    setSaving(true)
+    setError(null)
+    setNotice(null)
     const { data, error: saveError } = await supabase.rpc('admin_save_challenge_template', {
       p_template_id: draft.id,
       p_title: draft.title.trim(),
@@ -151,59 +146,300 @@ export function ChallengeLab() {
       p_xp_reward: draft.xp_reward,
       p_coin_reward: draft.coin_reward,
       p_is_published: publish,
-      p_days: draft.days,
+      p_days: draftDaysPayload(draft.days),
+      p_slug: draft.slug.trim() || null,
+      p_tagline: draft.tagline.trim() || null,
     })
-    if (saveError) setError(saveError.message)
-    else { setNotice(publish ? 'Challenge published.' : 'Draft saved.'); await load(data as string) }
-    setSaving(false)
-  }
-
-  async function togglePublished() {
-    if (!draft.id) { await save(true); return }
-    setSaving(true); setError(null); setNotice(null)
-    const nextPublished = !draft.is_published
-    const { error: publishError } = await supabase.from('challenge_templates').update({ is_published: nextPublished, updated_at: new Date().toISOString() }).eq('id', draft.id)
-    if (publishError) setError(publishError.message)
-    else { setNotice(nextPublished ? 'Challenge published.' : 'Challenge unpublished.'); await load(draft.id) }
+    if (saveError) {
+      setError(
+        saveError.message.includes('challenge_templates_slug_idx')
+          ? 'Another challenge already uses this public link.'
+          : saveError.message
+      )
+    } else {
+      setNotice(publish ? (draft.is_published ? 'Changes are live.' : 'Challenge published.') : draft.is_published ? 'Challenge unpublished.' : 'Draft saved.')
+      await load(data as string)
+    }
     setSaving(false)
   }
 
   async function removeTemplate(template: TemplateWithDays) {
-    if (!window.confirm(`Delete “${template.title}”? Enrollments and progress will also be deleted.`)) return
+    if (template.participants > 0) {
+      setError('People have joined this challenge, so it cannot be deleted. Unpublish it instead.')
+      return
+    }
+    if (!window.confirm(`Delete “${template.title}”? This cannot be undone.`)) return
     const { error: deleteError } = await supabase.from('challenge_templates').delete().eq('id', template.id)
     if (deleteError) setError(deleteError.message)
-    else { setDraft(blankDraft()); await load() }
+    else {
+      startNew(blankChallengeDraft())
+      await load()
+    }
   }
 
-  return <div className="mx-auto max-w-[92rem] space-y-7">
-    <AdminPageHeader eyebrow="Experiment · Guided programs" title="Challenge lab" description="Design day-by-day journeys, test their pacing, and publish only when the full experience is ready." />
-    {error && <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-    {notice && <p className="rounded-xl bg-primary/10 p-3 text-sm text-primary">{notice}</p>}
+  const publicUrl = draft.slug.trim() ? `${origin}/challenge/${draft.slug.trim()}` : null
+  const autoDays = draft.days.filter((day) => isAutomaticRule(day.completion_type)).length
 
-    <div className="grid gap-5 xl:grid-cols-[20rem_minmax(0,1fr)]">
-      <aside className="self-start rounded-[2rem] bg-card p-4 ring-1 ring-border xl:sticky xl:top-10">
-        <div className="flex items-center justify-between px-2 py-2"><div><p className="text-sm text-muted-foreground">Programs</p><p className="font-semibold">{templates.length} experiments</p></div><Button size="icon" onClick={() => setDraft(blankDraft())} aria-label="New challenge"><Plus /></Button></div>
-        <div className="mt-3 space-y-2">
-          {loading ? <p className="p-4 text-sm text-muted-foreground">Loading programs...</p> : templates.length === 0 ? <p className="p-4 text-sm text-muted-foreground">No programs yet. Start with the social-skills example.</p> : templates.map((template) => <button key={template.id} onClick={() => editTemplate(template)} className={cn('w-full rounded-2xl p-3 text-left ring-1 transition-colors', draft.id === template.id ? 'bg-primary/10 ring-primary/30' : 'bg-muted/30 ring-border hover:bg-muted/60')}><div className="flex items-start justify-between gap-2"><p className="font-medium">{template.title}</p>{template.is_published ? <Eye className="size-4 shrink-0 text-primary" /> : <EyeOff className="size-4 shrink-0 text-muted-foreground" />}</div><p className="mt-1 text-xs text-muted-foreground">{template.duration_days} days · {template.schedule_mode}</p></button>)}
-        </div>
-        <Button variant="outline" className="mt-4 w-full" onClick={loadSocialSkillsExample}><Sparkles />Load social-skills example</Button>
-      </aside>
+  return (
+    <div className="mx-auto max-w-[92rem] space-y-7">
+      <AdminPageHeader
+        eyebrow="Challenges · for every user"
+        title="Challenge lab"
+        description="Build day-by-day challenges, pick how each day completes (manually or detected automatically), and publish them to every user. A public link turns a challenge into a landing page."
+      />
+      {error && <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+      {notice && <p className="rounded-xl bg-primary/10 p-3 text-sm text-primary">{notice}</p>}
 
-      <section className="rounded-[2rem] bg-card p-5 ring-1 ring-border sm:p-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm text-muted-foreground">{draft.id ? 'Editing program' : 'New experiment'}</p><h2 className="text-2xl font-semibold tracking-tight">{draft.title || 'Untitled challenge'}</h2></div><div className="flex flex-wrap gap-2">{draft.id && <Button variant="ghost" size="icon" onClick={() => { const selected = templates.find((item) => item.id === draft.id); if (selected) void removeTemplate(selected) }} aria-label="Delete challenge"><Trash2 /></Button>}<Button variant="outline" onClick={() => setDraft({ ...draft, id: null, title: `${draft.title} copy`, is_published: false })} disabled={!draft.title}><Copy />Duplicate</Button><Button variant="outline" onClick={() => save(draft.is_published)} disabled={saving}><Save />Save changes</Button><Button onClick={togglePublished} disabled={saving}>{draft.is_published ? <><EyeOff />Unpublish</> : <><Eye />Publish</>}</Button></div></div>
+      <div className="grid gap-5 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <aside className="self-start rounded-[2rem] bg-card p-4 ring-1 ring-border xl:sticky xl:top-10">
+          <div className="flex items-center justify-between px-2 py-2">
+            <div>
+              <p className="text-sm text-muted-foreground">Challenges</p>
+              <p className="font-semibold">{templates.length} total</p>
+            </div>
+            <Button size="icon" onClick={() => startNew(blankChallengeDraft())} aria-label="New challenge">
+              <Plus />
+            </Button>
+          </div>
+          <div className="mt-3 space-y-2">
+            {loading ? (
+              <p className="p-4 text-sm text-muted-foreground">Loading challenges...</p>
+            ) : templates.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No challenges yet.</p>
+            ) : (
+              templates.map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => editTemplate(template)}
+                  className={cn(
+                    'w-full rounded-2xl p-3 text-left ring-1 transition-colors',
+                    draft.id === template.id ? 'bg-primary/10 ring-primary/30' : 'bg-muted/30 ring-border hover:bg-muted/60'
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium">{template.title}</p>
+                    {template.is_published ? (
+                      <Eye className="size-4 shrink-0 text-primary" aria-label="Published" />
+                    ) : (
+                      <EyeOff className="size-4 shrink-0 text-muted-foreground" aria-label="Draft" />
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {template.duration_days} days · {template.schedule_mode} · {template.active} active / {template.participants} joined
+                  </p>
+                </button>
+              ))
+            )}
+          </div>
+          <Button variant="outline" className="mt-4 w-full" onClick={() => startNew(unfuckYourLifeDraft())}>
+            <Flame />
+            New “Unfuck Your Life” (14 days)
+          </Button>
+        </aside>
 
-        <div className="mt-7 grid gap-4 md:grid-cols-2">
-          <div className="space-y-2"><Label htmlFor="program-title">Program title</Label><Input id="program-title" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="30 Days of Social Skills" /></div>
-          <div className="space-y-2"><Label htmlFor="program-mode">Schedule</Label><select id="program-mode" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={draft.schedule_mode} onChange={(event) => setDraft({ ...draft, schedule_mode: event.target.value as Draft['schedule_mode'] })}><option value="sequential">Sequential · one completed day at a time</option><option value="strict">Strict · no missed calendar days</option></select></div>
-          <div className="space-y-2 md:col-span-2"><Label htmlFor="program-description">Description</Label><Textarea id="program-description" value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="What transformation should the user experience?" /></div>
-          <div className="space-y-2"><Label htmlFor="program-xp">Final XP reward</Label><Input id="program-xp" type="number" min={0} value={draft.xp_reward} onChange={(event) => setDraft({ ...draft, xp_reward: Number(event.target.value) })} /></div>
-          <div className="space-y-2"><Label htmlFor="program-coins">Final coin reward</Label><Input id="program-coins" type="number" min={0} value={draft.coin_reward} onChange={(event) => setDraft({ ...draft, coin_reward: Number(event.target.value) })} /></div>
-        </div>
+        <section className="rounded-[2rem] bg-card p-5 ring-1 ring-border sm:p-7">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                {draft.id ? (draft.is_published ? 'Live challenge' : 'Draft') : 'New challenge'}
+              </p>
+              <h2 className="text-2xl font-semibold tracking-tight">{draft.title || 'Untitled challenge'}</h2>
+              {selected && selected.participants > 0 && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users className="size-3.5" />
+                  {selected.active} active, {selected.participants} joined in total. Texts and rules can change; the number of days cannot.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {selected && (
+                <Button variant="ghost" size="icon" onClick={() => void removeTemplate(selected)} aria-label="Delete challenge">
+                  <Trash2 />
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => startNew({ ...draft, id: null, title: `${draft.title} copy`, slug: '', is_published: false })}
+                disabled={!draft.title}
+              >
+                <Copy />
+                Duplicate
+              </Button>
+              <Button variant="outline" onClick={() => void save(draft.is_published)} disabled={saving}>
+                <Save />
+                {draft.is_published ? 'Save live changes' : 'Save draft'}
+              </Button>
+              <Button onClick={() => void save(!draft.is_published)} disabled={saving}>
+                {draft.is_published ? (
+                  <>
+                    <EyeOff />
+                    Unpublish
+                  </>
+                ) : (
+                  <>
+                    <Eye />
+                    Publish
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
 
-        <div className="mt-8 flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm text-muted-foreground">Daily journey</p><h3 className="text-xl font-semibold">{draft.days.length} challenge days</h3></div><div className="flex gap-2"><Button variant="outline" onClick={() => setShowBulk(!showBulk)}>Bulk paste</Button><Button variant="outline" onClick={() => setDraft({ ...draft, days: [...draft.days, { title: '', instructions: '', reflection_prompt: '' }] })}><Plus />Add day</Button></div></div>
-        {showBulk && <div className="mt-4 rounded-2xl bg-muted/40 p-4"><Label htmlFor="bulk-days">One challenge per line</Label><Textarea id="bulk-days" className="mt-2 min-h-40" value={bulk} onChange={(event) => setBulk(event.target.value)} placeholder={'Day 1: Smile at three people\nDay 2: Start a short conversation'} /><Button className="mt-3" onClick={applyBulk}>Replace daily journey</Button></div>}
-        <div className="mt-4 space-y-3">{draft.days.map((day, index) => <article key={index} className="rounded-2xl bg-muted/35 p-4 ring-1 ring-border"><div className="flex items-center gap-2"><span className="grid size-9 shrink-0 place-items-center rounded-xl bg-background font-mono text-xs">{String(index + 1).padStart(2, '0')}</span><Input aria-label={`Day ${index + 1} title`} value={day.title} onChange={(event) => updateDay(index, 'title', event.target.value)} placeholder="Today’s action" /><Button size="icon" variant="ghost" onClick={() => moveDay(index, -1)} disabled={index === 0} aria-label="Move day up"><ArrowUp /></Button><Button size="icon" variant="ghost" onClick={() => moveDay(index, 1)} disabled={index === draft.days.length - 1} aria-label="Move day down"><ArrowDown /></Button><Button size="icon" variant="ghost" onClick={() => setDraft({ ...draft, days: draft.days.filter((_, dayIndex) => dayIndex !== index) })} disabled={draft.days.length === 1} aria-label="Delete day"><Trash2 /></Button></div><Textarea className="mt-3" aria-label={`Day ${index + 1} instructions`} value={day.instructions} onChange={(event) => updateDay(index, 'instructions', event.target.value)} placeholder="Clear instructions for completing this day" /><Input className="mt-3" aria-label={`Day ${index + 1} reflection prompt`} value={day.reflection_prompt} onChange={(event) => updateDay(index, 'reflection_prompt', event.target.value)} placeholder="Optional reflection prompt" /></article>)}</div>
-      </section>
+          <div className="mt-7 grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="program-title">Title</Label>
+              <Input
+                id="program-title"
+                value={draft.title}
+                onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+                placeholder="Unfuck Your Life"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="program-mode">Schedule</Label>
+              <select
+                id="program-mode"
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                value={draft.schedule_mode}
+                onChange={(event) => setDraft({ ...draft, schedule_mode: event.target.value as ChallengeDraft['schedule_mode'] })}
+              >
+                <option value="sequential">At your pace · one day unlocks per calendar day</option>
+                <option value="strict">Strict · a missed calendar day means restarting</option>
+              </select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="program-tagline">Tagline</Label>
+              <Input
+                id="program-tagline"
+                value={draft.tagline}
+                onChange={(event) => setDraft({ ...draft, tagline: event.target.value })}
+                placeholder="One sentence that makes someone want to start"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="program-description">Description</Label>
+              <Textarea
+                id="program-description"
+                value={draft.description}
+                onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                placeholder="What changes for someone who finishes this?"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="program-slug">Public landing page</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="program-slug"
+                  value={draft.slug}
+                  onChange={(event) => setDraft({ ...draft, slug: event.target.value.toLowerCase() })}
+                  placeholder="unfuck-your-life (leave empty for no public page)"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDraft({ ...draft, slug: slugifyChallengeTitle(draft.title) })}
+                  disabled={!draft.title.trim()}
+                >
+                  From title
+                </Button>
+              </div>
+              {publicUrl && (
+                <p className="text-xs text-muted-foreground">
+                  {draft.is_published && selected?.slug === draft.slug.trim() ? (
+                    <a href={publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4">
+                      {publicUrl}
+                      <ExternalLink className="size-3" />
+                    </a>
+                  ) : (
+                    <>Will be live at {publicUrl} once published.</>
+                  )}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="program-xp">XP for finishing</Label>
+              <Input
+                id="program-xp"
+                type="number"
+                min={0}
+                value={draft.xp_reward}
+                onChange={(event) => setDraft({ ...draft, xp_reward: Number(event.target.value) })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="program-coins">Coins for finishing</Label>
+              <Input
+                id="program-coins"
+                type="number"
+                min={0}
+                value={draft.coin_reward}
+                onChange={(event) => setDraft({ ...draft, coin_reward: Number(event.target.value) })}
+              />
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Daily journey</p>
+              <h3 className="text-xl font-semibold">
+                {draft.days.length} days
+                {autoDays > 0 && (
+                  <span className="ml-2 inline-flex items-center gap-1 align-middle text-sm font-normal text-muted-foreground">
+                    <Sparkles className="size-3.5 text-primary" />
+                    {autoDays} auto-detected
+                  </span>
+                )}
+              </h3>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowBulk(!showBulk)} disabled={lockedLength}>
+                Bulk paste
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setDraft({ ...draft, days: [...draft.days, blankDay()] })}
+                disabled={lockedLength}
+              >
+                <Plus />
+                Add day
+              </Button>
+            </div>
+          </div>
+          {showBulk && !lockedLength && (
+            <div className="mt-4 rounded-2xl bg-muted/40 p-4">
+              <Label htmlFor="bulk-days">One day per line (replaces all days)</Label>
+              <Textarea
+                id="bulk-days"
+                className="mt-2 min-h-40"
+                value={bulk}
+                onChange={(event) => setBulk(event.target.value)}
+                placeholder={'Day 1: Clear your desk\nDay 2: Write down three habits you want'}
+              />
+              <Button className="mt-3" onClick={applyBulk}>
+                Replace daily journey
+              </Button>
+            </div>
+          )}
+          <div className="mt-4 space-y-3">
+            {draft.days.map((day, index) => (
+              <ChallengeDayEditor
+                key={index}
+                day={day}
+                index={index}
+                total={draft.days.length}
+                lengthLocked={lockedLength}
+                journalTemplates={journalTemplates}
+                tools={TOOL_OPTIONS}
+                onChange={(patch) => updateDay(index, patch)}
+                onMove={(direction) => moveDay(index, direction)}
+                onRemove={() =>
+                  setDraft((current) => ({ ...current, days: current.days.filter((_, dayIndex) => dayIndex !== index) }))
+                }
+              />
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
-  </div>
+  )
 }
