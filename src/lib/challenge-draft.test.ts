@@ -72,13 +72,13 @@ describe('unfuckYourLifeDraft', () => {
       day.completion_param ? `${day.completion_type}:${day.completion_param}` : day.completion_type
     )
     expect(rules).toEqual([
+      'tool_entries:wheel-of-life',
       'tool_entries:vision',
       'goals_created',
       'tool_entries:goal-breakdown',
       'habits_created',
       'manual',
       'tool_entries:identity',
-      'reflection',
       'journal_entries:a7d4e2b1-3c6f-4e8a-9b05-2f1d8c7e6a02',
       'manual',
       'tool_entries:time-audit',

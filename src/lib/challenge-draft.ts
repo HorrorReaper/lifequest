@@ -71,10 +71,11 @@ export const DAY_INSTRUCTIONS_PLACEHOLDER = 'To be written.'
  * Lab's button as an unpublished challenge. A starting point to edit, not a
  * fixed program: every text, rule and link can change in the editor.
  *
- * The arc: week one gives direction (vision, goals, next steps, one habit)
- * and the first proof of change; week two clears what is in the way (time,
- * environment, fear) and closes by measuring the life areas again and
- * looking back.
+ * The arc: day 1 measures where the user stands (Wheel of Life); week one
+ * gives direction (vision, goals, next steps, one habit) and the first proof
+ * of change; day 8 looks back and plans week two; week two clears what is in
+ * the way (time, environment, fear) and closes by rating the life areas
+ * again against day 1 and looking back.
  */
 export function unfuckYourLifeDraft(): ChallengeDraft {
   const tool = (id: string, label: string) =>
@@ -93,11 +94,19 @@ export function unfuckYourLifeDraft(): ChallengeDraft {
     coin_reward: 500,
     days: [
       blankDay({
+        title: 'See where you stand',
+        instructions:
+          'Before you change anything, take an honest snapshot.\n\n' +
+          'Open the Wheel of Life and rate five areas of your life from 1 to 10: Relationships, Health, Business & career, Fun & free time, and Personal growth. ' +
+          'Rate them as they are today, not as they should be. It takes two minutes.\n\n' +
+          'You will rate them again on day 13 and see exactly what moved.',
+        ...tool('wheel-of-life', 'Rate your life areas'),
+      }),
+      blankDay({
         title: 'Write down your vision',
         instructions:
-          'Before anything else: where do you actually want to go?\n\n' +
-          'Warm up with two minutes in the Wheel of Life (Toolbox): rate your five life areas from 1 to 10. You will do it again on day 13 and see what moved.\n\n' +
-          'Then open Vision and describe your life three years from now, in the present tense, as if it were already true. ' +
+          'Now: where do you actually want to go?\n\n' +
+          'Open Vision and describe your life three years from now, in the present tense, as if it were already true. ' +
           'How does a normal Tuesday look? Who is around you? What do you do, and how do you feel? ' +
           'It does not have to be perfect, it has to be written down. Ten minutes are enough.',
         ...tool('vision', 'Write your vision'),
@@ -152,25 +161,16 @@ export function unfuckYourLifeDraft(): ChallengeDraft {
         ...tool('identity', 'Open Identity'),
       }),
       blankDay({
-        title: 'Look back on week one',
+        title: 'Look back, then plan week two',
         instructions:
-          'Half-time. Before you plan the next week, look honestly at this one.\n\n' +
-          'Write your reflection: what you started, what you avoided, and what surprised you. No judgement, just facts and what you learned from them.',
-        completion_type: 'reflection',
-        reflection_prompt:
-          'What has changed since day 1? What worked, what did you avoid, and what will you do differently next week?',
-        action_label: 'Write your reflection',
-      }),
-      blankDay({
-        title: 'Plan week two around your goals',
-        instructions:
-          'Now plan the week like the person you described on day 6 would.\n\n' +
-          'Open the Weekly Plan: give the week a theme and three outcomes that move your goals forward. ' +
+          'One week done. Before you plan the next one, look honestly at this one: what did you start, what did you avoid, and what surprised you? ' +
+          'No judgement, just what you learned.\n\n' +
+          'Then open the Weekly Plan and plan week two like the person you described yesterday would: a theme and three outcomes that move your goals forward. ' +
           'Put your daily habit into it, and block 30 minutes for tomorrow: your first dream block.',
         completion_type: 'journal_entries',
         completion_target: 1,
         completion_param: WEEKLY_PLAN_TEMPLATE_ID,
-        action_label: 'Plan your week',
+        action_label: 'Look back and plan',
       }),
       blankDay({
         title: 'Do a 30-minute dream block',
@@ -211,7 +211,7 @@ export function unfuckYourLifeDraft(): ChallengeDraft {
       blankDay({
         title: 'Rate your life areas again',
         instructions:
-          'Two weeks ago you rated your life. Do it again, honestly.\n\n' +
+          'On day 1 you rated your life. Do it again, honestly, without looking at the old numbers first.\n\n' +
           'Open the Wheel of Life and rate Relationships, Health, Business & career, Fun & free time and Personal growth from 1 to 10. ' +
           'Look at what moved and what did not. Pick the area with the most room to grow: that is where your habit and goals should point next.',
         ...tool('wheel-of-life', 'Open Wheel of Life'),
@@ -221,7 +221,7 @@ export function unfuckYourLifeDraft(): ChallengeDraft {
         instructions:
           'You did fourteen days. That alone is more than most people do.\n\n' +
           'Write your final reflection: what you learned, what you are grateful for, and what you keep doing from here. ' +
-          'Read your vision from day 1 once more before you start.',
+          'Read your vision from day 2 once more before you start.',
         completion_type: 'reflection',
         reflection_prompt:
           'What are the three most important things you learned in these 14 days, what are you grateful for, and what will you keep doing?',
