@@ -33,10 +33,6 @@ function fakeQuest(overrides: Partial<CustomQuest> = {}): CustomQuest {
     description: null,
     xp_reward: 50,
     coin_reward: 20,
-    quest_type: 'single',
-    challenge_days: null,
-    challenge_task: null,
-    challenge_start_date: null,
     skill_category: null,
     is_completed: false,
     completed_at: null,
@@ -58,8 +54,6 @@ async function openQuestForm() {
       userId="user-1"
       defaultQuests={[]}
       initialCustomQuests={[]}
-      initialChallengePrograms={[]}
-      today="2026-08-01"
     />
   )
 

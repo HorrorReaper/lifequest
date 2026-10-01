@@ -18,19 +18,23 @@
 | `/reset-password` | Public callback target | Reached only via a valid Supabase recovery session forwarded by `/auth/callback`; sets a new password. No session redirects to `/login?error=reset_link_invalid` |
 | `/terms` | Public | Terms of Service |
 | `/privacy` | Public | Privacy Policy |
+| `/challenge/[slug]` | Public | Landing page of a published challenge that has a slug (title, copy, day titles, rewards); data via `get_public_challenge` |
+| `/challenge/[slug]/join` | Public route handler | "Start" button: signed out → remembers the challenge in a cookie and opens sign-up; not onboarded → onboarding first; otherwise starts the challenge and opens it. The middleware sends a user carrying the cookie from `/dashboard` back here |
 
 ## Core authenticated pages
 
 | Route | Purpose |
 | --- | --- |
 | `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
-| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, the daily reflection prompt, quests, and admin-only widgets |
+| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, the daily reflection prompt, goals, quests, and admin-only widgets |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
 | `/plan` | Five-step Today Plan ritual |
 | `/tasks` | Full task manager |
 | `/habits` | Today/history/archived habit manager |
 | `/habits/[habitId]` | Habit detail and analytics |
-| `/quests` | Default quests, custom quests, daily challenges, and challenge programs |
+| `/quests` | Achievements and custom one-time quests; links to `/challenges` |
+| `/challenges` | Every published challenge plus the user's personal ones, running first; form to create a personal "X days of Y" challenge |
+| `/challenges/[id]` | One challenge: today's step (manual or auto-detected), deep link, all days |
 | `/learn` | Article library; admins additionally get the interactive Academy courses |
 | `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
@@ -73,10 +77,10 @@ All admin pages live under the immersive `AdminShell`.
 | `/admin/rituals` | Global settings for the four dashboard ritual prompts: enabled, window, target template, copy (saving needs the trusted admin role) |
 | `/admin/workouts` | Exercise library, routines, active workout, history, statistics |
 | `/admin/nutrition` | Diary, foods, portions, saved meals, recipes, targets |
-| `/admin/challenges` | Challenge template authoring and publishing |
+| `/admin/challenges` | Challenge Lab: authoring, completion rules per day, public link, publishing to all users |
 | `/admin/notes` | Markdown knowledge base |
 | `/admin/projects` | Project outcomes, task board/list, milestones |
-| `/admin/tools` | Private test and development controls |
+| `/admin/tools` | Signup analytics (`?range=30\|90\|365`) and private test and development controls |
 
 ## HTTP endpoints
 
@@ -85,7 +89,7 @@ All admin pages live under the immersive `AdminShell`.
 | `POST /api/waitlist` | Public | Validates a waitlist signup and currently logs it server-side |
 | `DELETE /api/account` | User | Permanently deletes the authenticated account after email confirmation |
 | `POST /api/chat` | Admin + consent | Contextual AI assistant and supported app actions |
-| `POST /api/goals/[goalId]/quest-suggestions` | Admin | Generates three structured quest suggestions |
+| `POST /api/goals/[goalId]/quest-suggestions` | Admin | Generates three structured quest suggestions (goals themselves are open to all users; only this AI step is admin-only) |
 | `GET /api/admin/nutrition/foods/search?q=` | Trusted admin | Parallel USDA/Open Food Facts search |
 | `GET /api/admin/nutrition/foods/barcode/[code]` | Trusted admin | Barcode lookup with provider fallback |
 | `POST /api/admin/nutrition/foods/import` | Trusted admin | Refetches and caches an external food locally |

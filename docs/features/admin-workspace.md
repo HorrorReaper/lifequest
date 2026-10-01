@@ -29,15 +29,39 @@ The admin shell groups work into:
 
 | Section | Route | Purpose |
 | --- | --- | --- |
+| Work | `/admin/work` | Today, existing Tasks and Daily Planner, project boards and links to focus/Knowledge |
 | Productivity | `/admin/productivity` | Tasks, priorities, focus, habits, goals, routines, plan |
 | Training | `/admin/workouts` | Exercise, routine, workout, history, analytics |
 | Nutrition | `/admin/nutrition` | Food diary and food system |
 | Challenges | `/admin/challenges` | Challenge authoring |
 | Knowledge | `/admin/notes` | Markdown notes and linked knowledge |
 | Projects | `/admin/projects` | Outcomes, project tasks, milestones |
-| Tools | `/admin/tools` | Development/test controls |
+| Tools | `/admin/tools` | Signups over time, and development/test controls |
 
 On desktop this is a sidebar. On mobile it becomes a compact horizontal navigation pattern.
+
+## Work
+
+Work is the shared entry point for the existing work tools. Its first release adds:
+
+- `/admin/work`: today's existing `day_plans` blocks and a compact view of existing tasks.
+- `/admin/work/tasks`: the same `TaskList`/`TaskManager` as `/tasks`, optionally filtered by `?project=<id>`. New tasks inherit the selected project. Completing tasks in this admin surface does not award task XP.
+- `/admin/work/plan`: the same server-loaded `TodayPlanScreen` and `TodayPlanner` as `/plan`, embedded in the admin shell. Saving or closing returns to Work. The same draft key and `upsertDayPlan` persist the same plan.
+- `/admin/work/projects`: the existing `ProjectsHub`, with links to manage the selected project's tasks and open the Daily Planner.
+- `/admin/work/calendar`: a reusable month/week calendar over existing `day_plans.blocks` and task due dates. It shows selected-day details and opens the existing Daily Planner for today. The view does not create another plan record or edit future days.
+
+There are no new tables, separate task records or separate Work planning blocks.
+Tasks retain their existing ownership and visibility, including visibility in the
+same user's public Tasks page. Work is an admin entry point, not a new private-data
+classification. New private-only data remains a later phase requiring explicit policies.
+
+Existing Productivity, Projects, Knowledge and public Tasks/Plan routes remain
+available. Focus and Knowledge open their existing admin screens. Extension capture,
+workspaces, whiteboards, external calendar sync and import are not part of this release.
+
+Work checks server-side admin access, including preview-as-user mode, before loading
+data. Profile timezone controls its day and timeline clock. Failed planner reads
+are shown as errors rather than offered as an empty plan that could replace saved work.
 
 ## Productivity Hub
 
@@ -57,12 +81,16 @@ The public `/tasks`, `/habits`, and `/plan` pages remain the user-facing focused
 
 `ChallengeLab` lets an admin:
 
-- Create or edit challenge templates.
-- Define ordered challenge days.
-- Publish or unpublish programs.
-- Delete challenge definitions.
+- Create or edit challenges (title, tagline, description, schedule, rewards).
+- Define ordered days, each with a completion rule: manual, or detected automatically from app activity (habits, habit check-ins, journal entries of any or one template, day plans, tasks created/completed, goals, learnings, tool use), with a target N.
+- Give each day a button (app path + label); rules have sensible defaults.
+- Give a challenge a slug, which makes a public landing page at `/challenge/<slug>` once published.
+- Publish or unpublish. Published challenges are available to every user at `/challenges`.
+- See how many people are in a challenge. Once someone joined, texts, rules and links can still be edited (changes apply immediately) but the number of days is frozen.
+- Start from the 14-day "Unfuck Your Life" frame: fourteen days with placeholder instructions that can be saved as a draft but not published until written.
+- Delete challenges nobody joined.
 
-Saving challenge definitions uses an admin RPC. User execution occurs on `/quests`.
+Saving uses `admin_save_challenge_template`. User execution happens on `/challenges` and the dashboard.
 
 ## Focus sessions
 
@@ -115,7 +143,9 @@ It can answer using task, habit, and journal context and can request supported a
 
 ## Registered-user count
 
-`AdminShell` can display application statistics returned by `admin_app_stats`. The function requires the trusted admin claim; allowlisting a route alone is insufficient.
+`AdminShell` shows the registered-user count and the waitlist size side by side, both returned by `admin_app_stats`. The function requires the trusted admin claim; allowlisting a route alone is insufficient, and an allowlist-only admin sees `-`.
+
+`/admin/tools` opens with a Signups card: new waitlist entries and new accounts per UTC day over 30 days, 90 days or a year (`?range=`), shown per day or cumulative, with a table view. The counts come from `admin_signup_series(p_since)`; gap-filling and the cumulative baseline are in `src/lib/signup-analytics.ts`. Both functions are `security definer` and return counts only, so admins never need a select policy on the waitlist's email addresses.
 
 ## Feature isolation rules
 

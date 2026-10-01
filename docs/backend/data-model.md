@@ -53,7 +53,7 @@ Insight metadata is stored on journal responses so a saved answer can be marked 
 | `habit_logs` | One user/habit/date completion record; false rows are preserved |
 | `routines` | Named habit groups |
 | `routine_items` | Ordered habit membership in a routine |
-| `goals` | Admin-restricted longer-term goals |
+| `goals` | User-owned longer-term goals (admin-only until `20260922120000_open_goals_to_all_users.sql`) |
 | `productivity_daily_priorities` | Admin top-three task priorities by date |
 | `focus_sessions` | Planned/actual admin focus sessions |
 
@@ -99,13 +99,12 @@ External foods are owned cached records. Their primary import identity is `(user
 
 | Table | Purpose |
 | --- | --- |
-| `quests` | User/custom quest definitions and completion, optional `skill_category` |
-| `quest_daily_logs` | Date-keyed check-ins for daily quests |
+| `quests` | User/custom one-time quests and completion, optional `skill_category` |
 | `quest_completions` | Durable completion/claim record |
-| `challenge_templates` | Admin-authored program definition; optional unique `slug` for stable URLs |
-| `challenge_days` | Ordered day instructions; `completion_rule` jsonb (`reflection` default, `manual`, or an app rule — see `src/lib/challenge-rules.ts`) |
-| `challenge_enrollments` | User enrollment and start state; at most one `active` per user |
-| `challenge_day_progress` | Per-day completion in an enrollment; `journal_entry_id` links the Challenge Reflection entry that completed a reflection day |
+| `challenge_templates` | Program definition, admin-authored or personal (`is_personal`, owner = `created_by`, never published); optional unique `slug` (public landing page) and `tagline` |
+| `challenge_days` | Ordered day instructions, `completion_type`/`completion_target`/`completion_param` rule, optional `action_href`/`action_label` button |
+| `challenge_enrollments` | User enrollment and start state |
+| `challenge_day_progress` | Per-day completion in an enrollment |
 | `lesson_completions` | Idempotent user lesson completion |
 
 Reward RPCs update the completion record, XP, and coins together.
@@ -160,7 +159,7 @@ Project tasks reuse `tasks` rather than having a separate task table.
 
 | Table | Purpose |
 | --- | --- |
-| `waitlist_signups` | Typed legacy/future waitlist storage; current endpoint does not insert into it |
+| `waitlist_signups` | Waitlist signups, written by `/api/waitlist`; counted for admins by `admin_app_stats` and `admin_signup_series` |
 
 ## Database functions
 
@@ -177,12 +176,14 @@ Project tasks reuse `tasks` rather than having a separate task table.
 
 ### Challenge and reward functions
 
-- `check_in_daily_challenge_quest`
+- `create_personal_challenge`, `delete_personal_challenge`
 - `admin_save_challenge_template`
 - `start_challenge_program`
 - `restart_challenge_program`
-- `complete_challenge_program_day`
-- `abandon_challenge_program`
+- `complete_challenge_program_day` (refuses an automatic day whose rule is not met)
+- `sync_challenge_progress` (completes met automatic days, reports progress per active enrollment)
+- `get_public_challenge` (the only challenge data `anon` can read)
+- `challenge_rule_count` (internal; no client role may execute it)
 - `claim_system_quest_reward`
 - `complete_custom_quest_reward`
 - `complete_lesson_reward`
@@ -191,7 +192,8 @@ Project tasks reuse `tasks` rather than having a separate task table.
 
 ### Utility/admin functions
 
-- `admin_app_stats`
+- `admin_app_stats` — registered users and waitlist size
+- `admin_signup_series` — waitlist entries and new accounts per UTC day since a date
 - `get_level`
 - `get_city_tier`
 - `xp_to_next_level`
@@ -203,12 +205,12 @@ Functions that mutate protected data validate the authenticated user and, for ad
 Migrations currently cover:
 
 1. Atomic reward claims and fixes.
-2. Goals and later admin restriction.
+2. Goals, a later admin restriction, and reopening them to all users.
 3. Journal learnings and response insights.
 4. Routines and later admin restriction.
 5. Admin productivity, workout, and nutrition hubs.
 6. Admin application statistics.
-7. Daily challenge quests and challenge programs.
+7. Daily challenge quests and challenge programs, their second iteration (completion rules, public slugs, sync, and fixes for the start-policy recursion and the admin participant check), and personal challenges, which absorbed the daily-challenge quests (`quest_daily_logs` and the `quests.quest_type`/`challenge_*` columns are gone).
 8. AI assistant consent.
 9. Workout/nutrition daily-driver expansion.
 10. Knowledge and projects.

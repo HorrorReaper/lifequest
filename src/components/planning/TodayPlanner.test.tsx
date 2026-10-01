@@ -336,8 +336,8 @@ describe("TodayPlanner", () => {
     );
   });
 
-  it("builds the timeline and performs one final write", async () => {
-    render(<TodayPlanner {...defaultProps} />);
+  it.each(["/dashboard", "/admin/work"])("builds the same timeline, saves once and returns to %s", async (returnHref) => {
+    render(<TodayPlanner {...defaultProps} returnHref={returnHref} embedded={returnHref === "/admin/work"} />);
 
     pickMood();
     next();
@@ -365,7 +365,15 @@ describe("TodayPlanner", () => {
     expect(upsertDayPlan.mock.calls[0][2]).toMatchObject({
       plan_date: "2026-07-25",
     });
-    expect(push).toHaveBeenCalledWith("/dashboard");
+    expect(push).toHaveBeenCalledWith(returnHref);
+  });
+
+  it("closes the embedded planner back to Work without changing the saved plan", () => {
+    render(<TodayPlanner {...defaultProps} embedded returnHref="/admin/work" />);
+    expect(screen.queryByRole("main")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close daily planning" }));
+    expect(push).toHaveBeenCalledWith("/admin/work");
+    expect(upsertDayPlan).not.toHaveBeenCalled();
   });
 
   it("gives Progress and Health their own task combobox instead of a shared sidebar", () => {

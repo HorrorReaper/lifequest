@@ -26,11 +26,21 @@ export type SavedMealItemRow = { id: string; saved_meal_id: string; food_item_id
 export type RecipeRow = { id: string; user_id: string; name: string; servings: number; yield_weight_g: number | null; notes: string | null; created_at: string; updated_at: string }
 export type RecipeIngredientRow = { id: string; recipe_id: string; food_item_id: string; grams: number; sort_order: number; created_at: string }
 export type NutritionEntryRow = { id: string; user_id: string; entry_date: string; meal_type: MealType; name: string; entry_kind: 'food' | 'quick_add' | 'saved_meal' | 'recipe'; food_item_id: string | null; serving_grams: number | null; serving_count: number; serving_label: string | null; calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number; sugar_g: number; sodium_mg: number; source_id: string | null; source_details: Json; notes: string | null; created_at: string; updated_at: string }
-export type QuestDailyLogRow = { id: string; quest_id: string; user_id: string; log_date: string; note: string | null; created_at: string }
-export type ChallengeTemplateRow = { id: string; created_by: string; title: string; description: string | null; duration_days: number; schedule_mode: 'sequential' | 'strict'; xp_reward: number; coin_reward: number; is_published: boolean; slug: string | null; created_at: string; updated_at: string }
-export type ChallengeDayRow = { id: string; template_id: string; day_number: number; title: string; instructions: string; reflection_prompt: string | null; completion_rule: Json; created_at: string }
+export type ChallengeTemplateRow = { id: string; created_by: string; title: string; description: string | null; duration_days: number; schedule_mode: 'sequential' | 'strict'; xp_reward: number; coin_reward: number; is_published: boolean; is_personal: boolean; slug: string | null; tagline: string | null; created_at: string; updated_at: string }
+export type ChallengeCompletionType =
+  | 'manual'
+  | 'habits_active'
+  | 'habit_checkins'
+  | 'journal_entries'
+  | 'day_plans'
+  | 'tasks_created'
+  | 'tasks_completed'
+  | 'goals_active'
+  | 'learnings_captured'
+  | 'tool_entries'
+export type ChallengeDayRow = { id: string; template_id: string; day_number: number; title: string; instructions: string; reflection_prompt: string | null; completion_type: ChallengeCompletionType; completion_target: number; completion_param: string | null; action_href: string | null; action_label: string | null; created_at: string }
 export type ChallengeEnrollmentRow = { id: string; template_id: string; user_id: string; start_date: string; status: 'active' | 'completed' | 'failed' | 'abandoned'; completed_at: string | null; created_at: string; updated_at: string }
-export type ChallengeDayProgressRow = { id: string; enrollment_id: string; challenge_day_id: string; user_id: string; day_number: number; completed_on: string; note: string | null; journal_entry_id: string | null; created_at: string }
+export type ChallengeDayProgressRow = { id: string; enrollment_id: string; challenge_day_id: string; user_id: string; day_number: number; completed_on: string; note: string | null; created_at: string }
 export type AdminNoteRow = { id: string; user_id: string; title: string; body: string; tags: string[]; module: 'general' | 'productivity' | 'workouts' | 'nutrition' | 'challenges' | 'tools'; status: 'idea' | 'testing' | 'validated' | 'rejected'; is_pinned: boolean; created_at: string; updated_at: string }
 export type KnowledgeNoteType = 'note' | 'experiment' | 'meeting' | 'reference' | 'project'
 export type KnowledgeFolderRow = { id: string; user_id: string; parent_id: string | null; name: string; sort_order: number; created_at: string; updated_at: string }
@@ -737,10 +747,6 @@ export interface Database {
           description: string | null
           xp_reward: number
           coin_reward: number
-          quest_type: 'single' | 'daily_challenge'
-          challenge_days: number | null
-          challenge_task: string | null
-          challenge_start_date: string | null
           is_completed: boolean
           completed_at: string | null
           skill_category: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
@@ -754,10 +760,6 @@ export interface Database {
           description?: string | null
           xp_reward?: number
           coin_reward?: number
-          quest_type?: 'single' | 'daily_challenge'
-          challenge_days?: number | null
-          challenge_task?: string | null
-          challenge_start_date?: string | null
           is_completed?: boolean
           completed_at?: string | null
           skill_category?: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
@@ -771,10 +773,6 @@ export interface Database {
           description?: string | null
           xp_reward?: number
           coin_reward?: number
-          quest_type?: 'single' | 'daily_challenge'
-          challenge_days?: number | null
-          challenge_task?: string | null
-          challenge_start_date?: string | null
           is_completed?: boolean
           completed_at?: string | null
           skill_category?: 'physical_health' | 'mental_health' | 'focus' | 'learning' | 'relationships' | 'career' | null
@@ -823,7 +821,6 @@ export interface Database {
           updated_at?: string
         }
       }
-      quest_daily_logs: MutableTable<QuestDailyLogRow, 'quest_id' | 'user_id' | 'log_date'>
       quest_completions: {
         Row: {
           id: string
@@ -913,7 +910,11 @@ export interface Database {
       }
       admin_app_stats: {
         Args: Record<PropertyKey, never>
-        Returns: { total_users: number }[]
+        Returns: { total_users: number; waitlist_signups: number }[]
+      }
+      admin_signup_series: {
+        Args: { p_since: string }
+        Returns: { day: string; waitlist: number; users: number }[]
       }
       start_workout: {
         Args: { p_template_id?: string | null; p_name?: string }
@@ -965,13 +966,25 @@ export interface Database {
         Args: { p_recipe_id: string; p_entry_date: string; p_meal_type?: MealType; p_serving_count?: number }
         Returns: string
       }
-      check_in_daily_challenge_quest: {
-        Args: { p_quest_id: string; p_note?: string | null }
-        Returns: { log_date: string; completed_days: number; required_days: number; ready_to_complete: boolean }[]
-      }
       admin_save_challenge_template: {
-        Args: { p_template_id: string | null; p_title: string; p_description: string; p_schedule_mode: 'sequential' | 'strict'; p_xp_reward: number; p_coin_reward: number; p_is_published: boolean; p_days: Json }
+        Args: { p_template_id: string | null; p_title: string; p_description: string; p_schedule_mode: 'sequential' | 'strict'; p_xp_reward: number; p_coin_reward: number; p_is_published: boolean; p_days: Json; p_slug?: string | null; p_tagline?: string | null }
         Returns: string
+      }
+      sync_challenge_progress: {
+        Args: Record<string, never>
+        Returns: { enrollment_id: string; day_number: number; completion_type: ChallengeCompletionType; progress: number; target: number; met: boolean; available_from: string; completed_now: boolean; challenge_completed: boolean }[]
+      }
+      create_personal_challenge: {
+        Args: { p_title: string; p_task: string; p_days: number; p_description?: string | null; p_schedule_mode?: 'sequential' | 'strict' }
+        Returns: { template_id: string; enrollment_id: string }[]
+      }
+      delete_personal_challenge: {
+        Args: { p_template_id: string }
+        Returns: undefined
+      }
+      get_public_challenge: {
+        Args: { p_slug: string }
+        Returns: Json | null
       }
       start_challenge_program: {
         Args: { p_template_id: string }
@@ -982,12 +995,8 @@ export interface Database {
         Returns: { enrollment_id: string; start_date: string; status: string }[]
       }
       complete_challenge_program_day: {
-        Args: { p_enrollment_id: string; p_note?: string | null; p_journal_entry_id?: string | null }
+        Args: { p_enrollment_id: string; p_note?: string | null }
         Returns: { completed_day: number; completed_days: number; total_days: number; completion_date: string; challenge_completed: boolean; total_xp: number; coins: number }[]
-      }
-      abandon_challenge_program: {
-        Args: { p_enrollment_id: string }
-        Returns: undefined
       }
       claim_system_quest_reward: {
         Args: { p_quest_key: string }

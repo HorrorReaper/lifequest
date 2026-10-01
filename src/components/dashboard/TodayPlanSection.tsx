@@ -25,6 +25,7 @@ interface TodayPlanSectionProps {
    * see the tick effect below.
    */
   nowMinutes: number
+  plannerHref?: string
 }
 
 /** Blocks shown after the lead one before the day is expanded. */
@@ -68,7 +69,7 @@ function minutesFromTime(time: string) {
  * done -- so this reads rather than checks off, unlike the habit and task
  * sections it sits above.
  */
-export function TodayPlanSection({ blocks, nowMinutes }: TodayPlanSectionProps) {
+export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: TodayPlanSectionProps) {
   const [expanded, setExpanded] = useState(false)
 
   // Seeded from the server value so the first client render matches the
@@ -123,7 +124,7 @@ export function TodayPlanSection({ blocks, nowMinutes }: TodayPlanSectionProps) 
             No plan for today yet. Give the day a shape and the rest gets easier.
           </p>
           <Button asChild size="sm" variant="outline">
-            <Link href="/plan">
+            <Link href={plannerHref}>
               <Plus />
               Plan my day
             </Link>
@@ -231,13 +232,13 @@ export function TodayPlanSection({ blocks, nowMinutes }: TodayPlanSectionProps) 
                 plan does, and re-answering mood and outcomes to move one
                 block is not what it offers. */}
             <Button asChild size="sm" variant="outline">
-              <Link href="/plan?step=timeline">
+              <Link href={`${plannerHref}?step=timeline`}>
                 <Plus />
                 Add block
               </Link>
             </Button>
             <Link
-              href="/plan"
+              href={plannerHref}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
             >
               Open planner →

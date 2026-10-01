@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   awardTaskCompletionXp,
   createTask,
+  fetchTasks,
   deleteTask,
   toggleTask,
   updateTask,
@@ -61,6 +62,25 @@ function taskMutationClient() {
 }
 
 describe('task mutations', () => {
+  it('creates project tasks in the same tasks table', async () => {
+    const { client, insert } = taskMutationClient()
+    await createTask(client, 'user-1', { title: 'Project action', project_id: 'project-1' })
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'user-1', project_id: 'project-1', title: 'Project action' }))
+  })
+
+  it('scopes project task reads to both owner and project', async () => {
+    const builder = {
+      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(),
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: [row], error: null }).then(resolve),
+    }
+    const from = vi.fn(() => builder)
+    const tasks = await fetchTasks({ from } as unknown as SupabaseClient, 'user-1', { projectId: 'project-1' })
+    expect(from).toHaveBeenCalledWith('tasks')
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1')
+    expect(builder.eq).toHaveBeenCalledWith('project_id', 'project-1')
+    expect(tasks).toEqual([row])
+  })
+
   it('persists descriptions and only the supported create fields', async () => {
     const { client, insert } = taskMutationClient()
     await createTask(client, 'user-1', {

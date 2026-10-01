@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, BellRing, BookOpenText, Dumbbell, FlaskConical, FolderKanban, GraduationCap, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
+import { ArrowLeft, BellRing, BookOpenText, BriefcaseBusiness, ClipboardList, Dumbbell, FlaskConical, FolderKanban, GraduationCap, LayoutDashboard, NotebookPen, Salad, ShieldCheck, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const sections = [
+  { href: '/admin/work', label: 'Work', icon: BriefcaseBusiness },
   { href: '/admin/productivity', label: 'Productivity', icon: LayoutDashboard },
   { href: '/admin/rituals', label: 'Rituals', icon: BellRing },
   { href: '/admin/workouts', label: 'Training', icon: Dumbbell },
@@ -21,7 +22,7 @@ function isChromelessRoute(pathname: string) {
   return pathname === '/admin/productivity/focus'
 }
 
-export function AdminShell({ children, trusted, userCount }: { children: React.ReactNode; trusted: boolean; userCount: number | null }) {
+export function AdminShell({ children, trusted, userCount, waitlistCount }: { children: React.ReactNode; trusted: boolean; userCount: number | null; waitlistCount: number | null }) {
   const pathname = usePathname()
 
   if (isChromelessRoute(pathname)) return <>{children}</>
@@ -36,18 +37,19 @@ export function AdminShell({ children, trusted, userCount }: { children: React.R
           <span className="grid size-11 place-items-center rounded-2xl bg-primary text-primary-foreground"><ShieldCheck className="size-5" /></span>
           <div><p className="font-semibold">LifeQuest Labs</p><p className="text-xs text-muted-foreground">Test ideas before launch</p></div>
         </div>
-        <div className="mb-6 rounded-2xl bg-muted/50 p-4 ring-1 ring-border">
-          <div className="flex items-center gap-3">
-            <span className="grid size-9 place-items-center rounded-xl bg-background text-primary"><Users className="size-4" /></span>
-            <div>
-              <p className="font-mono text-2xl font-semibold tabular-nums">{userCount ?? '-'}</p>
-              <p className="text-xs text-muted-foreground">Registered users</p>
-            </div>
+        <div role="group" aria-label="App counts" className="mb-6 grid grid-cols-2 divide-x divide-border rounded-2xl bg-muted/50 py-4 ring-1 ring-border">
+          <div className="px-4">
+            <p className="font-mono text-2xl font-semibold tabular-nums">{userCount ?? '-'}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="size-3.5 text-primary" />Registered</p>
+          </div>
+          <div className="px-4">
+            <p className="font-mono text-2xl font-semibold tabular-nums">{waitlistCount ?? '-'}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><ClipboardList className="size-3.5 text-primary" />Waitlist</p>
           </div>
         </div>
         <nav className="space-y-1" aria-label="Admin workspace">
           {sections.map(({ href, label, icon: Icon }) => {
-            const active = pathname.startsWith(href)
+            const active = pathname === href || pathname.startsWith(`${href}/`)
             return <Link key={href} href={href} className={cn('flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all', active ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}><Icon className="size-4" />{label}</Link>
           })}
         </nav>
@@ -56,9 +58,9 @@ export function AdminShell({ children, trusted, userCount }: { children: React.R
 
       <div className="min-w-0">
         <header className="sticky top-0 z-30 border-b bg-background/92 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur lg:hidden">
-          <div className="mb-2 flex items-center justify-between px-1"><Link href="/dashboard" className="grid size-10 place-items-center rounded-xl bg-muted" aria-label="Back to dashboard"><ArrowLeft className="size-4" /></Link><p className="text-sm font-semibold">LifeQuest Labs</p><div className="flex items-center gap-1 rounded-full bg-muted px-3 py-1 font-mono text-sm tabular-nums"><Users className="size-3.5 text-primary" />{userCount ?? '-'}</div></div>
+          <div className="mb-2 flex items-center justify-between px-1"><Link href="/dashboard" className="grid size-10 place-items-center rounded-xl bg-muted" aria-label="Back to dashboard"><ArrowLeft className="size-4" /></Link><p className="text-sm font-semibold">LifeQuest Labs</p><div className="flex items-center gap-1"><div role="img" aria-label={`${userCount ?? '-'} registered users`} className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 font-mono text-sm tabular-nums"><Users aria-hidden className="size-3.5 text-primary" />{userCount ?? '-'}</div><div role="img" aria-label={`${waitlistCount ?? '-'} waitlist signups`} className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 font-mono text-sm tabular-nums"><ClipboardList aria-hidden className="size-3.5 text-primary" />{waitlistCount ?? '-'}</div></div></div>
           <nav className="flex overflow-x-auto" aria-label="Admin workspace">
-            {sections.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={cn('flex min-w-[5.5rem] flex-1 flex-col items-center gap-1 border-b-2 px-3 py-2 text-xs transition-colors', pathname.startsWith(href) ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground')}><Icon className="size-4" />{label}</Link>)}
+            {sections.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={cn('flex min-w-[5.5rem] flex-1 flex-col items-center gap-1 border-b-2 px-3 py-2 text-xs transition-colors', pathname === href || pathname.startsWith(`${href}/`) ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground')}><Icon className="size-4" />{label}</Link>)}
           </nav>
         </header>
         {!trusted && <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">The route allowlist granted access, but Supabase still needs <code>app_metadata.role = admin</code>. Tracker writes remain blocked until you assign the role and sign in again.</div>}

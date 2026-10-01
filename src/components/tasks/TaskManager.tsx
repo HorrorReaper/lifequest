@@ -70,6 +70,8 @@ interface TaskManagerProps {
   limit?: number
   onlyOpen?: boolean
   initiallyOpen?: boolean
+  projectId?: string
+  awardCompletionXp?: boolean
 }
 
 type RetryAction =
@@ -110,6 +112,8 @@ export function TaskManager({
   limit,
   onlyOpen = false,
   initiallyOpen = false,
+  projectId,
+  awardCompletionXp = true,
 }: TaskManagerProps) {
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
@@ -138,6 +142,7 @@ export function TaskManager({
       const data = await fetchTasks(supabase, userId, {
         onlyOpen,
         limit,
+        ...(projectId ? { projectId } : {}),
       })
       setTasks(data)
     } catch (error) {
@@ -145,7 +150,7 @@ export function TaskManager({
     } finally {
       setLoading(false)
     }
-  }, [limit, onlyOpen, supabase, userId])
+  }, [limit, onlyOpen, projectId, supabase, userId])
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -209,7 +214,10 @@ export function TaskManager({
           current.map((task) => (task.id === updated.id ? updated : task))
         )
       } else {
-        const created = await createTask(supabase, userId, draft)
+        const created = await createTask(supabase, userId, {
+          ...draft,
+          ...(projectId ? { project_id: projectId } : {}),
+        })
         setTasks((current) => [created, ...current])
       }
 
@@ -264,7 +272,7 @@ export function TaskManager({
       setTasks((current) =>
         current.map((item) => (item.id === updated.id ? updated : item))
       )
-      if (completed) await awardXp(updated)
+      if (completed && awardCompletionXp) await awardXp(updated)
       notifyDataUpdated()
     } catch (error) {
       setTasks((current) =>

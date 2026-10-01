@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { BookOpen, CalendarClock, Flame, ListTodo, NotebookPen, Plus, ShieldCheck, Sparkles, Trophy, X } from 'lucide-react'
+import { BookOpen, CalendarClock, Flame, ListTodo, Mountain, NotebookPen, Plus, ShieldCheck, Sparkles, Trophy, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -54,9 +54,15 @@ const QUICK_ACTIONS = [
     icon: Sparkles,
   },
   {
+    href: '/challenges',
+    title: 'Challenges',
+    description: 'Guided multi-day programs, one step a day.',
+    icon: Mountain,
+  },
+  {
     href: '/quests',
     title: 'Quests',
-    description: 'Open active quests and challenges.',
+    description: 'Achievements and your own quests.',
     icon: Trophy,
   },
 ]

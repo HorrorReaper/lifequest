@@ -1,11 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { CalendarCheck, Coins, Zap, CheckCircle, Lock, Trophy, Trash2 } from 'lucide-react'
+import { Coins, Zap, CheckCircle, Lock, Trophy, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { DefaultQuestWithStatus, CustomQuest, QuestDifficulty } from '@/lib/quests'
-import { getChallengeProgress } from '@/lib/challenges'
 
 const DIFFICULTY_LABELS: Record<QuestDifficulty, string> = {
   easy: 'Easy',
@@ -160,18 +159,12 @@ interface CustomQuestCardProps {
   quest: CustomQuest
   onComplete: (quest: CustomQuest) => Promise<void>
   onDelete: (id: string) => Promise<void>
-  onCheckIn?: (quest: CustomQuest) => Promise<void>
-  /** The user's current day, resolved from their profile timezone. */
-  today: string
 }
 
-export function CustomQuestCard({ quest, onComplete, onDelete, onCheckIn, today }: CustomQuestCardProps) {
+export function CustomQuestCard({ quest, onComplete, onDelete }: CustomQuestCardProps) {
   const [loading, setLoading] = useState(false)
-  const [checkingIn, setCheckingIn] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const progress = getChallengeProgress(quest, today)
-  const isChallenge = quest.quest_type === 'daily_challenge'
 
   async function handleComplete() {
     setLoading(true)
@@ -182,19 +175,6 @@ export function CustomQuestCard({ quest, onComplete, onDelete, onCheckIn, today 
       setError(err instanceof Error ? err.message : 'Could not complete this quest.')
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function handleCheckIn() {
-    if (!onCheckIn) return
-    setCheckingIn(true)
-    setError(null)
-    try {
-      await onCheckIn(quest)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not check in for this challenge.')
-    } finally {
-      setCheckingIn(false)
     }
   }
 
@@ -224,12 +204,6 @@ export function CustomQuestCard({ quest, onComplete, onDelete, onCheckIn, today 
             <p className={cn('font-semibold text-sm', quest.is_completed && 'line-through text-muted-foreground')}>
               {quest.title}
             </p>
-            {isChallenge && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                <CalendarCheck className="size-3" />
-                {quest.challenge_days ?? 30} day challenge
-              </span>
-            )}
           </div>
           {quest.description && (
             <p className="text-xs text-muted-foreground mt-0.5">{quest.description}</p>
@@ -247,46 +221,11 @@ export function CustomQuestCard({ quest, onComplete, onDelete, onCheckIn, today 
         </div>
       </div>
 
-      {progress && (
-        <div className="space-y-3 rounded-lg bg-muted/45 p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-muted-foreground">Daily task</p>
-              <p className="mt-0.5 text-sm font-medium">{quest.challenge_task}</p>
-            </div>
-            <p className="shrink-0 font-mono text-xs text-muted-foreground">
-              {progress.completedDays}/{quest.challenge_days}
-            </p>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-background">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress.percent}%` }} />
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            {progress.checkedToday
-              ? 'Today is checked in.'
-              : progress.insideWindow
-                ? `Challenge window ends ${new Date(`${progress.endDate}T12:00:00`).toLocaleDateString()}.`
-                : `Challenge window: ${new Date(`${quest.challenge_start_date}T12:00:00`).toLocaleDateString()} - ${new Date(`${progress.endDate}T12:00:00`).toLocaleDateString()}.`}
-          </p>
-        </div>
-      )}
-
       {!quest.is_completed && (
         <div className="flex gap-2">
-          {progress ? (
-            <>
-              <Button size="sm" variant="outline" className="flex-1" onClick={handleCheckIn} disabled={checkingIn || progress.checkedToday || !progress.insideWindow || !onCheckIn}>
-                {checkingIn ? 'Checking in...' : progress.checkedToday ? 'Done today' : 'Check in today'}
-              </Button>
-              <Button size="sm" className="flex-1" onClick={handleComplete} disabled={loading || !progress.ready}>
-                {loading ? 'Completing...' : 'Complete challenge'}
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" variant="outline" className="flex-1" onClick={handleComplete} disabled={loading}>
-              {loading ? 'Completing...' : 'Mark Complete'}
-            </Button>
-          )}
+          <Button size="sm" variant="outline" className="flex-1" onClick={handleComplete} disabled={loading}>
+            {loading ? 'Completing...' : 'Mark Complete'}
+          </Button>
           <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={handleDelete} disabled={deleting} aria-label="Delete quest">
             {deleting ? '...' : <Trash2 className="size-4" />}
           </Button>

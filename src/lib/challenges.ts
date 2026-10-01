@@ -1,61 +1,16 @@
-import { addDays, daysBetween } from '@/lib/dates'
-import type { ChallengeProgram, CustomQuest } from '@/lib/quests'
+import { daysBetween } from '@/lib/dates'
+import type { ChallengeProgram, ChallengeSyncState } from '@/lib/challenge-programs'
+import { isAutomaticRule } from '@/lib/challenge-rules'
+import type { ChallengeDayRow } from '@/lib/supabase/database.types'
 
-// Derived state for the two challenge surfaces on /quests.
+// Derived state for the challenge surfaces (/challenges, the detail page and
+// the dashboard card), for shared and personal challenges alike.
 //
-// Both used to compute "today" from the browser clock while the RPCs behind
-// them — check_in_daily_challenge_quest and complete_challenge_program_day —
-// resolve it from the profile timezone. A user whose device zone differs from
-// their profile zone therefore saw a check-in button the server would reject,
-// or a strict streak reported as broken while the server still accepted the
+// The challenge RPCs resolve "today" from the profile timezone. Computing it
+// from the browser clock instead once offered actions the server rejected,
+// or reported a strict streak as broken while the server still accepted the
 // day. These functions take the day as an argument so the caller passes the
 // same date key the server will use.
-
-export interface ChallengeProgress {
-  today: string
-  /** Last day of the challenge window, inclusive. */
-  endDate: string
-  completedDays: number
-  percent: number
-  checkedToday: boolean
-  insideWindow: boolean
-  /** Every required day has a log, so the challenge can be completed. */
-  ready: boolean
-}
-
-export function getChallengeProgress(
-  quest: CustomQuest,
-  today: string
-): ChallengeProgress | null {
-  if (
-    quest.quest_type !== 'daily_challenge' ||
-    !quest.challenge_days ||
-    !quest.challenge_start_date
-  ) {
-    return null
-  }
-
-  const startDate = quest.challenge_start_date
-  const endDate = addDays(startDate, quest.challenge_days - 1)
-  // Logs outside the window are ignored rather than counted: a restarted or
-  // edited challenge can leave rows on either side of it.
-  const logDates = new Set(
-    (quest.daily_logs ?? [])
-      .map((log) => log.log_date)
-      .filter((logDate) => logDate >= startDate && logDate <= endDate)
-  )
-  const completedDays = logDates.size
-
-  return {
-    today,
-    endDate,
-    completedDays,
-    percent: Math.min(100, Math.round((completedDays / quest.challenge_days) * 100)),
-    checkedToday: logDates.has(today),
-    insideWindow: today >= startDate && today <= endDate,
-    ready: completedDays >= quest.challenge_days,
-  }
-}
 
 export interface ProgramDayState {
   completedDays: number
@@ -95,3 +50,85 @@ export function getProgramDayState(
     complete,
   }
 }
+
+export type ChallengeViewStatus = 'not_started' | 'active' | 'completed' | 'ended'
+
+/**
+ * Everything a challenge surface needs to render one program, derived once so
+ * /challenges, the detail page and the dashboard card cannot disagree.
+ *
+ * `sync` is this enrollment's row from sync_challenge_progress, when there is
+ * one; it is the server's word on an automatic day's progress.
+ */
+export interface ChallengeView {
+  status: ChallengeViewStatus
+  completedDays: number
+  totalDays: number
+  percent: number
+  currentDayNumber: number
+  currentDay: ChallengeDayRow | null
+  /** A day was completed today; the next one opens tomorrow. */
+  doneToday: boolean
+  strictMissed: boolean
+  automatic: boolean
+  ruleProgress: number
+  ruleTarget: number
+  ruleMet: boolean
+  /** Set when the sync completed a day while loading this page. */
+  justCompleted: boolean
+}
+
+export function getChallengeView(
+  program: ChallengeProgram,
+  today: string,
+  sync?: ChallengeSyncState | null
+): ChallengeView {
+  const { template, enrollment, days } = program
+  const dayState = getProgramDayState(program, today)
+  const status: ChallengeViewStatus = !enrollment
+    ? 'not_started'
+    : enrollment.status === 'active'
+      ? 'active'
+      : enrollment.status === 'completed'
+        ? 'completed'
+        : 'ended'
+  const currentDay = days.find((day) => day.day_number === dayState.currentDayNumber) ?? null
+  const automatic = isAutomaticRule(currentDay?.completion_type)
+  const matchingSync =
+    sync && enrollment && sync.enrollment_id === enrollment.id && sync.day_number === dayState.currentDayNumber
+      ? sync
+      : null
+
+  return {
+    status,
+    completedDays: dayState.completedDays,
+    totalDays: template.duration_days,
+    percent: Math.min(100, dayState.percent),
+    currentDayNumber: dayState.currentDayNumber,
+    currentDay,
+    doneToday: status === 'active' && dayState.checkedToday,
+    strictMissed: status === 'active' && dayState.strictMissed,
+    automatic,
+    ruleProgress: matchingSync?.progress ?? 0,
+    ruleTarget: matchingSync?.target ?? currentDay?.completion_target ?? 1,
+    ruleMet: matchingSync?.met ?? false,
+    justCompleted: Boolean(sync && enrollment && sync.enrollment_id === enrollment.id && sync.completed_now),
+  }
+}
+
+/** Active first, then not started, then finished; stable otherwise. */
+export function sortChallengePrograms(programs: ChallengeProgram[]): ChallengeProgram[] {
+  const rank = (program: ChallengeProgram) =>
+    program.enrollment?.status === 'active' ? 0 : !program.enrollment ? 1 : 2
+  return programs
+    .map((program, index) => ({ program, index }))
+    .sort((a, b) => rank(a.program) - rank(b.program) || a.index - b.index)
+    .map(({ program }) => program)
+}
+
+/**
+ * The fallback the challenge RPCs use when a profile has no timezone. Pages
+ * must resolve "today" with the same one, or a card offers a day the server
+ * then refuses.
+ */
+export const CHALLENGE_FALLBACK_TIMEZONE = 'Europe/Berlin'

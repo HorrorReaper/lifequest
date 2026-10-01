@@ -25,9 +25,14 @@ import {
 import { fetchAvatarState } from '@/lib/avatar'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
+import { fetchChallengePrograms, syncChallengeProgress } from '@/lib/challenge-programs'
+import { CHALLENGE_FALLBACK_TIMEZONE, getChallengeView } from '@/lib/challenges'
+import { ChallengeDashboardCard } from '@/components/challenges/ChallengeDashboardCard'
 import type { DayPlanBlock } from '@/lib/types'
 import { calculateRoutineProgress, fetchRoutines } from '@/lib/routines'
 import { RoutinesDashboardWidget } from '@/components/dashboard/RoutinesDashboardWidget'
+import { GoalsDashboardWidget } from '@/components/dashboard/GoalsDashboardWidget'
+import { fetchGoals } from '@/lib/goals'
 import { showAdminUi } from '@/lib/admin'
 import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
@@ -168,6 +173,30 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ? await fetchQuestPageData(supabase, user.id)
     : { annotated: [], customQuests: [] }
   const claimableQuests = annotated.filter((q) => q.status === 'claimable')
+
+  // The sync is one cheap call that also says whether anything is running;
+  // programs are only read when it reports an active challenge.
+  const challengeSync = shows('challenge') ? await syncChallengeProgress(supabase) : []
+  const challengeToday = dateInTimezone(new Date(), profile.timezone ?? CHALLENGE_FALLBACK_TIMEZONE)
+  const activeChallenges =
+    challengeSync.length > 0
+      ? (await fetchChallengePrograms(supabase, user.id))
+          // A challenge the sync just finished stays for this one load, so
+          // its last day ends on a "complete" card rather than vanishing.
+          .filter(
+            (program) =>
+              program.enrollment?.status === 'active' ||
+              challengeSync.some((row) => row.enrollment_id === program.enrollment?.id && row.challenge_completed)
+          )
+          .map((program) => ({
+            program,
+            view: getChallengeView(
+              program,
+              challengeToday,
+              challengeSync.find((row) => row.enrollment_id === program.enrollment?.id) ?? null
+            ),
+          }))
+      : []
   const activeCustomQuests = customQuests.filter((q) => !q.is_completed)
   const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
   const thisWeekStart = weekStart(today)
@@ -226,6 +255,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     tasksCompletedTodayRes,
     tasksCompletedThisWeekRes,
     weeklyEntriesRes,
+    activeGoals,
   ] = await Promise.all([
     supabase
       .from('habits')
@@ -311,6 +341,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       )
       .gte('entry_date', thisWeekStart)
       .lte('entry_date', addDays(thisWeekStart, 6)),
+    // A failed read leaves the section empty rather than taking the whole
+    // dashboard down with it; the widget can still add a goal.
+    shows('goals')
+      ? fetchGoals(supabase, user.id, { status: 'active' }).catch((error) => {
+          console.error('Failed to load goals:', error)
+          return []
+        })
+      : Promise.resolve([]),
   ])
 
   const habitLogRows = (briefingHabitLogsRes.data ?? []) as HabitLogRow[]
@@ -481,6 +519,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           tasksCompletedThisWeek={tasksCompletedThisWeek}
         />
 
+        {activeChallenges.map(({ program, view }) => (
+          <ChallengeDashboardCard key={program.template.id} program={program} view={view} />
+        ))}
+
         {shows('today_plan') && (
           <TodayPlanSection blocks={planBlocks} nowMinutes={nowMinutes} />
         )}
@@ -499,6 +541,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             dueTasks={dueTasks}
             undatedTasks={undatedTasks}
             openTaskCount={openTasksRes.count ?? 0}
+          />
+        )}
+
+        {shows('goals') && (
+          <GoalsDashboardWidget
+            userId={user.id}
+            initialGoals={activeGoals}
+            // AI suggestions stay admin-only (the route enforces it); an
+            // admin previewing as a user sees the section without them.
+            canSuggestQuests={isAdmin}
           />
         )}
 

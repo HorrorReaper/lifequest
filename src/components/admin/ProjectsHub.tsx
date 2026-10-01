@@ -85,7 +85,7 @@ function blankProject(): ProjectDraft {
   }
 }
 
-export function ProjectsHub({ userId }: { userId: string }) {
+export function ProjectsHub({ userId, workLinks = false }: { userId: string; workLinks?: boolean }) {
   const [supabase] = useState(() => createClient() as unknown as SupabaseClient)
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
@@ -476,6 +476,11 @@ export function ProjectsHub({ userId }: { userId: string }) {
                         <button type="button" onClick={() => setView('list')} className={cn('flex h-8 items-center gap-1 rounded-lg px-3 text-xs', view === 'list' ? 'bg-background shadow-sm' : 'text-muted-foreground')}><List className="size-3.5" /> List</button>
                       </div>
                     </div>
+
+                    {workLinks && <div className="mt-4 flex flex-wrap gap-2">
+                      <Button asChild variant="outline" size="sm"><Link href={`/admin/work/tasks?project=${encodeURIComponent(selectedProject.id)}`}>Manage project tasks <ArrowRight /></Link></Button>
+                      <Button asChild variant="ghost" size="sm"><Link href="/admin/work/plan?step=timeline"><CalendarDays /> Plan my day</Link></Button>
+                    </div>}
 
                     <form className="mt-4 grid gap-2 sm:grid-cols-[1fr_10rem_auto]" onSubmit={(event) => { event.preventDefault(); void addTask() }}>
                       <Input value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} placeholder="Add the next concrete action" />
