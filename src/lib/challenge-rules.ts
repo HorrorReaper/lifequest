@@ -178,3 +178,19 @@ export const CHALLENGE_SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 export function isValidChallengeSlug(value: string): boolean {
   return value.length >= 3 && value.length <= 80 && CHALLENGE_SLUG_PATTERN.test(value)
 }
+
+/** The query parameter a tool page reads to offer the way back to a challenge. */
+export const CHALLENGE_RETURN_PARAM = 'challenge'
+
+/**
+ * Tags a day's button with the challenge it belongs to, so the tool page
+ * can say "this is part of your challenge" and lead back once saved. Only
+ * tool pages read it; every other link is returned unchanged.
+ */
+export function withChallengeReturn(href: string, templateId: string): string {
+  if (!href.startsWith('/learn/tools/')) return href
+  const [path, query = ''] = href.split('?', 2)
+  const params = new URLSearchParams(query)
+  params.set(CHALLENGE_RETURN_PARAM, templateId)
+  return `${path}?${params.toString()}`
+}

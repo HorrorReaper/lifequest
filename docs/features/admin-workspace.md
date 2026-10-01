@@ -87,7 +87,8 @@ The public `/tasks`, `/habits`, and `/plan` pages remain the user-facing focused
 - Give a challenge a slug, which makes a public landing page at `/challenge/<slug>` once published.
 - Publish or unpublish. Published challenges are available to every user at `/challenges`.
 - See how many people are in a challenge. Once someone joined, texts, rules and links can still be edited (changes apply immediately) but the number of days is frozen.
-- Start from the 14-day "Unfuck Your Life" frame: fourteen days with placeholder instructions that can be saved as a draft but not published until written.
+- Start from the 14-day "Unfuck Your Life" frame: fourteen days with placeholder instructions that can be saved as a draft but not published until written. Day 1 is preset to "Write down your vision", detected from the Vision tool.
+- Use any toolbox tool as a day: rule "Uses a tool N times" plus the tool. Its button opens the tool, which leads back to the challenge once saved.
 - Delete challenges nobody joined.
 
 Saving uses `admin_save_challenge_template`. User execution happens on `/challenges` and the dashboard.

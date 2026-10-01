@@ -78,7 +78,18 @@ export function unfuckYourLifeDraft(): ChallengeDraft {
     xp_reward: 1000,
     coin_reward: 500,
     days: Array.from({ length: 14 }, (_, index) =>
-      blankDay({ title: `Day ${index + 1}`, instructions: DAY_INSTRUCTIONS_PLACEHOLDER })
+      index === 0
+        ? // Day 1 is decided: write down where you are headed, in the Vision
+          // tool, detected automatically. The instructions are still the
+          // admin's to write.
+          blankDay({
+            title: 'Write down your vision',
+            instructions: DAY_INSTRUCTIONS_PLACEHOLDER,
+            completion_type: 'tool_entries',
+            completion_param: 'vision',
+            action_label: 'Open Vision',
+          })
+        : blankDay({ title: `Day ${index + 1}`, instructions: DAY_INSTRUCTIONS_PLACEHOLDER })
     ),
   }
 }

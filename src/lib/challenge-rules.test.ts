@@ -8,6 +8,7 @@ import {
   isValidChallengeSlug,
   resolveDayAction,
   slugifyChallengeTitle,
+  withChallengeReturn,
 } from '@/lib/challenge-rules'
 
 function day(patch: Partial<Parameters<typeof resolveDayAction>[0]> = {}) {
@@ -74,5 +75,17 @@ describe('slugs', () => {
     expect(isValidChallengeSlug('Unfuck')).toBe(false)
     expect(isValidChallengeSlug('double--dash')).toBe(false)
     expect(isValidChallengeSlug('-leading')).toBe(false)
+  })
+})
+
+describe('withChallengeReturn', () => {
+  it('tags tool links with the challenge', () => {
+    expect(withChallengeReturn('/learn/tools/vision', 'tpl-1')).toBe('/learn/tools/vision?challenge=tpl-1')
+    expect(withChallengeReturn('/learn/tools/time-audit?view=week', 'tpl-1')).toBe('/learn/tools/time-audit?view=week&challenge=tpl-1')
+  })
+
+  it('leaves every other link alone', () => {
+    expect(withChallengeReturn('/habits', 'tpl-1')).toBe('/habits')
+    expect(withChallengeReturn('/learn/tools', 'tpl-1')).toBe('/learn/tools')
   })
 })

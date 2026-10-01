@@ -44,6 +44,11 @@ describe('validateChallengeDraft', () => {
     const draft = unfuckYourLifeDraft()
     expect(draft.days).toHaveLength(14)
     expect(draft.slug).toBe('unfuck-your-life')
+    expect(draft.days[0]).toMatchObject({
+      title: 'Write down your vision',
+      completion_type: 'tool_entries',
+      completion_param: 'vision',
+    })
     expect(draft.is_published).toBe(false)
     expect(validateChallengeDraft(draft)).toBeNull()
     expect(validateChallengeDraft(draft, { publishing: true })).toBe(
