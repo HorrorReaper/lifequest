@@ -9,6 +9,7 @@ import { syncChallengeProgress } from '@/lib/challenge-programs'
 import { getToolManifest } from '@/lib/tools/registry'
 import type { ToolEntry } from '@/lib/tools/storage'
 
+/** The parts of ChallengeContext this needs; a plain object, so it crosses to the client. */
 export interface ToolChallengeContext {
   templateId: string
   enrollmentId: string

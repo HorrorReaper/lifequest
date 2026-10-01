@@ -84,6 +84,10 @@ describe('withChallengeReturn', () => {
     expect(withChallengeReturn('/learn/tools/time-audit?view=week', 'tpl-1')).toBe('/learn/tools/time-audit?view=week&challenge=tpl-1')
   })
 
+  it('tags new journal entries, so a reflection day can show its question and lead back', () => {
+    expect(withChallengeReturn('/journal/new/abc', 'tpl-1')).toBe('/journal/new/abc?challenge=tpl-1')
+  })
+
   it('leaves every other link alone', () => {
     expect(withChallengeReturn('/habits', 'tpl-1')).toBe('/habits')
     expect(withChallengeReturn('/learn/tools', 'tpl-1')).toBe('/learn/tools')

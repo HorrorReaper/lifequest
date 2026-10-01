@@ -74,6 +74,7 @@ function program(completed: number[] = [], enrolled = true): ChallengeProgram {
       day_number: dayNumber,
       completed_on: `2026-09-${27 + dayNumber}`,
       note: null,
+      journal_entry_id: null,
       created_at: '2026-09-28T00:00:00Z',
     })),
   }
@@ -143,6 +144,18 @@ describe('ChallengeTodayPanel', () => {
     expect(screen.getByRole('link', { name: /open vision/i }).getAttribute('href')).toBe(
       '/learn/tools/vision?challenge=template-1'
     )
+  })
+
+  it('shows the question on a reflection day and opens the journal with the challenge attached', () => {
+    const item = program()
+    item.days[0] = challengeDay(1, { completion_type: 'reflection', reflection_prompt: 'What changed this week?' })
+    render(<ChallengeTodayPanel program={item} view={getChallengeView(item, '2026-09-28')} />)
+
+    expect(screen.getByText('What changed this week?')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /write reflection/i }).getAttribute('href')).toBe(
+      '/journal/new/afc4f953-3ad1-432f-abd4-acab80f82e68?challenge=template-1'
+    )
+    expect(screen.queryByPlaceholderText(/reflection note/i)).toBeNull()
   })
 
   it('says what is left when a progress check finds the day not done', async () => {

@@ -9,6 +9,7 @@ import { ChallengeDayList } from '@/components/challenges/ChallengeDayList'
 import { ChallengeProgressBar } from '@/components/challenges/ChallengeProgressBar'
 import { ChallengeTodayPanel } from '@/components/challenges/ChallengeTodayPanel'
 import { DeletePersonalChallengeButton } from '@/components/challenges/DeletePersonalChallengeButton'
+import { StopChallengeButton } from '@/components/challenges/StopChallengeButton'
 
 interface ChallengeDetailPageProps {
   params: Promise<{ id: string }>
@@ -88,7 +89,12 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
           />
         </section>
 
-        {template.is_personal && <DeletePersonalChallengeButton templateId={template.id} title={template.title} />}
+        <div className="flex flex-wrap items-start gap-2">
+          {view.status === 'active' && program.enrollment && (
+            <StopChallengeButton enrollmentId={program.enrollment.id} title={template.title} />
+          )}
+          {template.is_personal && <DeletePersonalChallengeButton templateId={template.id} title={template.title} />}
+        </div>
       </div>
     </div>
   )

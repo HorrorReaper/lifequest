@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Check, Lock, Sparkles } from 'lucide-react'
 import type { ChallengeProgram } from '@/lib/challenge-programs'
 import { isAutomaticRule } from '@/lib/challenge-rules'
@@ -61,6 +62,14 @@ export function ChallengeDayList({
                 )}
               </p>
               {done?.note && <p className="mt-2 whitespace-pre-line text-xs text-muted-foreground">“{done.note}”</p>}
+              {done?.journal_entry_id && (
+                <Link
+                  href={`/journal/${done.journal_entry_id}`}
+                  className="mt-1 inline-block text-xs text-primary underline-offset-4 hover:underline"
+                >
+                  Read your reflection
+                </Link>
+              )}
             </div>
           </li>
         )

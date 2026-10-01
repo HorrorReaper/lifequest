@@ -4,39 +4,14 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getToolManifest } from '@/lib/tools/registry'
 import { fetchToolEntries } from '@/lib/tools/storage'
-import { fetchChallengePrograms } from '@/lib/challenge-programs'
+import { fetchChallengeContext } from '@/lib/challenge-context'
 import { CHALLENGE_RETURN_PARAM } from '@/lib/challenge-rules'
-import { ToolChallengeRunner, type ToolChallengeContext } from '@/components/challenges/ToolChallengeRunner'
+import { ToolChallengeRunner } from '@/components/challenges/ToolChallengeRunner'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 interface ToolPageProps {
   params: Promise<{ toolId: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
-}
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/**
- * The challenge a day's button opened this tool from, when the link carried
- * one and the user is actually doing it. Anything else is ignored, so a
- * crafted link can only ever show the plain tool.
- */
-async function challengeContext(
-  supabase: SupabaseClient,
-  userId: string,
-  value: string | string[] | undefined
-): Promise<ToolChallengeContext | null> {
-  const templateId = typeof value === 'string' ? value : null
-  if (!templateId || !UUID_PATTERN.test(templateId)) return null
-  const [program] = await fetchChallengePrograms(supabase, userId, { templateId })
-  if (!program?.enrollment || program.enrollment.status !== 'active') return null
-  return {
-    templateId,
-    enrollmentId: program.enrollment.id,
-    title: program.template.title,
-    dayNumber: Math.min(program.progress.length + 1, program.template.duration_days),
-    totalDays: program.template.duration_days,
-  }
 }
 
 export default async function ToolPage({ params, searchParams }: ToolPageProps) {
@@ -56,7 +31,7 @@ export default async function ToolPage({ params, searchParams }: ToolPageProps) 
   const ToolComponent = tool.Component
   const [initialEntries, challenge] = await Promise.all([
     fetchToolEntries(supabase, user.id, tool.id),
-    challengeContext(supabase as unknown as SupabaseClient, user.id, query[CHALLENGE_RETURN_PARAM]),
+    fetchChallengeContext(supabase as unknown as SupabaseClient, user.id, query[CHALLENGE_RETURN_PARAM]),
   ])
 
   return (

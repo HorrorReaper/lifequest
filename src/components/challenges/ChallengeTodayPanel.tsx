@@ -217,6 +217,10 @@ export function ChallengeTodayPanel({
         </div>
       </div>
 
+      {rule.id === 'reflection' && day.reflection_prompt && (
+        <blockquote className="mt-4 border-l-2 border-primary pl-3 text-sm font-medium">{day.reflection_prompt}</blockquote>
+      )}
+
       {view.automatic && (
         <div className="mt-4 rounded-xl bg-background p-3">
           <div className="flex items-center justify-between gap-3 text-xs">
