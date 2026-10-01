@@ -322,6 +322,33 @@ before update on public.challenge_templates
 for each row execute function public.admin_guard_personal_template();
 
 -- ---------------------------------------------------------------------------
+-- Making room next to 20260922120000_challenge_engine.sql
+-- ---------------------------------------------------------------------------
+
+-- That migration (already applied on production) makes "reflection" the
+-- default day type, requires a reflection prompt for it, and allows one
+-- active challenge per user. The days and enrollments inserted below have
+-- neither a prompt nor a single-challenge owner, so those three would make
+-- this migration fail. 20261001130000_reconcile_challenge_engine.sql settles
+-- the two designs for good; this only clears the way, and does nothing on a
+-- database where the engine migration never ran.
+alter table public.challenge_days drop constraint if exists challenge_days_reflection_needs_prompt;
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'challenge_days' and column_name = 'completion_rule'
+  ) then
+    alter table public.challenge_days alter column completion_rule set default '{"type":"manual"}'::jsonb;
+  end if;
+end;
+$$;
+drop index if exists public.challenge_enrollments_one_active_per_user;
+create unique index if not exists challenge_enrollments_one_active_idx
+  on public.challenge_enrollments (template_id, user_id)
+  where status = 'active';
+
+-- ---------------------------------------------------------------------------
 -- Moving daily-challenge quests over
 -- ---------------------------------------------------------------------------
 

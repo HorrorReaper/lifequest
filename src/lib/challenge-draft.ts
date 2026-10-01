@@ -1,5 +1,6 @@
 import type { ChallengeCompletionType, ChallengeDayRow, ChallengeTemplateRow } from '@/lib/supabase/database.types'
 import { getChallengeRule, isSafeInternalHref, isValidChallengeSlug } from '@/lib/challenge-rules'
+import { WEEKLY_PLAN_TEMPLATE_ID } from '@/lib/weekly-rituals'
 
 // The admin editor's working copy of a challenge, and the conversions to and
 // from what admin_save_challenge_template takes. Pure, so the rules the
@@ -66,20 +67,167 @@ export function blankChallengeDraft(): ChallengeDraft {
 export const DAY_INSTRUCTIONS_PLACEHOLDER = 'To be written.'
 
 /**
- * The frame for the 14-day "Unfuck Your Life" challenge: fourteen empty days
- * with a slug for its landing page, unpublished. The content is written in
- * the editor.
+ * The first draft of "14 Days to Unfuck Your Life", loaded by the Challenge
+ * Lab's button as an unpublished challenge. A starting point to edit, not a
+ * fixed program: every text, rule and link can change in the editor.
+ *
+ * The arc: day 1 measures where the user stands (Wheel of Life); week one
+ * gives direction (vision, goals, next steps, one habit) and the first proof
+ * of change; day 8 looks back and plans week two; week two clears what is in
+ * the way (time, environment, fear) and closes by rating the life areas
+ * again against day 1 and looking back.
  */
 export function unfuckYourLifeDraft(): ChallengeDraft {
+  const tool = (id: string, label: string) =>
+    ({ completion_type: 'tool_entries', completion_param: id, action_label: label }) as const
+
   return {
     ...blankChallengeDraft(),
-    title: 'Unfuck Your Life',
+    title: '14 Days to Unfuck Your Life',
+    tagline: 'Fourteen days, one honest step a day. From stuck and scattered to clear and moving.',
+    description:
+      'No 5 a.m. routine, no cold plunges, no reinventing yourself overnight. For fourteen days you take one concrete step a day: ' +
+      'decide where you are going, turn it into goals and a daily habit, and clear out what keeps getting in the way. ' +
+      'Most steps take 10 to 30 minutes, and LifeQuest notices when you have done them.',
     slug: 'unfuck-your-life',
     xp_reward: 1000,
     coin_reward: 500,
-    days: Array.from({ length: 14 }, (_, index) =>
-      blankDay({ title: `Day ${index + 1}`, instructions: DAY_INSTRUCTIONS_PLACEHOLDER })
-    ),
+    days: [
+      blankDay({
+        title: 'See where you stand',
+        instructions:
+          'Before you change anything, take an honest snapshot.\n\n' +
+          'Open the Wheel of Life and rate five areas of your life from 1 to 10: Relationships, Health, Business & career, Fun & free time, and Personal growth. ' +
+          'Rate them as they are today, not as they should be. It takes two minutes.\n\n' +
+          'You will rate them again on day 13 and see exactly what moved.',
+        ...tool('wheel-of-life', 'Rate your life areas'),
+      }),
+      blankDay({
+        title: 'Write down your vision',
+        instructions:
+          'Now: where do you actually want to go?\n\n' +
+          'Open Vision and describe your life three years from now, in the present tense, as if it were already true. ' +
+          'How does a normal Tuesday look? Who is around you? What do you do, and how do you feel? ' +
+          'It does not have to be perfect, it has to be written down. Ten minutes are enough.',
+        ...tool('vision', 'Write your vision'),
+      }),
+      blankDay({
+        title: 'Turn your vision into SMART goals',
+        instructions:
+          'A vision is a direction. A goal is something you can hit.\n\n' +
+          'Pick one to three goals that move you toward your vision and make each one SMART: Specific, Measurable, Achievable, Relevant, Time-bound. ' +
+          '“Get fit” becomes “Run 5 km without stopping by 30 March”.\n\n' +
+          'Add them as goals in LifeQuest: a clear title, why it matters to you, and a target date.',
+        completion_type: 'goals_created',
+        completion_target: 1,
+        action_label: 'Set your goals',
+      }),
+      blankDay({
+        title: 'Break your goals into next steps',
+        instructions:
+          'Big goals stall because the next step is unclear.\n\n' +
+          'Open Goal Breakdown and take your most important goal apart: two to four sub-goals, and under each the concrete actions that get you there. ' +
+          'Keep going until every action is something you could start within a day.\n\n' +
+          'Then put the first two actions on your task list.',
+        ...tool('goal-breakdown', 'Open Goal Breakdown'),
+      }),
+      blankDay({
+        title: 'Start one daily habit',
+        instructions:
+          'Goals tell you where to go. Habits are what gets you there when motivation is gone.\n\n' +
+          'Choose one small habit that moves your most important goal forward every day. Make it so small you cannot fail: ' +
+          'ten minutes, one page, one rep. Create it in Habits and check it in today.\n\n' +
+          'From now on, check it in every day of this challenge. Ten days of repetition are worth more than a perfect plan.',
+        completion_type: 'habits_created',
+        completion_target: 1,
+        action_label: 'Create your habit',
+      }),
+      blankDay({
+        title: 'Win back 30 minutes of screen time',
+        instructions:
+          'Most of the time you think you do not have is in your phone.\n\n' +
+          'Look at your screen time from yesterday. Today, use 30 minutes less: delete or log out of one app, turn off non-essential notifications, ' +
+          'and keep your phone out of reach for your first hour.\n\n' +
+          'Spend the 30 minutes you win on your habit or your first next step. Tonight, compare and tick the day off.',
+        reflection_prompt: 'How much screen time did you have today, and what did you do with the time you won back?',
+      }),
+      blankDay({
+        title: 'Decide who you need to be',
+        instructions:
+          'You do not rise to your goals, you fall to your identity.\n\n' +
+          'Open Identity and write three lines that start with “I am someone who…”: the person who naturally reaches your goals. ' +
+          'Describe behaviour, not results: “I am someone who trains four times a week”, not “I am fit”.\n\n' +
+          'Then write one small thing that person would do today, and do it.',
+        ...tool('identity', 'Open Identity'),
+      }),
+      blankDay({
+        title: 'Look back, then plan week two',
+        instructions:
+          'One week done. Before you plan the next one, look honestly at this one: what did you start, what did you avoid, and what surprised you? ' +
+          'No judgement, just what you learned.\n\n' +
+          'Then open the Weekly Plan and plan week two like the person you described yesterday would: a theme and three outcomes that move your goals forward. ' +
+          'Put your daily habit into it, and block 30 minutes for tomorrow: your first dream block.',
+        completion_type: 'journal_entries',
+        completion_target: 1,
+        completion_param: WEEKLY_PLAN_TEMPLATE_ID,
+        action_label: 'Look back and plan',
+      }),
+      blankDay({
+        title: 'Do a 30-minute dream block',
+        instructions:
+          'Today you do not plan, you work on your dream.\n\n' +
+          'Take the 30 minutes you blocked yesterday. Phone in another room, one task from your goal breakdown, timer on, go. ' +
+          'Not answering emails about it, not reading about it: doing it.\n\n' +
+          'When the 30 minutes are up, tick the day off and note what you did.',
+        reflection_prompt: 'What did you work on, and how did it feel to spend 30 minutes on your own goal?',
+        action_href: '/plan',
+        action_label: 'Open your plan',
+      }),
+      blankDay({
+        title: 'Find out where your time goes',
+        instructions:
+          'You cannot change what you do not see.\n\n' +
+          'Open Time Audit and log today in 15-minute blocks, as honestly as you can. Mark what was deliberate and what simply happened. ' +
+          'Tonight, look at the summary: where did time leak away, and which single leak would you close first?',
+        ...tool('time-audit', 'Open Time Audit'),
+      }),
+      blankDay({
+        title: 'Audit your environment',
+        instructions:
+          'Your environment beats your willpower, every time.\n\n' +
+          'Open Environment Audit and walk through four areas: your physical space, your digital life, the people around you, and your routines. ' +
+          'List at least three things that pull you away from your goals.\n\n' +
+          'Then remove or change at least one of them today, and mark it as done.',
+        ...tool('environment-audit', 'Open Environment Audit'),
+      }),
+      blankDay({
+        title: 'Face one fear',
+        instructions:
+          'Most of what holds you back is not a lack of time, it is fear dressed up as reasons.\n\n' +
+          'Open Limiting Beliefs: write down the belief behind the fear, the evidence against it, and a more realistic belief.\n\n' +
+          'Then do one thing today that scares you a little: the message you have not sent, the question you have not asked, the first post, the first call.',
+        ...tool('limiting-beliefs', 'Open Limiting Beliefs'),
+      }),
+      blankDay({
+        title: 'Rate your life areas again',
+        instructions:
+          'On day 1 you rated your life. Do it again, honestly, without looking at the old numbers first.\n\n' +
+          'Open the Wheel of Life and rate Relationships, Health, Business & career, Fun & free time and Personal growth from 1 to 10. ' +
+          'Look at what moved and what did not. Pick the area with the most room to grow: that is where your habit and goals should point next.',
+        ...tool('wheel-of-life', 'Open Wheel of Life'),
+      }),
+      blankDay({
+        title: 'Look back, learn, and be grateful',
+        instructions:
+          'You did fourteen days. That alone is more than most people do.\n\n' +
+          'Write your final reflection: what you learned, what you are grateful for, and what you keep doing from here. ' +
+          'Read your vision from day 2 once more before you start.',
+        completion_type: 'reflection',
+        reflection_prompt:
+          'What are the three most important things you learned in these 14 days, what are you grateful for, and what will you keep doing?',
+        action_label: 'Write your reflection',
+      }),
+    ],
   }
 }
 
@@ -137,6 +285,9 @@ export function validateChallengeDraft(
     }
     if (day.instructions.trim().length > 2000) return `${label}: instructions can be at most 2000 characters.`
     if (day.reflection_prompt.trim().length > 500) return `${label}: the reflection prompt can be at most 500 characters.`
+    if (day.completion_type === 'reflection' && !day.reflection_prompt.trim()) {
+      return `${label}: a reflection day needs the question to answer.`
+    }
     const rule = getChallengeRule(day.completion_type)
     if (rule.id !== 'manual' && !(day.completion_target >= 1 && day.completion_target <= 100)) {
       return `${label}: the target must be between 1 and 100.`

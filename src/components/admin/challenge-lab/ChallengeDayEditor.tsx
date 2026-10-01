@@ -153,7 +153,9 @@ export function ChallengeDayEditor({
           </label>
         ) : (
           <p className="self-end pb-2 text-xs text-muted-foreground">
-            {rule.kind === 'state'
+            {rule.id === 'reflection'
+              ? 'Done when the user answers the question below in the journal.'
+              : rule.kind === 'state'
               ? 'Checks what the user has right now.'
               : rule.kind === 'activity'
                 ? 'Counts from the day this step unlocks.'
@@ -177,13 +179,17 @@ export function ChallengeDayEditor({
         />
       </div>
 
-      {!automatic && (
+      {(!automatic || rule.id === 'reflection') && (
         <Input
           className="mt-3"
           aria-label={`Day ${n} reflection prompt`}
           value={day.reflection_prompt}
           onChange={(event) => onChange({ reflection_prompt: event.target.value })}
-          placeholder="Optional reflection prompt shown with the note field"
+          placeholder={
+            rule.id === 'reflection'
+              ? 'The question the user answers in the journal (required)'
+              : 'Optional reflection prompt shown with the note field'
+          }
         />
       )}
     </article>
