@@ -115,6 +115,7 @@ function program(
       xp_reward: 200,
       coin_reward: 80,
       is_published: true,
+      slug: null,
       created_at: '2026-07-01T00:00:00Z',
       updated_at: '2026-07-01T00:00:00Z',
     },
@@ -137,6 +138,7 @@ function program(
       day_number: dayNumber,
       completed_on: `2026-07-${String(19 + dayNumber).padStart(2, '0')}`,
       note: null,
+      journal_entry_id: null,
       created_at: '2026-07-20T10:00:00Z',
     })),
   }

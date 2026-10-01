@@ -27,10 +27,10 @@ export type RecipeRow = { id: string; user_id: string; name: string; servings: n
 export type RecipeIngredientRow = { id: string; recipe_id: string; food_item_id: string; grams: number; sort_order: number; created_at: string }
 export type NutritionEntryRow = { id: string; user_id: string; entry_date: string; meal_type: MealType; name: string; entry_kind: 'food' | 'quick_add' | 'saved_meal' | 'recipe'; food_item_id: string | null; serving_grams: number | null; serving_count: number; serving_label: string | null; calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number; sugar_g: number; sodium_mg: number; source_id: string | null; source_details: Json; notes: string | null; created_at: string; updated_at: string }
 export type QuestDailyLogRow = { id: string; quest_id: string; user_id: string; log_date: string; note: string | null; created_at: string }
-export type ChallengeTemplateRow = { id: string; created_by: string; title: string; description: string | null; duration_days: number; schedule_mode: 'sequential' | 'strict'; xp_reward: number; coin_reward: number; is_published: boolean; created_at: string; updated_at: string }
-export type ChallengeDayRow = { id: string; template_id: string; day_number: number; title: string; instructions: string; reflection_prompt: string | null; created_at: string }
+export type ChallengeTemplateRow = { id: string; created_by: string; title: string; description: string | null; duration_days: number; schedule_mode: 'sequential' | 'strict'; xp_reward: number; coin_reward: number; is_published: boolean; slug: string | null; created_at: string; updated_at: string }
+export type ChallengeDayRow = { id: string; template_id: string; day_number: number; title: string; instructions: string; reflection_prompt: string | null; completion_rule: Json; created_at: string }
 export type ChallengeEnrollmentRow = { id: string; template_id: string; user_id: string; start_date: string; status: 'active' | 'completed' | 'failed' | 'abandoned'; completed_at: string | null; created_at: string; updated_at: string }
-export type ChallengeDayProgressRow = { id: string; enrollment_id: string; challenge_day_id: string; user_id: string; day_number: number; completed_on: string; note: string | null; created_at: string }
+export type ChallengeDayProgressRow = { id: string; enrollment_id: string; challenge_day_id: string; user_id: string; day_number: number; completed_on: string; note: string | null; journal_entry_id: string | null; created_at: string }
 export type AdminNoteRow = { id: string; user_id: string; title: string; body: string; tags: string[]; module: 'general' | 'productivity' | 'workouts' | 'nutrition' | 'challenges' | 'tools'; status: 'idea' | 'testing' | 'validated' | 'rejected'; is_pinned: boolean; created_at: string; updated_at: string }
 export type KnowledgeNoteType = 'note' | 'experiment' | 'meeting' | 'reference' | 'project'
 export type KnowledgeFolderRow = { id: string; user_id: string; parent_id: string | null; name: string; sort_order: number; created_at: string; updated_at: string }
@@ -982,8 +982,12 @@ export interface Database {
         Returns: { enrollment_id: string; start_date: string; status: string }[]
       }
       complete_challenge_program_day: {
-        Args: { p_enrollment_id: string; p_note?: string | null }
+        Args: { p_enrollment_id: string; p_note?: string | null; p_journal_entry_id?: string | null }
         Returns: { completed_day: number; completed_days: number; total_days: number; completion_date: string; challenge_completed: boolean; total_xp: number; coins: number }[]
+      }
+      abandon_challenge_program: {
+        Args: { p_enrollment_id: string }
+        Returns: undefined
       }
       claim_system_quest_reward: {
         Args: { p_quest_key: string }

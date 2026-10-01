@@ -102,10 +102,10 @@ External foods are owned cached records. Their primary import identity is `(user
 | `quests` | User/custom quest definitions and completion, optional `skill_category` |
 | `quest_daily_logs` | Date-keyed check-ins for daily quests |
 | `quest_completions` | Durable completion/claim record |
-| `challenge_templates` | Admin-authored program definition |
-| `challenge_days` | Ordered day instructions |
-| `challenge_enrollments` | User enrollment and start state |
-| `challenge_day_progress` | Per-day completion in an enrollment |
+| `challenge_templates` | Admin-authored program definition; optional unique `slug` for stable URLs |
+| `challenge_days` | Ordered day instructions; `completion_rule` jsonb (`reflection` default, `manual`, or an app rule — see `src/lib/challenge-rules.ts`) |
+| `challenge_enrollments` | User enrollment and start state; at most one `active` per user |
+| `challenge_day_progress` | Per-day completion in an enrollment; `journal_entry_id` links the Challenge Reflection entry that completed a reflection day |
 | `lesson_completions` | Idempotent user lesson completion |
 
 Reward RPCs update the completion record, XP, and coins together.
@@ -182,6 +182,7 @@ Project tasks reuse `tasks` rather than having a separate task table.
 - `start_challenge_program`
 - `restart_challenge_program`
 - `complete_challenge_program_day`
+- `abandon_challenge_program`
 - `claim_system_quest_reward`
 - `complete_custom_quest_reward`
 - `complete_lesson_reward`

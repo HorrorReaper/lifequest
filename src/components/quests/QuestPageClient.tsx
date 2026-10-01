@@ -189,7 +189,7 @@ export function QuestPageClient({ userId, defaultQuests, initialCustomQuests, in
     setChallengePrograms((current) => current.map((item) => item.template.id !== program.template.id ? item : {
       ...item,
       enrollment: item.enrollment ? { ...item.enrollment, status: result.challenge_completed ? 'completed' : 'active', completed_at: result.challenge_completed ? now : null, updated_at: now } : null,
-      progress: item.progress.some((entry) => entry.day_number === result.completed_day) ? item.progress : [...item.progress, { id: `${program.enrollment!.id}-${result.completed_day}`, enrollment_id: program.enrollment!.id, challenge_day_id: challengeDay.id, user_id: userId, day_number: result.completed_day, completed_on: completionDate, note: note.trim() || null, created_at: now }],
+      progress: item.progress.some((entry) => entry.day_number === result.completed_day) ? item.progress : [...item.progress, { id: `${program.enrollment!.id}-${result.completed_day}`, enrollment_id: program.enrollment!.id, challenge_day_id: challengeDay.id, user_id: userId, day_number: result.completed_day, completed_on: completionDate, note: note.trim() || null, journal_entry_id: null, created_at: now }],
     }))
     if (result.challenge_completed) {
       addXp(program.template.xp_reward, result.total_xp - program.template.xp_reward)
