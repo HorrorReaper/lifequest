@@ -73,6 +73,11 @@ interface EntryFormProps {
    * the question stays visible while the answer is being written.
    */
   prompt?: string | null
+  /**
+   * Where the saved screen should lead first, e.g. back to the challenge
+   * whose day opened this entry. Replaces the Dashboard button.
+   */
+  returnTo?: { href: string; label: string } | null
 }
 
 type JournalResponseInsert = Database['public']['Tables']['journal_responses']['Insert']
@@ -190,6 +195,7 @@ export function EntryForm({
   timezone,
   firstEntry = false,
   prompt = null,
+  returnTo = null,
 }: EntryFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -731,9 +737,15 @@ export function EntryForm({
               <Button variant="outline" onClick={() => router.push('/journal')}>
                 Back to Journal
               </Button>
-              <Button onClick={() => router.push('/dashboard')}>
-                Dashboard
-              </Button>
+              {returnTo ? (
+                <Button onClick={() => router.push(returnTo.href)}>
+                  {returnTo.label}
+                </Button>
+              ) : (
+                <Button onClick={() => router.push('/dashboard')}>
+                  Dashboard
+                </Button>
+              )}
             </>
           )}
         </div>

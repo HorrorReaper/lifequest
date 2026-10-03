@@ -152,7 +152,7 @@ export function ChallengeLab() {
     })
     if (saveError) {
       setError(
-        saveError.message.includes('challenge_templates_slug_idx')
+        /challenge_templates_slug_(idx|key)/.test(saveError.message)
           ? 'Another challenge already uses this public link.'
           : saveError.message
       )
@@ -233,7 +233,7 @@ export function ChallengeLab() {
           </div>
           <Button variant="outline" className="mt-4 w-full" onClick={() => startNew(unfuckYourLifeDraft())}>
             <Flame />
-            New “Unfuck Your Life” (14 days)
+            New “14 Days to Unfuck Your Life”
           </Button>
         </aside>
 

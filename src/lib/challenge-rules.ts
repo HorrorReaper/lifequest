@@ -1,14 +1,21 @@
 import type { ChallengeCompletionType } from '@/lib/supabase/database.types'
 
 /**
+ * The Challenge Reflection journal template and its one answer field,
+ * seeded by 20260922120000_challenge_engine.sql. A reflection day is done
+ * when the user answers the day's reflection prompt in this template.
+ */
+export const CHALLENGE_REFLECTION_TEMPLATE_ID = 'afc4f953-3ad1-432f-abd4-acab80f82e68'
+
+/**
  * How a challenge day can be completed.
  *
  * `manual` is ticked off by the user. Every other rule is detected from what
- * the user did in the app and evaluated in SQL (challenge_rule_count in
- * supabase/migrations/20260930130000_challenge_programs_v2.sql), which is the
- * only place that decides. This module is the vocabulary around it: labels
- * for the admin editor, wording for the user, and a default deep link. Keep
- * the ids in step with the check constraint in that migration.
+ * the user did in the app and evaluated in SQL (challenge_rule_count, last
+ * defined in supabase/migrations/20261001130000_reconcile_challenge_engine.sql),
+ * which is the only place that decides. This module is the vocabulary around
+ * it: labels for the admin editor, wording for the user, and a default deep
+ * link. Keep the ids in step with the check constraint in that migration.
  *
  * "state" rules look at what exists right now (a user who already has three
  * habits meets "have three habits" on the spot); "activity" rules count what
@@ -36,12 +43,28 @@ export const CHALLENGE_RULES: ChallengeRuleDef[] = [
     unit: ['step', 'steps'],
   },
   {
+    id: 'reflection',
+    kind: 'activity',
+    adminLabel: 'Answers the reflection question in the journal',
+    unit: ['reflection', 'reflections'],
+    defaultHref: `/journal/new/${CHALLENGE_REFLECTION_TEMPLATE_ID}`,
+    defaultActionLabel: 'Write reflection',
+  },
+  {
     id: 'habits_active',
     kind: 'state',
     adminLabel: 'Has at least N active habits',
     unit: ['active habit', 'active habits'],
     defaultHref: '/habits',
     defaultActionLabel: 'Open habits',
+  },
+  {
+    id: 'habits_created',
+    kind: 'activity',
+    adminLabel: 'Creates N new habits',
+    unit: ['new habit', 'new habits'],
+    defaultHref: '/habits',
+    defaultActionLabel: 'Create a habit',
   },
   {
     id: 'habit_checkins',
@@ -89,6 +112,14 @@ export const CHALLENGE_RULES: ChallengeRuleDef[] = [
     kind: 'state',
     adminLabel: 'Has at least N goals',
     unit: ['goal', 'goals'],
+    defaultHref: '/dashboard',
+    defaultActionLabel: 'Set a goal',
+  },
+  {
+    id: 'goals_created',
+    kind: 'activity',
+    adminLabel: 'Sets N new goals',
+    unit: ['new goal', 'new goals'],
     defaultHref: '/dashboard',
     defaultActionLabel: 'Set a goal',
   },
@@ -177,4 +208,21 @@ export const CHALLENGE_SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 export function isValidChallengeSlug(value: string): boolean {
   return value.length >= 3 && value.length <= 80 && CHALLENGE_SLUG_PATTERN.test(value)
+}
+
+/** The query parameter a tool page reads to offer the way back to a challenge. */
+export const CHALLENGE_RETURN_PARAM = 'challenge'
+
+/**
+ * Tags a day's button with the challenge it belongs to, so the page it
+ * opens can say "this is part of your challenge" and lead back once saved.
+ * Tool pages and new journal entries read it; every other link is returned
+ * unchanged.
+ */
+export function withChallengeReturn(href: string, templateId: string): string {
+  if (!href.startsWith('/learn/tools/') && !href.startsWith('/journal/new/')) return href
+  const [path, query = ''] = href.split('?', 2)
+  const params = new URLSearchParams(query)
+  params.set(CHALLENGE_RETURN_PARAM, templateId)
+  return `${path}?${params.toString()}`
 }

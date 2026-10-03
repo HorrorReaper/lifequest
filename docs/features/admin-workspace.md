@@ -82,12 +82,13 @@ The public `/tasks`, `/habits`, and `/plan` pages remain the user-facing focused
 `ChallengeLab` lets an admin:
 
 - Create or edit challenges (title, tagline, description, schedule, rewards).
-- Define ordered days, each with a completion rule: manual, or detected automatically from app activity (habits, habit check-ins, journal entries of any or one template, day plans, tasks created/completed, goals, learnings, tool use), with a target N.
+- Define ordered days, each with a completion rule: manual, a reflection day (the user answers the day's question in the journal), or detected automatically from app activity (habits active or newly created, habit check-ins, journal entries of any or one template, day plans, tasks created/completed, goals active or newly created, learnings, tool use), with a target N.
 - Give each day a button (app path + label); rules have sensible defaults.
 - Give a challenge a slug, which makes a public landing page at `/challenge/<slug>` once published.
 - Publish or unpublish. Published challenges are available to every user at `/challenges`.
 - See how many people are in a challenge. Once someone joined, texts, rules and links can still be edited (changes apply immediately) but the number of days is frozen.
-- Start from the 14-day "Unfuck Your Life" frame: fourteen days with placeholder instructions that can be saved as a draft but not published until written.
+- Load the first draft of "14 Days to Unfuck Your Life" (button in the sidebar): all 14 days written, with rules and buttons, unpublished. The text is in `docs/notes/challenge-14-days-to-unfuck-your-life.md`. Days carrying the placeholder "To be written." can be saved as a draft but never published.
+- Use any toolbox tool as a day: rule "Uses a tool N times" plus the tool. Its button opens the tool, which leads back to the challenge once saved.
 - Delete challenges nobody joined.
 
 Saving uses `admin_save_challenge_template`. User execution happens on `/challenges` and the dashboard.

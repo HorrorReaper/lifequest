@@ -102,9 +102,9 @@ External foods are owned cached records. Their primary import identity is `(user
 | `quests` | User/custom one-time quests and completion, optional `skill_category` |
 | `quest_completions` | Durable completion/claim record |
 | `challenge_templates` | Program definition, admin-authored or personal (`is_personal`, owner = `created_by`, never published); optional unique `slug` (public landing page) and `tagline` |
-| `challenge_days` | Ordered day instructions, `completion_type`/`completion_target`/`completion_param` rule, optional `action_href`/`action_label` button |
-| `challenge_enrollments` | User enrollment and start state |
-| `challenge_day_progress` | Per-day completion in an enrollment |
+| `challenge_days` | Ordered day instructions, `completion_type`/`completion_target`/`completion_param` rule (a `reflection` day requires `reflection_prompt`), optional `action_href`/`action_label` button |
+| `challenge_enrollments` | User enrollment and start state; at most one `active` run per user and challenge |
+| `challenge_day_progress` | Per-day completion in an enrollment; `journal_entry_id` links the Challenge Reflection entry that completed a reflection day |
 | `lesson_completions` | Idempotent user lesson completion |
 
 Reward RPCs update the completion record, XP, and coins together.
@@ -180,7 +180,8 @@ Project tasks reuse `tasks` rather than having a separate task table.
 - `admin_save_challenge_template`
 - `start_challenge_program`
 - `restart_challenge_program`
-- `complete_challenge_program_day` (refuses an automatic day whose rule is not met)
+- `complete_challenge_program_day(p_enrollment_id, p_note, p_journal_entry_id)` (refuses an automatic day whose rule is not met; links the reflection on a reflection day)
+- `abandon_challenge_program`
 - `sync_challenge_progress` (completes met automatic days, reports progress per active enrollment)
 - `get_public_challenge` (the only challenge data `anon` can read)
 - `challenge_rule_count` (internal; no client role may execute it)
@@ -210,7 +211,7 @@ Migrations currently cover:
 4. Routines and later admin restriction.
 5. Admin productivity, workout, and nutrition hubs.
 6. Admin application statistics.
-7. Daily challenge quests and challenge programs, their second iteration (completion rules, public slugs, sync, and fixes for the start-policy recursion and the admin participant check), and personal challenges, which absorbed the daily-challenge quests (`quest_daily_logs` and the `quests.quest_type`/`challenge_*` columns are gone).
+7. Daily challenge quests and challenge programs, their second iteration (completion rules, public slugs, sync, and fixes for the start-policy recursion and the admin participant check), personal challenges, which absorbed the daily-challenge quests (`quest_daily_logs` and the `quests.quest_type`/`challenge_*` columns are gone), and the reconciliation with the parallel challenge-engine migration (reflection days, one rule representation).
 8. AI assistant consent.
 9. Workout/nutrition daily-driver expansion.
 10. Knowledge and projects.
