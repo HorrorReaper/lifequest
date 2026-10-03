@@ -20,6 +20,7 @@ beforeEach(() => {
           : []
     const builder = {
       select: () => builder, eq: () => builder, order: () => builder,
+      is: () => builder, neq: () => builder,
       limit: () => builder, or: () => builder, maybeSingle: () => builder,
       then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data, error: table === mocks.failedTable ? { message: 'offline' } : null }).then(resolve),
     }

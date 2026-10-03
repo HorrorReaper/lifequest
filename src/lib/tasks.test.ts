@@ -71,6 +71,7 @@ describe('task mutations', () => {
   it('scopes project task reads to both owner and project', async () => {
     const builder = {
       select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(), neq: vi.fn().mockReturnThis(),
       then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: [row], error: null }).then(resolve),
     }
     const from = vi.fn(() => builder)
@@ -78,6 +79,8 @@ describe('task mutations', () => {
     expect(from).toHaveBeenCalledWith('tasks')
     expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1')
     expect(builder.eq).toHaveBeenCalledWith('project_id', 'project-1')
+    expect(builder.is).toHaveBeenCalledWith('parent_task_id', null)
+    expect(builder.neq).toHaveBeenCalledWith('status', 'cancelled')
     expect(tasks).toEqual([row])
   })
 

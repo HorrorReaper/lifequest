@@ -55,6 +55,9 @@ export type ProjectPriority = 'low' | 'medium' | 'high' | 'urgent'
 export type ProjectHealth = 'unset' | 'on_track' | 'at_risk' | 'off_track'
 export type ProjectRow = { id: string; user_id: string; home_note_id: string | null; name: string; outcome: string; description: string; status: ProjectStatus; priority: ProjectPriority; health: ProjectHealth; start_date: string | null; target_date: string | null; color: string; icon: string; sort_order: number; completed_at: string | null; created_at: string; updated_at: string }
 export type ProjectMilestoneRow = { id: string; user_id: string; project_id: string; title: string; status: 'open' | 'completed' | 'cancelled'; target_date: string | null; sort_order: number; completed_at: string | null; created_at: string; updated_at: string }
+export type ProjectAreaRow = { id: string; user_id: string; name: string; created_at: string }
+export type ProjectLinkRow = { id: string; user_id: string; project_id: string; title: string; url: string; description: string; sort_order: number; created_at: string; updated_at: string }
+export type WorkspaceProjectRow = ProjectRow & { area_id: string | null; status_before_archive: ProjectStatus | null; board_version: number }
 
 type MutableTable<Row, Required extends keyof Row> = {
   Row: Row
@@ -517,7 +520,9 @@ export interface Database {
       knowledge_note_templates: MutableTable<KnowledgeNoteTemplateRow, 'user_id' | 'name'>
       knowledge_note_projects: MutableTable<KnowledgeNoteProjectRow, 'user_id' | 'note_id' | 'project_id'>
       knowledge_note_tasks: MutableTable<KnowledgeNoteTaskRow, 'user_id' | 'note_id' | 'task_id'>
-      projects: MutableTable<ProjectRow, 'user_id' | 'name'>
+      projects: MutableTable<WorkspaceProjectRow, 'user_id' | 'name'>
+      project_areas: MutableTable<ProjectAreaRow, 'user_id' | 'name'>
+      project_links: MutableTable<ProjectLinkRow, 'user_id' | 'project_id' | 'title' | 'url'>
       project_milestones: MutableTable<ProjectMilestoneRow, 'user_id' | 'project_id' | 'title'>
       xp_events: {
         Row: {
@@ -951,9 +956,23 @@ export interface Database {
           p_outcome: string
           p_status?: ProjectStatus
           p_priority?: ProjectPriority
+          p_description?: string
+          p_health?: ProjectHealth
+          p_start_date?: string | null
+          p_target_date?: string | null
+          p_color?: string
+          p_area_id?: string | null
         }
         Returns: { created_project_id: string; created_note_id: string }[]
       }
+      ensure_project_areas: { Args: Record<string, never>; Returns: undefined }
+      get_project_board: { Args: { p_project_id: string }; Returns: Json }
+      reorder_project_tasks: { Args: { p_project_id: string; p_expected_version: number; p_order: Json }; Returns: Json }
+      assign_project_task: { Args: { p_task_id: string; p_project_id: string | null; p_expected_updated_at: string }; Returns: undefined }
+      save_project_task: { Args: { p_task_id: string | null; p_draft: Json; p_subtasks: Json; p_expected_updated_at?: string | null }; Returns: string }
+      delete_project_task: { Args: { p_task_id: string; p_expected_updated_at: string }; Returns: undefined }
+      create_project_note: { Args: { p_project_id: string; p_title: string }; Returns: string }
+      reorder_project_links: { Args: { p_project_id: string; p_ids: string[] }; Returns: undefined }
       save_workout_template: {
         Args: { p_template_id: string | null; p_name: string; p_notes: string | null; p_items: Json }
         Returns: string

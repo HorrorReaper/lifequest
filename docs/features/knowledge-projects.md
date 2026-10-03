@@ -136,3 +136,21 @@ Cancelled tasks do not count in the progress denominator.
 - `src/lib/projects/`
 - Knowledge/project migrations and type mappings
 
+
+## Projects workspace
+
+`/admin/work/projects` is the canonical personal project overview; `/admin/projects` redirects there. `src/components/projects/` contains reusable feature components; `ProjectsHub` remains a compatibility entry point. The overview offers cards/list, search, area/status filters, an archive and 50-project pages. Complete counts come from the invoker-secured `project_overview` view, excluding child and cancelled tasks. Existing projects remain under **Ohne Bereich**. First use seeds **Privat** and **Beruflich** only when the owner has no areas; renaming an area does not recreate its original name.
+
+Each project has `/admin/work/projects/[projectId]`. The `tab` query selects `overview`, `tasks` (default), `notes`, or `links`; `view` selects `board` (default) or `list`. Project editing, area editing, milestones, notes and links use dialogs. Unsaved dialog drafts require confirmation before closing and survive save errors. Archive records the previous status; restore returns to it, or paused for older archived rows. Archive preserves tasks, notes, milestones and links.
+
+The shared `TaskEditorDialog` exposes optional project fields: project, workflow status, estimate in minutes, blocked reason and a one-level checklist. Checklist rows are existing `tasks` with `parent_task_id`; the entire family has the same owner and project. Completing a checklist does not complete its parent. Ordinary task managers, calendar, planner and dashboard summaries select main tasks and exclude cancelled tasks. Reassigning/detaching a task preserves its ID, metadata, note links and saved plan IDs; its checklist moves with it. Deleting a parent also deletes its checklist.
+
+Board cards open the editor; their menu offers explicit moves, move up/down, detach and confirmed deletion. `ProjectTaskBoard` uses the existing dnd-kit pointer and keyboard sensors. Status menus provide a keyboard-accessible alternative. Board/list share writes. The list shows cancelled tasks through its Cancelled filter. Every drop saves a normalized main-task order atomically. Stale board versions fail with `BOARD_CONFLICT`, roll back the optimistic move and reload current data. Editors reject stale task/project timestamps. Project task writes do not award XP.
+
+Notes use `knowledge_note_projects`, including notes shared across projects. Creation/linking is atomic. Removing a link preserves the note. Editing opens `/admin/notes?note=<id>&returnTo=<project path>`; the return button saves dirty content before navigation. Knowledge explicitly fetches a requested note even when archived or outside its normal 500-note list. Return paths are restricted to local project routes.
+
+Project links have a title, HTTP/HTTPS URL, description and manual ordering. Credential-bearing and non-web URLs are rejected. Links open with `noopener noreferrer` in a separate tab. Milestones support title, target date, status, editing and confirmed deletion. Resource reads page through every result; selection dialogs load 50 results at a time. Board tasks/version are returned together by one RPC, avoiding the Data API row limit.
+
+Initial detail-read failure blocks task/metadata editing instead of presenting an empty board as loaded data. Successful board writes refresh the project metadata timestamp before subsequent project editing. Resource and dialog drafts remain separate from fetched snapshots.
+
+Failed initial detail reads keep mutation actions disabled and expose Reload. Search dialogs hide stale results immediately when the query/page changes and clear previous results on read errors.

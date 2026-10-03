@@ -188,3 +188,7 @@ Before shipping a new feature:
 7. Test unauthenticated, non-admin, foreign-user, and duplicate-submit cases.
 8. Run Supabase Security and Performance Advisors after migrations.
 9. Confirm no secret appears in the browser bundle.
+
+## Projects ownership
+
+Areas, links and the project overview preserve the current trusted-admin boundary. Table policies require both `auth.uid() = user_id` and `app_metadata.role = admin`; new tables revoke anonymous access and explicitly grant authenticated CRUD. Composite owner foreign keys prevent linking to another owner's project or area. The summary view uses `security_invoker=true`, and mutation RPCs run as the caller. Checklists reject foreign parents, cycles, nesting and mismatched project families. No normal-user access is enabled by this release. Knowledge return links accept only local project routes; external/protocol-relative redirect targets are rejected.

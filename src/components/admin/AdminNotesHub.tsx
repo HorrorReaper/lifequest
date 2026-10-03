@@ -124,7 +124,7 @@ function checkpointLabel(date: string) {
   }).format(new Date(date))
 }
 
-export function AdminNotesHub({ userId, initialNoteId }: { userId: string; initialNoteId?: string }) {
+export function AdminNotesHub({ userId, initialNoteId, returnHref }: { userId: string; initialNoteId?: string; returnHref?: string }) {
   const [supabase] = useState(() => createClient() as unknown as SupabaseClient)
   const [notes, setNotes] = useState<KnowledgeNoteRow[]>([])
   const [folders, setFolders] = useState<KnowledgeFolderRow[]>([])
@@ -211,7 +211,7 @@ export function AdminNotesHub({ userId, initialNoteId }: { userId: string; initi
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const [noteResult, folderResult, projectResult] = await Promise.all([
+    const [noteResult, folderResult, projectResult, requestedResult] = await Promise.all([
       supabase
         .from('knowledge_notes')
         .select('*')
@@ -233,9 +233,10 @@ export function AdminNotesHub({ userId, initialNoteId }: { userId: string; initi
         .neq('status', 'archived')
         .order('sort_order')
         .order('updated_at', { ascending: false }),
+      initialNoteId ? supabase.from('knowledge_notes').select('*').eq('user_id', userId).eq('id', initialNoteId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ])
 
-    const firstError = noteResult.error ?? folderResult.error ?? projectResult.error
+    const firstError = noteResult.error ?? folderResult.error ?? projectResult.error ?? requestedResult.error
     if (firstError) {
       setError(firstError.message)
       setLoading(false)
@@ -243,6 +244,12 @@ export function AdminNotesHub({ userId, initialNoteId }: { userId: string; initi
     }
 
     const loadedNotes = (noteResult.data ?? []) as KnowledgeNoteRow[]
+    if (initialNoteId && !requestedResult.data) {
+      setError('This note could not be found. Return to your project and reload its notes.')
+      setLoading(false)
+      return
+    }
+    if (requestedResult.data && !loadedNotes.some(note => note.id === initialNoteId)) loadedNotes.unshift(requestedResult.data as KnowledgeNoteRow)
     setNotes(loadedNotes)
     setFolders((folderResult.data ?? []) as KnowledgeFolderRow[])
     setProjects((projectResult.data ?? []) as ProjectRow[])
@@ -696,6 +703,10 @@ export function AdminNotesHub({ userId, initialNoteId }: { userId: string; initi
 
   return (
     <div className="mx-auto max-w-[110rem] space-y-5">
+      {returnHref && <Button variant="outline" onClick={async () => {
+        if (dirty && !(await persist(false))) return
+        window.location.assign(returnHref)
+      }}>← Back to project</Button>}
       <AdminPageHeader
         eyebrow="Knowledge workspace"
         title="Notes"

@@ -58,6 +58,8 @@ export async function TodayPlanScreen({
         "id,title,due_date,priority,estimate_minutes,created_at,is_completed"
       )
       .eq("user_id", user.id)
+      .is("parent_task_id", null)
+      .neq("status", "cancelled")
       .eq("is_completed", false)
       .order("due_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })

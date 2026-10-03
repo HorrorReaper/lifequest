@@ -46,3 +46,6 @@ next-env.d.ts
 # Claude Code local state, skills, and nested git worktrees
 # local agent/editor configuration (machine-specific paths)
 .claude/
+
+# Supabase CLI cache
+/supabase/.temp/

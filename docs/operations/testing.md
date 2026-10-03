@@ -180,3 +180,11 @@ Test in white, system, and dark themes.
 - Assert rollback and retained input on failed mutations.
 - For regression fixes, first add a test that fails for the original bug.
 
+
+## Projects verification
+
+`src/lib/projects/project-workspace.test.ts` covers empty-column moves, same-column ordering, legacy duplicate positions, child/cancelled exclusions and URL validation. `project-data.test.ts` covers complete creation fields, paginated reads above 1000 rows, error handling and server summary pagination. Dialog tests cover failed-save draft preservation, retries and dirty-close confirmation. Existing Tasks/Planner/calendar tests also assert main-task filtering.
+
+The standalone `scripts/test-projects-database.cjs` creates a disposable in-memory PostgreSQL database using a temporary `@electric-sql/pglite` installation; no application database is changed. Set `PGLITE_MODULE` to that installation's module path and run `node scripts/test-projects-database.cjs`. It applies the original Knowledge migration and the Projects migration against a minimal legacy Tasks/Auth bootstrap, then checks atomic creation, status synchronization, family reassignment, invalid nesting, optimistic conflicts, notes, links, archive and RLS under actual authenticated/anonymous roles.
+
+Run the standard full test, type, lint and build checks afterward. ESLint excludes embedded `.claude/worktrees/**` checkouts, matching Vitest's existing isolation. Pre-existing lint findings elsewhere must be distinguished from changed-file findings. Authenticated browser QA should exercise card/menu actions, drag into empty columns, two tabs, save failure, browser history, Knowledge return, archive restore and 390/430/768/1440-pixel layouts.

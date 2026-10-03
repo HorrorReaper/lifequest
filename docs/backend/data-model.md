@@ -229,3 +229,11 @@ After changing the database:
 4. Reconcile any handwritten `MutableTable` definitions.
 5. Run `npx tsc --noEmit`.
 6. Add RLS tests for owner, foreign user, non-admin, and system-record behavior.
+
+### Projects workspace additions
+
+Migration `20261003084218_projects_usability.sql` adds `project_areas` (owner/name), `projects.area_id`, `status_before_archive`, `board_version`, and `project_links` (owner/project/title, web URL, description, order). Composite foreign keys reject foreign areas/projects. `project_overview` is an invoker-secured view with complete main-task counts. Existing projects receive no automatic area assignment.
+
+`create_project_with_home_note` retains the original four arguments and adds optional description, health, start/target dates, color and area. There is one signature rather than ambiguous overloads. `get_project_board` returns a JSON snapshot of version and all project tasks. `reorder_project_tasks` checks the expected version and exact main-task ID set, then commits status/dense per-column order atomically. Every task write invalidates the board version.
+
+`save_project_task`, `assign_project_task` and `delete_project_task` operate on a main task/checklist atomically, validating ownership and the expected task timestamp. Immediate validation prevents cycles/nested checklists; deferred validation ensures the family has one project after a move. Child mutations invalidate open parent editors. Deleting from any Tasks entry point deletes children instead of promoting them. `create_project_note` atomically creates/links a Knowledge note; `reorder_project_links` verifies the exact link ID set. All RPCs use security invoker and explicit authenticated execution grants. Mapped contracts live in `src/lib/supabase/database.types.ts`; UI-facing types live in `src/lib/projects/project-workspace.ts`.
