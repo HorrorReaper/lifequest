@@ -1,15 +1,13 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Loader2, PieChart } from 'lucide-react'
+import { PieChart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { createToolEntry, fetchToolEntries } from '@/lib/tools/storage'
 import type { ToolProps } from '@/lib/tools/registry'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
+import { WheelOfLifeRatingDialog } from './WheelOfLifeRatingDialog'
 import {
-  LIFE_AREAS,
   MAX_RATING,
   WHEEL_OF_LIFE_TOOL_ID,
   averageRating,
@@ -18,7 +16,6 @@ import {
   formatDelta,
   lowestArea,
   toWheelSnapshots,
-  type LifeAreaId,
   type WheelOfLifePayload,
 } from './wheel-of-life'
 
@@ -26,14 +23,10 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-const RATINGS = Array.from({ length: MAX_RATING }, (_, index) => index + 1)
-
 export function WheelOfLifeTool({ userId, initialEntries, onUsed }: ToolProps) {
   const supabase = useMemo(() => createClient(), [])
   const [snapshots, setSnapshots] = useState(() => toWheelSnapshots(initialEntries))
   const [rating, setRating] = useState(false)
-  const [ratings, setRatings] = useState<Record<LifeAreaId, number>>(defaultRatings)
-  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,22 +36,17 @@ export function WheelOfLifeTool({ userId, initialEntries, onUsed }: ToolProps) {
   const first = snapshots.length > 1 ? snapshots[snapshots.length - 1] : null
 
   function startRating() {
-    setRatings(latest ? { ...latest.payload.ratings } : defaultRatings())
-    setNote('')
     setRating(true)
     setError(null)
   }
 
-  async function save() {
+  async function save(value: WheelOfLifePayload) {
     if (saving) return
     setSaving(true)
     setError(null)
     try {
       // A new row per check-in: the history is the point of the tool.
-      await createToolEntry<WheelOfLifePayload>(supabase, userId, WHEEL_OF_LIFE_TOOL_ID, {
-        ratings,
-        note: note.trim(),
-      })
+      await createToolEntry<WheelOfLifePayload>(supabase, userId, WHEEL_OF_LIFE_TOOL_ID, value)
       const entries = await fetchToolEntries(supabase, userId, WHEEL_OF_LIFE_TOOL_ID)
       setSnapshots(toWheelSnapshots(entries))
       setRating(false)
@@ -71,61 +59,7 @@ export function WheelOfLifeTool({ userId, initialEntries, onUsed }: ToolProps) {
 
   return (
     <div className="space-y-5">
-      {rating ? (
-        <div className="space-y-5 rounded-2xl border bg-card p-4">
-          <p className="text-sm text-muted-foreground">
-            Rate each area as it is today, not as it should be. 1 is “this is hurting”, 10 is “nothing to change”.
-          </p>
-          {LIFE_AREAS.map((area) => (
-            <fieldset key={area.id} className="space-y-2">
-              <legend className="text-sm font-semibold">
-                {area.label} <span className="font-normal text-muted-foreground">· {area.hint}</span>
-              </legend>
-              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={`${area.label} rating`}>
-                {RATINGS.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={ratings[area.id] === value}
-                    aria-label={`${area.label}: ${value}`}
-                    onClick={() => setRatings((current) => ({ ...current, [area.id]: value }))}
-                    disabled={saving}
-                    className={cn(
-                      'grid size-9 place-items-center rounded-lg border text-sm transition-colors',
-                      ratings[area.id] === value ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'
-                    )}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          ))}
-          <div className="space-y-2">
-            <label htmlFor="wheel-note" className="text-sm font-semibold">
-              What stands out? <span className="font-normal text-muted-foreground">(optional)</span>
-            </label>
-            <Textarea
-              id="wheel-note"
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              maxLength={1000}
-              disabled={saving}
-              placeholder="The area that would change the most if it moved one point..."
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setRating(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              Save ratings
-            </Button>
-          </div>
-        </div>
-      ) : latest ? (
+      {latest ? (
         <div className="space-y-4 rounded-2xl border bg-card p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -194,13 +128,16 @@ export function WheelOfLifeTool({ userId, initialEntries, onUsed }: ToolProps) {
         </div>
       )}
 
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      <WheelOfLifeRatingDialog
+        open={rating}
+        initialRatings={latest ? { ...latest.payload.ratings } : defaultRatings()}
+        busy={saving}
+        error={error}
+        onOpenChange={setRating}
+        onSubmit={save}
+      />
 
-      {snapshots.length > 1 && !rating && (
+      {snapshots.length > 1 && (
         <details className="rounded-xl border bg-muted/30 p-3">
           <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
             All {snapshots.length} ratings
