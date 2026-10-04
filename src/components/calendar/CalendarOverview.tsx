@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { formatDateOnly } from '@/lib/dates'
 import { calendarHref, calendarWindow, type CalendarViewMode } from '@/lib/calendar/calendar-window'
 import type { CalendarPlan, CalendarTask } from '@/lib/calendar/calendar-data'
+import type { ContactOccurrence } from '@/lib/contacts/types'
+import { contactHref } from '@/lib/contacts/data'
 import { cn } from '@/lib/utils'
 
 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -26,13 +28,21 @@ interface CalendarOverviewProps {
   view: CalendarViewMode
   plans: CalendarPlan[]
   tasks: CalendarTask[]
+  contacts?: ContactOccurrence[]
+  sources?: string
 }
 
-export function CalendarOverview({ basePath, plannerPath, tasksPath, date, today, view, plans, tasks }: CalendarOverviewProps) {
+export function CalendarOverview({ basePath, plannerPath, tasksPath, date, today, view, plans, tasks, contacts, sources }: CalendarOverviewProps) {
+  const visible = (sources ?? 'plans,tasks,contacts').split(',')
+  const href = (date: string, mode: CalendarViewMode) => calendarHref(basePath,date,mode,sources)
+  const contactEvents = (contacts ?? []).filter(event => event.show_in_calendar && visible.includes('contacts'))
+  const eventsByDate = new Map<string, ContactOccurrence[]>()
+  for (const event of contactEvents) eventsByDate.set(event.occurrence_date, [...(eventsByDate.get(event.occurrence_date) ?? []), event])
+  const selectedEvents = eventsByDate.get(date) ?? []
   const window = calendarWindow(date, view)
-  const planByDate = new Map(plans.map((plan) => [plan.plan_date, plan]))
+  const planByDate = new Map((visible.includes('plans') ? plans : []).map((plan) => [plan.plan_date, plan]))
   const tasksByDate = new Map<string, CalendarTask[]>()
-  for (const task of tasks) tasksByDate.set(task.due_date, [...(tasksByDate.get(task.due_date) ?? []), task])
+  for (const task of visible.includes('tasks') ? tasks : []) tasksByDate.set(task.due_date, [...(tasksByDate.get(task.due_date) ?? []), task])
   const selectedBlocks = [...(planByDate.get(date)?.blocks ?? [])].sort((a, b) => a.start_time.localeCompare(b.start_time))
   const selectedTasks = tasksByDate.get(date) ?? []
   const monthKey = date.slice(0, 7)
@@ -41,22 +51,23 @@ export function CalendarOverview({ basePath, plannerPath, tasksPath, date, today
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">Your work at a glance</p>
+          <p className="text-sm font-medium text-muted-foreground">Your days at a glance</p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Calendar</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Planned time and task deadlines from your existing LifeQuest data.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Planned time, task deadlines{contacts !== undefined ? ' and important contact dates' : ''} from your LifeQuest data.</p>
         </div>
-        <Button asChild variant="outline" size="sm"><Link href={calendarHref(basePath, today, view)}>Today</Link></Button>
+        <Button asChild variant="outline" size="sm"><Link href={href(today, view)}>Today</Link></Button>
       </div>
 
+      <nav aria-label="Calendar sources" className="flex flex-wrap gap-2">{[['plans','Tagespläne'],['tasks','Aufgaben'],...(contacts !== undefined ? [['contacts','Kontakte']] : [])].map(([key,label]) => <Link key={key} aria-pressed={visible.includes(key)} role="button" className={cn('rounded-lg border px-3 py-2 text-sm',visible.includes(key)&&'bg-primary text-primary-foreground')} href={calendarHref(basePath,date,view,visible.includes(key)?visible.filter(item=>item!==key).join(','):[...visible,key].join(','))}>{label}</Link>)}</nav>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0 rounded-3xl border bg-card p-3 sm:p-5">
           <div className="mb-5 flex flex-wrap items-center gap-2">
             <h2 className="mr-auto text-xl font-semibold" aria-live="polite">{window.title}</h2>
             <div className="flex gap-1 rounded-xl bg-muted p-1" aria-label="Calendar view">
-              {(['month', 'week'] as const).map((mode) => <Link key={mode} href={calendarHref(basePath, date, mode)} aria-current={view === mode ? 'page' : undefined} className={cn('rounded-lg px-3 py-1.5 text-sm font-medium capitalize', view === mode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>{mode}</Link>)}
+              {(['month', 'week'] as const).map((mode) => <Link key={mode} href={href(date, mode)} aria-current={view === mode ? 'page' : undefined} className={cn('rounded-lg px-3 py-1.5 text-sm font-medium capitalize', view === mode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>{mode}</Link>)}
             </div>
-            <Link href={calendarHref(basePath, window.previousDate, view)} aria-label={`Previous ${view}`} className="grid size-9 place-items-center rounded-lg border hover:bg-muted"><ChevronLeft className="size-4" /></Link>
-            <Link href={calendarHref(basePath, window.nextDate, view)} aria-label={`Next ${view}`} className="grid size-9 place-items-center rounded-lg border hover:bg-muted"><ChevronRight className="size-4" /></Link>
+            <Link href={href(window.previousDate, view)} aria-label={`Previous ${view}`} className="grid size-9 place-items-center rounded-lg border hover:bg-muted"><ChevronLeft className="size-4" /></Link>
+            <Link href={href(window.nextDate, view)} aria-label={`Next ${view}`} className="grid size-9 place-items-center rounded-lg border hover:bg-muted"><ChevronRight className="size-4" /></Link>
           </div>
 
           <div className="grid grid-cols-7 gap-1 sm:gap-2" aria-label={`${view} calendar`}>
@@ -64,10 +75,11 @@ export function CalendarOverview({ basePath, plannerPath, tasksPath, date, today
             {window.days.map((day) => {
               const blocks = planByDate.get(day)?.blocks ?? []
               const due = tasksByDate.get(day) ?? []
+              const events = eventsByDate.get(day) ?? []
               const selected = day === date
               const outside = view === 'month' && day.slice(0, 7) !== monthKey
-              return <Link key={day} href={calendarHref(basePath, day, view)} prefetch={false}
-                aria-label={`${formatDateOnly(day, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}, ${blocks.length} plan blocks, ${due.length} tasks due`}
+              return <Link key={day} href={href(day, view)} prefetch={false}
+                aria-label={`${formatDateOnly(day, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}, ${blocks.length} plan blocks, ${due.length} tasks due, ${events.length} contact dates`}
                 aria-current={selected ? 'date' : undefined}
                 className={cn('min-h-24 rounded-xl border p-1.5 text-left transition-colors hover:border-primary/50 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-28 sm:p-2.5', selected && 'border-primary bg-primary/5 ring-1 ring-primary/30', outside && 'opacity-45')}>
                 <span className={cn('grid size-7 place-items-center rounded-full text-sm font-semibold tabular-nums', day === today && 'bg-primary text-primary-foreground')}>{Number(day.slice(-2))}</span>
@@ -76,6 +88,7 @@ export function CalendarOverview({ basePath, plannerPath, tasksPath, date, today
                   {blocks.length > 0 && <p className="text-[10px] text-muted-foreground sm:hidden">{blocks.length} planned</p>}
                   {blocks.length > 2 && <p className="hidden text-[10px] text-muted-foreground sm:block">+{blocks.length - 2} more</p>}
                   {due.length > 0 && <p className="flex items-center gap-1 text-[10px] text-muted-foreground"><ListTodo className="size-3" />{due.length} due</p>}
+                  {events.length > 0 && <p className="text-[10px] font-medium text-rose-600 dark:text-rose-300">♡ {events.length} Anlass{events.length === 1 ? '' : 'se'}</p>}
                 </div>
               </Link>
             })}
@@ -110,6 +123,7 @@ export function CalendarOverview({ basePath, plannerPath, tasksPath, date, today
             </div>)}
             <Link href={tasksPath} className="inline-flex text-sm font-medium text-primary hover:underline">Manage tasks →</Link>
           </section>
+          {contacts !== undefined && <section className="space-y-3 border-t pt-4" aria-label="Besondere Kontakttage"><h3 className="text-sm font-semibold">Besondere Tage</h3>{!selectedEvents.length && <p className="text-sm text-muted-foreground">Keine Kontaktanlässe für diesen Tag.</p>}{selectedEvents.map(event => <article key={event.id} className="space-y-2 rounded-xl border-l-4 border-rose-400 bg-rose-500/10 p-3"><p className="text-sm font-medium">{event.kind === 'birthday' ? '🎂 ' : event.kind === 'anniversary' ? '♡ ' : '○ '}{event.title}</p>{event.origin_year !== null && ['birthday','anniversary'].includes(event.kind) && <p className="text-xs text-muted-foreground">{Number(event.occurrence_date.slice(0,4))-event.origin_year} Jahre</p>}<div className="flex flex-wrap gap-2">{event.members.map(person => <Link key={person.id} href={contactHref(person.id,'dates')} className="text-sm text-primary hover:underline">{person.name}</Link>)}</div></article>)}</section>}
           <div className="border-t pt-4 text-xs text-muted-foreground">Dates reflect your profile timezone. Planning changes appear here after the page refreshes.</div>
         </aside>
       </div>

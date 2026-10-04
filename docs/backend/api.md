@@ -260,3 +260,6 @@ Provider contracts can change. Normalizers in `src/lib/nutrition/food-normalizer
 ## Projects workspace APIs
 
 The Projects workspace uses Supabase Data API tables/views and RPCs rather than new HTTP endpoints. `get_project_board` returns `{ version, tasks }` in one database snapshot. `reorder_project_tasks` accepts the project ID, expected version and full ordered main-task array (`id`, `status`, `sort_order`). Conflicts reject the transaction with `BOARD_CONFLICT`. Task family save/assign/delete RPCs use the expected task `updated_at` and reject stale writes with `TASK_CONFLICT`. Project metadata updates filter by the previously read `updated_at`. See the Projects additions in `data-model.md` for the full RPC inventory.
+
+## Contacts RPCs
+contacts_management provides ensure_contact_defaults, list_contacts (50 rows plus complete counts), get_contact_detail, contact_event_occurrences (maximum 800-day window), contact_reminders (profile timezone), save_contact_record, delete_contact_record, link_contact_resource, set_contact_occurrence and create_contact_occurrence_task. Existing edits/deletes require expected updated_at; stale edits raise CONTACT_CONFLICT. All execute as the owner with a trusted admin claim. Event preparation task creation locks the event and returns the same task for an existing occurrence.

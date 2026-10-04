@@ -14,6 +14,7 @@ const sections = [
   { href: '/admin/learning', label: 'Learning', icon: GraduationCap },
   { href: '/admin/challenges', label: 'Challenges', icon: BookOpenText },
   { href: '/admin/notes', label: 'Knowledge', icon: NotebookPen },
+  { href: '/admin/contacts', label: 'Kontakte', icon: Users },
   { href: '/admin/projects', label: 'Projects', icon: FolderKanban },
   { href: '/admin/tools', label: 'Tools', icon: FlaskConical },
 ]

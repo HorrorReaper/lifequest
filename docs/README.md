@@ -19,6 +19,7 @@ Last verified: 2026-07-26 against application commit `edb6610`.
 - [Gamification, quests, learning, and city](./features/gamification.md)
 - [Self-improvement tools](./features/tools.md)
 - [Admin workspace](./features/admin-workspace.md)
+- [Personal contacts](./features/contacts.md)
 - [Workout tracker](./features/workouts.md)
 - [Nutrition tracker](./features/nutrition.md)
 - [Knowledge system and projects](./features/knowledge-projects.md)
@@ -38,6 +39,7 @@ Last verified: 2026-07-26 against application commit `edb6610`.
 - [Repository map](./reference/repository-map.md)
 - [Known constraints and technical debt](./reference/known-limitations.md)
 - [Documentation maintenance](./reference/maintenance.md)
+- [Contacts management concept](./notes/contacts-management-concept.md) — original design for personal contacts, relationships and important dates.
 
 ## Product boundaries
 
