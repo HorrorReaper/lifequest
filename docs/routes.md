@@ -108,3 +108,13 @@ The standard bottom navigation contains:
 
 The quick action opens direct paths into tasks, habits, journaling, Today Plan, and admin-only tools. Trusted/route-allowlisted admins additionally see a "LifeQuest Labs" entry in the quick action sheet linking to `/admin`, since the standard bottom navigation has no persistent admin entry point. Bottom navigation and the admin chatbot are hidden on immersive routes.
 
+
+## Projects detail navigation
+
+| Route | Access | Purpose |
+| --- | --- | --- |
+| `/admin/work/projects` | Trusted admin data | Personal project cards/list, areas, search, archive |
+| `/admin/work/projects/[projectId]` | Trusted admin data | Owned project; `tab=overview/tasks/notes/links`, `view=board/list` |
+| `/admin/projects` | Admin route | Redirect to the canonical Work project overview |
+
+Invalid, unavailable and foreign project IDs produce 404; database read errors go to the existing Work error boundary. The server resolves asynchronous route params before querying. `/admin/notes` accepts `note` plus a validated local project `returnTo` path, allowing a save-and-return flow.

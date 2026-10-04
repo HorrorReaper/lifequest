@@ -19,7 +19,7 @@ export interface TaskDraft {
   description?: string | null
   due_date?: string | null
   priority?: TaskPriority
-  project_id?: string
+  project_id?: string | null
 }
 
 const TASK_SELECT =
@@ -52,6 +52,8 @@ export async function fetchTasks(
     .from('tasks')
     .select(TASK_SELECT)
     .eq('user_id', userId)
+    .is('parent_task_id', null)
+    .neq('status', 'cancelled')
     .order('is_completed', { ascending: true })
     .order('due_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })

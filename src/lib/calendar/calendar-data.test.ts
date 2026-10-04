@@ -9,6 +9,8 @@ function calendarClient(failedTable?: string) {
       const builder = {
         select(...args: unknown[]) { calls.push({ table, method: 'select', args }); return builder },
         eq(...args: unknown[]) { calls.push({ table, method: 'eq', args }); return builder },
+        is(...args: unknown[]) { calls.push({ table, method: 'is', args }); return builder },
+        neq(...args: unknown[]) { calls.push({ table, method: 'neq', args }); return builder },
         gte(...args: unknown[]) { calls.push({ table, method: 'gte', args }); return builder },
         lte(...args: unknown[]) { calls.push({ table, method: 'lte', args }); return builder },
         order(...args: unknown[]) { calls.push({ table, method: 'order', args }); return builder },

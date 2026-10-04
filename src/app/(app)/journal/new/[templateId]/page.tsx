@@ -7,15 +7,18 @@ import { JournalTemplate, TemplateField } from '@/lib/types'
 import type { Database } from '@/lib/supabase/database.types'
 import { fetchInsightTagSuggestions } from '@/lib/insights'
 import { findReflectionPrompt } from '@/lib/daily-reflection'
+import { fetchChallengeContext } from '@/lib/challenge-context'
+import { CHALLENGE_REFLECTION_TEMPLATE_ID } from '@/lib/challenge-rules'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 interface PageProps {
   params: Promise<{ templateId: string }>
-  searchParams: Promise<{ firstEntry?: string; prompt?: string }>
+  searchParams: Promise<{ firstEntry?: string; prompt?: string; challenge?: string }>
 }
 
 export default async function NewEntryPage({ params, searchParams }: PageProps) {
   const { templateId } = await params
-  const { firstEntry, prompt } = await searchParams
+  const { firstEntry, prompt, challenge: challengeParam } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -39,7 +42,7 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
     redirect('/journal')
   }
 
-  const [{ data: fields }, suggestedInsightTags, { data: profileData }] = await Promise.all([
+  const [{ data: fields }, suggestedInsightTags, { data: profileData }, challenge] = await Promise.all([
     supabase
       .from('template_fields')
       .select('*')
@@ -47,7 +50,14 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
       .order('sort_order'),
     fetchInsightTagSuggestions(supabase, user.id),
     supabase.from('profiles').select('timezone').eq('id', user.id).maybeSingle(),
+    // Opened from a challenge day: show that day's question on a reflection
+    // day and lead back to the challenge once saved.
+    fetchChallengeContext(supabase as unknown as SupabaseClient, user.id, challengeParam),
   ])
+  const challengePrompt =
+    challenge?.day?.completion_type === 'reflection' && templateId === CHALLENGE_REFLECTION_TEMPLATE_ID
+      ? challenge.day.reflection_prompt
+      : null
   const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
 
   return (
@@ -60,7 +70,8 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
           suggestedInsightTags={suggestedInsightTags}
           timezone={timezone}
           firstEntry={firstEntry === '1'}
-          prompt={findReflectionPrompt(prompt)?.text ?? null}
+          prompt={challengePrompt ?? findReflectionPrompt(prompt)?.text ?? null}
+          returnTo={challenge ? { href: `/challenges/${challenge.templateId}`, label: 'Back to the challenge' } : null}
         />
       </div>
     </div>

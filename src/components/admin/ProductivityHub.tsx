@@ -46,7 +46,7 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
     setLoading(true); setError(null)
     const weekStart = format(addDays(new Date(`${today}T12:00:00`), -6), 'yyyy-MM-dd')
     const [taskRes, priorityRes, focusRes, habitRes, habitLogRes, goalRes, routineRes, planRes, weekRes, todayRes] = await Promise.all([
-      supabase.from('tasks').select('*').eq('user_id', userId).eq('is_completed', false).order('priority', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('tasks').select('*').eq('user_id', userId).is('parent_task_id', null).neq('status', 'cancelled').eq('is_completed', false).order('priority', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('productivity_daily_priorities').select('*').eq('user_id', userId).eq('priority_date', today).order('sort_order'),
       supabase.from('focus_sessions').select('*').eq('user_id', userId).eq('status', 'active').maybeSingle(),
       supabase.from('habits').select('id,name,emoji').eq('user_id', userId).eq('is_archived', false).order('sort_order'),

@@ -131,3 +131,10 @@ The repository does not currently include a dedicated error-monitoring or analyt
 
 `public/manifest.json` provides standalone metadata. The referenced PNG icons under `public/icons/` are currently missing, and there is no service worker/offline application shell. Treat LifeQuest as an installable web manifest, not a complete offline PWA.
 
+
+## Projects workspace release
+
+The user confirmed that Staging and Production share the LifeQuest Supabase database. Apply the reviewed `projects_usability` migration before deploying the feature branch to Staging; local disposable-Postgres integration tests must pass first. The original four-argument project creation call stays compatible. Tables, columns and functions are added without copying or deleting existing projects. Release the application only after schema/RPC verification. Rolling application code back leaves the additive schema in place; do not drop the new tables or revert the task-family safeguards as a rollback shortcut.
+
+The follow-up `20261003084708_projects_workspace_indexes.sql` covers project/owner foreign keys and uses explicit auth initplans for new policies. Local migration filenames match the remote migration-history versions. The initial migration and this follow-up were applied to the shared LifeQuest database after disposable-Postgres tests. A rollback-only smoke transaction verified creation fields, checklist status sync, board conflicts, detachment, archive state and normal-user denial on the deployed schema. No test projects were retained. Security-advisor findings were unchanged from the pre-migration baseline; performance-advisor findings for new foreign keys/policies were resolved (new indices may appear as unused until real traffic uses them).
+The generated `supabase/.temp/` CLI cache is ignored and is not part of the release.

@@ -315,7 +315,7 @@ async function fetchAssistantContext(
   ] = await Promise.all([
     db
       .from('tasks')
-      .select('id,user_id,title,description,is_completed,due_date,priority,created_at,completed_at')
+      .select('id,user_id,title,description,is_completed,due_date,priority,created_at,completed_at').is('parent_task_id', null).neq('status', 'cancelled')
       .eq('user_id', userId)
       .order('is_completed', { ascending: true })
       .order('created_at', { ascending: false })

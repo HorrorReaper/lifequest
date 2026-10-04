@@ -14,7 +14,7 @@ import {
   syncChallengeProgress,
   type ChallengeProgram,
 } from '@/lib/challenge-programs'
-import { formatRuleProgress, getChallengeRule, resolveDayAction } from '@/lib/challenge-rules'
+import { formatRuleProgress, getChallengeRule, resolveDayAction, withChallengeReturn } from '@/lib/challenge-rules'
 import type { ChallengeView } from '@/lib/challenges'
 import { useUserStore } from '@/lib/stores/user-store'
 import { cn } from '@/lib/utils'
@@ -217,6 +217,10 @@ export function ChallengeTodayPanel({
         </div>
       </div>
 
+      {rule.id === 'reflection' && day.reflection_prompt && (
+        <blockquote className="mt-4 border-l-2 border-primary pl-3 text-sm font-medium">{day.reflection_prompt}</blockquote>
+      )}
+
       {view.automatic && (
         <div className="mt-4 rounded-xl bg-background p-3">
           <div className="flex items-center justify-between gap-3 text-xs">
@@ -247,7 +251,7 @@ export function ChallengeTodayPanel({
       <div className="mt-4 flex flex-wrap gap-2">
         {action && (
           <Button asChild variant={view.automatic ? 'default' : 'outline'}>
-            <Link href={action.href}>
+            <Link href={withChallengeReturn(action.href, template.id)}>
               {action.label}
               <ArrowRight />
             </Link>

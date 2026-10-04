@@ -128,3 +128,5 @@ src/app/
 | Auth/session | `lib/supabase/`, `proxy.ts`, authenticated layouts |
 | RLS/schema | `supabase/migrations/`, then database types |
 
+
+Projects feature components are organized under `src/components/projects/`; `src/components/admin/ProjectsHub.tsx` delegates to the overview. Project data, ordering and validation helpers live under `src/lib/projects/`. A reusable Task editor remains in `src/components/tasks/`, with optional project fields. `scripts/test-projects-database.cjs` is the isolated database verification harness.

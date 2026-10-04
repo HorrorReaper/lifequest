@@ -29,18 +29,21 @@ export type NutritionEntryRow = { id: string; user_id: string; entry_date: strin
 export type ChallengeTemplateRow = { id: string; created_by: string; title: string; description: string | null; duration_days: number; schedule_mode: 'sequential' | 'strict'; xp_reward: number; coin_reward: number; is_published: boolean; is_personal: boolean; slug: string | null; tagline: string | null; created_at: string; updated_at: string }
 export type ChallengeCompletionType =
   | 'manual'
+  | 'reflection'
   | 'habits_active'
+  | 'habits_created'
   | 'habit_checkins'
   | 'journal_entries'
   | 'day_plans'
   | 'tasks_created'
   | 'tasks_completed'
   | 'goals_active'
+  | 'goals_created'
   | 'learnings_captured'
   | 'tool_entries'
 export type ChallengeDayRow = { id: string; template_id: string; day_number: number; title: string; instructions: string; reflection_prompt: string | null; completion_type: ChallengeCompletionType; completion_target: number; completion_param: string | null; action_href: string | null; action_label: string | null; created_at: string }
 export type ChallengeEnrollmentRow = { id: string; template_id: string; user_id: string; start_date: string; status: 'active' | 'completed' | 'failed' | 'abandoned'; completed_at: string | null; created_at: string; updated_at: string }
-export type ChallengeDayProgressRow = { id: string; enrollment_id: string; challenge_day_id: string; user_id: string; day_number: number; completed_on: string; note: string | null; created_at: string }
+export type ChallengeDayProgressRow = { id: string; enrollment_id: string; challenge_day_id: string; user_id: string; day_number: number; completed_on: string; note: string | null; journal_entry_id: string | null; created_at: string }
 export type AdminNoteRow = { id: string; user_id: string; title: string; body: string; tags: string[]; module: 'general' | 'productivity' | 'workouts' | 'nutrition' | 'challenges' | 'tools'; status: 'idea' | 'testing' | 'validated' | 'rejected'; is_pinned: boolean; created_at: string; updated_at: string }
 export type KnowledgeNoteType = 'note' | 'experiment' | 'meeting' | 'reference' | 'project'
 export type KnowledgeFolderRow = { id: string; user_id: string; parent_id: string | null; name: string; sort_order: number; created_at: string; updated_at: string }
@@ -55,6 +58,9 @@ export type ProjectPriority = 'low' | 'medium' | 'high' | 'urgent'
 export type ProjectHealth = 'unset' | 'on_track' | 'at_risk' | 'off_track'
 export type ProjectRow = { id: string; user_id: string; home_note_id: string | null; name: string; outcome: string; description: string; status: ProjectStatus; priority: ProjectPriority; health: ProjectHealth; start_date: string | null; target_date: string | null; color: string; icon: string; sort_order: number; completed_at: string | null; created_at: string; updated_at: string }
 export type ProjectMilestoneRow = { id: string; user_id: string; project_id: string; title: string; status: 'open' | 'completed' | 'cancelled'; target_date: string | null; sort_order: number; completed_at: string | null; created_at: string; updated_at: string }
+export type ProjectAreaRow = { id: string; user_id: string; name: string; created_at: string }
+export type ProjectLinkRow = { id: string; user_id: string; project_id: string; title: string; url: string; description: string; sort_order: number; created_at: string; updated_at: string }
+export type WorkspaceProjectRow = ProjectRow & { area_id: string | null; status_before_archive: ProjectStatus | null; board_version: number }
 
 type MutableTable<Row, Required extends keyof Row> = {
   Row: Row
@@ -517,7 +523,9 @@ export interface Database {
       knowledge_note_templates: MutableTable<KnowledgeNoteTemplateRow, 'user_id' | 'name'>
       knowledge_note_projects: MutableTable<KnowledgeNoteProjectRow, 'user_id' | 'note_id' | 'project_id'>
       knowledge_note_tasks: MutableTable<KnowledgeNoteTaskRow, 'user_id' | 'note_id' | 'task_id'>
-      projects: MutableTable<ProjectRow, 'user_id' | 'name'>
+      projects: MutableTable<WorkspaceProjectRow, 'user_id' | 'name'>
+      project_areas: MutableTable<ProjectAreaRow, 'user_id' | 'name'>
+      project_links: MutableTable<ProjectLinkRow, 'user_id' | 'project_id' | 'title' | 'url'>
       project_milestones: MutableTable<ProjectMilestoneRow, 'user_id' | 'project_id' | 'title'>
       xp_events: {
         Row: {
@@ -951,9 +959,23 @@ export interface Database {
           p_outcome: string
           p_status?: ProjectStatus
           p_priority?: ProjectPriority
+          p_description?: string
+          p_health?: ProjectHealth
+          p_start_date?: string | null
+          p_target_date?: string | null
+          p_color?: string
+          p_area_id?: string | null
         }
         Returns: { created_project_id: string; created_note_id: string }[]
       }
+      ensure_project_areas: { Args: Record<string, never>; Returns: undefined }
+      get_project_board: { Args: { p_project_id: string }; Returns: Json }
+      reorder_project_tasks: { Args: { p_project_id: string; p_expected_version: number; p_order: Json }; Returns: Json }
+      assign_project_task: { Args: { p_task_id: string; p_project_id: string | null; p_expected_updated_at: string }; Returns: undefined }
+      save_project_task: { Args: { p_task_id: string | null; p_draft: Json; p_subtasks: Json; p_expected_updated_at?: string | null }; Returns: string }
+      delete_project_task: { Args: { p_task_id: string; p_expected_updated_at: string }; Returns: undefined }
+      create_project_note: { Args: { p_project_id: string; p_title: string }; Returns: string }
+      reorder_project_links: { Args: { p_project_id: string; p_ids: string[] }; Returns: undefined }
       save_workout_template: {
         Args: { p_template_id: string | null; p_name: string; p_notes: string | null; p_items: Json }
         Returns: string
@@ -973,6 +995,10 @@ export interface Database {
       sync_challenge_progress: {
         Args: Record<string, never>
         Returns: { enrollment_id: string; day_number: number; completion_type: ChallengeCompletionType; progress: number; target: number; met: boolean; available_from: string; completed_now: boolean; challenge_completed: boolean }[]
+      }
+      abandon_challenge_program: {
+        Args: { p_enrollment_id: string }
+        Returns: undefined
       }
       create_personal_challenge: {
         Args: { p_title: string; p_task: string; p_days: number; p_description?: string | null; p_schedule_mode?: 'sequential' | 'strict' }
@@ -995,7 +1021,7 @@ export interface Database {
         Returns: { enrollment_id: string; start_date: string; status: string }[]
       }
       complete_challenge_program_day: {
-        Args: { p_enrollment_id: string; p_note?: string | null }
+        Args: { p_enrollment_id: string; p_note?: string | null; p_journal_entry_id?: string | null }
         Returns: { completed_day: number; completed_days: number; total_days: number; completion_date: string; challenge_completed: boolean; total_xp: number; coins: number }[]
       }
       claim_system_quest_reward: {

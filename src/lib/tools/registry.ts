@@ -1,11 +1,14 @@
 import type { ComponentType } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Clock, Compass, Target, Unlock } from 'lucide-react'
+import { Clock, Compass, Leaf, PieChart, Target, Unlock, UserRound } from 'lucide-react'
 import type { ToolEntry } from '@/lib/tools/storage'
 import { VisionTool } from '@/components/tools/vision/VisionTool'
 import { LimitingBeliefsTool } from '@/components/tools/limiting-beliefs/LimitingBeliefsTool'
 import { TimeAuditTool } from '@/components/tools/time-audit/TimeAuditTool'
 import { GoalBreakdownTool } from '@/components/tools/goal-breakdown/GoalBreakdownTool'
+import { WheelOfLifeTool } from '@/components/tools/wheel-of-life/WheelOfLifeTool'
+import { IdentityTool } from '@/components/tools/identity/IdentityTool'
+import { EnvironmentAuditTool } from '@/components/tools/environment-audit/EnvironmentAuditTool'
 
 // The extension point for self-improvement tools (vision, cookie jar, wheel
 // of life, time audit, ...).
@@ -83,6 +86,27 @@ export const TOOL_REGISTRY: ToolManifest[] = [
     description: 'Take a life goal apart into sub-goals and the actions that get you there.',
     icon: Target,
     Component: GoalBreakdownTool,
+  },
+  {
+    id: 'wheel-of-life',
+    title: 'Wheel of Life',
+    description: 'Rate five areas of your life from 1 to 10 and see how they change over time.',
+    icon: PieChart,
+    Component: WheelOfLifeTool,
+  },
+  {
+    id: 'identity',
+    title: 'Identity',
+    description: 'Describe who you need to be to reach your goals, and what that person does today.',
+    icon: UserRound,
+    Component: IdentityTool,
+  },
+  {
+    id: 'environment-audit',
+    title: 'Environment Audit',
+    description: 'Find what around you holds you back, and remove it one thing at a time.',
+    icon: Leaf,
+    Component: EnvironmentAuditTool,
   },
 ]
 

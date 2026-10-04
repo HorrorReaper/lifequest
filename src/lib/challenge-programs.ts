@@ -75,6 +75,7 @@ interface ChallengeRpcClient {
     args: { p_title: string; p_task: string; p_days: number; p_description: string | null; p_schedule_mode: 'sequential' | 'strict' }
   ): PromiseLike<RpcResult<{ template_id: string; enrollment_id: string }[]>>
   rpc(fn: 'delete_personal_challenge', args: { p_template_id: string }): PromiseLike<RpcResult<null>>
+  rpc(fn: 'abandon_challenge_program', args: { p_enrollment_id: string }): PromiseLike<RpcResult<null>>
   rpc(
     fn: 'complete_challenge_program_day',
     args: { p_enrollment_id: string; p_note?: string | null }
@@ -243,4 +244,10 @@ export async function createPersonalChallenge(supabase: SupabaseClient, input: P
 export async function deletePersonalChallenge(supabase: SupabaseClient, templateId: string): Promise<void> {
   const { error } = await rpcClient(supabase).rpc('delete_personal_challenge', { p_template_id: templateId })
   if (error) throw new Error(getQuestErrorMessage(error, 'Could not delete this challenge.'))
+}
+
+/** Stops a running challenge. Progress and earned XP stay; it can be started again. */
+export async function abandonChallengeProgram(supabase: SupabaseClient, enrollmentId: string): Promise<void> {
+  const { error } = await rpcClient(supabase).rpc('abandon_challenge_program', { p_enrollment_id: enrollmentId })
+  if (error) throw new Error(getQuestErrorMessage(error, 'Could not stop this challenge.'))
 }

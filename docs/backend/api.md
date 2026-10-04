@@ -256,3 +256,7 @@ The food upsert and portion replacement are not one database transaction. A food
 
 Provider contracts can change. Normalizers in `src/lib/nutrition/food-normalizers.ts` are the boundary between external JSON and the internal `NormalizedFood` model.
 
+
+## Projects workspace APIs
+
+The Projects workspace uses Supabase Data API tables/views and RPCs rather than new HTTP endpoints. `get_project_board` returns `{ version, tasks }` in one database snapshot. `reorder_project_tasks` accepts the project ID, expected version and full ordered main-task array (`id`, `status`, `sort_order`). Conflicts reject the transaction with `BOARD_CONFLICT`. Task family save/assign/delete RPCs use the expected task `updated_at` and reject stale writes with `TASK_CONFLICT`. Project metadata updates filter by the previously read `updated_at`. See the Projects additions in `data-model.md` for the full RPC inventory.

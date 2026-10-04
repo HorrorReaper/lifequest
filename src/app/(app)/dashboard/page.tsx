@@ -277,7 +277,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     supabase
       .from('tasks')
       .select('id, title, due_date, priority')
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).is('parent_task_id', null).neq('status', 'cancelled')
       .eq('is_completed', false)
       .or(`due_date.lte.${today},due_date.is.null`)
       .order('due_date', { ascending: true, nullsFirst: false })
@@ -309,19 +309,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     supabase
       .from('tasks')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).is('parent_task_id', null).neq('status', 'cancelled')
       .eq('is_completed', false),
     supabase
       .from('tasks')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).is('parent_task_id', null).neq('status', 'cancelled')
       .eq('is_completed', true)
       .gte('completed_at', `${today}T00:00:00`)
       .lt('completed_at', `${addDays(today, 1)}T00:00:00`),
     supabase
       .from('tasks')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .eq('user_id', user.id).is('parent_task_id', null).neq('status', 'cancelled')
       .eq('is_completed', true)
       .gte('completed_at', `${thisWeekStart}T00:00:00`)
       .lt('completed_at', `${addDays(today, 1)}T00:00:00`),

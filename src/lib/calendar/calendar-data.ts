@@ -26,7 +26,7 @@ export async function loadCalendarData(
   async function pageThrough<T>(table: 'day_plans' | 'tasks', columns: string, dateColumn: string): Promise<T[]> {
     const rows: T[] = []
     for (let offset = 0; ; offset += PAGE_SIZE) {
-      const { data, error } = await supabase
+      let query = supabase
         .from(table)
         .select(columns)
         .eq('user_id', userId)
@@ -34,6 +34,8 @@ export async function loadCalendarData(
         .lte(dateColumn, end)
         .order(dateColumn)
         .order('id')
+      if (table === 'tasks') query = query.is('parent_task_id', null).neq('status', 'cancelled')
+      const { data, error } = await query
         .range(offset, offset + PAGE_SIZE - 1)
       if (error) throw new Error(`Calendar ${table} could not be loaded: ${error.message}`)
       const page = (data ?? []) as T[]

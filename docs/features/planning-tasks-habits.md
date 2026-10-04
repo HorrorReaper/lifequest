@@ -152,3 +152,7 @@ Tasks and habits are consumed by the dashboard, Today Plan, journal fields, and 
 - Journal-created task and habit flows.
 - Existing Supabase columns and RLS boundaries.
 
+
+## Project checklist compatibility
+
+Main tasks remain the canonical Tasks/Planner items. `parent_task_id` identifies one-level project checklist rows; ordinary task reads, dashboard counts, Daily Planner suggestions, calendar and Productivity task lists exclude them and cancelled tasks. Task IDs in saved day plans remain unchanged when project assignments change. The shared editor's optional project context is used only by Projects. Completing checklist items neither auto-completes the parent nor awards admin XP.
