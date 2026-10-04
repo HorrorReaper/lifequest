@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { ToolEntry } from '@/lib/tools/storage'
 import { WheelOfLifeTool } from './WheelOfLifeTool'
 import {
+  LIFE_AREAS,
   averageRating,
   compareToBaseline,
   formatDelta,
@@ -108,5 +109,35 @@ describe('WheelOfLifeTool', () => {
     expect(screen.getByText('+3')).toBeTruthy()
     expect(screen.getByText('+4')).toBeTruthy()
     expect(screen.getByText(/compared with your first rating/i)).toBeTruthy()
+  })
+})
+
+describe('life area guides', () => {
+  it('give every area a description, three questions and the three scale anchors', () => {
+    for (const area of LIFE_AREAS) {
+      expect(area.description.length).toBeGreaterThan(40)
+      expect(area.questions).toHaveLength(3)
+      expect(area.anchors.low && area.anchors.mid && area.anchors.high).toBeTruthy()
+    }
+  })
+
+  it('shows the guide under each area while rating', () => {
+    render(<WheelOfLifeTool userId="user-1" initialEntries={[]} />)
+    fireEvent.click(screen.getByRole('button', { name: /rate your life areas/i }))
+
+    for (const area of LIFE_AREAS) {
+      expect(screen.getByText(`What counts as ${area.label.toLowerCase()}?`)).toBeTruthy()
+    }
+    fireEvent.click(screen.getByText('What counts as health?'))
+    expect(screen.getByText('Do you usually wake up rested?')).toBeTruthy()
+    expect(screen.getByText(/You sleep well, move regularly/)).toBeTruthy()
+  })
+
+  it('closes the rating dialog once saved', async () => {
+    render(<WheelOfLifeTool userId="user-1" initialEntries={[]} />)
+    fireEvent.click(screen.getByRole('button', { name: /rate your life areas/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save ratings/i }))
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /save ratings/i })).toBeNull())
   })
 })
