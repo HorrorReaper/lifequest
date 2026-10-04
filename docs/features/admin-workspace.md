@@ -85,6 +85,7 @@ The public `/tasks`, `/habits`, and `/plan` pages remain the user-facing focused
 - Define ordered days, each with a completion rule: manual, a reflection day (the user answers the day's question in the journal), or detected automatically from app activity (habits active or newly created, habit check-ins, journal entries of any or one template, day plans, tasks created/completed, goals active or newly created, learnings, tool use), with a target N.
 - Give each day a button (app path + label); rules have sensible defaults.
 - Give a challenge a slug, which makes a public landing page at `/challenge/<slug>` once published.
+- Add a cover image to the challenge and an image to each day (`ChallengeImageField`): an `images.unsplash.com` link, previewed as you type and flagged at once if it cannot be shown. Without one, the app draws a placeholder. The draft of "14 Days to Unfuck Your Life" ships without images.
 - Publish or unpublish. Published challenges are available to every user at `/challenges`.
 - See how many people are in a challenge. Once someone joined, texts, rules and links can still be edited (changes apply immediately) but the number of days is frozen.
 - Load the first draft of "14 Days to Unfuck Your Life" (button in the sidebar): all 14 days written, with rules and buttons, unpublished. The text is in `docs/notes/challenge-14-days-to-unfuck-your-life.md`. Days carrying the placeholder "To be written." can be saved as a draft but never published.

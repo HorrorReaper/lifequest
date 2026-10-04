@@ -48,6 +48,15 @@ describe('validateChallengeDraft', () => {
     )
   })
 
+  it('accepts images from allowed hosts and names the day with a bad one', () => {
+    const draft = { ...validDraft(), cover_image_url: 'https://images.unsplash.com/photo-1' }
+    draft.days[0] = { ...draft.days[0], image_url: 'https://images.unsplash.com/photo-2' }
+    expect(validateChallengeDraft(draft)).toBeNull()
+    expect(validateChallengeDraft({ ...draft, cover_image_url: 'https://evil.example/a.png' })).toMatch(/images must be https links/i)
+    draft.days[0] = { ...draft.days[0], image_url: 'http://images.unsplash.com/photo-2' }
+    expect(validateChallengeDraft(draft)).toMatch(/^Day 1: images must be https links/)
+  })
+
   it('requires the question on a reflection day', () => {
     const draft = validDraft()
     draft.days[0] = { ...draft.days[0], completion_type: 'reflection' }
@@ -106,6 +115,7 @@ describe('draftDaysPayload', () => {
     ])
     expect(payload[0]).toMatchObject({ title: 'A', instructions: 'x', completion_target: 1, completion_param: '' })
     expect(payload[1]).toMatchObject({ completion_type: 'tool_entries', completion_target: 2, completion_param: 'vision' })
+    expect(payload[0].image_url).toBe('')
   })
 })
 
@@ -125,12 +135,13 @@ describe('draftFromTemplate', () => {
         is_personal: false,
         slug: null,
         tagline: null,
+        cover_image_url: null,
         created_at: '',
         updated_at: '',
       },
       [
-        { id: 'd2', template_id: 't', day_number: 2, title: 'Second', instructions: 'b', reflection_prompt: null, completion_type: 'day_plans', completion_target: 1, completion_param: null, action_href: null, action_label: null, created_at: '' },
-        { id: 'd1', template_id: 't', day_number: 1, title: 'First', instructions: 'a', reflection_prompt: 'Why?', completion_type: 'manual', completion_target: 1, completion_param: null, action_href: '/plan', action_label: null, created_at: '' },
+        { id: 'd2', template_id: 't', day_number: 2, title: 'Second', instructions: 'b', reflection_prompt: null, completion_type: 'day_plans', completion_target: 1, completion_param: null, action_href: null, action_label: null, image_url: null, created_at: '' },
+        { id: 'd1', template_id: 't', day_number: 1, title: 'First', instructions: 'a', reflection_prompt: 'Why?', completion_type: 'manual', completion_target: 1, completion_param: null, action_href: '/plan', action_label: null, image_url: null, created_at: '' },
       ]
     )
     expect(draft.days.map((day) => day.title)).toEqual(['First', 'Second'])

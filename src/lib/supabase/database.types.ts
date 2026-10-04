@@ -26,7 +26,7 @@ export type SavedMealItemRow = { id: string; saved_meal_id: string; food_item_id
 export type RecipeRow = { id: string; user_id: string; name: string; servings: number; yield_weight_g: number | null; notes: string | null; created_at: string; updated_at: string }
 export type RecipeIngredientRow = { id: string; recipe_id: string; food_item_id: string; grams: number; sort_order: number; created_at: string }
 export type NutritionEntryRow = { id: string; user_id: string; entry_date: string; meal_type: MealType; name: string; entry_kind: 'food' | 'quick_add' | 'saved_meal' | 'recipe'; food_item_id: string | null; serving_grams: number | null; serving_count: number; serving_label: string | null; calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number; sugar_g: number; sodium_mg: number; source_id: string | null; source_details: Json; notes: string | null; created_at: string; updated_at: string }
-export type ChallengeTemplateRow = { id: string; created_by: string; title: string; description: string | null; duration_days: number; schedule_mode: 'sequential' | 'strict'; xp_reward: number; coin_reward: number; is_published: boolean; is_personal: boolean; slug: string | null; tagline: string | null; created_at: string; updated_at: string }
+export type ChallengeTemplateRow = { id: string; created_by: string; title: string; description: string | null; duration_days: number; schedule_mode: 'sequential' | 'strict'; xp_reward: number; coin_reward: number; is_published: boolean; is_personal: boolean; slug: string | null; tagline: string | null; cover_image_url: string | null; created_at: string; updated_at: string }
 export type ChallengeCompletionType =
   | 'manual'
   | 'reflection'
@@ -41,7 +41,7 @@ export type ChallengeCompletionType =
   | 'goals_created'
   | 'learnings_captured'
   | 'tool_entries'
-export type ChallengeDayRow = { id: string; template_id: string; day_number: number; title: string; instructions: string; reflection_prompt: string | null; completion_type: ChallengeCompletionType; completion_target: number; completion_param: string | null; action_href: string | null; action_label: string | null; created_at: string }
+export type ChallengeDayRow = { id: string; template_id: string; day_number: number; title: string; instructions: string; reflection_prompt: string | null; completion_type: ChallengeCompletionType; completion_target: number; completion_param: string | null; action_href: string | null; action_label: string | null; image_url: string | null; created_at: string }
 export type ChallengeEnrollmentRow = { id: string; template_id: string; user_id: string; start_date: string; status: 'active' | 'completed' | 'failed' | 'abandoned'; completed_at: string | null; created_at: string; updated_at: string }
 export type ChallengeDayProgressRow = { id: string; enrollment_id: string; challenge_day_id: string; user_id: string; day_number: number; completed_on: string; note: string | null; journal_entry_id: string | null; created_at: string }
 export type AdminNoteRow = { id: string; user_id: string; title: string; body: string; tags: string[]; module: 'general' | 'productivity' | 'workouts' | 'nutrition' | 'challenges' | 'tools'; status: 'idea' | 'testing' | 'validated' | 'rejected'; is_pinned: boolean; created_at: string; updated_at: string }
@@ -989,7 +989,7 @@ export interface Database {
         Returns: string
       }
       admin_save_challenge_template: {
-        Args: { p_template_id: string | null; p_title: string; p_description: string; p_schedule_mode: 'sequential' | 'strict'; p_xp_reward: number; p_coin_reward: number; p_is_published: boolean; p_days: Json; p_slug?: string | null; p_tagline?: string | null }
+        Args: { p_template_id: string | null; p_title: string; p_description: string; p_schedule_mode: 'sequential' | 'strict'; p_xp_reward: number; p_coin_reward: number; p_is_published: boolean; p_days: Json; p_slug?: string | null; p_tagline?: string | null; p_cover_image_url?: string | null }
         Returns: string
       }
       sync_challenge_progress: {

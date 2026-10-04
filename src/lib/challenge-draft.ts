@@ -1,6 +1,9 @@
 import type { ChallengeCompletionType, ChallengeDayRow, ChallengeTemplateRow } from '@/lib/supabase/database.types'
 import { getChallengeRule, isSafeInternalHref, isValidChallengeSlug } from '@/lib/challenge-rules'
 import { WEEKLY_PLAN_TEMPLATE_ID } from '@/lib/weekly-rituals'
+import { CHALLENGE_IMAGE_HOSTS, isAllowedChallengeImageUrl } from '@/lib/challenge-images'
+
+const IMAGE_URL_HINT = `Images must be https links from ${CHALLENGE_IMAGE_HOSTS.join(' or ')}, like the article covers.`
 
 // The admin editor's working copy of a challenge, and the conversions to and
 // from what admin_save_challenge_template takes. Pure, so the rules the
@@ -15,6 +18,8 @@ export interface DayDraft {
   completion_param: string
   action_href: string
   action_label: string
+  /** Cover image for the day; empty for the drawn placeholder. */
+  image_url: string
 }
 
 export interface ChallengeDraft {
@@ -23,6 +28,8 @@ export interface ChallengeDraft {
   tagline: string
   description: string
   slug: string
+  /** Cover image for the challenge; empty for the drawn placeholder. */
+  cover_image_url: string
   schedule_mode: 'sequential' | 'strict'
   xp_reward: number
   coin_reward: number
@@ -40,6 +47,7 @@ export function blankDay(patch: Partial<DayDraft> = {}): DayDraft {
     completion_param: '',
     action_href: '',
     action_label: '',
+    image_url: '',
     ...patch,
   }
 }
@@ -51,6 +59,7 @@ export function blankChallengeDraft(): ChallengeDraft {
     tagline: '',
     description: '',
     slug: '',
+    cover_image_url: '',
     schedule_mode: 'sequential',
     xp_reward: 500,
     coin_reward: 250,
@@ -238,6 +247,7 @@ export function draftFromTemplate(template: ChallengeTemplateRow, days: Challeng
     tagline: template.tagline ?? '',
     description: template.description ?? '',
     slug: template.slug ?? '',
+    cover_image_url: template.cover_image_url ?? '',
     schedule_mode: template.schedule_mode,
     xp_reward: template.xp_reward,
     coin_reward: template.coin_reward,
@@ -254,6 +264,7 @@ export function draftFromTemplate(template: ChallengeTemplateRow, days: Challeng
           completion_param: day.completion_param ?? '',
           action_href: day.action_href ?? '',
           action_label: day.action_label ?? '',
+          image_url: day.image_url ?? '',
         })
       ),
   }
@@ -274,6 +285,8 @@ export function validateChallengeDraft(
   if (slug && !isValidChallengeSlug(slug)) {
     return 'The public link may only use lowercase letters, digits and single dashes (3–80 characters).'
   }
+  const cover = draft.cover_image_url.trim()
+  if (cover && !isAllowedChallengeImageUrl(cover)) return IMAGE_URL_HINT
   if (draft.days.length < 1 || draft.days.length > 365) return 'A challenge needs between 1 and 365 days.'
   for (const [index, day] of draft.days.entries()) {
     const label = `Day ${index + 1}`
@@ -296,6 +309,8 @@ export function validateChallengeDraft(
     const href = day.action_href.trim()
     if (href && !isSafeInternalHref(href)) return `${label}: the button link must be an app path starting with a single “/”.`
     if (day.action_label.trim().length > 40) return `${label}: the button label can be at most 40 characters.`
+    const image = day.image_url.trim()
+    if (image && !isAllowedChallengeImageUrl(image)) return `${label}: ${IMAGE_URL_HINT.charAt(0).toLowerCase()}${IMAGE_URL_HINT.slice(1)}`
   }
   return null
 }
@@ -313,6 +328,7 @@ export function draftDaysPayload(days: DayDraft[]) {
       completion_param: rule.param ? day.completion_param.trim() : '',
       action_href: day.action_href.trim(),
       action_label: day.action_label.trim(),
+      image_url: day.image_url.trim(),
     }
   })
 }

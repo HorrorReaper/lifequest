@@ -18,6 +18,7 @@ import { formatRuleProgress, getChallengeRule, resolveDayAction, withChallengeRe
 import type { ChallengeView } from '@/lib/challenges'
 import { useUserStore } from '@/lib/stores/user-store'
 import { cn } from '@/lib/utils'
+import { ChallengeCover, challengeDayIcon } from '@/components/challenges/ChallengeCover'
 
 /**
  * The "what do I do today" block of a challenge, with its actions.
@@ -196,81 +197,90 @@ export function ChallengeTodayPanel({
   const rule = getChallengeRule(day.completion_type)
 
   return (
-    <div className="rounded-2xl bg-muted/40 p-4 sm:p-5">
-      <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background font-mono text-xs">
-          {String(day.day_number).padStart(2, '0')}
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Today · Day {day.day_number} of {template.duration_days}
-          </p>
-          <h3 className="mt-1 font-semibold">{day.title}</h3>
-          <p
-            className={cn(
-              'mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground',
-              compact && 'line-clamp-3'
-            )}
-          >
-            {day.instructions}
-          </p>
-        </div>
-      </div>
-
-      {rule.id === 'reflection' && day.reflection_prompt && (
-        <blockquote className="mt-4 border-l-2 border-primary pl-3 text-sm font-medium">{day.reflection_prompt}</blockquote>
-      )}
-
-      {view.automatic && (
-        <div className="mt-4 rounded-xl bg-background p-3">
-          <div className="flex items-center justify-between gap-3 text-xs">
-            <span className="flex items-center gap-1.5 font-medium">
-              <Sparkles className="size-3.5 text-primary" />
-              Detected automatically
-            </span>
-            <span className="font-mono text-muted-foreground">
-              {formatRuleProgress(rule.id, view.ruleProgress, view.ruleTarget)}
-            </span>
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${Math.min(100, Math.round((view.ruleProgress / Math.max(1, view.ruleTarget)) * 100))}%` }}
-            />
+    <div className="overflow-hidden rounded-2xl bg-muted/40">
+      <ChallengeCover
+        src={day.image_url}
+        alt=""
+        icon={challengeDayIcon(day.completion_type)}
+        label={`Day ${day.day_number}`}
+        className={compact ? 'h-24 w-full' : 'h-36 w-full sm:h-44'}
+      />
+      <div className="p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background font-mono text-xs">
+            {String(day.day_number).padStart(2, '0')}
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Today · Day {day.day_number} of {template.duration_days}
+            </p>
+            <h3 className="mt-1 font-semibold">{day.title}</h3>
+            <p
+              className={cn(
+                'mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground',
+                compact && 'line-clamp-3'
+              )}
+            >
+              {day.instructions}
+            </p>
           </div>
         </div>
-      )}
 
-      {!view.automatic && !compact && day.reflection_prompt && (
-        <div className="mt-4">
-          <p className="mb-2 text-xs text-muted-foreground">{day.reflection_prompt}</p>
-          <Textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional reflection note" />
+        {rule.id === 'reflection' && day.reflection_prompt && (
+          <blockquote className="mt-4 border-l-2 border-primary pl-3 text-sm font-medium">{day.reflection_prompt}</blockquote>
+        )}
+
+        {view.automatic && (
+          <div className="mt-4 rounded-xl bg-background p-3">
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Sparkles className="size-3.5 text-primary" />
+                Detected automatically
+              </span>
+              <span className="font-mono text-muted-foreground">
+                {formatRuleProgress(rule.id, view.ruleProgress, view.ruleTarget)}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${Math.min(100, Math.round((view.ruleProgress / Math.max(1, view.ruleTarget)) * 100))}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {!view.automatic && !compact && day.reflection_prompt && (
+          <div className="mt-4">
+            <p className="mb-2 text-xs text-muted-foreground">{day.reflection_prompt}</p>
+            <Textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional reflection note" />
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {action && (
+            <Button asChild variant={view.automatic ? 'default' : 'outline'}>
+              <Link href={withChallengeReturn(action.href, template.id)}>
+                {action.label}
+                <ArrowRight />
+              </Link>
+            </Button>
+          )}
+          {view.automatic ? (
+            <Button variant="outline" onClick={checkProgress} disabled={busy}>
+              {working === 'check' || refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              Check progress
+            </Button>
+          ) : (
+            <Button onClick={completeManual} disabled={busy}>
+              {working === 'complete' ? <Loader2 className="animate-spin" /> : <Check />}
+              Mark day as done
+            </Button>
+          )}
+          {compact && <DetailLink href={detailHref} inline />}
         </div>
-      )}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {action && (
-          <Button asChild variant={view.automatic ? 'default' : 'outline'}>
-            <Link href={withChallengeReturn(action.href, template.id)}>
-              {action.label}
-              <ArrowRight />
-            </Link>
-          </Button>
-        )}
-        {view.automatic ? (
-          <Button variant="outline" onClick={checkProgress} disabled={busy}>
-            {working === 'check' || refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            Check progress
-          </Button>
-        ) : (
-          <Button onClick={completeManual} disabled={busy}>
-            {working === 'complete' ? <Loader2 className="animate-spin" /> : <Check />}
-            Mark day as done
-          </Button>
-        )}
-        {compact && <DetailLink href={detailHref} inline />}
+        {feedback}
       </div>
-      {feedback}
     </div>
   )
 }

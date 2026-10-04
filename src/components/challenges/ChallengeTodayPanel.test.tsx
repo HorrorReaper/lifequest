@@ -26,6 +26,7 @@ function challengeDay(dayNumber: number, patch: Partial<ChallengeDayRow> = {}): 
     completion_param: null,
     action_href: null,
     action_label: null,
+    image_url: null,
     created_at: '2026-09-01T00:00:00Z',
     ...patch,
   }
@@ -46,6 +47,7 @@ function program(completed: number[] = [], enrolled = true): ChallengeProgram {
       is_personal: false,
       slug: 'unfuck-your-life',
       tagline: null,
+      cover_image_url: null,
       created_at: '2026-09-01T00:00:00Z',
       updated_at: '2026-09-01T00:00:00Z',
     },
@@ -156,6 +158,14 @@ describe('ChallengeTodayPanel', () => {
       '/journal/new/afc4f953-3ad1-432f-abd4-acab80f82e68?challenge=template-1'
     )
     expect(screen.queryByPlaceholderText(/reflection note/i)).toBeNull()
+  })
+
+  it("shows the day's image above today's step", () => {
+    const item = program()
+    item.days[0] = challengeDay(1, { image_url: 'https://images.unsplash.com/photo-1' })
+    const { container } = render(<ChallengeTodayPanel program={item} view={getChallengeView(item, '2026-09-28')} />)
+
+    expect(container.querySelector('img')?.getAttribute('src')).toContain('images.unsplash.com')
   })
 
   it('says what is left when a progress check finds the day not done', async () => {
