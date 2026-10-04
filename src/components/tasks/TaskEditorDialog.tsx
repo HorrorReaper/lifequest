@@ -28,6 +28,9 @@ interface TaskEditorDialogProps {
   error: string | null;
   onOpenChange: (open: boolean) => void;
   onSubmit: (draft: TaskEditorDraft) => Promise<void>;
+  defaults?: Partial<TaskEditorDraft>;
+  contactFields?: React.ReactNode;
+  contactDirty?: boolean;
   projectContext?: {
     projectId: string | null;
     projectName: string;
@@ -104,9 +107,13 @@ export function TaskEditorDialog({
   onOpenChange,
   onSubmit,
   projectContext,
+  defaults,
+  contactFields,
+  contactDirty,
 }: TaskEditorDialogProps) {
   const [draft, setDraft] = useState<TaskEditorDraft>(() => ({
     ...initialDraft(task),
+    ...(!task ? defaults : {}),
     ...(projectContext
       ? {
           status: projectContext.status,
@@ -123,6 +130,7 @@ export function TaskEditorDialog({
     if (saving) return;
     const initial = {
       ...initialDraft(task),
+      ...(!task ? defaults : {}),
       ...(projectContext
         ? {
             status: projectContext.status,
@@ -134,6 +142,7 @@ export function TaskEditorDialog({
     };
     if (
       JSON.stringify(draft) !== JSON.stringify(initial) ||
+      contactDirty ||
       originalProject.current !== projectContext?.projectId
     )
       setDiscard(true);
@@ -294,6 +303,7 @@ export function TaskEditorDialog({
                 </p>
               </div>
 
+              {contactFields}
               {projectContext && (
                 <div className="space-y-4 border-t pt-4">
                   <div className="space-y-2">

@@ -706,7 +706,7 @@ export function AdminNotesHub({ userId, initialNoteId, returnHref }: { userId: s
       {returnHref && <Button variant="outline" onClick={async () => {
         if (dirty && !(await persist(false))) return
         window.location.assign(returnHref)
-      }}>← Back to project</Button>}
+      }}>← {returnHref.startsWith('/admin/contacts/') ? 'Back to contact' : 'Back to project'}</Button>}
       <AdminPageHeader
         eyebrow="Knowledge workspace"
         title="Notes"

@@ -118,3 +118,5 @@ The quick action opens direct paths into tasks, habits, journaling, Today Plan, 
 | `/admin/projects` | Admin route | Redirect to the canonical Work project overview |
 
 Invalid, unavailable and foreign project IDs produce 404; database read errors go to the existing Work error boundary. The server resolves asynchronous route params before querying. `/admin/notes` accepts `note` plus a validated local project `returnTo` path, allowing a save-and-return flow.
+
+Contacts adds /admin/contacts (view/search/group/sort/favorites/page) and /admin/contacts/[contactId] (tab). Admin Calendar preserves a sources query parameter and includes contact occasions. Knowledge accepts a validated local contact detail returnTo alongside project return paths.

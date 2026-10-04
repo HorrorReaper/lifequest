@@ -1,4 +1,5 @@
 import { CityBuilding, UserBuilding } from "../types"
+import type { Contact, ContactChannel, ContactEvent, ContactGroup, ContactInteraction, ContactRelationship, RelationshipType } from '@/lib/contacts/types'
 
 export type ProductivityPriorityRow = { id: string; user_id: string; priority_date: string; task_id: string; sort_order: number; created_at: string }
 export type FocusSessionRow = { id: string; user_id: string; task_id: string | null; planned_minutes: number; status: 'active' | 'completed' | 'cancelled'; started_at: string; ended_at: string | null; actual_seconds: number | null; created_at: string; updated_at: string }
@@ -80,6 +81,19 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      contacts: MutableTable<Contact, 'user_id' | 'display_name'>
+      contact_channels: MutableTable<ContactChannel, 'user_id' | 'contact_id' | 'kind' | 'value'>
+      contact_groups: MutableTable<ContactGroup, 'user_id' | 'name'>
+      contact_relationship_types: MutableTable<RelationshipType, 'user_id' | 'forward_label' | 'reverse_label'>
+      contact_relationships: MutableTable<Omit<ContactRelationship, 'type' | 'source_name' | 'target_name'>, 'user_id' | 'source_id' | 'target_id' | 'type_id'>
+      contact_events: MutableTable<Omit<ContactEvent, 'members'>, 'user_id' | 'title' | 'month' | 'day'>
+      contact_interactions: MutableTable<Omit<ContactInteraction, 'members'>, 'user_id' | 'contact_date' | 'summary'>
+      contact_group_members: MutableTable<{ user_id: string; contact_id: string; group_id: string }, 'user_id' | 'contact_id' | 'group_id'>
+      contact_event_members: MutableTable<{ user_id: string; contact_id: string; event_id: string }, 'user_id' | 'contact_id' | 'event_id'>
+      contact_interaction_members: MutableTable<{ user_id: string; contact_id: string; interaction_id: string }, 'user_id' | 'contact_id' | 'interaction_id'>
+      knowledge_note_contacts: MutableTable<{ user_id: string; contact_id: string; note_id: string }, 'user_id' | 'contact_id' | 'note_id'>
+      task_contacts: MutableTable<{ user_id: string; contact_id: string; task_id: string }, 'user_id' | 'contact_id' | 'task_id'>
+      contact_event_occurrence_states: MutableTable<{ user_id: string; event_id: string; occurrence_date: string; is_done: boolean; snoozed_until: string | null; task_id: string | null; updated_at: string }, 'user_id' | 'event_id' | 'occurrence_date'>
       profiles: {
         Row: {
           id: string
@@ -883,6 +897,16 @@ export interface Database {
       }
     }
     Functions: {
+      ensure_contact_defaults: { Args: Record<string, never>; Returns: undefined }
+      list_contacts: { Args: { p_today: string; p_search?: string; p_group?: string | null; p_archived?: boolean; p_favorites?: boolean; p_sort?: string; p_page?: number }; Returns: Json }
+      get_contact_detail: { Args: { p_contact_id: string; p_today: string }; Returns: Json }
+      contact_event_occurrences: { Args: { p_start: string; p_end: string; p_contact_id?: string | null }; Returns: Json }
+      save_contact_record: { Args: { p_kind: string; p_id: string | null; p_values: Json; p_expected_updated_at?: string | null }; Returns: string }
+      delete_contact_record: { Args: { p_kind: string; p_id: string; p_expected_updated_at: string }; Returns: undefined }
+      link_contact_resource: { Args: { p_contact_id: string; p_kind: string; p_resource_id: string; p_remove?: boolean }; Returns: undefined }
+      set_contact_occurrence: { Args: { p_event_id: string; p_date: string; p_done: boolean; p_snoozed_until?: string | null }; Returns: undefined }
+      create_contact_occurrence_task: { Args: { p_event_id: string; p_date: string; p_draft: Json }; Returns: string }
+      contact_reminders: { Args: { p_today: string; p_timezone?: string }; Returns: Json }
       get_published_learning_catalog: {
         Args: Record<PropertyKey, never>
         Returns: Json

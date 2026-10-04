@@ -130,3 +130,5 @@ src/app/
 
 
 Projects feature components are organized under `src/components/projects/`; `src/components/admin/ProjectsHub.tsx` delegates to the overview. Project data, ordering and validation helpers live under `src/lib/projects/`. A reusable Task editor remains in `src/components/tasks/`, with optional project fields. `scripts/test-projects-database.cjs` is the isolated database verification harness.
+
+src/components/contacts/ and src/lib/contacts/ own personal contacts. src/components/ui/workspace-form-dialog.tsx is the shared save/retry/dirty-close form; the Projects import is a compatibility re-export. scripts/test-contacts-database.cjs validates the contacts migration in disposable Postgres.

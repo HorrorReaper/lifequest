@@ -11,6 +11,6 @@ export default async function AdminNotesPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { note, returnTo } = await searchParams
   const safeReturn = safeNextPath(returnTo)
-  const projectReturn = safeReturn && /^\/admin\/work\/projects\/[0-9a-f-]{36}(\?|$)/i.test(safeReturn) ? safeReturn : undefined
+  const projectReturn = safeReturn && /^\/admin\/(?:work\/projects|contacts)\/[0-9a-f-]{36}(\?|$)/i.test(safeReturn) ? safeReturn : undefined
   return <AdminNotesHub userId={user!.id} initialNoteId={note} returnHref={projectReturn} />
 }

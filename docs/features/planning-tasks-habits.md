@@ -156,3 +156,5 @@ Tasks and habits are consumed by the dashboard, Today Plan, journal fields, and 
 ## Project checklist compatibility
 
 Main tasks remain the canonical Tasks/Planner items. `parent_task_id` identifies one-level project checklist rows; ordinary task reads, dashboard counts, Daily Planner suggestions, calendar and Productivity task lists exclude them and cancelled tasks. Task IDs in saved day plans remain unchanged when project assignments change. The shared editor's optional project context is used only by Projects. Completing checklist items neither auto-completes the parent nor awards admin XP.
+
+Contacts link to existing main tasks via task_contacts. Editing contact assignments preserves project/Planner metadata; completion does not imply a real-world interaction. TaskEditorDialog accepts optional contact selectors and creation defaults. Public task screens do not query private contact attributes.
