@@ -30,6 +30,7 @@ export const getWorkContext = cache(async () => {
   return {
     supabase,
     userId: user.id,
+    timezone,
     today: dateInTimezone(now, timezone),
     nowMinutes: hour * 60 + minute,
     dateLabel: new Intl.DateTimeFormat('en-US', {

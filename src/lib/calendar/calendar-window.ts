@@ -47,6 +47,6 @@ export function calendarWindow(dateKey: string, view: CalendarViewMode) {
   }
 }
 
-export function calendarHref(basePath: string, dateKey: string, view: CalendarViewMode) {
-  return `${basePath}?date=${encodeURIComponent(dateKey)}&view=${view}`
+export function calendarHref(basePath: string, dateKey: string, view: CalendarViewMode, sources?: string) {
+  return `${basePath}?date=${encodeURIComponent(dateKey)}&view=${view}${sources !== undefined ? `&sources=${encodeURIComponent(sources)}` : ''}`
 }

@@ -150,6 +150,8 @@ It can answer using task, habit, and journal context and can request supported a
 
 ## Feature isolation rules
 
+The Contacts workspace under `/admin/contacts` manages owned profiles, explicit relationships, important dates and existing Task/Knowledge links. See [Contacts](contacts.md) for implemented behavior and the [original concept](../notes/contacts-management-concept.md) for design rationale.
+
 When extending the admin workspace:
 
 - Keep private routes under `/admin`.
