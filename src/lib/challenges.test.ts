@@ -31,6 +31,7 @@ function program(
       is_personal: false,
       slug: null,
       tagline: null,
+      cover_image_url: null,
       created_at: '2026-07-01T00:00:00Z',
       updated_at: '2026-07-01T00:00:00Z',
     },
@@ -144,6 +145,7 @@ describe('getChallengeView', () => {
         completion_param: null,
         action_href: null,
         action_label: null,
+        image_url: null,
         created_at: '2026-07-01T00:00:00Z',
       })),
     }

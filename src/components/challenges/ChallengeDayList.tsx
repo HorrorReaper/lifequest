@@ -4,6 +4,8 @@ import type { ChallengeProgram } from '@/lib/challenge-programs'
 import { isAutomaticRule } from '@/lib/challenge-rules'
 import { formatDateOnly } from '@/lib/dates'
 import { cn } from '@/lib/utils'
+import { challengeImageSrc } from '@/lib/challenge-images'
+import { ChallengeCover } from '@/components/challenges/ChallengeCover'
 
 /**
  * Every day of a challenge: done days with their date, the current one
@@ -42,6 +44,9 @@ export function ChallengeDayList({
             >
               {done ? <Check className="size-4" /> : !current ? <Lock className="size-3.5" /> : day.day_number}
             </span>
+            {challengeImageSrc(day.image_url) && (
+              <ChallengeCover src={day.image_url} alt="" className="size-12 shrink-0 rounded-lg" sizes="48px" />
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">
                 <span className="text-muted-foreground">Day {day.day_number} · </span>

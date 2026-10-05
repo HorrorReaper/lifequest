@@ -8,6 +8,7 @@ import { CHALLENGE_RULES, getChallengeRule, resolveDayAction } from '@/lib/chall
 import type { DayDraft } from '@/lib/challenge-draft'
 import type { ChallengeCompletionType } from '@/lib/supabase/database.types'
 import { cn } from '@/lib/utils'
+import { ChallengeImageField } from './ChallengeImageField'
 
 export interface RuleParamOption {
   value: string
@@ -79,6 +80,16 @@ export function ChallengeDayEditor({
         onChange={(event) => onChange({ instructions: event.target.value })}
         placeholder="What exactly should the user do today, and why?"
       />
+
+      <div className="mt-3">
+        <ChallengeImageField
+          id={`day-${n}-image`}
+          label={`Day ${n} image`}
+          value={day.image_url}
+          onChange={(image_url) => onChange({ image_url })}
+          previewClassName="size-14"
+        />
+      </div>
 
       <div className="mt-3 grid gap-3 rounded-xl bg-background/70 p-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.5fr)_minmax(0,1fr)]">
         <label className="space-y-1 text-xs text-muted-foreground">

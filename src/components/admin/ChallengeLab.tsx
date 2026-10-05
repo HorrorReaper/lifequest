@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { AdminPageHeader } from './AdminPageHeader'
 import { ChallengeDayEditor, type RuleParamOption } from './challenge-lab/ChallengeDayEditor'
+import { ChallengeImageField } from './challenge-lab/ChallengeImageField'
 import { cn } from '@/lib/utils'
 
 type TemplateWithDays = ChallengeTemplateRow & { days: ChallengeDayRow[]; participants: number; active: number }
@@ -149,6 +150,7 @@ export function ChallengeLab() {
       p_days: draftDaysPayload(draft.days),
       p_slug: draft.slug.trim() || null,
       p_tagline: draft.tagline.trim() || null,
+      p_cover_image_url: draft.cover_image_url.trim() || null,
     })
     if (saveError) {
       setError(
@@ -323,6 +325,16 @@ export function ChallengeLab() {
                 value={draft.description}
                 onChange={(event) => setDraft({ ...draft, description: event.target.value })}
                 placeholder="What changes for someone who finishes this?"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="program-cover">Cover image</Label>
+              <ChallengeImageField
+                id="program-cover"
+                label="Cover image"
+                value={draft.cover_image_url}
+                onChange={(cover_image_url) => setDraft({ ...draft, cover_image_url })}
+                previewClassName="h-20 w-40"
               />
             </div>
             <div className="space-y-2 md:col-span-2">

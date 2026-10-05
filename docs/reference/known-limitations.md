@@ -121,3 +121,9 @@ These are intentional current boundaries:
 - Workout social features and licensed media are excluded.
 - Nutrition excludes water, meal planning, full micronutrients, and health integrations.
 
+
+## Challenge images are links, not uploads
+
+Challenge and day images (`challenge_templates.cover_image_url`, `challenge_days.image_url`) are image links, like the article covers on `/learn`, and only `images.unsplash.com` is accepted. The app has no image upload, and `next.config.ts` lets `next/image` load that one host; a link to any other host would make the page fail to render, so `src/lib/challenge-images.ts` and the check constraints in `supabase/migrations/20261004120000_challenge_images.sql` refuse it.
+
+Impact: an admin cannot use their own photos or illustrations. Allowing another host means adding it to `next.config.ts`, to `CHALLENGE_IMAGE_HOSTS`, and to both check constraints in a new migration. Uploads would need a Supabase Storage bucket with its own policies.
