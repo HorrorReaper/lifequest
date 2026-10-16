@@ -18,7 +18,7 @@
 | `/reset-password` | Public callback target | Reached only via a valid Supabase recovery session forwarded by `/auth/callback`; sets a new password. No session redirects to `/login?error=reset_link_invalid` |
 | `/terms` | Public | Terms of Service |
 | `/privacy` | Public | Privacy Policy |
-| `/challenge/[slug]` | Public | Landing page of a published challenge that has a slug (title, copy, day titles, rewards); data via `get_public_challenge` |
+| `/challenge/[slug]` | Public | Landing page of a published challenge that has a slug (title, copy, cover and day images, day titles, rewards; the cover is the Open Graph image); data via `get_public_challenge` |
 | `/challenge/[slug]/join` | Public route handler | "Start" button: signed out → remembers the challenge in a cookie and opens sign-up; not onboarded → onboarding first; otherwise starts the challenge and opens it. The middleware sends a user carrying the cookie from `/dashboard` back here |
 
 ## Core authenticated pages

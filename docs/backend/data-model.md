@@ -101,8 +101,8 @@ External foods are owned cached records. Their primary import identity is `(user
 | --- | --- |
 | `quests` | User/custom one-time quests and completion, optional `skill_category` |
 | `quest_completions` | Durable completion/claim record |
-| `challenge_templates` | Program definition, admin-authored or personal (`is_personal`, owner = `created_by`, never published); optional unique `slug` (public landing page) and `tagline` |
-| `challenge_days` | Ordered day instructions, `completion_type`/`completion_target`/`completion_param` rule (a `reflection` day requires `reflection_prompt`), optional `action_href`/`action_label` button |
+| `challenge_templates` | Program definition, admin-authored or personal (`is_personal`, owner = `created_by`, never published); optional unique `slug` (public landing page), `tagline` and `cover_image_url` |
+| `challenge_days` | Ordered day instructions, `completion_type`/`completion_target`/`completion_param` rule (a `reflection` day requires `reflection_prompt`), optional `action_href`/`action_label` button and `image_url` |
 | `challenge_enrollments` | User enrollment and start state; at most one `active` run per user and challenge |
 | `challenge_day_progress` | Per-day completion in an enrollment; `journal_entry_id` links the Challenge Reflection entry that completed a reflection day |
 | `lesson_completions` | Idempotent user lesson completion |
@@ -177,13 +177,13 @@ Project tasks reuse `tasks` rather than having a separate task table.
 ### Challenge and reward functions
 
 - `create_personal_challenge`, `delete_personal_challenge`
-- `admin_save_challenge_template`
+- `admin_save_challenge_template` (cover via `p_cover_image_url`, day images inside `p_days`)
 - `start_challenge_program`
 - `restart_challenge_program`
 - `complete_challenge_program_day(p_enrollment_id, p_note, p_journal_entry_id)` (refuses an automatic day whose rule is not met; links the reflection on a reflection day)
 - `abandon_challenge_program`
 - `sync_challenge_progress` (completes met automatic days, reports progress per active enrollment)
-- `get_public_challenge` (the only challenge data `anon` can read)
+- `get_public_challenge` (the only challenge data `anon` can read; includes the cover and day images)
 - `challenge_rule_count` (internal; no client role may execute it)
 - `claim_system_quest_reward`
 - `complete_custom_quest_reward`

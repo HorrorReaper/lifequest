@@ -8,6 +8,8 @@ import { fetchPublicChallenge } from '@/lib/challenge-programs'
 import { challengeJoinPath } from '@/lib/challenge-intent'
 import { isValidChallengeSlug } from '@/lib/challenge-rules'
 import { nightfallBody, nightfallDisplay } from '@/lib/marketing-fonts'
+import { challengeImageSrc } from '@/lib/challenge-images'
+import { ChallengeCover } from '@/components/challenges/ChallengeCover'
 
 // Public landing page for a published challenge that has a slug. The only
 // challenge data it can read is what get_public_challenge returns: title,
@@ -28,9 +30,13 @@ export async function generateMetadata({ params }: ChallengeLandingProps): Promi
   const { slug } = await params
   const challenge = await loadChallenge(slug)
   if (!challenge) return { title: 'Challenge | LifeQuest' }
+  const description = challenge.tagline ?? challenge.description ?? `A ${challenge.duration_days}-day challenge on LifeQuest.`
+  const cover = challengeImageSrc(challenge.cover_image_url)
   return {
     title: `${challenge.title} | LifeQuest`,
-    description: challenge.tagline ?? challenge.description ?? `A ${challenge.duration_days}-day challenge on LifeQuest.`,
+    description,
+    // The cover doubles as the link preview when the page is shared.
+    openGraph: { title: challenge.title, description, ...(cover ? { images: [cover] } : {}) },
   }
 }
 
@@ -80,6 +86,18 @@ export default async function ChallengeLandingPage({ params }: ChallengeLandingP
           <p className="text-sm text-[#8a857b]">One small action a day. {autoPace ? 'Go at your own pace.' : 'Every day counts.'}</p>
         </section>
 
+        {challengeImageSrc(challenge.cover_image_url) && (
+          <section className="mx-auto max-w-[880px] pb-12">
+            <ChallengeCover
+              src={challenge.cover_image_url}
+              alt={challenge.title}
+              className="aspect-[2/1] w-full rounded-2xl"
+              sizes="(max-width: 920px) 100vw, 880px"
+              priority
+            />
+          </section>
+        )}
+
         {challenge.description && (
           <section className="mx-auto max-w-[680px] pb-12">
             <p className="whitespace-pre-line text-lg leading-relaxed text-[#3d3a34]">{challenge.description}</p>
@@ -111,6 +129,9 @@ export default async function ChallengeLandingPage({ params }: ChallengeLandingP
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#fdf4e2] font-mono text-sm font-bold text-[#a86a06]">
                     {day.day_number}
                   </span>
+                  {challengeImageSrc(day.image_url) && (
+                    <ChallengeCover src={day.image_url} alt="" className="size-10 shrink-0 rounded-lg" sizes="40px" />
+                  )}
                   <span className="flex-1 font-semibold">{day.title}</span>
                   {day.automatic && <Sparkles className="size-4 shrink-0 text-[#d1870b]" aria-label="Tracked automatically" />}
                 </li>

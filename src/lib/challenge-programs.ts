@@ -55,7 +55,8 @@ export interface PublicChallenge {
   schedule_mode: 'sequential' | 'strict'
   xp_reward: number
   coin_reward: number
-  days: { day_number: number; title: string; automatic: boolean }[]
+  cover_image_url: string | null
+  days: { day_number: number; title: string; automatic: boolean; image_url: string | null }[]
 }
 
 interface RpcResult<T> {

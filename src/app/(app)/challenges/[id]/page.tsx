@@ -8,6 +8,7 @@ import { CHALLENGE_FALLBACK_TIMEZONE, getChallengeView } from '@/lib/challenges'
 import { ChallengeDayList } from '@/components/challenges/ChallengeDayList'
 import { ChallengeProgressBar } from '@/components/challenges/ChallengeProgressBar'
 import { ChallengeTodayPanel } from '@/components/challenges/ChallengeTodayPanel'
+import { ChallengeCover } from '@/components/challenges/ChallengeCover'
 import { DeletePersonalChallengeButton } from '@/components/challenges/DeletePersonalChallengeButton'
 import { StopChallengeButton } from '@/components/challenges/StopChallengeButton'
 
@@ -48,6 +49,8 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
         >
           <ArrowLeft className="size-4" /> All challenges
         </Link>
+
+        <ChallengeCover src={template.cover_image_url} alt="" className="h-44 w-full rounded-2xl sm:h-56" priority />
 
         <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
