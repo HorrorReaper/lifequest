@@ -1,9 +1,9 @@
 import type { ChallengeCompletionType, ChallengeDayRow, ChallengeTemplateRow } from '@/lib/supabase/database.types'
 import { getChallengeRule, isSafeInternalHref, isValidChallengeSlug } from '@/lib/challenge-rules'
 import { WEEKLY_PLAN_TEMPLATE_ID } from '@/lib/weekly-rituals'
-import { CHALLENGE_IMAGE_HOSTS, isAllowedChallengeImageUrl } from '@/lib/challenge-images'
+import { isAllowedChallengeImageUrl } from '@/lib/challenge-images'
 
-const IMAGE_URL_HINT = `Images must be https links from ${CHALLENGE_IMAGE_HOSTS.join(' or ')}, like the article covers.`
+const IMAGE_URL_HINT = 'Images must be direct https links to an image (at most 500 characters).'
 
 // The admin editor's working copy of a challenge, and the conversions to and
 // from what admin_save_challenge_template takes. Pure, so the rules the

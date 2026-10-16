@@ -124,6 +124,9 @@ These are intentional current boundaries:
 
 ## Challenge images are links, not uploads
 
-Challenge and day images (`challenge_templates.cover_image_url`, `challenge_days.image_url`) are image links, like the article covers on `/learn`, and only `images.unsplash.com` is accepted. The app has no image upload, and `next.config.ts` lets `next/image` load that one host; a link to any other host would make the page fail to render, so `src/lib/challenge-images.ts` and the check constraints in `supabase/migrations/20261004120000_challenge_images.sql` refuse it.
+Challenge and day images (`challenge_templates.cover_image_url`, `challenge_days.image_url`) are image links, like the article covers on `/learn`. Any https host is accepted, but only hosts in `next.config.ts` (`OPTIMIZED_IMAGE_HOSTS` in `src/lib/challenge-images.ts`, today `images.unsplash.com`) are resized by the image optimizer. Images from other hosts are loaded by the viewer's browser as they are, rendered `unoptimized` and without a referrer.
 
-Impact: an admin cannot use their own photos or illustrations. Allowing another host means adding it to `next.config.ts`, to `CHALLENGE_IMAGE_HOSTS`, and to both check constraints in a new migration. Uploads would need a Supabase Storage bucket with its own policies.
+Impact:
+- A large image on another host is downloaded at full size, and if that host removes or changes the file, the challenge shows a broken image. Adding a host to both `next.config.ts` and `OPTIMIZED_IMAGE_HOSTS` gets it resized.
+- The viewer's browser contacts the image host directly, which sees the viewer's IP address (not which page, since no referrer is sent).
+- There is no upload. Using own photos means hosting them somewhere, for example a public Supabase Storage bucket.

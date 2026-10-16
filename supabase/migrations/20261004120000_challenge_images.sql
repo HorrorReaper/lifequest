@@ -1,11 +1,14 @@
 -- Cover images for challenges and their days, shown like the article
--- covers on /learn: an image URL, rendered with next/image.
+-- covers on /learn: an image link, rendered with next/image.
 --
--- Only images.unsplash.com is allowed, the one host next.config.ts lets
--- next/image load. Any other host would make next/image throw while the page
--- renders, so the database refuses it rather than leave the editor to catch
--- it. Keep the pattern in step with src/lib/challenge-images.ts. A challenge
--- or day without an image shows a drawn placeholder instead.
+-- Any https link is accepted. Hosts listed in next.config.ts go through the
+-- Next.js image optimizer; every other host is rendered `unoptimized`, so the
+-- browser loads it directly and the server never fetches it (allowing every
+-- host in next.config.ts would make /_next/image an open image proxy). The
+-- check only pins the shape: https, a host with a dot, a path, no
+-- whitespace, at most 500 characters. Keep it in step with
+-- isAllowedChallengeImageUrl in src/lib/challenge-images.ts. A challenge or
+-- day without an image shows a drawn placeholder instead.
 
 alter table public.challenge_templates
   add column if not exists cover_image_url text;
@@ -17,7 +20,7 @@ alter table public.challenge_templates
   add constraint challenge_templates_cover_image_url_check
     check (
       cover_image_url is null
-      or (char_length(cover_image_url) <= 500 and cover_image_url ~ '^https://images\.unsplash\.com/[^[:space:]]+$')
+      or (char_length(cover_image_url) <= 500 and cover_image_url ~ '^https://[^/[:space:]@]+\.[^/[:space:]@]+/[^[:space:]]+$')
     );
 
 alter table public.challenge_days drop constraint if exists challenge_days_image_url_check;
@@ -25,7 +28,7 @@ alter table public.challenge_days
   add constraint challenge_days_image_url_check
     check (
       image_url is null
-      or (char_length(image_url) <= 500 and image_url ~ '^https://images\.unsplash\.com/[^[:space:]]+$')
+      or (char_length(image_url) <= 500 and image_url ~ '^https://[^/[:space:]@]+\.[^/[:space:]@]+/[^[:space:]]+$')
     );
 
 -- ---------------------------------------------------------------------------
