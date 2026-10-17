@@ -42,4 +42,20 @@ describe('JournalNudge', () => {
     const cta = screen.getByRole('link', { name: /open journal/i })
     expect(cta.getAttribute('href')).toBe('/journal')
   })
+
+  it('is one link, labelled as the next best move, while today is still open', () => {
+    render(<JournalNudge journals={journals} completedJournalCount={0} />)
+
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByText('Next best move')).toBeTruthy()
+  })
+
+  it('shrinks to a small muted link, with no heading, once today is journaled', () => {
+    render(<JournalNudge journals={journals} completedJournalCount={1} />)
+
+    expect(screen.queryByText('Next best move')).toBeNull()
+    expect(screen.getByRole('link', { name: /add reflection/i }).className).toContain(
+      'text-muted-foreground'
+    )
+  })
 })
