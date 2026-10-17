@@ -95,7 +95,7 @@ export function TrailDashboardHero({
       transition={{ duration: 0.4 }}
       className="overflow-hidden rounded-2xl border border-border/60 bg-card ring-1 ring-foreground/5"
     >
-      <TrailScene />
+      {/*<TrailScene />*/}
       <div className="flex items-start gap-4 p-5">
         <div className="min-w-0 flex-1 space-y-3">
           <h1 className={`${fraunces.className} text-2xl leading-snug text-foreground sm:text-3xl`}>
