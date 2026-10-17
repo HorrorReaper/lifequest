@@ -26,7 +26,7 @@
 | Route | Purpose |
 | --- | --- |
 | `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
-| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, the daily reflection prompt, goals, quests, and admin-only widgets |
+| `/dashboard` | Main LifeQuest briefing: avatar greeting, the ritual prompts, today's plan, habits, tasks, the daily reflection prompt, goals, quests, and admin-only widgets (XP, coins and streak are in the top bar) |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
 | `/plan` | Five-step Today Plan ritual |
 | `/tasks` | Full task manager |
@@ -98,13 +98,15 @@ Detailed contracts are in [HTTP API and external providers](./backend/api.md).
 
 ## Navigation behavior
 
+Every page with the standard shell also shows a sticky top bar with level, XP progress, coins and streak (`src/components/layout/app-top-bar.tsx`). It is hidden on the same immersive routes as the bottom navigation.
+
 The standard bottom navigation contains:
 
 - Home → `/dashboard`
 - Journal → `/journal`
 - Center quick action button
 - Library → `/learn` (also reachable as "Learn" from the quick action sheet; stays highlighted on `/learn/tools` and its sub-pages)
-- Avatar → `/profile`
+- Avatar → `/profile` (icon is the player's own head with the equipped hat)
 
 Settings (`/settings`) has no tab of its own; it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted there (`src/components/layout/bottom-nav.tsx`).
 

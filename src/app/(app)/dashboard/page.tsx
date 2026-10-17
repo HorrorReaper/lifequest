@@ -2,9 +2,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { addDays, dateInTimezone, weekStart } from '@/lib/dates'
-import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
 import type { Database } from '@/lib/supabase/database.types'
-import { ThemedDashboardHero } from '@/components/dashboard/ThemedDashboardHero'
+import { DashboardGreeting } from '@/components/dashboard/DashboardGreeting'
 import { TrailPageSpine } from '@/components/dashboard/TrailPageSpine'
 import { JournalNudge } from '@/components/dashboard/JournalNudge'
 import { TodayPlanSection } from '@/components/dashboard/TodayPlanSection'
@@ -152,12 +151,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const sectionPrefs = normalizeDashboardSections(profile.dashboard_sections)
   const shows = (id: string) => isSectionVisible(sectionPrefs, id)
 
-  const level = getLevel(profile.total_xp)
-  const cityTier = getCityTier(level)
-  const progress = getXpProgress(profile.total_xp)
-
-  const [{ data: cityRowData }, avatarState, { data: ritualRows }] = await Promise.all([
-    supabase.from('city_states').select('coins').eq('user_id', user.id).single(),
+  const [avatarState, { data: ritualRows }] = await Promise.all([
     fetchAvatarState(supabase, user.id),
     // Which prompts run, when, and where they lead. Read on every load so an
     // admin's change at /admin/rituals is live on the next dashboard visit;
@@ -165,7 +159,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     supabase.from('ritual_settings').select('*'),
   ])
   const rituals = normalizeRitualSettings(ritualRows)
-  const coins = (cityRowData as { coins: number } | null)?.coins ?? 0
 
   // Its own sequential await, so skipping it shortens the page load rather
   // than only the page.
@@ -466,15 +459,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <TrailPageSpine />
       <div className="relative max-w-2xl mx-auto space-y-5">
-        <ThemedDashboardHero
+        <DashboardGreeting
           username={profile.username}
-          level={level}
-          cityTierLabel={CITY_TIER_LABELS[cityTier]}
-          xpNext={progress.next}
-          totalXp={profile.total_xp}
-          pct={progress.pct}
-          coins={coins}
-          streak={profile.current_streak}
           equippedItems={avatarState.equippedItems}
         />
 

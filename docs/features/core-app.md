@@ -9,6 +9,7 @@ The primary implementation is in:
 - `src/app/(app)/dashboard/page.tsx`
 - `src/components/dashboard/`
 - `src/components/layout/app-shell.tsx`
+- `src/components/layout/app-top-bar.tsx`
 - `src/components/layout/bottom-nav.tsx`
 - `src/components/layout/quick-action-button.tsx`
 
@@ -26,14 +27,21 @@ The authenticated layout and Supabase session middleware redirect incomplete pro
 
 The dashboard server page loads the initial authenticated snapshot. Client widgets then support focused mutations and refresh the server snapshot when needed.
 
-### Hero and progression
+### Greeting and progression
 
-The hero displays:
+The top of the dashboard is `DashboardGreeting` (`src/components/dashboard/DashboardGreeting.tsx`): the avatar's head, hat included, and "Welcome back, <name>". Under the Trail theme the heading uses the scoped Fraunces font and ends in a full stop; the other themes keep the wave emoji. There is no hero card any more.
 
-- Current level and XP progress.
-- Current and best journaling streak.
-- Coins and city tier information.
-- The next meaningful city reward.
+Level, XP progress, coins and streak are in the top bar that every page with the standard shell shows, so they are not repeated on the dashboard (`/profile` keeps its own `DashboardHero` card).
+
+#### Top bar
+
+`src/components/layout/app-top-bar.tsx` is one row: `Lv N`, a thin XP progress bar with "XP / next level threshold", coins, and the current streak (best streak stays on `/profile`). It is sticky at the top of `AppShell` and hidden on the same immersive routes as the bottom navigation. A brand-new account's raw progress is below zero (level 1 starts above 0 XP), so the bar clamps it to 0 to 100.
+
+While an admin previews as a user, the bar sticks directly beneath `PreviewAsUserBanner` instead of behind it: the layout sets `--preview-banner-height` (`src/components/layout/preview-banner-height.ts`) and the banner has a fixed height to match. Keep the two in step.
+
+#### Where the numbers come from
+
+`src/app/(app)/layout.tsx` calls `fetchShellStats` (`src/lib/shell-stats.ts`) on every request: `total_xp` and `current_streak` from `profiles`, `coins` from `city_states`, and the equipped avatar items via `fetchAvatarState`. A part that fails falls back to its default so chrome can never take a page down. `AppShell` hands the result to `useShellStats` (`src/components/layout/use-shell-stats.ts`), which renders the server values first, then copies them into the Zustand user store and reads from it. Anything that already calls `addXp`, `setCoins`, `updateStreak` or `setEquippedItems` therefore moves the bar and the nav's avatar immediately, and a `router.refresh()` re-syncs the store with fresh server values.
 
 XP and coins are persisted in Supabase. The Zustand user store exists for responsive presentation and level-up feedback; it is not the durable source of truth.
 
@@ -98,9 +106,9 @@ The standard mobile navigation contains:
 2. Journal.
 3. Quick action.
 4. Library (`/learn`), the same page as "Learn" in the quick action sheet. It stays highlighted on the pages below it, such as `/learn/tools`.
-5. Avatar (`/profile`). Settings has no tab of its own: it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted on `/settings`.
+5. Avatar (`/profile`), drawn as the player's own head with the equipped hat (`AvatarHead`) rather than a generic icon; a ring around the head marks the active tab. Settings has no tab of its own: it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted on `/settings`.
 
-The standard shell is hidden on immersive workflows, including Today Plan, journal entry forms, routine execution, and admin pages. This prevents competing navigation while the user is completing a focused flow.
+The top bar (level, XP, coins, streak) sits above the page on the same routes. The standard shell is hidden on immersive workflows, including Today Plan, journal entry forms, routine execution, and admin pages. This prevents competing navigation while the user is completing a focused flow.
 
 ## Settings
 

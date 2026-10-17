@@ -2,18 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Library, NotebookPen, UserCircle2 } from 'lucide-react'
+import { Home, Library, NotebookPen } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { createClient } from '@/lib/supabase/client'
 import { getLevel } from '@/lib/gamification'
+import type { AvatarSlot } from '@/lib/avatar'
+import { AvatarHead } from '@/components/profile/AvatarFigure'
 import { QuickActionButton } from '@/components/layout/quick-action-button'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
   href: string
   label: string
-  icon: typeof Home
+  /** Omitted for the avatar tab, which draws the player's own head instead. */
+  icon?: typeof Home
   /** Other routes reached from this tab, which keep it highlighted. */
   alsoActiveOn?: readonly string[]
 }
@@ -27,13 +30,19 @@ const NAV_ITEMS: readonly NavItem[] = [
   // replacement rather than a new one. See
   // docs/superpowers/specs/2026-08-30-avatar-nature-redesign-design.md.
   // Settings has no tab of its own: it opens from the button on /profile.
-  { href: '/profile', label: 'Avatar', icon: UserCircle2, alsoActiveOn: ['/settings'] },
+  { href: '/profile', label: 'Avatar', alsoActiveOn: ['/settings'] },
 ]
 
 const LEFT_NAV_ITEMS = NAV_ITEMS.slice(0, 2)
 const RIGHT_NAV_ITEMS = NAV_ITEMS.slice(2)
 
-export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
+interface BottomNavProps {
+  isAdmin?: boolean
+  /** What the avatar tab's head is wearing. */
+  equippedItems: Record<AvatarSlot, string | null>
+}
+
+export function BottomNav({ isAdmin = false, equippedItems }: BottomNavProps) {
   const pathname = usePathname()
   const totalXp = useUserStore((s) => s.totalXp)
   const setProfile = useUserStore((s) => s.setProfile)
@@ -108,7 +117,20 @@ export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
             : 'text-muted-foreground hover:text-foreground'
         )}
       >
-        <Icon className="size-5.5" />
+        {Icon ? (
+          <Icon className="size-5.5" />
+        ) : (
+          // A ring, not a colour change, marks the active tab: the head keeps
+          // its own colours, so text-primary would not reach it.
+          <span
+            className={cn(
+              'flex size-5.5 items-center justify-center overflow-hidden rounded-full bg-muted ring-2 transition-colors',
+              isActive ? 'ring-primary' : 'ring-transparent'
+            )}
+          >
+            <AvatarHead equippedItems={equippedItems} className="size-full" />
+          </span>
+        )}
         <span className="max-w-full truncate">{item.label}</span>
       </Link>
     )

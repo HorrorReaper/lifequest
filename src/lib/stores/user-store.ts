@@ -1,6 +1,8 @@
 
 import { create } from 'zustand'
 import { getLevel, getCityTier, xpToNextLevel } from '@/lib/gamification'
+import { getDefaultAvatarState, type AvatarSlot } from '@/lib/avatar'
+import type { ShellStats } from '@/lib/shell-stats'
 // Stores in Zustand halten den lokalen Anwendungszustand und
 // bieten Aktionen zum Lesen/Ändern dieses Zustands.
 
@@ -23,6 +25,13 @@ interface UserState {
   // Coins (shared across nav, city page, dashboard)
   coins: number
 
+  // Worn avatar items (the bottom nav's Avatar icon)
+  equippedItems: Record<AvatarSlot, string | null>
+
+  // True once the app shell has copied the server's stats in. Until then the
+  // shell renders those props itself, so server and client markup agree.
+  shellSynced: boolean
+
   // Level-up notification
   pendingLevelUp: number | null
 
@@ -32,6 +41,8 @@ interface UserState {
   notifyLevelUp: (level: number) => void
   updateStreak: (streak: number) => void
   setCoins: (coins: number) => void
+  setEquippedItems: (equippedItems: Record<AvatarSlot, string | null>) => void
+  syncShell: (stats: ShellStats) => void
   clearLevelUp: () => void
 }
 
@@ -51,6 +62,8 @@ export const useUserStore = create<UserState>((set) => ({
   xpToNext: 500,
 
   coins: 0,
+  equippedItems: getDefaultAvatarState().equippedItems,
+  shellSynced: false,
   pendingLevelUp: null,
 
   setProfile: (profile) =>
@@ -88,5 +101,20 @@ export const useUserStore = create<UserState>((set) => ({
 
   notifyLevelUp: (level) => set({ pendingLevelUp: level }),
   setCoins: (coins) => set({ coins }),
+  setEquippedItems: (equippedItems) => set({ equippedItems }),
+
+  // The whole shell snapshot in one update, so the top bar never renders a
+  // half-synced mix of old and new values.
+  syncShell: (stats) =>
+    set({
+      totalXp: stats.totalXp,
+      currentStreak: stats.streak,
+      coins: stats.coins,
+      equippedItems: stats.equippedItems,
+      level: getLevel(stats.totalXp),
+      cityTier: getCityTier(getLevel(stats.totalXp)),
+      xpToNext: xpToNextLevel(stats.totalXp),
+      shellSynced: true,
+    }),
   clearLevelUp: () => set({ pendingLevelUp: null }),
 }))
