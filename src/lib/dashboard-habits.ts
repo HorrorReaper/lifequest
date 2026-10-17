@@ -85,3 +85,19 @@ export function completedHabitIdsFor(
     completedLogs.filter((log) => log.log_date === today).map((log) => log.habit_id)
   )
 }
+
+/**
+ * Open habits first, done ones after, each group keeping the order it came
+ * in (the user's own order from /habits). The dashboard re-runs this on every
+ * check-in, so a habit drops below the open ones the moment it is ticked off
+ * and returns to its place among them when unticked.
+ */
+export function openHabitsFirst<T extends { id: string }>(
+  habits: readonly T[],
+  completedIds: ReadonlySet<string>
+): T[] {
+  return [
+    ...habits.filter((habit) => !completedIds.has(habit.id)),
+    ...habits.filter((habit) => completedIds.has(habit.id)),
+  ]
+}
