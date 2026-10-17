@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, NotebookPen, Settings, UserCircle2 } from 'lucide-react'
+import { Home, NotebookPen, UserCircle2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { createClient } from '@/lib/supabase/client'
@@ -10,15 +10,23 @@ import { getLevel } from '@/lib/gamification'
 import { QuickActionButton } from '@/components/layout/quick-action-button'
 import { cn } from '@/lib/utils'
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string
+  label: string
+  icon: typeof Home
+  /** Other routes reached from this tab, which keep it highlighted. */
+  alsoActiveOn?: readonly string[]
+}
+
+const NAV_ITEMS: readonly NavItem[] = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/journal', label: 'Journal', icon: NotebookPen },
   // { label: "Analytics", href: "/analytics", icon: BarChart3 },
   // City itself is retired as a reachable feature; this slot is its
   // replacement rather than a new one. See
   // docs/superpowers/specs/2026-08-30-avatar-nature-redesign-design.md.
-  { href: '/profile', label: 'Avatar', icon: UserCircle2 },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  // Settings has no tab of its own: it opens from the button on /profile.
+  { href: '/profile', label: 'Avatar', icon: UserCircle2, alsoActiveOn: ['/settings'] },
 ]
 
 const LEFT_NAV_ITEMS = NAV_ITEMS.slice(0, 2)
@@ -82,9 +90,10 @@ export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
     })()
   }, [notifyLevelUp, setCoins, setProfile])
 
-  function renderNavItem(item: (typeof NAV_ITEMS)[number]) {
-    const isActive =
-      pathname === item.href || pathname.startsWith(item.href + '/')
+  function renderNavItem(item: NavItem) {
+    const isActive = [item.href, ...(item.alsoActiveOn ?? [])].some(
+      (href) => pathname === href || pathname.startsWith(href + '/')
+    )
     const Icon = item.icon
 
     return (
@@ -112,7 +121,7 @@ export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
             {LEFT_NAV_ITEMS.map(renderNavItem)}
           </div>
           <QuickActionButton isAdmin={isAdmin} />
-          <div className="grid grid-cols-2 items-end gap-1">
+          <div className="grid grid-cols-1 items-end gap-1">
             {RIGHT_NAV_ITEMS.map(renderNavItem)}
           </div>
         </div>

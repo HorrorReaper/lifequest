@@ -97,8 +97,7 @@ The standard mobile navigation contains:
 1. Home.
 2. Journal.
 3. Quick action.
-4. City.
-5. Settings.
+4. Avatar (`/profile`). Settings has no tab of its own: it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted on `/settings`.
 
 The standard shell is hidden on immersive workflows, including Today Plan, journal entry forms, routine execution, and admin pages. This prevents competing navigation while the user is completing a focused flow.
 

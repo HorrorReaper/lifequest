@@ -103,8 +103,9 @@ The standard bottom navigation contains:
 - Home → `/dashboard`
 - Journal → `/journal`
 - Center quick action button
-- City → `/city`
-- Settings → `/settings`
+- Avatar → `/profile`
+
+Settings (`/settings`) has no tab of its own; it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted there (`src/components/layout/bottom-nav.tsx`).
 
 The quick action opens direct paths into tasks, habits, journaling, Today Plan, and admin-only tools. Trusted/route-allowlisted admins additionally see a "LifeQuest Labs" entry in the quick action sheet linking to `/admin`, since the standard bottom navigation has no persistent admin entry point. Bottom navigation and the admin chatbot are hidden on immersive routes.
 
