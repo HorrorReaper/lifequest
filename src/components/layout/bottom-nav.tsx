@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, NotebookPen, UserCircle2 } from 'lucide-react'
+import { Home, Library, NotebookPen, UserCircle2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { createClient } from '@/lib/supabase/client'
@@ -22,6 +22,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/journal', label: 'Journal', icon: NotebookPen },
   // { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  { href: '/learn', label: 'Library', icon: Library },
   // City itself is retired as a reachable feature; this slot is its
   // replacement rather than a new one. See
   // docs/superpowers/specs/2026-08-30-avatar-nature-redesign-design.md.
@@ -121,7 +122,7 @@ export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
             {LEFT_NAV_ITEMS.map(renderNavItem)}
           </div>
           <QuickActionButton isAdmin={isAdmin} />
-          <div className="grid grid-cols-1 items-end gap-1">
+          <div className="grid grid-cols-2 items-end gap-1">
             {RIGHT_NAV_ITEMS.map(renderNavItem)}
           </div>
         </div>

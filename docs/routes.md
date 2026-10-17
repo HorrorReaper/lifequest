@@ -103,6 +103,7 @@ The standard bottom navigation contains:
 - Home → `/dashboard`
 - Journal → `/journal`
 - Center quick action button
+- Library → `/learn` (also reachable as "Learn" from the quick action sheet; stays highlighted on `/learn/tools` and its sub-pages)
 - Avatar → `/profile`
 
 Settings (`/settings`) has no tab of its own; it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted there (`src/components/layout/bottom-nav.tsx`).

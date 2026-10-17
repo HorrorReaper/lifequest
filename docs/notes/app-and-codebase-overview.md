@@ -73,7 +73,7 @@ Supabase
 - **Analytics** (`/analytics`) — journal stats, mood/activity charts, Skills tab with per-category XP.
 - **Settings** (`/settings`) — appearance, profile, timezone, dashboard sections, AI consent, sign-out, account deletion.
 
-Bottom nav: Home · Journal · **(quick action)** · Avatar. Settings opens from the button on `/profile`; the Avatar tab stays highlighted on `/settings`. The quick action sheet links to journal, learn, tasks, plan, habits, routines, quests and — for admins — LifeQuest Labs.
+Bottom nav: Home · Journal · **(quick action)** · Library (`/learn`) · Avatar. Settings opens from the button on `/profile`; the Avatar tab stays highlighted on `/settings`. The quick action sheet links to journal, learn, tasks, plan, habits, routines, quests and — for admins — LifeQuest Labs.
 
 ## 5. LifeQuest Labs (`/admin`) — purpose and the trust-boundary gotcha ⟳
 
