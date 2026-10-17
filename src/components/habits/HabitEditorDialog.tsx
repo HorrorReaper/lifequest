@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { CalendarDays, Loader2 } from "lucide-react";
+import { Archive, BarChart3, CalendarDays, Loader2 } from "lucide-react";
 import type { Habit } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,6 +100,10 @@ interface HabitEditorDialogProps {
   error?: string | null;
   onOpenChange: (open: boolean) => void;
   onSubmit: (value: HabitEditorValue) => void | Promise<void>;
+  /** Edit mode only: shows "Archive habit"; the caller asks for confirmation. */
+  onArchive?: () => void;
+  /** Edit mode only: shows a "Details & stats" link to this path. */
+  detailsHref?: string;
 }
 
 export function HabitEditorDialog({
@@ -108,6 +113,8 @@ export function HabitEditorDialog({
   error,
   onOpenChange,
   onSubmit,
+  onArchive,
+  detailsHref,
 }: HabitEditorDialogProps) {
   return (
     <Dialog
@@ -134,6 +141,8 @@ export function HabitEditorDialog({
             error={error}
             onCancel={() => onOpenChange(false)}
             onSubmit={onSubmit}
+            onArchive={habit ? onArchive : undefined}
+            detailsHref={habit ? detailsHref : undefined}
           />
         )}
       </DialogContent>
@@ -147,12 +156,16 @@ function HabitEditorForm({
   error,
   onCancel,
   onSubmit,
+  onArchive,
+  detailsHref,
 }: {
   habit?: Habit | null;
   busy: boolean;
   error?: string | null;
   onCancel: () => void;
   onSubmit: (value: HabitEditorValue) => void | Promise<void>;
+  onArchive?: () => void;
+  detailsHref?: string;
 }) {
   const [name, setName] = useState(habit?.name ?? "");
   const [emoji, setEmoji] = useState(habit?.emoji ?? "✅");
@@ -259,6 +272,35 @@ function HabitEditorForm({
             <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </p>
+          )}
+
+          {(detailsHref || onArchive) && (
+            <div className="flex items-center justify-between gap-2 border-t pt-4">
+              {detailsHref ? (
+                <Link
+                  href={detailsHref}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <BarChart3 className="size-4" />
+                  Details &amp; stats
+                </Link>
+              ) : (
+                <span />
+              )}
+              {onArchive && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onArchive}
+                  disabled={busy}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Archive className="size-4" />
+                  Archive habit
+                </Button>
+              )}
+            </div>
           )}
 
           <DialogFooter className="sticky bottom-0 mt-auto bg-popover">
