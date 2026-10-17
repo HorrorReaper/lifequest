@@ -26,12 +26,9 @@ export default async function ChallengesPage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Challenges</h1>
-          <p className="text-sm text-muted-foreground">
-            One concrete action a day: follow a guided program, or set up your own “X days of Y”.
-          </p>
         </div>
 
-        <CreateChallengeForm />
+        {/*<CreateChallengeForm />*/}
 
         {sorted.length === 0 ? (
           <div className="rounded-2xl border border-dashed p-8 text-center">
