@@ -35,7 +35,7 @@
 | `/quests` | Achievements and custom one-time quests; links to `/challenges` |
 | `/challenges` | Every published challenge plus the user's personal ones, running first. The form to create a personal "X days of Y" challenge is currently hidden (commented out in `src/app/(app)/challenges/page.tsx`) |
 | `/challenges/[id]` | One challenge: today's step (manual or auto-detected), deep link, all days |
-| `/learn` | Article library, titled "Lifequest Academy" and shown as the Library tab in the bottom navigation; admins additionally get the interactive Academy courses, titled "Learn by doing". The page header is the title only, with no intro text |
+| `/learn` | Article library, titled "Lifequest Academy" and shown as the Library tab in the bottom navigation; admins additionally get the interactive Academy courses, titled "Learn by doing". The page header is the title only, with no intro text, and the reading-progress block (articles read, XP earned) is currently hidden (commented out in `src/components/learn/AcademyLibrary.tsx`) |
 | `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
