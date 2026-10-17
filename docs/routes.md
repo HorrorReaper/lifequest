@@ -26,7 +26,7 @@
 | Route | Purpose |
 | --- | --- |
 | `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
-| `/dashboard` | Main LifeQuest briefing: avatar greeting, the ritual prompts, today's plan, habits, tasks, the daily reflection prompt, goals, quests, and admin-only widgets (XP, coins and streak are in the top bar) |
+| `/dashboard` | Main LifeQuest briefing: avatar greeting, the ritual prompts, today's plan, habits, tasks, the daily reflection prompt, goals, quests, and admin-only widgets (XP, coins and streak are in the top bar). `?goal=new#goals` opens the goal form and scrolls to it |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
 | `/plan` | Five-step Today Plan ritual |
 | `/tasks` | Full task manager |

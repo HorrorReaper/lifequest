@@ -87,6 +87,8 @@ interface DashboardPageProps {
   searchParams?: Promise<{
     quick?: string | string[]
     welcome?: string
+    /** `new` opens the goal form; see GOAL_FORM_HREF. */
+    goal?: string
   }>
 }
 
@@ -128,6 +130,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const params = searchParams ? await searchParams : {}
   const quickAction = parseQuickAction(params.quick)
   const showWelcome = params.welcome === '1'
+  const openGoalForm = params.goal === 'new'
   if (quickAction) redirect(QUICK_ACTION_ROUTES[quickAction])
   const supabase = await createClient()
   const {
@@ -149,7 +152,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const isAdmin = await showAdminUi(user)
 
   const sectionPrefs = normalizeDashboardSections(profile.dashboard_sections)
-  const shows = (id: string) => isSectionVisible(sectionPrefs, id)
+  // A link that asks for the goal form (GOAL_FORM_HREF, e.g. a challenge's
+  // goals day) shows the goals section even when the user has hidden it;
+  // otherwise the link would land on a page with nothing to open.
+  const shows = (id: string) =>
+    (id === 'goals' && openGoalForm) || isSectionVisible(sectionPrefs, id)
 
   const [avatarState, { data: ritualRows }] = await Promise.all([
     fetchAvatarState(supabase, user.id),
@@ -531,13 +538,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         )}
 
         {shows('goals') && (
-          <GoalsDashboardWidget
-            userId={user.id}
-            initialGoals={activeGoals}
-            // AI suggestions stay admin-only (the route enforces it); an
-            // admin previewing as a user sees the section without them.
-            canSuggestQuests={isAdmin}
-          />
+          // scroll-mt clears the sticky top bar when #goals is the target.
+          <div id="goals" className="scroll-mt-20">
+            <GoalsDashboardWidget
+              // Keyed on the form flag so a link to GOAL_FORM_HREF from the
+              // dashboard itself remounts the widget: its open state is only
+              // read from initiallyOpen on mount.
+              key={openGoalForm ? 'goal-form' : 'goals'}
+              userId={user.id}
+              initialGoals={activeGoals}
+              initiallyOpen={openGoalForm}
+              // AI suggestions stay admin-only (the route enforces it); an
+              // admin previewing as a user sees the section without them.
+              canSuggestQuests={isAdmin}
+            />
+          </div>
         )}
 
         {shows('scorecard') && <ScorecardSection rows={scorecardRows} />}
