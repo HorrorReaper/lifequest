@@ -29,11 +29,10 @@ describe('JournalNudge', () => {
     expect(cta.getAttribute('href')).toBe('/journal/new/evening')
   })
 
-  it('offers a further reflection once the day is already journaled', () => {
-    render(<JournalNudge journals={journals} completedJournalCount={1} />)
+  it('renders nothing once the day is already journaled', () => {
+    const { container } = render(<JournalNudge journals={journals} completedJournalCount={1} />)
 
-    const cta = screen.getByRole('link', { name: /add reflection/i })
-    expect(cta.getAttribute('href')).toBe('/journal')
+    expect(container.firstChild).toBeNull()
   })
 
   it('still routes to the journal when the user has no templates at all', () => {
@@ -48,14 +47,5 @@ describe('JournalNudge', () => {
 
     expect(screen.getAllByRole('link')).toHaveLength(1)
     expect(screen.getByText('Next best move')).toBeTruthy()
-  })
-
-  it('shrinks to a small muted link, with no heading, once today is journaled', () => {
-    render(<JournalNudge journals={journals} completedJournalCount={1} />)
-
-    expect(screen.queryByText('Next best move')).toBeNull()
-    expect(screen.getByRole('link', { name: /add reflection/i }).className).toContain(
-      'text-muted-foreground'
-    )
   })
 })

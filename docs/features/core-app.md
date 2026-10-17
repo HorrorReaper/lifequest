@@ -31,7 +31,7 @@ The dashboard server page loads the initial authenticated snapshot. Client widge
 
 The top of the dashboard is `DashboardGreeting` (`src/components/dashboard/DashboardGreeting.tsx`): the avatar's head, hat included, and "Welcome back, <name>". Under the Trail theme the heading uses the scoped Fraunces font and ends in a full stop; the other themes keep the wave emoji. There is no hero card any more.
 
-Below it, `JournalNudge` (`src/components/dashboard/JournalNudge.tsx`) suggests the day's next move as a single 48px row: the first journal template not yet written today, labelled "Next best move", linking straight into it (or to `/journal` when the user has no templates). Once anything is journaled today it shrinks to a small muted "Add reflection" link to `/journal`; the journal tab is always in the navigation, so nothing more is shown.
+Below it, `JournalNudge` (`src/components/dashboard/JournalNudge.tsx`) suggests the day's next move as a single 48px row: the first journal template not yet written today, labelled "Next best move", linking straight into it (or to `/journal` when the user has no templates). Once anything is journaled today it renders nothing; the journal tab is always in the navigation.
 
 Level, XP progress, coins and streak are in the top bar that every page with the standard shell shows, so they are not repeated on the dashboard (`/profile` keeps its own `DashboardHero` card).
 

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, BookOpen } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 interface JournalNudgeProps {
   journals: { id: string; name: string; icon: string; completedToday: boolean }[]
@@ -17,24 +17,15 @@ interface JournalNudgeProps {
  *
  * One row, not a card: the suggestion is a single action, and the old card
  * (icon, heading, paragraph, full-height button) took far more room than that
- * deserves. Once today is journaled it shrinks to a small muted link, since
- * the journal tab is always in the nav and nothing is left to push.
+ * deserves. Once today is journaled it renders nothing at all.
  */
 export function JournalNudge({ journals, completedJournalCount }: JournalNudgeProps) {
   const nextJournal = journals.find((journal) => !journal.completedToday) ?? journals[0] ?? null
   const journalDone = completedJournalCount > 0
 
-  if (journalDone) {
-    return (
-      <Link
-        href="/journal"
-        className="inline-flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <BookOpen className="size-3.5" aria-hidden="true" />
-        Add reflection
-      </Link>
-    )
-  }
+  // Nothing left to suggest: the journal tab is always in the nav, and a
+  // leftover link here only adds a line the dashboard does not need.
+  if (journalDone) return null
 
   const startable = nextJournal !== null
 
