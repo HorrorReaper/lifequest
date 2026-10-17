@@ -28,11 +28,9 @@ interface LessonCompletionClient {
 
 function LearnPageShell({
   title,
-  intro,
   children,
 }: {
   title: string
-  intro: string
   children: React.ReactNode
 }) {
   return (
@@ -40,9 +38,7 @@ function LearnPageShell({
       <div className="mx-auto max-w-5xl space-y-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">LifeQuest Academy</p>
             <h1 className="mt-1 text-3xl font-semibold tracking-[-0.045em]">{title}</h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{intro}</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             <Link
@@ -127,20 +123,14 @@ export default async function LearnPage() {
     const insights = await fetchJournalInsights(supabase, user.id)
 
     return (
-      <LearnPageShell
-        title="Learn by doing"
-        intro="Short reads that end in a quiz, tools to work through, and everything you marked while journaling."
-      >
+      <LearnPageShell title="Lifequest Academy">
         <AcademyLibrary lessons={lessons} insights={insights} />
       </LearnPageShell>
     )
   }
 
   return (
-    <LearnPageShell
-      title="Learn by doing"
-      intro="Build social confidence, founder judgment, and fitness knowledge through short interactive paths."
-    >
+    <LearnPageShell title="Learn by doing">
       <AdminAcademy supabase={supabase} lessons={lessons} />
     </LearnPageShell>
   )

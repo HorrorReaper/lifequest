@@ -35,7 +35,7 @@
 | `/quests` | Achievements and custom one-time quests; links to `/challenges` |
 | `/challenges` | Every published challenge plus the user's personal ones, running first; form to create a personal "X days of Y" challenge |
 | `/challenges/[id]` | One challenge: today's step (manual or auto-detected), deep link, all days |
-| `/learn` | Article library; admins additionally get the interactive Academy courses |
+| `/learn` | Article library, titled "Lifequest Academy" and shown as the Library tab in the bottom navigation; admins additionally get the interactive Academy courses, titled "Learn by doing". The page header is the title only, with no intro text |
 | `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
