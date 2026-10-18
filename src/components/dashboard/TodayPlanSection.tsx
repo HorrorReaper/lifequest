@@ -6,6 +6,7 @@ import { CalendarClock, ChevronDown, Plus } from 'lucide-react'
 import type { DayPlanMissionType } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
 
 export interface DashboardPlanBlock {
   id: string
@@ -103,13 +104,15 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
   const remaining = ordered.length - past.length
 
   return (
-    <section className="rounded-2xl border bg-card p-5">
+    <ClickableSection href={plannerHref} className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <CalendarClock className="size-4" />
           </span>
-          <h2 className="text-lg font-semibold sm:text-base">Today&apos;s Plan</h2>
+          <h2 className="text-lg font-semibold sm:text-base">
+            <SectionHeadingLink href={plannerHref}>Today&apos;s Plan</SectionHeadingLink>
+          </h2>
         </div>
         {ordered.length > 0 && (
           <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
@@ -227,7 +230,7 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
             </button>
           )}
 
-          <div className="mt-4 flex items-center justify-between border-t pt-3">
+          <div className="mt-4 flex items-center border-t pt-3">
             {/* Straight to the timeline: this button only exists once a
                 plan does, and re-answering mood and outcomes to move one
                 block is not what it offers. */}
@@ -237,16 +240,10 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
                 Add block
               </Link>
             </Button>
-            <Link
-              href={plannerHref}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
-            >
-              Open planner →
-            </Link>
           </div>
         </>
       )}
-    </section>
+    </ClickableSection>
   )
 }
 

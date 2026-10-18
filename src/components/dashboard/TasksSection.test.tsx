@@ -149,7 +149,10 @@ describe('TasksSection', () => {
       <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} openTaskCount={14} />
     )
 
-    expect(screen.getByRole('link', { name: /all tasks \(14\)/i })).toBeTruthy()
+    expect(screen.getByText('14 open')).toBeTruthy()
+    // The section opens /tasks itself; no separate "All tasks" link remains.
+    expect(screen.queryByRole('link', { name: /all tasks/i })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Tasks' }).getAttribute('href')).toBe('/tasks')
   })
 
   it('restores the row and explains when completing fails', async () => {

@@ -1,5 +1,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+
 import {
   TodayPlanSection,
   type DashboardPlanBlock,
@@ -44,7 +47,7 @@ describe('TodayPlanSection', () => {
     expect(screen.getByRole('link', { name: /plan my day/i }).getAttribute('href')).toBe('/admin/work/plan')
     rerender(<TodayPlanSection blocks={[block()]} nowMinutes={MIDDAY} plannerHref="/admin/work/plan" />)
     expect(screen.getByRole('link', { name: /add block/i }).getAttribute('href')).toBe('/admin/work/plan?step=timeline')
-    expect(screen.getByRole('link', { name: /open planner/i }).getAttribute('href')).toBe('/admin/work/plan')
+    expect(screen.getByRole('link', { name: "Today's Plan" }).getAttribute('href')).toBe('/admin/work/plan')
   })
 
   it('leads with the block happening right now', () => {
@@ -120,10 +123,10 @@ describe('TodayPlanSection', () => {
     const add = screen.getByRole('link', { name: /add block/i })
     expect(add.getAttribute('href')).toBe('/plan?step=timeline')
 
-    // Opening the planner proper still means the planner proper.
-    expect(
-      screen.getByRole('link', { name: /open planner/i }).getAttribute('href')
-    ).toBe('/plan')
+    // Opening the planner proper (the heading, or the section itself) still
+    // means the planner proper.
+    expect(screen.getByRole('link', { name: "Today's Plan" }).getAttribute('href')).toBe('/plan')
+    expect(screen.queryByRole('link', { name: /open planner/i })).toBeNull()
   })
 
   it('offers a way to plan when the day is empty', () => {

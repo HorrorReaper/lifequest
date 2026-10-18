@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronDown, ListTodo, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -11,6 +10,7 @@ import { useUserStore } from '@/lib/stores/user-store'
 import { formatTaskDate } from '@/lib/task-manager'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
 import { TaskEditorDialog, type TaskEditorDraft } from '@/components/tasks/TaskEditorDialog'
 
 interface TasksSectionProps {
@@ -116,13 +116,15 @@ export function TasksSection({
   }
 
   return (
-    <section className="rounded-2xl border bg-card p-5">
+    <ClickableSection href="/tasks" className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <ListTodo className="size-4" />
           </span>
-          <h2 className="text-lg font-semibold sm:text-base">Tasks</h2>
+          <h2 className="text-lg font-semibold sm:text-base">
+            <SectionHeadingLink href="/tasks">Tasks</SectionHeadingLink>
+          </h2>
         </div>
         <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
           {showingUndated ? (
@@ -233,12 +235,13 @@ export function TasksSection({
               <Plus />
               Add task
             </Button>
-            <Link
-              href="/tasks"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
-            >
-              All tasks{openTaskCount > 0 && ` (${openTaskCount})`} →
-            </Link>
+            {/* The whole list's size, not just the rows shown; the section
+                itself opens /tasks. */}
+            {openTaskCount > 0 && (
+              <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
+                {openTaskCount} open
+              </span>
+            )}
           </div>
         </>
       )}
@@ -257,6 +260,6 @@ export function TasksSection({
         }}
         onSubmit={handleCreate}
       />
-    </section>
+    </ClickableSection>
   )
 }

@@ -47,6 +47,20 @@ While an admin previews as a user, the bar sticks directly beneath `PreviewAsUse
 
 XP and coins are persisted in Supabase. The Zustand user store exists for responsive presentation and level-up feedback; it is not the durable source of truth.
 
+### Sections open their page
+
+The sections with a page of their own have no "Manage …" / "Open …" / "All …" link any more. Clicking anywhere on the section opens the page instead (`ClickableSection` in `src/components/dashboard/ClickableSection.tsx`), and its heading is that link for the keyboard and screen readers (`SectionHeadingLink`, with a small chevron):
+
+| Section | Opens |
+| --- | --- |
+| Today's Plan | `/plan` (or the Work planner when embedded there) |
+| Habits | `/habits` |
+| Tasks | `/tasks`; the open count sits in the footer as "N open" |
+| Scorecard, metric chart | `/journal/metrics` |
+| Quests | `/quests` |
+
+A click on one of the section's own controls does not navigate: check-offs, "Add habit" / "Add task" / "Add block", "Show more", claim buttons, any link, and anything inside a dialog the section opened (React bubbles portal events through the component tree, so the section checks the click landed in its own DOM). `data-section-ignore` opts any other element out. Ctrl/Cmd-click opens the page in a new tab, and selecting text does not navigate. Goals, Daily Reflection and Routines have no page to open and are unchanged.
+
 ### Ritual prompts
 
 `DailyPlanPrompt`, `EveningReviewPrompt`, `WeeklyPlanPrompt` and `WeeklyReviewPrompt` (`src/components/dashboard/`) open as dialogs over the dashboard in their windows (configured at `/admin/rituals`). They are static: an icon tile, the title and description, "Not now" and the call to action. The looping icon bob and the text fade-in they used to have were removed because the motion distracted inside a dialog.

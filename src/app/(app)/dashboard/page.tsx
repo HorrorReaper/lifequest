@@ -575,7 +575,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             label={primaryMetric.label}
             unit={primaryMetric.unit}
             data={primaryMetricSeries}
-            hasMoreMetrics={trackedMetrics.length > 1}
           />
         )}
 
