@@ -47,6 +47,10 @@ While an admin previews as a user, the bar sticks directly beneath `PreviewAsUse
 
 XP and coins are persisted in Supabase. The Zustand user store exists for responsive presentation and level-up feedback; it is not the durable source of truth.
 
+### Ritual prompts
+
+`DailyPlanPrompt`, `EveningReviewPrompt`, `WeeklyPlanPrompt` and `WeeklyReviewPrompt` (`src/components/dashboard/`) open as dialogs over the dashboard in their windows (configured at `/admin/rituals`). They are static: an icon tile, the title and description, "Not now" and the call to action. The looping icon bob and the text fade-in they used to have were removed because the motion distracted inside a dialog.
+
 ### Habits
 
 `HabitsSection` (`src/components/dashboard/HabitsSection.tsx`) lists today's habits, each checkable in place with the same XP and coin rewards as `/habits`. Habits still open come first and done ones after (`openHabitsFirst` in `src/lib/dashboard-habits.ts`); within each group the order is the user's own from `/habits`. The order follows the optimistic check-in state, so a habit slides below the open ones on the tap itself (a framer-motion layout animation, skipped when the system asks for reduced motion) and back up when unticked. The five-row preview therefore always starts with what is left to do.
