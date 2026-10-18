@@ -918,11 +918,10 @@ export function TodayPlanner({
                       updateMetadata({ intention: event.target.value })
                     }
                     maxLength={500}
-                    placeholder="Example: Move calmly, finish what matters, and leave energy for training."
+                    placeholder="Example: Focus on the important stuff."
                     className="min-h-32 rounded-2xl bg-background/80 text-base"
                   />
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>This is your decision filter, not another task.</span>
                     <span>{metadata.intention.length}/500</span>
                   </div>
                 </CardContent>
