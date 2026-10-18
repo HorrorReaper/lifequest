@@ -30,6 +30,7 @@ export function ChallengeTodayPanel({ program, view }: { program: ChallengeProgr
   const router = useRouter()
   const addXp = useUserStore((s) => s.addXp)
   const setCoins = useUserStore((s) => s.setCoins)
+  const notifyChallengeDay = useUserStore((s) => s.notifyChallengeDay)
   const [note, setNote] = useState('')
   const [working, setWorking] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -38,6 +39,19 @@ export function ChallengeTodayPanel({ program, view }: { program: ChallengeProgr
   const { template } = program
   const day = view.currentDay
   const busy = working !== null || refreshing
+
+  function celebrate(dayNumber: number, challengeCompleted: boolean) {
+    if (!program.enrollment) return
+    notifyChallengeDay({
+      enrollmentId: program.enrollment.id,
+      challengeTitle: template.title,
+      dayNumber,
+      totalDays: template.duration_days,
+      challengeCompleted,
+      xpReward: template.xp_reward,
+      coinReward: template.coin_reward,
+    })
+  }
 
   async function run(label: string, action: () => Promise<string | null>) {
     setWorking(label)
@@ -71,6 +85,7 @@ export function ChallengeTodayPanel({ program, view }: { program: ChallengeProgr
       if (!program.enrollment) return null
       const result = await completeChallengeProgramDay(createClient(), program.enrollment.id, note)
       setNote('')
+      celebrate(result.completed_day, result.challenge_completed)
       if (result.challenge_completed) {
         addXp(template.xp_reward, result.total_xp - template.xp_reward)
         setCoins(result.coins)
@@ -84,6 +99,7 @@ export function ChallengeTodayPanel({ program, view }: { program: ChallengeProgr
       const rows = await syncChallengeProgress(createClient())
       const row = rows.find((item) => item.enrollment_id === program.enrollment?.id)
       if (row?.completed_now) {
+        celebrate(row.day_number, row.challenge_completed)
         return row.challenge_completed
           ? `Challenge complete! +${template.xp_reward} XP, +${template.coin_reward} coins.`
           : `Day ${row.day_number} detected and completed.`

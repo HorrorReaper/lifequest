@@ -12,6 +12,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh, push }) }))
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ rpc }) }))
 
 const { ChallengeTodayPanel } = await import('@/components/challenges/ChallengeTodayPanel')
+const { useUserStore } = await import('@/lib/stores/user-store')
 
 function challengeDay(dayNumber: number, patch: Partial<ChallengeDayRow> = {}): ChallengeDayRow {
   return {
@@ -85,6 +86,7 @@ function program(completed: number[] = [], enrolled = true): ChallengeProgram {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  useUserStore.setState({ pendingChallengeDay: null })
 })
 
 describe('ChallengeTodayPanel', () => {
@@ -115,6 +117,13 @@ describe('ChallengeTodayPanel', () => {
       expect(rpc).toHaveBeenCalledWith('complete_challenge_program_day', { p_enrollment_id: 'enrollment-1', p_note: 'Felt good' })
     )
     expect(await screen.findByText('Day 1 done.')).toBeTruthy()
+    expect(useUserStore.getState().pendingChallengeDay).toMatchObject({
+      enrollmentId: 'enrollment-1',
+      challengeTitle: 'Unfuck Your Life',
+      dayNumber: 1,
+      totalDays: 3,
+      challengeCompleted: false,
+    })
   })
 
   it('shows detected progress and a deep link on an automatic day, without a manual tick', () => {

@@ -25,7 +25,12 @@ import { fetchAvatarState } from '@/lib/avatar'
 import { QuestDashboardWidget } from '@/components/quests/QuestDashboardWidget'
 import { fetchQuestPageData } from '@/lib/quests'
 import { fetchChallengePrograms, syncChallengeProgress } from '@/lib/challenge-programs'
-import { CHALLENGE_FALLBACK_TIMEZONE, getChallengeView } from '@/lib/challenges'
+import {
+  CHALLENGE_FALLBACK_TIMEZONE,
+  challengeCelebrationsFrom,
+  getChallengeView,
+} from '@/lib/challenges'
+import { ChallengeCompletionNotifier } from '@/components/challenges/ChallengeCompletionNotifier'
 import { ChallengeDashboardCard } from '@/components/challenges/ChallengeDashboardCard'
 import type { DayPlanBlock } from '@/lib/types'
 import { calculateRoutineProgress, fetchRoutines } from '@/lib/routines'
@@ -465,6 +470,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <TrailPageSpine />
+      {/* A day the load's sync just completed, e.g. a reflection day finished
+          by a journal entry, is celebrated here. */}
+      <ChallengeCompletionNotifier
+        celebrations={challengeCelebrationsFrom(
+          activeChallenges.map(({ program }) => program),
+          challengeSync
+        )}
+      />
       <div className="relative max-w-2xl mx-auto space-y-5">
         <DashboardGreeting
           username={profile.username}

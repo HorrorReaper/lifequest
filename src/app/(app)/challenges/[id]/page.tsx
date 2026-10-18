@@ -4,7 +4,8 @@ import { ArrowLeft, CalendarDays, Coins, Lock, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { dateInTimezone } from '@/lib/dates'
 import { loadChallengesForUser } from '@/lib/challenge-programs'
-import { CHALLENGE_FALLBACK_TIMEZONE, getChallengeView } from '@/lib/challenges'
+import { CHALLENGE_FALLBACK_TIMEZONE, challengeCelebrationsFrom, getChallengeView } from '@/lib/challenges'
+import { ChallengeCompletionNotifier } from '@/components/challenges/ChallengeCompletionNotifier'
 import { ChallengeDayList } from '@/components/challenges/ChallengeDayList'
 import { ChallengeProgressBar } from '@/components/challenges/ChallengeProgressBar'
 import { ChallengeTodayPanel } from '@/components/challenges/ChallengeTodayPanel'
@@ -42,6 +43,7 @@ export default async function ChallengeDetailPage({ params }: ChallengeDetailPag
 
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
+      <ChallengeCompletionNotifier celebrations={challengeCelebrationsFrom(programs, sync)} />
       <div className="mx-auto max-w-2xl space-y-6">
         <Link
           href="/challenges"
