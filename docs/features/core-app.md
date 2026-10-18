@@ -39,6 +39,8 @@ Level, XP progress, coins and streak are in the top bar that every page with the
 
 `src/components/layout/app-top-bar.tsx` is one row: `Lv N`, a thin XP progress bar with "XP / next level threshold", coins, and the current streak (best streak stays on `/profile`). It is sticky at the top of `AppShell` and hidden on the same immersive routes as the bottom navigation. A brand-new account's raw progress is below zero (level 1 starts above 0 XP), so the bar clamps it to 0 to 100.
 
+Earning XP or coins anywhere in the app shows in the bar: a small "+N XP" / "+N" rises from the value and fades in about a second, and the number gives a short springy pulse. `useGains` (`src/components/layout/use-gains.ts`) collects only increases after the bar first rendered, so loading a page or the shell's first sync with the server animates nothing, and a decrease (an unticked habit) shows no "-N". Gains that land in the same render are shown as one; under reduced motion nothing animates and the number simply updates.
+
 While an admin previews as a user, the bar sticks directly beneath `PreviewAsUserBanner` instead of behind it: the layout sets `--preview-banner-height` (`src/components/layout/preview-banner-height.ts`) and the banner has a fixed height to match. Keep the two in step.
 
 #### Where the numbers come from

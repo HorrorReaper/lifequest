@@ -10,7 +10,8 @@ describe('AppTopBar', () => {
     render(<AppTopBar stats={{ ...getDefaultShellStats(), totalXp: 640, coins: 120, streak: 5 }} />)
 
     expect(screen.getByText(/^Lv \d+$/)).toBeTruthy()
-    expect(screen.getByText(/^640 \/ \d+ XP$/)).toBeTruthy()
+    // The XP number sits in its own span (for the pulse), so match the line as a whole.
+    expect(screen.getByRole('group', { name: 'Your progress' }).textContent).toMatch(/640 \/ \d+ XP/)
     expect(screen.getByLabelText('120 coins')).toBeTruthy()
     expect(screen.getByLabelText('5 days streak')).toBeTruthy()
   })
@@ -33,5 +34,29 @@ describe('AppTopBar', () => {
     expect(screen.getByRole('group', { name: 'Your progress' }).className).toContain(
       'top-[var(--preview-banner-height,0px)]'
     )
+  })
+
+  it('shows nothing extra on first render, however large the values', () => {
+    render(<AppTopBar stats={{ ...getDefaultShellStats(), totalXp: 5000, coins: 900 }} />)
+    expect(screen.queryAllByTestId('gain-float')).toHaveLength(0)
+  })
+
+  it('floats a "+N" for XP and coins when they go up', () => {
+    const base = { ...getDefaultShellStats(), totalXp: 640, coins: 120 }
+    const { rerender } = render(<AppTopBar stats={base} />)
+
+    rerender(<AppTopBar stats={{ ...base, totalXp: 690, coins: 123 }} />)
+
+    const floats = screen.getAllByTestId('gain-float').map((node) => node.textContent)
+    expect(floats).toEqual(expect.arrayContaining(['+50 XP', '+3']))
+  })
+
+  it('stays quiet when a value goes down, as when a check-in is undone', () => {
+    const base = { ...getDefaultShellStats(), totalXp: 640, coins: 120 }
+    const { rerender } = render(<AppTopBar stats={base} />)
+
+    rerender(<AppTopBar stats={{ ...base, totalXp: 630, coins: 117 }} />)
+
+    expect(screen.queryAllByTestId('gain-float')).toHaveLength(0)
   })
 })
