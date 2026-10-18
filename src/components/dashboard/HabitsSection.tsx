@@ -12,6 +12,7 @@ import { openHabitsFirst, type DashboardHabit } from '@/lib/dashboard-habits'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
+import { SectionAddButton } from '@/components/dashboard/SectionAddButton'
 import {
   HabitEditorDialog,
   type HabitEditorValue,
@@ -148,11 +149,18 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
             <SectionHeadingLink href="/habits">Habits</SectionHeadingLink>
           </h2>
         </div>
-        {habits.length > 0 && (
-          <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
-            {doneCount} of {habits.length} today
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Empty, the section's own "Add habit" button is the way in;
+              a second one up here would only repeat it. */}
+          {habits.length > 0 && (
+            <>
+              <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
+                {doneCount} of {habits.length} today
+              </span>
+              <SectionAddButton label="Add habit" onClick={() => setEditorOpen(true)} />
+            </>
+          )}
+        </div>
       </div>
 
       {habits.length === 0 ? (
@@ -253,13 +261,6 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
               />
             </button>
           )}
-
-          <div className="mt-4 flex items-center border-t pt-3">
-            <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
-              <Plus />
-              Add habit
-            </Button>
-          </div>
         </>
       )}
 

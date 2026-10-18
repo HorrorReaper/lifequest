@@ -55,11 +55,13 @@ The sections with a page of their own have no "Manage …" / "Open …" / "All �
 | --- | --- |
 | Today's Plan | `/plan` (or the Work planner when embedded there) |
 | Habits | `/habits` |
-| Tasks | `/tasks`; the open count sits in the footer as "N open" |
+| Tasks | `/tasks` |
 | Scorecard, metric chart | `/journal/metrics` |
 | Quests | `/quests` |
 
-A click on one of the section's own controls does not navigate: check-offs, "Add habit" / "Add task" / "Add block", "Show more", claim buttons, any link, and anything inside a dialog the section opened (React bubbles portal events through the component tree, so the section checks the click landed in its own DOM). `data-section-ignore` opts any other element out. Ctrl/Cmd-click opens the page in a new tab, and selecting text does not navigate. Goals, Daily Reflection and Routines have no page to open and are unchanged.
+Adding happens from a small round "+" at the right of the section's header (`SectionAddButton` in `src/components/dashboard/SectionAddButton.tsx`), the same in every section: Habits and Tasks open their create dialog, Today's Plan goes straight to the timeline (`/plan?step=timeline`), and Goals opens `GoalEditorDialog` (title, why, category, target date), which replaced the form that used to unfold inside the section. `?goal=new` (`GOAL_FORM_HREF`) opens that dialog directly. While a section is empty the "+" is hidden: its own empty-state button ("Add habit", "Add task", "Plan my day", "Add Goal") is the one way in. The footers that held "Add …" buttons, and the Tasks "N open" count, are gone.
+
+A click on one of the section's own controls does not navigate: check-offs, the "+" buttons, "Show more", claim buttons, any link, and anything inside a dialog the section opened (React bubbles portal events through the component tree, so the section checks the click landed in its own DOM). `data-section-ignore` opts any other element out. Ctrl/Cmd-click opens the page in a new tab, and selecting text does not navigate. Goals, Daily Reflection and Routines have no page to open and are unchanged.
 
 ### Ritual prompts
 

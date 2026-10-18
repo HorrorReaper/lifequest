@@ -7,6 +7,7 @@ import type { DayPlanMissionType } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
+import { SectionAddButton } from '@/components/dashboard/SectionAddButton'
 
 export interface DashboardPlanBlock {
   id: string
@@ -114,11 +115,19 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
             <SectionHeadingLink href={plannerHref}>Today&apos;s Plan</SectionHeadingLink>
           </h2>
         </div>
-        {ordered.length > 0 && (
-          <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
-            {remaining > 0 ? `${remaining} left` : 'all done'}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Without a plan the section's own "Plan my day" is the way in.
+              With one, "+" goes straight to the timeline: re-answering mood
+              and outcomes to add one block is not what it offers. */}
+          {ordered.length > 0 && (
+            <>
+              <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
+                {remaining > 0 ? `${remaining} left` : 'all done'}
+              </span>
+              <SectionAddButton label="Add block" href={`${plannerHref}?step=timeline`} />
+            </>
+          )}
+        </div>
       </div>
 
       {ordered.length === 0 ? (
@@ -229,18 +238,6 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
               />
             </button>
           )}
-
-          <div className="mt-4 flex items-center border-t pt-3">
-            {/* Straight to the timeline: this button only exists once a
-                plan does, and re-answering mood and outcomes to move one
-                block is not what it offers. */}
-            <Button asChild size="sm" variant="outline">
-              <Link href={`${plannerHref}?step=timeline`}>
-                <Plus />
-                Add block
-              </Link>
-            </Button>
-          </div>
         </>
       )}
     </ClickableSection>

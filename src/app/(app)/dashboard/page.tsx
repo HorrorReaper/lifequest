@@ -546,7 +546,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             userId={user.id}
             dueTasks={dueTasks}
             undatedTasks={undatedTasks}
-            openTaskCount={openTasksRes.count ?? 0}
           />
         )}
 
