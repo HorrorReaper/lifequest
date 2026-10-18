@@ -214,14 +214,14 @@
 }
 
 .white-mode [class*="from-primary"] {
-  --tw-gradient-from: hsl(168 18% 72%) var(--tw-gradient-from-position) !important;
+  --tw-gradient-from: hsl(168 18% 72%) !important;
 }
 
 .white-mode [class*="to-purple"],
 .white-mode [class*="to-chart"],
 .white-mode [class*="to-amber"],
 .white-mode [class*="to-yellow"] {
-  --tw-gradient-to: hsl(42 36% 92%) var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: hsl(42 36% 92%) !important;
 }
 
 .trail-mode body {
@@ -244,14 +244,14 @@
 }
 
 .trail-mode [class*="from-primary"] {
-  --tw-gradient-from: hsl(152 30% 68%) var(--tw-gradient-from-position) !important;
+  --tw-gradient-from: hsl(152 30% 68%) !important;
 }
 
 .trail-mode [class*="to-purple"],
 .trail-mode [class*="to-chart"],
 .trail-mode [class*="to-amber"],
 .trail-mode [class*="to-yellow"] {
-  --tw-gradient-to: hsl(40 36% 88%) var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: hsl(40 36% 88%) !important;
 }
 
 /* Custom scrollbar for dark mode */

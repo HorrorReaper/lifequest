@@ -129,7 +129,7 @@ Rules:
 
 The global design system is implemented through:
 
-- `src/app/globals.css` for theme variables, animation, safe areas, and global styles.
+- `src/app/globals.css` for theme variables, animation, safe areas, and global styles. The White and Trail themes soften vivid gradients by overriding `--tw-gradient-from` / `--tw-gradient-to` on `[class*="from-primary"]`, `[class*="to-purple"]` and similar. Those overrides must be a plain colour: Tailwind 4 registers both properties as `<color>` (`@property`), so a v3-style value such as `hsl(…) var(--tw-gradient-from-position)` is invalid, falls back to transparent, and makes every matching gradient disappear (this hid the icon tile in the dashboard's ritual prompts).
 - `src/components/ui/` for reusable controls.
 - `ThemeProvider` for `white`, `system`, and `dark` appearance modes.
 - `AppShell`, `BottomNav`, and `AdminShell` for navigation structure.
