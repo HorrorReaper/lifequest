@@ -54,7 +54,9 @@ export const FIELD_REGISTRY: FieldTypeDefinition[] = [ //welche verschiedenen Ar
     icon: '🔢',
     description: 'Numeric input',
     hasConfig: true,
-    defaultConfig: { min: 1, max: 100, step: 1, track_as_metric: false, metric_unit: '' },
+    // No min, max or step: a number is open-ended and takes decimals unless
+    // the template author sets limits (field-config-editor.tsx).
+    defaultConfig: { track_as_metric: false, metric_unit: '' },
     isDisplayOnly: false,
   },
   {

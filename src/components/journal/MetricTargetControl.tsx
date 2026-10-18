@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { parseDecimal } from '@/lib/decimal'
 
 interface MetricTargetControlProps {
   userId: string
@@ -63,10 +64,13 @@ export function MetricTargetControl({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    const parsed = Number(value)
-    // An empty field parses to 0, which is a legitimate target -- so the
-    // blank has to be rejected before the number is looked at.
-    if (value.trim() === '' || !Number.isFinite(parsed)) return
+    // Accepts "72,5" as well as "72.5"; null for a blank or a non-number, so
+    // a blank is not mistaken for a target of 0.
+    const parsed = parseDecimal(value)
+    if (parsed === null) {
+      setError('Enter a number, e.g. 72.5.')
+      return
+    }
 
     setSaving(true)
     setError(null)

@@ -38,7 +38,7 @@ The field registry supports:
 | `divider` | Visual separation |
 | `text` | Short response |
 | `textarea` | Long response |
-| `number` | Numeric value |
+| `number` | Numeric value, decimals allowed ("72,5" or "72.5"); optional min/max |
 | `slider` | Bounded numeric reflection |
 | `select` | One option from a configured list |
 | `mood` | Mood selection |
@@ -58,6 +58,14 @@ Template fields carry position, labels, descriptions, required state, and type-s
 ### Desktop
 
 At widths of 768px and above, the existing full-form layout remains visible. All fields can be reviewed as one reflection.
+
+### Number fields
+
+A number field takes decimals with a comma or a point, so a weight like 72,5 can be tracked. It is a text field with the decimal keyboard (`DecimalInput` in `src/components/ui/decimal-input.tsx`, parsing in `src/lib/decimal.ts`) rather than `type="number"`: some mobile browsers drop a typed comma, and the browser's own step/min/max check blocked saving silently, since the invalid field was usually on a wizard step that was not shown. Any `step` stored in a template's config is ignored for number fields.
+
+Min and max are optional (empty in the template editor means no limit), and new number fields start without them. When set, they are checked by the journal itself (`numberRangeError` in `src/components/journal/journal-wizard.tsx`): Next stays on the step and Save jumps back to it, with "Enter 100 or less." or "Enter 40 or more." under the field. Templates created before this keep the 1–100 limits they were saved with until they are cleared in the editor. Metric targets (`MetricTargetControl`) accept a comma too.
+
+The values are stored in `journal_responses.value_number`. This repository's migrations do not define that column, so whether the hosted database keeps decimals is not visible here; check with `select data_type from information_schema.columns where table_name = 'journal_responses' and column_name = 'value_number'` (`numeric`, `real` or `double precision` keep them; `integer` would not).
 
 ### Mobile wizard
 

@@ -8,7 +8,9 @@ import {
   buildJournalSteps,
   isJournalFieldComplete,
   journalDraftKey,
+  journalFieldProblem,
   JournalStepPanel,
+  numberRangeError,
   removeStoredJournalDraft,
   restoreJournalDraft,
   serializeJournalDraft,
@@ -281,5 +283,44 @@ describe('JournalStepPanel', () => {
     )
 
     expect(view.container.firstElementChild?.className).not.toMatch(/md:/)
+  })
+})
+
+describe('number limits', () => {
+  const weight = (number: number | null): FieldValue => ({
+    field_id: 'weight',
+    value_text: null,
+    value_number: number,
+    value_boolean: null,
+    value_json: null,
+  })
+
+  it('accepts any decimal when the field sets no limits', () => {
+    expect(numberRangeError(field('weight', 'number'), weight(72.5))).toBeNull()
+    expect(numberRangeError(field('weight', 'number'), weight(140.25))).toBeNull()
+  })
+
+  it('names the limit a value breaks', () => {
+    const limited = field('weight', 'number', { config: { min: 40, max: 200 } })
+    expect(numberRangeError(limited, weight(39.9))).toBe('Enter 40 or more.')
+    expect(numberRangeError(limited, weight(200.5))).toBe('Enter 200 or less.')
+    expect(numberRangeError(limited, weight(72.5))).toBeNull()
+  })
+
+  it('leaves an empty optional number alone', () => {
+    const limited = field('weight', 'number', { config: { min: 40 } })
+    expect(journalFieldProblem(limited, weight(null))).toBeNull()
+  })
+
+  it('keeps the wizard on a step whose number is out of range', () => {
+    const limited = field('weight', 'number', { config: { max: 100 } })
+    const steps = buildJournalSteps([limited, field('notes', 'textarea')])
+
+    expect(
+      advanceJournalStep({ activeStep: 0, steps, values: { weight: weight(120) } })
+    ).toEqual({ nextStep: 0, blockedFieldId: 'weight' })
+    expect(
+      advanceJournalStep({ activeStep: 0, steps, values: { weight: weight(72.5) } })
+    ).toEqual({ nextStep: 1, blockedFieldId: null })
   })
 })
