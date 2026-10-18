@@ -69,6 +69,7 @@ Below 768px, the entry becomes a one-answerable-field-per-screen flow:
 - Required fields block forward navigation and show an inline error.
 - Optional fields may be skipped.
 - The final action is “Save Reflection”.
+- "Next" and "Save Reflection" are two separate buttons (`key`s in `src/components/journal/journal-navigation.tsx`), never one whose `type` flips. When they were one, tapping Next on the second-to-last step re-rendered it as a submit button before the browser ran the tap's default action, so the entry was saved without the last step ever being shown.
 
 All field components remain mounted and inactive steps are hidden with CSS. This preserves random prompt selection and local child state while moving between steps.
 
