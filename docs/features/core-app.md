@@ -67,7 +67,7 @@ A click on one of the section's own controls does not navigate: check-offs, the 
 
 ### Ritual prompts
 
-`DailyPlanPrompt`, `EveningReviewPrompt`, `WeeklyPlanPrompt` and `WeeklyReviewPrompt` (`src/components/dashboard/`) open as dialogs over the dashboard in their windows (configured at `/admin/rituals`). They are static: an icon tile, the title and description, "Not now" and the call to action. The looping icon bob and the text fade-in they used to have were removed because the motion distracted inside a dialog.
+`DailyPlanPrompt`, `EveningReviewPrompt`, `WeeklyPlanPrompt` and `WeeklyReviewPrompt` (`src/components/dashboard/`) open as dialogs over the dashboard in their windows (configured at `/admin/rituals`). The daily plan (morning briefing) has a start time but no end, so it ends where the evening review's window begins (`isDailyPlanWindow` in `src/lib/rituals.ts`): a visit after that start, whether the first of the day or with the plan left open since the morning, gets only the evening review. With the evening review switched off, the briefing stays on offer all day. They are static: an icon tile, the title and description, "Not now" and the call to action. The looping icon bob and the text fade-in they used to have were removed because the motion distracted inside a dialog.
 
 ### Habits
 

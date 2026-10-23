@@ -49,6 +49,7 @@ import { WeeklyPlanPrompt } from '@/components/dashboard/WeeklyPlanPrompt'
 import { weeklyEntryExists } from '@/lib/weekly-rituals'
 import {
   fillName,
+  isDailyPlanWindow,
   isRitualWindow,
   normalizeRitualSettings,
   ritualDismissKey,
@@ -412,7 +413,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }[]
   const weeklyReviewDone = weeklyEntryExists(weeklyEntries, rituals.weekly_review.templateId, today)
   const weeklyPlanDone = weeklyEntryExists(weeklyEntries, rituals.weekly_plan.templateId, today)
-  const dailyPlanWindow = isRitualWindow(rituals.daily_plan, today, nowMinutes)
+  // Ends where the evening review begins, so an evening visit gets only the
+  // evening review; see isDailyPlanWindow.
+  const dailyPlanWindow = isDailyPlanWindow(rituals, today, nowMinutes)
   const eveningReviewWindow = isRitualWindow(rituals.evening_review, today, nowMinutes)
   const weeklyReviewWindow = isRitualWindow(rituals.weekly_review, today, nowMinutes)
   const weeklyPlanWindow = isRitualWindow(rituals.weekly_plan, today, nowMinutes)
