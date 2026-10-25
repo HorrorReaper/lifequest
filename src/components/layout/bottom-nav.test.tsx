@@ -20,7 +20,7 @@ afterEach(() => {
 })
 
 describe('BottomNav', () => {
-  it('has Home, Journal, Library and Avatar, and no separate Settings tab', () => {
+  it('has Home, Journal, Library and Profile, and no separate Settings tab', () => {
     render(<BottomNav equippedItems={bare} />)
     expect(screen.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
       '/dashboard',
@@ -38,19 +38,19 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: 'Home' }).className).not.toContain('text-primary')
   })
 
-  it('keeps the Avatar tab highlighted on settings, which opens from it', () => {
+  it('keeps the Profile tab highlighted on settings, which opens from it', () => {
     pathname.current = '/settings'
     render(<BottomNav equippedItems={bare} />)
-    const avatarTab = screen.getByRole('link', { name: /avatar/i })
+    const avatarTab = screen.getByRole('link', { name: /profile/i })
     expect(avatarTab.className).toContain('text-primary')
     expect(screen.getByRole('link', { name: 'Home' }).className).not.toContain('text-primary')
   })
 
-  it("shows the player's own head, with the equipped hat, as the Avatar icon", () => {
+  it("shows the player's own head, with the equipped hat, as the Profile icon", () => {
     const { container } = render(
       <BottomNav equippedItems={{ ...bare, hat: 'sun-hat', jacket: 'rain-jacket' }} />
     )
-    const avatarTab = screen.getByRole('link', { name: /avatar/i })
+    const avatarTab = screen.getByRole('link', { name: /profile/i })
 
     expect(avatarTab.querySelector('[data-testid="avatar-head"]')).toBeTruthy()
     // Head only: the hat shows, the jacket (a body item) does not.
@@ -61,7 +61,7 @@ describe('BottomNav', () => {
   it('rings the avatar head only while its tab is active', () => {
     const { rerender } = render(<BottomNav equippedItems={bare} />)
     const ring = () =>
-      screen.getByRole('link', { name: /avatar/i }).querySelector('[data-testid="avatar-head"]')
+      screen.getByRole('link', { name: /profile/i }).querySelector('[data-testid="avatar-head"]')
         ?.parentElement
 
     expect(ring()?.className).toContain('ring-transparent')

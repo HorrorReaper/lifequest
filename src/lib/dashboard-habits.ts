@@ -68,7 +68,7 @@ export function buildDashboardHabits(
     return {
       id: habit.id,
       name: habit.name,
-      emoji: habit.emoji ?? '✅',
+      emoji: habit.emoji ?? '🌱',
       completed: dates.has(today),
       streakThroughYesterday: calculateStreakEndingOn(dates, addDays(today, -1)),
       skillCategory: habit.skill_category ?? null,

@@ -79,7 +79,7 @@ export async function TodayPlanScreen({
       .eq("completed", true),
     supabase
       .from("journal_templates")
-      .select("id,name,icon")
+      .select("id,name,icon,is_system")
       .or(`user_id.eq.${user.id},is_system.eq.true`)
       .eq("is_active", true)
       .order("sort_order")
@@ -144,7 +144,7 @@ export async function TodayPlanScreen({
   ).map((habit) => ({
     id: habit.id,
     name: habit.name,
-    emoji: habit.emoji ?? "✅",
+    emoji: habit.emoji ?? "🌱",
     completedToday: completedHabitIds.has(habit.id),
   }));
   const journals = (
@@ -152,12 +152,14 @@ export async function TodayPlanScreen({
       id: string;
       name: string;
       icon: string | null;
+      is_system: boolean | null;
     }>
   ).map((template) => ({
     id: template.id,
     name: template.name,
     icon: template.icon ?? "📓",
     completedToday: completedTemplateIds.has(template.id),
+    isSystem: Boolean(template.is_system),
   }));
   const plan = planResult.data as {
     blocks?: DayPlanBlock[];
@@ -179,12 +181,14 @@ export async function TodayPlanScreen({
       habits={habits}
       journals={journals}
       workoutsEnabled={await showAdminUi(user)}
-      // Only with blocks to manage. Landing on the timeline without a Main
-      // Quest lets someone edit their way to the commit step and be refused
-      // there, for a reason nothing on that screen explains.
+      // A day that already has blocks opens straight in the editor: fixing
+      // one time should not mean answering mood and priorities again. The
+      // full ritual is `?step=ritual`, linked from the editor. Without
+      // blocks there is nothing to edit, so the ritual runs from the start.
       startAt={
-        requestedStep === "timeline" && blocks.length > 0 ? "timeline" : undefined
+        blocks.length > 0 && requestedStep !== "ritual" ? "timeline" : undefined
       }
+
     />
   );
 }

@@ -122,6 +122,11 @@ src/app/
 | New journal field | `lib/field-registry.ts`, field renderer, template builder |
 | Tasks/habits | `components/tasks/`, `components/habits/`, corresponding `lib` modules |
 | Today Plan | `components/planning/TodayPlanner.tsx`, `lib/today-plan.ts` |
+| Dashboard next step and plan status | `components/dashboard/NextUpCard.tsx`, `lib/dashboard-plan.ts` |
+| Onboarding | `components/onboarding/onboarding-flow.tsx`, `lib/onboarding.ts` |
+| Feedback and beta activation | `components/feedback/FeedbackDialog.tsx`, `lib/feedback.ts`, `components/admin/BetaActivation.tsx`, `lib/activation.ts` |
+| Shared page header, completion control | `components/ui/page-header.tsx`, `components/ui/completion-toggle.tsx` |
+
 | Workout | `components/admin/workouts/`, `WorkoutHub.tsx` |
 | Nutrition | `components/admin/nutrition/`, `lib/nutrition/`, food API routes |
 | Knowledge/projects | admin hubs plus `lib/knowledge`/`lib/projects` |

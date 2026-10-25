@@ -100,12 +100,12 @@ describe("HabitManager", () => {
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
     expect(
-      screen.getByRole("button", { name: "Mark Meditation complete for 2026-08-09" })
+      screen.getByRole("checkbox", { name: "Check in Meditation today" })
     ).toBeTruthy();
     // No per-day dots: none of the week's other formatted-date labels should exist.
     expect(
-      screen.queryByRole("button", {
-        name: /Mark Meditation (complete|incomplete) for \w+, Aug/,
+      screen.queryByRole("checkbox", {
+        name: /Meditation on /,
       })
     ).toBeNull();
   });
@@ -128,7 +128,7 @@ describe("HabitManager", () => {
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Mark Meditation complete for 2026-08-09" })
+      screen.getByRole("checkbox", { name: "Check in Meditation today" })
     );
 
     await waitFor(() =>
@@ -140,7 +140,7 @@ describe("HabitManager", () => {
 
     // Journaling's own checkbox is untouched and independently actionable.
     expect(
-      screen.getByRole("button", { name: "Mark Journaling complete for 2026-08-09" })
+      screen.getByRole("checkbox", { name: "Check in Journaling today" })
     ).toBeTruthy();
   });
 
@@ -192,10 +192,10 @@ describe("HabitManager", () => {
     render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
-    const checkbox = screen.getByRole("button", {
-      name: "Mark Meditation incomplete for 2026-08-09",
+    const checkbox = screen.getByRole("checkbox", {
+      name: "Undo check-in for Meditation today",
     });
-    expect(checkbox.getAttribute("aria-pressed")).toBe("true");
+    expect(checkbox.getAttribute("aria-checked")).toBe("true");
 
     fireEvent.click(checkbox);
 
@@ -205,7 +205,7 @@ describe("HabitManager", () => {
         expect.objectContaining({ habitId: "habit-a", date: TODAY, completed: false })
       )
     );
-    await waitFor(() => expect(checkbox.getAttribute("aria-pressed")).toBe("false"));
+    await waitFor(() => expect(checkbox.getAttribute("aria-checked")).toBe("false"));
   });
 
   it("keeps the saved checkbox state and shows no error banner when the reward RPC fails after the log save succeeds", async () => {
@@ -242,10 +242,10 @@ describe("HabitManager", () => {
     render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
-    const checkbox = screen.getByRole("button", {
-      name: "Mark Meditation incomplete for 2026-08-09",
+    const checkbox = screen.getByRole("checkbox", {
+      name: "Undo check-in for Meditation today",
     });
-    expect(checkbox.getAttribute("aria-pressed")).toBe("true");
+    expect(checkbox.getAttribute("aria-checked")).toBe("true");
 
     fireEvent.click(checkbox);
 
@@ -257,9 +257,9 @@ describe("HabitManager", () => {
     );
 
     // The log write succeeded, so the checkbox reflects the saved (unchecked) state...
-    await waitFor(() => expect(checkbox.getAttribute("aria-pressed")).toBe("false"));
+    await waitFor(() => expect(checkbox.getAttribute("aria-checked")).toBe("false"));
     // ...and stays that way rather than being rolled back by the reward failure.
-    expect(checkbox.getAttribute("aria-pressed")).toBe("false");
+    expect(checkbox.getAttribute("aria-checked")).toBe("false");
 
     // No "Could not update" error banner, since the log save itself succeeded.
     expect(screen.queryByRole("alert")).toBeNull();
@@ -279,8 +279,8 @@ describe("HabitManager", () => {
     render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
-    const checkbox = screen.getByRole("button", {
-      name: "Mark Meditation complete for 2026-08-09",
+    const checkbox = screen.getByRole("checkbox", {
+      name: "Check in Meditation today",
     });
     fireEvent.click(checkbox);
 
@@ -349,7 +349,7 @@ describe("HabitManager card actions", () => {
     render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
     await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
 
-    fireEvent.click(screen.getByRole("button", { name: "Mark Meditation complete for 2026-08-09" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Check in Meditation today" }));
 
     expect(screen.queryByRole("heading", { name: "Edit habit" })).toBeNull();
   });

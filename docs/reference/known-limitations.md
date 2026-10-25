@@ -115,7 +115,11 @@ Local foods remain the resilience path.
 These are intentional current boundaries:
 
 - Workouts and nutrition are admin-only.
-- Habits are daily and binary.
+- Habits are daily and binary. Flexible weekdays and weekly targets ("3× a week"), with streaks and stats counting only due days, are the planned extension after the first beta; they are not promised in the app or in acquisition copy.
+- The onboarding focus choice only steers first-task suggestions and is not stored.
+- Onboarding duplicate protection for the first task lives in `sessionStorage`: within one tab it survives back navigation and reloads; starting onboarding again in a second tab or browser before finishing can create a second task.
+- Anchors that ride along reserve no time; there is no per-anchor "reserve time" option yet, so a long habit can make the capacity check look roomier than the day is.
+
 - Journal and Today Plan drafts do not sync between devices.
 - Admin work does not award XP/coins.
 - Workout social features and licensed media are excluded.

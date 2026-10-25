@@ -30,7 +30,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   // replacement rather than a new one. See
   // docs/superpowers/specs/2026-08-30-avatar-nature-redesign-design.md.
   // Settings has no tab of its own: it opens from the button on /profile.
-  { href: '/profile', label: 'Avatar', alsoActiveOn: ['/settings'] },
+  { href: '/profile', label: 'Profile', alsoActiveOn: ['/settings'] },
 ]
 
 const LEFT_NAV_ITEMS = NAV_ITEMS.slice(0, 2)

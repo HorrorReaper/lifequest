@@ -65,6 +65,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   HabitEditorDialog,
   habitTintClass,
@@ -82,6 +83,16 @@ interface HabitManagerProps {
   userId: string;
   timezone: string;
   today: string;
+  /** Opens the create form on mount; set by `/habits?new=1` (the + menu). */
+  initiallyOpen?: boolean;
+}
+
+/** Drops `?new=1` once its form closes, so a reload does not reopen it. */
+function clearNewHabitParam() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("new")) return;
+  url.searchParams.delete("new");
+  window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
 }
 
 function messageFromError(error: unknown, fallback: string) {
@@ -90,7 +101,12 @@ function messageFromError(error: unknown, fallback: string) {
   return fallback;
 }
 
-export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
+export function HabitManager({
+  userId,
+  timezone,
+  today,
+  initiallyOpen = false,
+}: HabitManagerProps) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -101,7 +117,7 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [failure, setFailure] = useState<MutationFailure | null>(null);
   const [busyKeys, setBusyKeys] = useState<Set<string>>(new Set());
-  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(initiallyOpen);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Habit | null>(null);
   const addXp = useUserStore((state) => state.addXp);
@@ -395,12 +411,38 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
     (habit) => logIndex.get(habitLogKey(habit.id, today))?.completed
   ).length;
 
+  // The create button lives in the page header so it is reachable at the
+  // top of the page on every width. It used to float at the bottom of the
+  // list, where on a phone the fixed navigation covered it and took its taps.
+  const header = (
+    <PageHeader
+      eyebrow={formatDateOnly(today, { weekday: "long", month: "long", day: "numeric" })}
+      title="Habits"
+      description={
+        loading || loadError
+          ? "Small daily actions, checked off once a day."
+          : activeHabits.length === 0
+            ? "Small daily actions, checked off once a day. Start with one."
+            : `${doneToday} of ${activeHabits.length} done today`
+      }
+      actions={
+        <Button size="lg" onClick={startCreate} disabled={loading} className="h-12 px-5">
+          <Plus className="size-4" />
+          Add habit
+        </Button>
+      }
+    />
+  );
+
   if (loading) {
     return (
-      <div className="grid min-h-72 place-items-center rounded-3xl border bg-card">
-        <div className="text-center">
-          <Loader2 className="mx-auto size-6 animate-spin text-primary" />
-          <p className="mt-3 text-sm text-muted-foreground">Loading habits…</p>
+      <div className="space-y-4">
+        {header}
+        <div className="grid min-h-72 place-items-center rounded-2xl border bg-card">
+          <div className="text-center" role="status">
+            <Loader2 className="mx-auto size-6 animate-spin text-primary" />
+            <p className="mt-3 text-sm text-muted-foreground">Loading habits…</p>
+          </div>
         </div>
       </div>
     );
@@ -408,45 +450,37 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
 
   if (loadError) {
     return (
-      <div className="rounded-3xl border border-destructive/25 bg-destructive/5 p-6 text-center">
-        <p className="font-medium">Your habits could not be loaded.</p>
-        <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
-        <Button className="mt-4" onClick={() => void load()}>
-          Try again
-        </Button>
+      <div className="space-y-4">
+        {header}
+        <div role="alert" className="rounded-2xl border border-destructive/25 bg-destructive/5 p-6 text-center">
+          <p className="font-medium">Your habits could not be loaded.</p>
+          <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
+          <Button className="mt-4" onClick={() => void load()}>
+            Try again
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-3xl border bg-card">
-        <div className="bg-gradient-to-br from-primary/12 via-background to-orange-500/10 p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                {formatDateOnly(today, { weekday: "long", month: "long", day: "numeric" })}
-              </p>
-              <p className="mt-1 font-heading text-3xl font-semibold tracking-tight">
-                {activeHabits.length === 0
-                  ? "Start small"
-                  : `${doneToday} of ${activeHabits.length} done`}
-              </p>
-            </div>
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-background/80 shadow-sm">
-              <Flame className="size-5 text-orange-500" />
-            </span>
-          </div>
-          {activeHabits.length > 0 && (
-            <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-[width]"
-                style={{ width: `${Math.round((doneToday / activeHabits.length) * 100)}%` }}
-              />
-            </div>
-          )}
+      {header}
+      {activeHabits.length > 0 && (
+        <div
+          role="progressbar"
+          aria-label="Habits done today"
+          aria-valuemin={0}
+          aria-valuemax={activeHabits.length}
+          aria-valuenow={doneToday}
+          className="h-2 overflow-hidden rounded-full bg-muted"
+        >
+          <div
+            className="h-full rounded-full bg-primary transition-[width]"
+            style={{ width: `${Math.round((doneToday / activeHabits.length) * 100)}%` }}
+          />
         </div>
-      </section>
+      )}
 
       <div
         className="grid grid-cols-3 rounded-2xl border bg-muted/35 p-1"
@@ -479,7 +513,7 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         ))}
       </div>
 
-      {failure && (
+      {failure && !editorOpen && (
         <div
           role="alert"
           className="flex flex-col gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -592,18 +626,6 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         </HabitListEmptyState>
       )}
 
-      {view !== "archived" && activeHabits.length > 0 && (
-        <div className="sticky bottom-[calc(0.75rem+var(--safe-area-bottom))] z-10 flex justify-end">
-          <Button
-            size="lg"
-            onClick={startCreate}
-            className="min-h-12 rounded-full px-5 shadow-lg"
-          >
-            <Plus className="size-4" />
-            Add habit
-          </Button>
-        </div>
-      )}
 
       <HabitEditorDialog
         open={editorOpen}
@@ -612,7 +634,10 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         error={failure?.message}
         onOpenChange={(open) => {
           setEditorOpen(open);
-          if (!open) setEditingHabit(null);
+          if (!open) {
+            setEditingHabit(null);
+            clearNewHabitParam();
+          }
         }}
         onSubmit={handleEditorSubmit}
         detailsHref={editingHabit ? `/habits/${editingHabit.id}` : undefined}
@@ -633,8 +658,11 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         }}
       >
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Archive {archiveTarget?.name}?</DialogTitle>
+          <DialogHeader className="pr-8">
+            <DialogTitle className="leading-snug break-words">
+              Archive {archiveTarget?.name}?
+            </DialogTitle>
+
             <DialogDescription>
               Its check-in history stays available, and you can restore it later.
             </DialogDescription>
@@ -807,6 +835,9 @@ function SortableHabitCard({
   } = useSortable({ id: habit.id, disabled: reorderDisabled });
   const summary = buildHabitSummary({ habit, logs, today, timezone });
   const isToday = date === today;
+  // Never checked in: the card asks for the first check-in instead of
+  // showing a "0 day streak", which reads like a habit already missed.
+  const isNew = !logs.some((log) => log.habit_id === habit.id && log.completed);
   // dnd-kit types its listeners as bare Functions; they are the sensors'
   // React event handlers (see the sensors in HabitManager).
   const pointerListeners = reorderDisabled
@@ -846,22 +877,30 @@ function SortableHabitCard({
         </button>
         <button
           type="button"
+          role="checkbox"
           onClick={() => onToggle(!completed)}
           disabled={isDisabled(date)}
-          aria-pressed={completed}
-          aria-label={`Mark ${habit.name} ${completed ? "incomplete" : "complete"} for ${date}`}
-          className={cn(
-            "grid size-8 shrink-0 place-items-center rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45",
-            completed
-              // The tint carries the fill and the hue; border-current picks
-              // that same hue up at full strength, so the circle keeps an
-              // edge without a third class per colour. A white tick would
-              // have been invisible on the lighter ground.
-              ? cn("border-current", habitTintClass(habit.color))
-              : "border-border bg-transparent"
-          )}
+          aria-checked={completed}
+          aria-label={
+            isToday
+              ? `${completed ? "Undo check-in for" : "Check in"} ${habit.name} today`
+              : `${completed ? "Undo check-in for" : "Check in"} ${habit.name} on ${formatDateOnly(date, { month: "long", day: "numeric" })}`
+          }
+          className="group/check -m-1.5 grid size-11 shrink-0 place-items-center rounded-full outline-none disabled:cursor-not-allowed"
         >
-          {completed && <Check className="size-4" />}
+          {/* Done is the filled primary circle with a tick, in every habit
+              colour alike, so the state never depends on reading a hue. */}
+          <span
+            aria-hidden="true"
+            className={cn(
+              "grid size-8 place-items-center rounded-full border-2 transition-colors group-focus-visible/check:ring-3 group-focus-visible/check:ring-ring/50 group-disabled/check:opacity-45",
+              completed
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-muted-foreground/45 bg-transparent group-hover/check:border-primary"
+            )}
+          >
+            {completed && <Check className="size-4" strokeWidth={3} />}
+          </span>
         </button>
         <button
           type="button"
@@ -882,22 +921,39 @@ function SortableHabitCard({
             <span
               title={habit.name}
               className={cn(
-                "block truncate font-medium",
+                "line-clamp-2 text-base leading-snug font-medium break-words",
                 completed && isToday && "text-muted-foreground"
               )}
             >
               {habit.name}
             </span>
-            <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Flame className="size-3 text-orange-500" />
-              {summary.currentStreak} day streak
+            <span className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+              <span>Daily</span>
+              <span aria-hidden>·</span>
+              {isNew ? (
+                <span className="font-medium text-primary">
+                  {isToday ? "Ready for its first check-in" : "No check-ins yet"}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1">
+                  <Flame className="size-3.5 text-orange-500" aria-hidden="true" />
+                  {summary.currentStreak} day streak
+                </span>
+              )}
               {!isToday && (
                 <>
                   <span aria-hidden>·</span>
                   {formatDateOnly(date, { month: "short", day: "numeric" })}
                 </>
               )}
+              {isToday && completed && (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>Done today</span>
+                </>
+              )}
             </span>
+
           </span>
         </button>
       </div>
@@ -925,10 +981,15 @@ function ArchivedHabitCard({
         {habit.emoji}
       </span>
       <div className="min-w-0 flex-1">
-        <Link href={`/habits/${habit.id}`} className="truncate font-medium hover:text-primary">
+        {/* line-clamp (it sets its own display): on the inline link `truncate` did nothing and
+            a long name ran underneath the Restore button. */}
+        <Link
+          href={`/habits/${habit.id}`}
+          className="line-clamp-2 text-base leading-snug font-medium break-words hover:text-primary"
+        >
           {habit.name}
         </Link>
-        <p className="text-xs text-muted-foreground">History preserved</p>
+        <p className="text-sm text-muted-foreground">History preserved</p>
       </div>
       <Button variant="outline" size="sm" disabled={busy} onClick={onRestore}>
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}

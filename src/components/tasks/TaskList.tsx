@@ -18,7 +18,10 @@ export interface TaskListProps {
   projectId?: string
   /** Admin work does not award task XP. Defaults to the public Tasks behavior. */
   awardCompletionXp?: boolean
+  /** Tasks that have a block in today's plan. */
+  plannedTaskIds?: readonly string[]
 }
+
 
 /**
  * Backward-compatible dashboard entry point.

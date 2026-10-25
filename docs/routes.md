@@ -25,17 +25,18 @@
 
 | Route | Purpose |
 | --- | --- |
-| `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
-| `/dashboard` | Main LifeQuest briefing: avatar greeting, the ritual prompts, today's plan, habits, tasks, the daily reflection prompt, goals, quests, and admin-only widgets (XP, coins and streak are in the top bar). `?goal=new#goals` opens the goal form and scrolls to it |
+| `/onboarding` | Three-step activation: focus (name and timezone carried over), a first task, and a time block for it today |
+| `/dashboard` | Main LifeQuest briefing, in this order: greeting and date, Next up, today's plan, habits, tasks, then the journal nudge, challenges, goals, scorecard, the daily reflection prompt, quests, admin-only widgets and a "Send feedback" link (XP, coins and streak are in the top bar). Ritual prompts open as dialogs. `?goal=new#goals` opens the goal form and scrolls to it; `?welcome=1` shows the first-run card |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
-| `/plan` | Five-step Today Plan ritual |
-| `/tasks` | Full task manager |
-| `/habits` | Today/history/archived habit manager |
+| `/plan` | Plan editor (timeline with Save plan) when today has blocks, otherwise the six-step daily ritual. `?step=ritual` forces the ritual; `?step=timeline` opens the editor |
+| `/tasks` | Full task manager. `?new=1` opens the create dialog |
+| `/habits` | Today/history/archived habit manager. `?new=1` opens the create dialog |
 | `/habits/[habitId]` | Habit detail and analytics |
 | `/quests` | Achievements and custom one-time quests; links to `/challenges` |
 | `/challenges` | Every published challenge plus the user's personal ones, running first. The form to create a personal "X days of Y" challenge is currently hidden (commented out in `src/app/(app)/challenges/page.tsx`) |
 | `/challenges/[id]` | One challenge: today's step (manual or auto-detected), deep link, all days |
-| `/learn` | Article library, titled "Lifequest Academy" and shown as the Library tab in the bottom navigation; admins additionally get the interactive Academy courses, titled "Learn by doing". The page header is the title only, with no intro text, and the reading-progress block (articles read, XP earned) is currently hidden (commented out in `src/components/learn/AcademyLibrary.tsx`) |
+| `/learn` | Article library, titled "Library" like its bottom-navigation tab and quick action; admins additionally get the interactive Academy courses, titled "Learn by doing". The header carries a one-line description and the Toolbox and Journal Insights links, and the reading-progress block (articles read, XP earned) is currently hidden (commented out in `src/components/learn/AcademyLibrary.tsx`) |
+
 | `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |

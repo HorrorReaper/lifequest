@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  CalendarCheck,
   CalendarClock,
   CalendarDays,
   CheckCircle2,
@@ -21,11 +22,12 @@ import {
   Search,
   Trash2,
   TriangleAlert,
+  X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
+import { CompletionToggle } from '@/components/ui/completion-toggle'
 import { Input } from '@/components/ui/input'
 import { useUserStore } from '@/lib/stores/user-store'
 import { createClient } from '@/lib/supabase/client'
@@ -72,6 +74,12 @@ interface TaskManagerProps {
   initiallyOpen?: boolean
   projectId?: string
   awardCompletionXp?: boolean
+  /**
+   * Tasks that sit in a block of today's plan. Shown as "In today's plan",
+   * which is a different fact from the due date: a task can be planned for
+   * today and due next week, or due today and not planned at all.
+   */
+  plannedTaskIds?: readonly string[]
 }
 
 type RetryAction =
@@ -101,6 +109,18 @@ const views: Array<{
   { value: 'completed', icon: CheckCircle2 },
 ]
 
+/**
+ * Drops `?new=1` once the form it opened is closed, so a reload does not
+ * open it again. replaceState rather than the router: the list is already
+ * loaded and a navigation would remount it for nothing.
+ */
+function clearNewTaskParam() {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('new')) return
+  url.searchParams.delete('new')
+  window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+}
+
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
@@ -114,6 +134,7 @@ export function TaskManager({
   initiallyOpen = false,
   projectId,
   awardCompletionXp = true,
+  plannedTaskIds = [],
 }: TaskManagerProps) {
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
@@ -393,11 +414,19 @@ export function TaskManager({
     [compact, limit, priority, search, tasks, today, view]
   )
 
+  const filtersActive = Boolean(search.trim()) || priority !== 'all'
+
+  function resetFilters() {
+    setSearch('')
+    setPriority('all')
+  }
+
   const taskRows = (
     <TaskRows
       tasks={displayedTasks}
       compact={compact}
       todayKey={today}
+      plannedTaskIds={plannedTaskIds}
       mutationKeys={mutationKeys}
       onToggle={(task) => void performToggle(task, !task.is_completed)}
       onEdit={openEdit}
@@ -527,6 +556,24 @@ export function TaskManager({
                   </select>
                 </label>
               </div>
+              {filtersActive && (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+                  <span>
+                    Showing {displayedTasks.length} of {counts[view]}{' '}
+                    {counts[view] === 1 ? 'task' : 'tasks'} in{' '}
+                    {TASK_VIEW_LABELS[view]}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={resetFilters}
+                  >
+                    <X className="size-4" />
+                    Clear search and filter
+                  </Button>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4 p-3 sm:p-5">
               <MutationErrorBanner
@@ -538,9 +585,11 @@ export function TaskManager({
                 loading={loading}
                 loadError={loadError}
                 empty={displayedTasks.length === 0}
-                searchActive={Boolean(search.trim()) || priority !== 'all'}
+                searchActive={filtersActive}
                 view={view}
                 onRetry={() => void load()}
+                onResetFilters={resetFilters}
+                onCreate={openCreate}
               >
                 {taskRows}
               </TaskStatus>
@@ -553,6 +602,7 @@ export function TaskManager({
         key={`${editingTask?.id ?? 'new'}:${editorOpen ? 'open' : 'closed'}`}
         open={editorOpen}
         task={editingTask}
+        today={today}
         saving={editorSaving}
         error={editorError}
         onOpenChange={(open) => {
@@ -560,6 +610,7 @@ export function TaskManager({
           if (!open) {
             setEditingTask(null)
             setEditorError(null)
+            clearNewTaskParam()
           }
         }}
         onSubmit={handleEditorSubmit}
@@ -584,6 +635,7 @@ interface TaskRowsProps {
   tasks: ManagedTask[]
   compact: boolean
   todayKey: string
+  plannedTaskIds: readonly string[]
   mutationKeys: Set<string>
   onToggle: (task: ManagedTask) => void
   onEdit: (task: ManagedTask) => void
@@ -595,6 +647,7 @@ function TaskRows({
   tasks,
   compact,
   todayKey,
+  plannedTaskIds,
   mutationKeys,
   onToggle,
   onEdit,
@@ -621,21 +674,16 @@ function TaskRows({
             )}
           >
             <div className="flex items-start gap-3">
-              <Checkbox
+              <CompletionToggle
                 checked={task.is_completed}
                 onCheckedChange={() => onToggle(task)}
-                disabled={mutating}
-                aria-label={
-                  task.is_completed
-                    ? `Reopen ${task.title}`
-                    : `Complete ${task.title}`
-                }
-                className="mt-0.5 size-6 rounded-full"
+                busy={mutating}
+                itemLabel={task.title}
               />
               <div className="min-w-0 flex-1">
                 <p
                   className={cn(
-                    'text-sm font-medium leading-5',
+                    'pt-0.5 text-base font-medium leading-6 break-words',
                     task.is_completed &&
                       'text-muted-foreground line-through'
                   )}
@@ -660,15 +708,21 @@ function TaskRows({
                   {task.due_date && (
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 text-xs text-muted-foreground',
+                        'inline-flex items-center gap-1 text-sm text-muted-foreground',
                         overdue && 'font-medium text-destructive'
                       )}
                     >
-                      <CalendarDays className="size-3.5" />
-                      {overdue && 'Overdue · '}
+                      <CalendarDays className="size-3.5" aria-hidden="true" />
+                      {overdue ? 'Overdue · due ' : 'Due '}
                       {task.due_date === todayKey
-                        ? 'Today'
+                        ? 'today'
                         : formatTaskDate(task.due_date)}
+                    </span>
+                  )}
+                  {!task.is_completed && plannedTaskIds.includes(task.id) && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+                      <CalendarCheck className="size-3.5" aria-hidden="true" />
+                      In today&apos;s plan
                     </span>
                   )}
                 </div>
@@ -739,6 +793,8 @@ interface TaskStatusProps {
   searchActive?: boolean
   view?: TaskView
   onRetry: () => void
+  onResetFilters?: () => void
+  onCreate?: () => void
   children: React.ReactNode
 }
 
@@ -750,6 +806,8 @@ function TaskStatus({
   searchActive = false,
   view = 'today',
   onRetry,
+  onResetFilters,
+  onCreate,
   children,
 }: TaskStatusProps) {
   if (loading) {
@@ -804,12 +862,37 @@ function TaskStatus({
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           {searchActive
-            ? 'Try a different search or priority.'
+            ? 'Nothing here matches your search or priority filter.'
             : view === 'completed'
               ? 'Completed tasks will collect here.'
-              : 'Create a task when something needs your attention.'}
+              : view === 'upcoming'
+                ? 'Tasks due after today show up here.'
+                : view === 'no-date'
+                  ? 'Tasks without a due date wait here until they get one.'
+                  : 'Nothing is due today. Add a task when something needs doing.'}
         </p>
+        {searchActive && onResetFilters ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onResetFilters}
+            className="mt-4"
+          >
+            <X className="size-4" />
+            Clear search and filter
+          </Button>
+        ) : (
+          !compact &&
+          view !== 'completed' &&
+          onCreate && (
+            <Button type="button" onClick={onCreate} className="mt-4">
+              <Plus className="size-4" />
+              Add task
+            </Button>
+          )
+        )}
       </div>
+
     )
   }
 

@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TodayPlanner } from "@/components/planning/TodayPlanner";
+import { journalAnchorTitles, TodayPlanner } from "@/components/planning/TodayPlanner";
 import {
   createDefaultTodayPlanMetadata,
   serializeTodayPlanNotes,
@@ -161,13 +161,13 @@ describe("TodayPlanner", () => {
     next();
 
     next();
-    fireEvent.focus(screen.getByLabelText("Main Quest outcome"));
+    fireEvent.focus(screen.getByLabelText("Main priority outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
     next();
     next();
     next();
     fireEvent.click(
-      screen.getByRole("button", { name: /Commit Today's Plan/i })
+      screen.getByRole("button", { name: /Save today's plan/i })
     );
 
     await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
@@ -188,7 +188,7 @@ describe("TodayPlanner", () => {
 
     next();
     expect(
-      screen.getByRole("heading", { name: "Set up your Top Three for Today" })
+      screen.getByRole("heading", { name: "Choose today's priorities" })
     ).toBeTruthy();
   });
 
@@ -199,7 +199,7 @@ describe("TodayPlanner", () => {
 
     // "Must Win" beside a "Main Quest" badge was two names for one thing.
     expect(screen.queryByText("Must Win")).toBeNull();
-    expect(screen.getByRole("heading", { name: "Main Quest" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Main priority" })).toBeTruthy();
     expect(screen.getByText("Required")).toBeTruthy();
     expect(screen.getAllByText("Optional")).toHaveLength(2);
   });
@@ -212,14 +212,14 @@ describe("TodayPlanner", () => {
     // The old copy read "Standalone outcome" under three blank fields.
     expect(screen.queryByText("Standalone outcome")).toBeNull();
     expect(screen.queryByText("Not saved as a task")).toBeNull();
-    expect(screen.queryByLabelText("Main Quest block length in minutes")).toBeNull();
+    expect(screen.queryByLabelText("Main priority block length in minutes")).toBeNull();
 
-    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
       target: { value: "Ship the fix" },
     });
 
     expect(screen.getByText("Not saved as a task")).toBeTruthy();
-    expect(screen.getByLabelText("Main Quest block length in minutes")).toBeTruthy();
+    expect(screen.getByLabelText("Main priority block length in minutes")).toBeTruthy();
   });
 
   it("takes a block length to the minute, not just the presets", () => {
@@ -227,10 +227,10 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
       target: { value: "Ship the fix" },
     });
-    const field = () => screen.getByLabelText("Main Quest block length in minutes");
+    const field = () => screen.getByLabelText("Main priority block length in minutes");
     expect(field()).toHaveProperty("value", "90");
 
     fireEvent.change(field(), { target: { value: "37" } });
@@ -242,10 +242,10 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
       target: { value: "Ship the fix" },
     });
-    const field = () => screen.getByLabelText("Main Quest block length in minutes");
+    const field = () => screen.getByLabelText("Main priority block length in minutes");
 
     // "9" is below the minimum, but jumping it to 5 here would make "90"
     // impossible to finish typing.
@@ -261,10 +261,10 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
       target: { value: "Ship the fix" },
     });
-    const field = () => screen.getByLabelText("Main Quest block length in minutes");
+    const field = () => screen.getByLabelText("Main priority block length in minutes");
 
     fireEvent.change(field(), { target: { value: "900" } });
     fireEvent.blur(field());
@@ -279,10 +279,10 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.change(screen.getByLabelText("Main Quest outcome"), {
+    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
       target: { value: "Ship the fix" },
     });
-    const field = screen.getByLabelText("Main Quest block length in minutes");
+    const field = screen.getByLabelText("Main priority block length in minutes");
     fireEvent.change(field, { target: { value: "4h5" } });
 
     expect(field).toHaveProperty("value", "45");
@@ -293,10 +293,10 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.focus(screen.getByLabelText("Main Quest outcome"));
+    fireEvent.focus(screen.getByLabelText("Main priority outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
     fireEvent.change(
-      screen.getByLabelText("Main Quest block length in minutes"),
+      screen.getByLabelText("Main priority block length in minutes"),
       { target: { value: "37" } }
     );
 
@@ -314,11 +314,11 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    const field = screen.getByLabelText("Main Quest outcome")
+    const field = screen.getByLabelText("Main priority outcome")
     expect(field.getAttribute("placeholder")).toBe(
       "Search your tasks, or write something new"
     );
-    expect(screen.getByText("The one thing that has to move today.")).toBeTruthy();
+    expect(screen.getByText(/The one thing that has to move today/)).toBeTruthy();
   });
 
   it("blocks progress until a Must Win is selected", () => {
@@ -327,12 +327,12 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
     expect(
-      screen.getByRole("heading", { name: "Set up your Top Three for Today" })
+      screen.getByRole("heading", { name: "Choose today's priorities" })
     ).toBeTruthy();
 
     next();
     expect(screen.getByRole("alert").textContent).toContain(
-      "Choose one Must Win"
+      "Choose a main priority"
     );
   });
 
@@ -341,7 +341,7 @@ describe("TodayPlanner", () => {
 
     pickMood();
     next();
-    fireEvent.focus(screen.getByLabelText("Main Quest outcome"));
+    fireEvent.focus(screen.getByLabelText("Main priority outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
@@ -358,7 +358,7 @@ describe("TodayPlanner", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     fireEvent.click(
-      screen.getByRole("button", { name: /Commit Today's Plan/i })
+      screen.getByRole("button", { name: /Save today's plan/i })
     );
 
     await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
@@ -383,14 +383,14 @@ describe("TodayPlanner", () => {
 
     expect(screen.queryByText("Pull from tasks")).toBeNull();
 
-    fireEvent.focus(screen.getByLabelText("Side Quest outcome"));
+    fireEvent.focus(screen.getByLabelText("Second priority outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
 
-    expect(screen.getByLabelText("Side Quest outcome")).toHaveProperty(
+    expect(screen.getByLabelText("Second priority outcome")).toHaveProperty(
       "value",
       "Write launch brief"
     );
-    expect(screen.getByLabelText("Recovery Quest outcome")).toHaveProperty("value", "");
+    expect(screen.getByLabelText("Recovery outcome")).toHaveProperty("value", "");
   });
 
   it("restores an unfinished tab-local draft", async () => {
@@ -475,7 +475,7 @@ describe("TodayPlanner", () => {
 
     pickMood();
     next();
-    fireEvent.focus(screen.getByLabelText("Main Quest outcome"));
+    fireEvent.focus(screen.getByLabelText("Main priority outcome"));
     fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
     next();
     fireEvent.click(screen.getByRole("button", { name: /Read/ }));
@@ -483,7 +483,7 @@ describe("TodayPlanner", () => {
 
     const rail = screen.getByText("Rides along").parentElement as HTMLElement;
     expect(rail.textContent).toContain("Read");
-    expect(rail.textContent).toContain("No time slot needed");
+    expect(rail.textContent).toContain("Reserves no time");
   });
 
   it("draws a block as tall as it is long, and where it starts", () => {
@@ -779,8 +779,58 @@ describe("TodayPlanner", () => {
     render(<TodayPlanner {...timelineProps} startAt="timeline" />);
 
     // No mood, no intention, no outcome step on the way.
-    expect(screen.getByRole("heading", { name: "Shape the timeline" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Your plan for today" })).toBeTruthy();
     expect(screen.getByLabelText("Write launch brief, 08:00 to 09:00")).toBeTruthy();
+  });
+
+  it("edits an existing plan in place: save state, no steps, ritual one link away", async () => {
+    render(<TodayPlanner {...timelineProps} startAt="timeline" />);
+
+    expect(screen.queryByText(/Step \d of/)).toBeNull();
+    expect(screen.getByText("All changes saved")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /start the full daily ritual/i }).getAttribute("href")
+    ).toBe("?step=ritual");
+    expect(
+      (screen.getByRole("button", { name: "Saved" }) as HTMLButtonElement).disabled
+    ).toBe(true);
+
+    // A keyboard nudge is a real change: the state says so and Save wakes up.
+    fireEvent.keyDown(screen.getByLabelText("Write launch brief, 08:00 to 09:00"), {
+      key: "ArrowDown",
+    });
+    expect(screen.getByText("Unsaved changes")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
+
+    await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
+    expect(upsertDayPlan.mock.calls[0][2].blocks[0]).toMatchObject({
+      start_time: "08:05",
+      end_time: "09:05",
+    });
+    await waitFor(() => expect(screen.getByText(/Saved at/)).toBeTruthy());
+  });
+
+  it("keeps edits on screen and says so when saving fails", async () => {
+    upsertDayPlan.mockRejectedValueOnce(new Error("offline"));
+    render(<TodayPlanner {...timelineProps} startAt="timeline" />);
+
+    fireEvent.keyDown(screen.getByLabelText("Write launch brief, 08:00 to 09:00"), {
+      key: "ArrowDown",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
+
+    await waitFor(() => expect(screen.getByText(/Not saved\./)).toBeTruthy());
+    expect(screen.getByText("Not saved")).toBeTruthy();
+    expect(screen.getByLabelText("Write launch brief, 08:05 to 09:05")).toBeTruthy();
+  });
+
+  it("explains an invalid block time in words inside the block editor", () => {
+    render(<TodayPlanner {...timelineProps} startAt="timeline" />);
+
+    fireEvent.click(screen.getByLabelText("Write launch brief, 08:00 to 09:00"));
+    fireEvent.change(screen.getByLabelText("Block title"), { target: { value: "" } });
+
+    expect(screen.getByText("Give this block a title.")).toBeTruthy();
   });
 
   it("still starts at the beginning without that request", () => {
@@ -853,5 +903,18 @@ describe("TodayPlanner", () => {
     expect(screen.queryByText("Two blocks want the same minutes.")).toBeNull();
     // The pushed block keeps its 45 minutes, it just starts after the first.
     expect(screen.getByLabelText("Side quest, 09:15 to 10:00")).toBeTruthy();
+  });
+});
+
+describe("journalAnchorTitles", () => {
+  it("tells copies with the same name apart and leaves unique names alone", () => {
+    const titles = journalAnchorTitles([
+      { id: "sys", name: "Weekly Review", isSystem: true },
+      { id: "own", name: "Weekly Review", isSystem: false },
+      { id: "solo", name: "Morning pages", isSystem: false },
+    ]);
+    expect(titles.get("sys")).toBe("Weekly Review (standard)");
+    expect(titles.get("own")).toBe("Weekly Review (your copy)");
+    expect(titles.get("solo")).toBe("Morning pages");
   });
 });

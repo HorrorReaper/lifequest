@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Archive, BarChart3, CalendarDays, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Archive, BarChart3, CalendarDays, ChevronDown, Loader2 } from "lucide-react";
 import type { Habit } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,6 +86,14 @@ export function habitTintClass(color: string) {
   );
 }
 
+/**
+ * The icon a new habit starts with.
+ *
+ * A seedling rather than the green tick this used to be: next to a still
+ * empty check-in circle, a tick read as "already done".
+ */
+export const DEFAULT_HABIT_EMOJI = "🌱";
+
 export interface HabitEditorValue {
   name: string;
   emoji: string;
@@ -129,7 +137,7 @@ export function HabitEditorDialog({
             {habit ? "Edit habit" : "Create a daily habit"}
           </DialogTitle>
           <DialogDescription>
-            Make the behavior easy to recognize when you check in.
+            A name is enough. Habits repeat every day.
           </DialogDescription>
         </DialogHeader>
 
@@ -168,40 +176,92 @@ function HabitEditorForm({
   detailsHref?: string;
 }) {
   const [name, setName] = useState(habit?.name ?? "");
-  const [emoji, setEmoji] = useState(habit?.emoji ?? "✅");
+  const [emoji, setEmoji] = useState(habit?.emoji ?? DEFAULT_HABIT_EMOJI);
   const [color, setColor] = useState(habit?.color ?? "blue");
   const [skillCategory, setSkillCategory] = useState<SkillCategory | null>(
     habit?.skill_category ?? null
   );
+  // Icon, colour and skill are details; a new habit needs only its name.
+  // Editing opens them, since changing them is often why the editor is open.
+  const [detailsOpen, setDetailsOpen] = useState(Boolean(habit));
+  // Blocks a second submit in the same frame, before `busy` re-renders.
+  const submittingRef = useRef(false);
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!name.trim() || busy) return;
-    void onSubmit({ name, emoji, color, skillCategory });
+    if (!name.trim() || busy || submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      await onSubmit({ name, emoji, color, skillCategory });
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col gap-5">
           <div className="space-y-2">
             <Label htmlFor="habit-name">Name</Label>
-            <div className="flex gap-2">
-              <EmojiPicker
-                value={emoji}
-                onChange={setEmoji}
-                label="Choose habit icon"
-                disabled={busy}
-              />
-              <Input
-                id="habit-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="e.g. Read for 20 minutes"
-                maxLength={100}
-                autoFocus
-                disabled={busy}
-                className="h-11"
-              />
+            <Input
+              id="habit-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="e.g. Read for 20 minutes"
+              maxLength={100}
+              autoFocus
+              disabled={busy}
+              aria-invalid={Boolean(error) || undefined}
+              aria-describedby={error ? "habit-editor-error" : undefined}
+              className="h-12 text-base"
+            />
+            {error && (
+              <p id="habit-editor-error" role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl border bg-muted/35 p-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background">
+              <CalendarDays className="size-4 text-muted-foreground" />
+            </span>
+            <div>
+              <p className="text-sm font-medium">Daily habit</p>
+              <p className="text-sm text-muted-foreground">
+                Check it off once a day. Days before you create it never count as missed.
+              </p>
             </div>
+          </div>
+
+          <div className="rounded-2xl border">
+            <button
+              type="button"
+              aria-expanded={detailsOpen}
+              aria-controls="habit-details"
+              onClick={() => setDetailsOpen((open) => !open)}
+              className="flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-4 text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <span>
+                Icon, color and skill{" "}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </span>
+              <ChevronDown
+                className={cn(
+                  "size-4 text-muted-foreground transition-transform",
+                  detailsOpen && "rotate-180"
+                )}
+              />
+            </button>
+            {detailsOpen && (
+          <div id="habit-details" className="space-y-5 border-t p-4">
+          <div className="flex items-center gap-3">
+            <EmojiPicker
+              value={emoji}
+              onChange={setEmoji}
+              label="Choose habit icon"
+              disabled={busy}
+            />
+            <span className="text-sm text-muted-foreground">Icon</span>
           </div>
 
           <fieldset className="space-y-2" disabled={busy}>
@@ -253,26 +313,10 @@ function HabitEditorForm({
               ))}
             </div>
           </fieldset>
-
-          <div className="rounded-2xl border bg-muted/35 p-4">
-            <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-background">
-                <CalendarDays className="size-4 text-muted-foreground" />
-              </span>
-              <div>
-                <p className="text-sm font-medium">Daily</p>
-                <p className="text-xs text-muted-foreground">
-                  Habits currently repeat every day.
-                </p>
-              </div>
-            </div>
+          </div>
+            )}
           </div>
 
-          {error && (
-            <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
-          )}
 
           {(detailsHref || onArchive) && (
             <div className="flex items-center justify-between gap-2 border-t pt-4">
@@ -303,7 +347,10 @@ function HabitEditorForm({
             </div>
           )}
 
-          <DialogFooter className="sticky bottom-0 mt-auto bg-popover">
+          {/* Sticks to the sheet's real bottom edge and covers its padding. At
+              bottom-0 it stopped at the padding, and on a phone the form
+              scrolled into view underneath the Save and Cancel buttons. */}
+          <DialogFooter className="sticky -bottom-[calc(1.25rem+var(--safe-area-bottom))] -mx-5 mt-auto -mb-[calc(1.25rem+var(--safe-area-bottom))] bg-popover px-5 pb-[calc(1rem+var(--safe-area-bottom))] sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-4">
             <Button
               type="button"
               variant="outline"

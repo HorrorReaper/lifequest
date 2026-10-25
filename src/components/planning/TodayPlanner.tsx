@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -99,6 +100,8 @@ export interface TodayPlannerJournal {
   name: string;
   icon: string;
   completedToday: boolean;
+  /** A built-in template rather than one the user made or copied. */
+  isSystem?: boolean;
 }
 
 interface TodayPlannerProps {
@@ -112,11 +115,12 @@ interface TodayPlannerProps {
   journals: TodayPlannerJournal[];
   workoutsEnabled: boolean;
   /**
-   * Skips straight to a later step.
+   * Opens the plan editor on the timeline instead of the six-step ritual.
    *
-   * Set by the route only when there is already a plan to edit; walking
-   * someone through mood and outcomes again to move one block is the reason
-   * this exists.
+   * Set by the route when there is already a plan to edit; walking someone
+   * through mood and priorities again to move one block is the reason this
+   * exists. In this mode the footer saves the plan directly, and the full
+   * ritual stays one link away.
    */
   startAt?: PlannerEntryPoint;
   /** Embed the same planner inside Work without a second main landmark. */
@@ -141,9 +145,9 @@ const STEPS = [
     description: "A short line you can hold every later tradeoff against.",
   },
   {
-    label: "Top Three",
-    title: "Set up your Top Three for Today",
-    description: "A Main Quest is required. The other two are yours to skip.",
+    label: "Priorities",
+    title: "Choose today's priorities",
+    description: "A main priority is required. The other two are optional.",
   },
   {
     label: "Anchors",
@@ -156,9 +160,9 @@ const STEPS = [
     description: "Give each commitment a place, not just a priority.",
   },
   {
-    label: "Commit",
-    title: "Commit to the day",
-    description: "Check capacity, resolve conflicts, and start with clarity.",
+    label: "Review",
+    title: "Review and save your plan",
+    description: "Check the time you scheduled, fix any conflicts, then save.",
   },
 ] as const;
 
@@ -180,14 +184,12 @@ const COMMIT_STEP = 5;
 export type PlannerEntryPoint = "timeline";
 
 /**
- * One name per role, not two.
+ * One plain name per role.
  *
- * The card used to show "Must Win" beside a "Main Quest" badge, and the same
- * doubling for the other two -- two names for one thing, on the step where
- * the user has learned neither. The quest name is the one that survives: it
- * is what the timeline and the dashboard call the block afterwards, while
- * "Must Win" appeared here and nowhere else. The helper line now carries the
- * meaning that label used to.
+ * The roles used to be "Must Win", then "Main Quest / Side Quest / Recovery
+ * Quest". Both asked a new user to learn a vocabulary before planning a day.
+ * The labels now say what the role is; the quest flavour lives on only in
+ * the helper line, where it adds colour without being required reading.
  */
 const OUTCOME_META: Record<
   DayPlanOutcomeRole,
@@ -200,24 +202,24 @@ const OUTCOME_META: Record<
   }
 > = {
   must_win: {
-    label: "Main Quest",
-    helper: "The one thing that has to move today.",
+    label: "Main priority",
+    helper: "The one thing that has to move today -- your main quest.",
     icon: Target,
     style:
       "border-violet-500/35 bg-violet-500/8 text-violet-700 dark:text-violet-300",
     defaultDuration: 90,
   },
   progress: {
-    label: "Side Quest",
-    helper: "A concrete move toward something bigger.",
+    label: "Second priority",
+    helper: "A concrete step toward something bigger.",
     icon: Sparkles,
     style:
       "border-blue-500/35 bg-blue-500/8 text-blue-700 dark:text-blue-300",
     defaultDuration: 60,
   },
   health: {
-    label: "Recovery Quest",
-    helper: "What protects your body, energy, or recovery.",
+    label: "Recovery",
+    helper: "What protects your energy: a walk, training, real rest.",
     icon: HeartPulse,
     style:
       "border-emerald-500/35 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300",
@@ -238,11 +240,67 @@ const MISSION_LABELS: Record<
   NonNullable<DayPlanBlock["mission_type"]>,
   string
 > = {
-  main_quest: "Main Quest",
-  side_quest: "Side Quest",
+  main_quest: "Main priority",
+  side_quest: "Priority",
   anchor: "Anchor",
   recovery: "Recovery",
 };
+
+/**
+ * Why a block is marked invalid, in words, for the block editor.
+ *
+ * "Check title and time" named two suspects and left the user to guess.
+ */
+function blockProblem(block: DayPlanBlock): string | null {
+  if (!block.title.trim()) return "Give this block a title.";
+  const start = timeToMinutes(block.start_time);
+  const end = timeToMinutes(block.end_time);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    return "Enter a start and an end time.";
+  }
+  if (end <= start) return "The end time has to be after the start time.";
+  return null;
+}
+
+/**
+ * Journal names as the anchor list shows them.
+ *
+ * A copied template keeps its original's name, so two "Weekly Review" rows
+ * could not be told apart. Only names that occur more than once get a note,
+ * saying which one is the built-in template and which is the user's own.
+ */
+export function journalAnchorTitles(
+  journals: readonly Pick<TodayPlannerJournal, "id" | "name" | "isSystem">[]
+): Map<string, string> {
+  const counts = new Map<string, number>();
+  for (const journal of journals) {
+    const key = journal.name.trim().toLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const titles = new Map<string, string>();
+  const seen = new Map<string, number>();
+  for (const journal of journals) {
+    const key = journal.name.trim().toLowerCase();
+    if ((counts.get(key) ?? 0) < 2) {
+      titles.set(journal.id, journal.name);
+      continue;
+    }
+    if (journal.isSystem) {
+      titles.set(journal.id, `${journal.name} (standard)`);
+      continue;
+    }
+    const index = (seen.get(key) ?? 0) + 1;
+    seen.set(key, index);
+    const ownCount = journals.filter(
+      (item) => !item.isSystem && item.name.trim().toLowerCase() === key
+    ).length;
+    titles.set(
+      journal.id,
+      ownCount > 1 ? `${journal.name} (your copy ${index})` : `${journal.name} (your copy)`
+    );
+  }
+  return titles;
+}
 
 function fingerprint(value: PlannerDraft) {
   return JSON.stringify(value);
@@ -323,6 +381,9 @@ export function TodayPlanner({
   const [step, setStep] = useState(
     startAt === "timeline" ? TIMELINE_STEP : MOOD_STEP
   );
+  // Editing an existing plan: the timeline with a Save button, no steps.
+  const editMode = startAt === "timeline";
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   // Seeded from the server-loaded prop, then grown locally so a task created
   // inline from any outcome's combobox shows up immediately in the other
   // two comboboxes without a round trip back to the server.
@@ -591,7 +652,7 @@ export function TodayPlanner({
       return "Pick how you are feeling before moving on.";
     }
     if (step === OUTCOMES_STEP && !mainOutcome?.title.trim()) {
-      return "Choose one Must Win before moving on.";
+      return "Choose a main priority before moving on.";
     }
     if (
       step === ANCHORS_STEP &&
@@ -600,10 +661,10 @@ export function TodayPlanner({
       return "Your day must end after it starts.";
     }
     if (step === TIMELINE_STEP && problems.invalidBlockIds.length > 0) {
-      return "Every block needs a title and an end time after its start.";
+      return "A block needs attention: every block needs a title and an end time after its start. Tap the red block to fix it.";
     }
     if (step === TIMELINE_STEP && problems.overlappingBlockIds.length > 0) {
-      return "Resolve overlapping blocks before the final check.";
+      return "Two blocks overlap. Choose “Space them out”, or change a start or end time.";
     }
     return null;
   }
@@ -639,6 +700,69 @@ export function TodayPlanner({
     sessionStorage.removeItem(draftKey(userId, date));
     setCloseOpen(false);
     router.push(returnHref);
+  }
+
+  /**
+   * Saves an edited plan in place and stays on the timeline.
+   *
+   * Unlike the ritual's last step this does not ask for a main priority:
+   * moving a block in a plan that predates the priorities step must not be
+   * refused for a reason the editor never shows. The ritual timestamp is
+   * kept, or set now if the plan never had one, since a saved plan is a
+   * planned day either way.
+   */
+  async function savePlanEdits() {
+    if (saving) return;
+    const error = validateCurrentStep();
+    if (error) {
+      setStepError(error);
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    setStepError(null);
+    const savedMetadata: TodayPlanMetadata = {
+      ...metadata,
+      outcomes: metadata.outcomes.filter((outcome) => outcome.title.trim()),
+      ritual_completed_at:
+        metadata.ritual_completed_at ?? new Date().toISOString(),
+    };
+    try {
+      await upsertDayPlan(supabase, userId, {
+        plan_date: date,
+        blocks,
+        notes: serializeTodayPlanNotes(savedMetadata, parsedNotes.legacyNotes),
+      });
+      setMetadata(savedMetadata);
+      initialFingerprint.current = fingerprint({
+        metadata: savedMetadata,
+        blocks,
+      });
+      sessionStorage.removeItem(draftKey(userId, date));
+      setSavedAt(
+        new Intl.DateTimeFormat("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).format(new Date())
+      );
+      window.dispatchEvent(new CustomEvent("lifequest-data-updated"));
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to save today plan", error);
+      setSaveError(
+        "Not saved. Your changes are still here in this tab. Check your connection and save again."
+      );
+      // Save sits in the footer and the message at the end of the page; on
+      // a phone it would land out of sight, as if nothing had happened.
+      requestAnimationFrame(() =>
+        document
+          .getElementById("plan-save-error")
+          ?.scrollIntoView?.({ block: "center", behavior: "smooth" })
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function commitPlan() {
@@ -679,6 +803,7 @@ export function TodayPlanner({
     }
   }
 
+  const journalTitles = journalAnchorTitles(journals);
   const anchorOptions: TodayPlanAnchor[] = [
     ...habits.map((habit) => ({
       id: `habit-${habit.id}`,
@@ -692,7 +817,7 @@ export function TodayPlanner({
       id: `journal-${journal.id}`,
       source_type: "journal" as const,
       source_id: journal.id,
-      title: journal.name,
+      title: journalTitles.get(journal.id) ?? journal.name,
       emoji: journal.icon,
       duration_minutes: 10,
     })),
@@ -763,15 +888,53 @@ export function TodayPlanner({
             <X className="size-5" />
           </Button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">Today&apos;s Plan</p>
-            <p className="truncate text-xs text-muted-foreground">{dateLabel}</p>
+            <p className="truncate text-sm font-semibold">
+              {editMode ? "Edit today's plan" : "Today's Plan"}
+            </p>
+            <p className="truncate text-sm text-muted-foreground">{dateLabel}</p>
           </div>
-          <span className="text-xs font-medium text-muted-foreground">
-            Step {step + 1} of {STEPS.length}
-          </span>
+          {editMode ? (
+            <span
+              role="status"
+              className={cn(
+                "flex items-center gap-1.5 text-sm font-medium",
+                saveError && isDirty
+                  ? "text-destructive"
+                  : isDirty
+                    ? "text-amber-800 dark:text-amber-200"
+                    : "text-muted-foreground"
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "size-2 rounded-full",
+                  saveError && isDirty
+                    ? "bg-destructive"
+                    : isDirty
+                      ? "bg-amber-500"
+                      : "bg-primary"
+                )}
+              />
+              {saving
+                ? "Saving…"
+                : saveError && isDirty
+                  ? "Not saved"
+                  : isDirty
+                  ? "Unsaved changes"
+
+                  : savedAt
+                    ? `Saved at ${savedAt}`
+                    : "All changes saved"}
+            </span>
+          ) : (
+            <span className="text-sm font-medium text-muted-foreground">
+              Step {step + 1} of {STEPS.length}
+            </span>
+          )}
         </div>
         <div
-          className="grid h-1 gap-1 px-4 sm:px-8"
+          className={cn("grid h-1 gap-1 px-4 sm:px-8", editMode && "hidden")}
           style={{ gridTemplateColumns: `repeat(${STEPS.length}, 1fr)` }}
           aria-hidden
         >
@@ -811,13 +974,29 @@ export function TodayPlanner({
           <div className="mb-7 max-w-2xl">
             <h1
               id={`planner-step-${step}`}
-              className="text-3xl font-semibold tracking-tight sm:text-4xl"
+              className="text-[1.75rem] leading-tight font-semibold tracking-tight sm:text-[2rem]"
             >
-              {STEPS[step].title}
+              {editMode ? "Your plan for today" : STEPS[step].title}
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
-              {STEPS[step].description}
+            <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+              {editMode
+                ? "Move, lengthen or add blocks, then save. Tap a block for exact times."
+                : STEPS[step].description}
             </p>
+            {editMode && (
+              <p className="mt-2 text-sm">
+                <Link
+                  href="?step=ritual"
+                  className="font-medium text-primary underline underline-offset-4"
+                >
+                  Start the full daily ritual instead
+                </Link>
+                <span className="text-muted-foreground">
+                  {" "}
+                  (mood, priorities, anchors)
+                </span>
+              </p>
+            )}
           </div>
 
           {step === MOOD_STEP && (
@@ -1052,14 +1231,31 @@ export function TodayPlanner({
                       <Flame className="size-4 text-orange-500" />
                       <h2 className="font-semibold">Daily anchors</h2>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Select only the rituals worth protecting today. Habits and
-                      reflections ride along with the day; only training takes a
-                      slot on the timeline.
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Pick only what is worth protecting today. Habits and
+                      reflections ride along with the day and reserve no time
+                      on the timeline; only training gets a time block.
                     </p>
                     {anchorOptions.length > 0 ? (
-                      <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                        {anchorOptions.map((anchor) => {
+                      <div className="mt-5 space-y-5">
+                        {(
+                          [
+                            ["Habits", anchorOptions.filter((a) => a.source_type === "habit")],
+                            ["Reflections", anchorOptions.filter((a) => a.source_type === "journal")],
+                            ["Training", anchorOptions.filter((a) => a.source_type === "workout")],
+                          ] as const
+                        )
+                          .filter(([, group]) => group.length > 0)
+                          .map(([groupLabel, group]) => (
+                      <div key={groupLabel} role="group" aria-labelledby={`anchor-group-${groupLabel}`}>
+                        <h3
+                          id={`anchor-group-${groupLabel}`}
+                          className="mb-2 text-sm font-semibold text-muted-foreground"
+                        >
+                          {groupLabel}
+                        </h3>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {group.map((anchor) => {
                           const selected = metadata.anchors.some(
                             (item) => item.id === anchor.id
                           );
@@ -1099,12 +1295,12 @@ export function TodayPlanner({
                                 <span className="block truncate text-sm font-medium">
                                   {anchor.title}
                                 </span>
-                                <span className="mt-0.5 block text-xs text-muted-foreground">
+                                <span className="mt-0.5 block text-sm text-muted-foreground">
                                   {completed
-                                    ? "Already completed"
+                                    ? "Already done today"
                                     : anchorTakesTime(anchor)
-                                      ? `${formatPlanMinutes(anchor.duration_minutes)} on the timeline`
-                                      : "Rides along, no time slot"}
+                                      ? `Reserves ${formatPlanMinutes(anchor.duration_minutes)} on the timeline`
+                                      : "Rides along, reserves no time"}
                                 </span>
                               </span>
                               <span
@@ -1119,6 +1315,9 @@ export function TodayPlanner({
                             </button>
                           );
                         })}
+                      </div>
+                      </div>
+                          ))}
                       </div>
                     ) : (
                       <p className="mt-5 rounded-2xl border border-dashed p-5 text-center text-sm text-muted-foreground">
@@ -1198,8 +1397,9 @@ export function TodayPlanner({
               <div className="space-y-3">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm text-muted-foreground">
-                    Moving a block moves everything after it. Changes remain
-                    local until you commit on the next step.
+                    {editMode
+                      ? "Moving a block moves everything after it. Nothing is saved until you press Save plan."
+                      : "Moving a block moves everything after it. Nothing is saved until the last step."}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -1253,8 +1453,8 @@ export function TodayPlanner({
                         </span>
                       );
                     })}
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      No time slot needed
+                    <span className="ml-auto text-sm text-muted-foreground">
+                      Reserves no time
                     </span>
                   </div>
                 )}
@@ -1304,9 +1504,10 @@ export function TodayPlanner({
                       onCreateBlock={createBlockAt}
                     />
 
-                    <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
-                      Drag a block to move it, pull its bottom edge to make it
-                      longer. Tap one to rename it or change its type.
+                    <p className="mt-3 text-center text-sm leading-relaxed text-muted-foreground">
+                      Drag a block to move it, pull the handle on its bottom
+                      edge to make it longer. Tap a block for exact start and
+                      end times, its name and its type.
                     </p>
 
                     {/* A block with an unreadable time cannot be drawn on a
@@ -1337,13 +1538,20 @@ export function TodayPlanner({
                 )}
               </div>
 
-              <aside className="h-fit rounded-3xl border bg-background/75 p-5 lg:sticky lg:top-24">
-                <CircleGauge className="size-5 text-primary" />
+              <aside className="h-fit rounded-2xl border bg-background/75 p-5 lg:sticky lg:top-24">
+                <div className="flex items-center gap-2">
+                  <CircleGauge className="size-5 text-primary" />
+                  <h2 className="text-sm font-semibold">
+                    Capacity of scheduled blocks
+                  </h2>
+                </div>
                 <p className="mt-3 text-2xl font-semibold">
                   {formatPlanMinutes(capacity.plannedMinutes)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  planned inside {formatPlanMinutes(capacity.availableMinutes)}
+                <p className="text-sm text-muted-foreground">
+                  in time blocks, of{" "}
+                  {formatPlanMinutes(capacity.availableMinutes)} between{" "}
+                  {metadata.day_start} and {metadata.day_end}
                 </p>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
                   <div
@@ -1362,11 +1570,20 @@ export function TodayPlanner({
                     }
                   />
                 </div>
-                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                   {capacity.remainingMinutes >= 0
                     ? `${formatPlanMinutes(capacity.remainingMinutes)} remains for transitions, interruptions, and recovery.`
                     : `${formatPlanMinutes(capacity.remainingMinutes)} over capacity. Remove or shorten a block.`}
                 </p>
+                {ridingAlong.length > 0 && (
+                  <p className="mt-3 border-t pt-3 text-sm leading-relaxed text-muted-foreground">
+                    {ridingAlong.length}{" "}
+                    {ridingAlong.length === 1 ? "anchor rides" : "anchors ride"}{" "}
+                    along without a time block, so{" "}
+                    {ridingAlong.length === 1 ? "it is" : "they are"} not counted
+                    here.
+                  </p>
+                )}
               </aside>
             </div>
           )}
@@ -1377,11 +1594,11 @@ export function TodayPlanner({
                 <Card className="overflow-hidden rounded-3xl border-primary/25">
                   <CardContent className="p-0">
                     <div className="bg-primary/8 p-5 sm:p-6">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-                        Main Quest
+                      <p className="text-sm font-semibold text-primary">
+                        Main priority
                       </p>
                       <h2 className="mt-2 text-xl font-semibold">
-                        {mainOutcome?.title || "Choose your Must Win"}
+                        {mainOutcome?.title || "Choose your main priority"}
                       </h2>
                       {metadata.intention && (
                         <p className="mt-2 text-sm italic text-muted-foreground">
@@ -1416,9 +1633,10 @@ export function TodayPlanner({
                   <CardContent className="space-y-4 p-5 sm:p-6">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <h2 className="font-semibold">Capacity check</h2>
-                        <p className="text-xs text-muted-foreground">
-                          Ambition is useful only when the day can hold it.
+                        <h2 className="font-semibold">Capacity of scheduled blocks</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Counts time blocks only. Anchors without a block
+                          reserve no time.
                         </p>
                       </div>
                       <Badge
@@ -1506,7 +1724,7 @@ export function TodayPlanner({
                   <CardContent className="space-y-4 p-5 sm:p-6">
                     <div className="flex items-center gap-2">
                       <CalendarClock className="size-4 text-violet-500" />
-                      <h2 className="font-semibold">Day contract</h2>
+                      <h2 className="font-semibold">Today at a glance</h2>
                     </div>
                     <dl className="space-y-3 text-sm">
                       <div className="flex justify-between gap-4">
@@ -1523,6 +1741,12 @@ export function TodayPlanner({
                         <dt className="text-muted-foreground">Anchors</dt>
                         <dd className="font-medium">
                           {metadata.anchors.length}
+                          {ridingAlong.length > 0 && (
+                            <span className="font-normal text-muted-foreground">
+                              {" "}
+                              ({ridingAlong.length} without time)
+                            </span>
+                          )}
                         </dd>
                       </div>
                       <div className="flex justify-between gap-4">
@@ -1544,11 +1768,11 @@ export function TodayPlanner({
                       onClick={() => void commitPlan()}
                     >
                       {saving ? (
-                        "Committing..."
+                        "Saving…"
                       ) : (
                         <>
                           <Check className="mr-1.5 size-5" />
-                          Commit Today&apos;s Plan
+                          Save today&apos;s plan
                         </>
                       )}
                     </Button>
@@ -1583,6 +1807,16 @@ export function TodayPlanner({
             {stepError}
           </div>
         )}
+        {editMode && saveError && (
+          <div
+            id="plan-save-error"
+            role="alert"
+            className="mt-6 flex items-start gap-2 rounded-2xl border border-destructive/35 bg-destructive/8 p-4 text-sm text-destructive"
+          >
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+            {saveError}
+          </div>
+        )}
       </div>
 
       <footer className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/94 px-4 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 backdrop-blur-xl sm:static sm:border-0 sm:bg-transparent sm:px-8 sm:pb-8 sm:backdrop-blur-none">
@@ -1591,10 +1825,10 @@ export function TodayPlanner({
             type="button"
             variant="ghost"
             size="lg"
-            onClick={step === MOOD_STEP ? requestClose : goBack}
+            onClick={step === MOOD_STEP || editMode ? requestClose : goBack}
           >
             <ArrowLeft className="mr-1.5 size-4" />
-            {step === MOOD_STEP ? "Dashboard" : "Back"}
+            {step === MOOD_STEP || editMode ? "Dashboard" : "Back"}
           </Button>
 
           {/* The timeline's own Add block sits at the top of a scrolling
@@ -1613,8 +1847,19 @@ export function TodayPlanner({
             </Button>
           )}
 
-          {step < STEPS.length - 1 ? (
-            <Button type="button" size="lg" onClick={goNext}>
+          {editMode ? (
+            <Button
+              type="button"
+              size="lg"
+              onClick={() => void savePlanEdits()}
+              disabled={saving || !isDirty}
+              className="h-12"
+            >
+              <Check className="mr-1.5 size-4" />
+              {saving ? "Saving…" : isDirty ? "Save plan" : "Saved"}
+            </Button>
+          ) : step < STEPS.length - 1 ? (
+            <Button type="button" size="lg" onClick={goNext} className="h-12">
               Next
               <ArrowRight className="ml-1.5 size-4" />
             </Button>
@@ -1624,9 +1869,9 @@ export function TodayPlanner({
               size="lg"
               onClick={() => void commitPlan()}
               disabled={!canCommit}
-              className="sm:hidden"
+              className="h-12 sm:hidden"
             >
-              {saving ? "Saving..." : "Commit Plan"}
+              {saving ? "Saving…" : "Save plan"}
             </Button>
           )}
         </div>
@@ -1760,14 +2005,13 @@ export function TodayPlanner({
                       )
                     )}
                   </span>
-                  {problems.invalidBlockIds.includes(
-                    selectedBlock.id
-                  ) && (
-                    <span className="text-xs text-destructive">
-                      Check title and time
-                    </span>
-                  )}
                 </div>
+
+                {blockProblem(selectedBlock) && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {blockProblem(selectedBlock)}
+                  </p>
+                )}
 
                 {/* The banner behind the dialog carries this too, but a
                     modal makes it unreachable -- and typing a time in here
@@ -1776,8 +2020,9 @@ export function TodayPlanner({
                 {problems.overlappingBlockIds.includes(selectedBlock.id) && (
                   <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/35 bg-destructive/8 p-3">
                     <TriangleAlert className="size-4 shrink-0 text-destructive" />
-                    <p className="min-w-0 flex-1 text-xs">
-                      Overlaps another block.
+                    <p className="min-w-0 flex-1 text-sm">
+                      Overlaps another block. Change a time, or space the
+                      blocks out automatically.
                     </p>
                     <Button
                       type="button"
@@ -1800,15 +2045,36 @@ export function TodayPlanner({
       <Dialog open={closeOpen} onOpenChange={setCloseOpen}>
         <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl sm:bottom-auto sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 sm:rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Leave daily planning?</DialogTitle>
+            <DialogTitle>
+              {editMode ? "Leave without saving?" : "Leave daily planning?"}
+            </DialogTitle>
             <DialogDescription>
-              Your draft stays in this tab unless you explicitly discard it.
+              {editMode
+                ? "Your changes are not saved yet. You can keep them as a draft in this tab, or throw them away."
+                : "Your draft stays in this tab unless you explicitly discard it."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 pt-2">
-            <Button type="button" onClick={() => setCloseOpen(false)}>
-              Continue planning
+            {editMode && (
+              <Button
+                type="button"
+                disabled={saving}
+                onClick={async () => {
+                  setCloseOpen(false);
+                  await savePlanEdits();
+                }}
+              >
+                Save plan
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant={editMode ? "outline" : "default"}
+              onClick={() => setCloseOpen(false)}
+            >
+              Continue {editMode ? "editing" : "planning"}
             </Button>
+
             <Button
               type="button"
               variant="outline"

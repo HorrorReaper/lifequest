@@ -13,6 +13,12 @@ vi.mock('@/lib/tasks', async () => {
     ...actual,
     toggleTask: (...a: unknown[]) => toggleTask(...a),
     awardTaskCompletionXp: (...a: unknown[]) => awardTaskCompletionXp(...a),
+    // The real helper calls toggleTask and awardTaskCompletionXp from inside
+    // the module, past these mocks; this stand-in keeps the same two steps.
+    completeTaskWithReward: async (supabase: unknown, userId: string, t: { id: string }) => {
+      await toggleTask(supabase, t.id, true)
+      return awardTaskCompletionXp(supabase, userId, t)
+    },
     createTask: (...a: unknown[]) => createTask(...a),
   }
 })
@@ -49,8 +55,8 @@ describe('TasksSection', () => {
       />
     )
 
-    expect(screen.getByRole('button', { name: /write the report/i })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /call the bank/i })).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: /write the report/i })).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: /call the bank/i })).toBeTruthy()
   })
 
   it('separates overdue from due today in the header', () => {
@@ -71,7 +77,7 @@ describe('TasksSection', () => {
       <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /write the report/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /write the report/i }))
 
     await waitFor(() => expect(toggleTask).toHaveBeenCalledWith(expect.anything(), 'task-1', true))
     await waitFor(() =>
@@ -93,14 +99,14 @@ describe('TasksSection', () => {
     )
 
     expect(screen.getByText(/nothing due today/i)).toBeTruthy()
-    expect(screen.getByText(/1 unscheduled/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: /someday idea/i })).toBeTruthy()
+    expect(screen.getByText(/1 without a date/)).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: /someday idea/i })).toBeTruthy()
   })
 
   it('reads as finished when nothing is open at all', () => {
     render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} />)
 
-    expect(screen.getByText('Nothing due today.')).toBeTruthy()
+    expect(screen.getByText(/Nothing due today. Capture/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /add task/i })).toBeTruthy()
   })
 
@@ -159,7 +165,7 @@ describe('TasksSection', () => {
       <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} />
     )
 
-    const row = screen.getByRole('button', { name: /write the report/i })
+    const row = screen.getByRole('checkbox', { name: /write the report/i })
     fireEvent.click(row)
 
     await waitFor(() => expect(screen.getByText('offline')).toBeTruthy())
