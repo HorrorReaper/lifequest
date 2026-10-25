@@ -148,7 +148,7 @@ export function SystemQuestCard({ quest, onClaim }: SystemQuestCardProps) {
 
       {claimed && (
         <p className="text-[10px] text-muted-foreground text-center">
-          Claimed{quest.completedAt ? ` on ${new Date(quest.completedAt).toLocaleDateString()}` : ''}
+          Claimed{quest.completedAt ? ` on ${new Date(quest.completedAt).toLocaleDateString('en-US')}` : ''}
         </p>
       )}
     </div>
@@ -240,7 +240,7 @@ export function CustomQuestCard({ quest, onComplete, onDelete }: CustomQuestCard
 
       {quest.is_completed && quest.completed_at && (
         <p className="text-[10px] text-muted-foreground text-center">
-          Completed on {new Date(quest.completed_at).toLocaleDateString()}
+          Completed on {new Date(quest.completed_at).toLocaleDateString('en-US')}
         </p>
       )}
     </div>

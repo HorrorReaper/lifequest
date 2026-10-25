@@ -66,9 +66,13 @@ The repository currently contains 32 test files.
 ### Planning, tasks, and habits
 
 - Day-plan normalization.
-- Today Plan calculations and UI.
-- Task grouping, sorting, helpers, compact list, and editor.
-- Habit mutations, analytics, manager behavior, and editor.
+- Today Plan calculations and UI, including the plan editor (save state, save failure keeps edits, block problems in words) and which mode `/plan` opens in (`TodayPlanner.test.tsx`, `TodayPlanScreen.test.tsx`).
+- Dashboard plan status: a block that is over is never reported as done while its linked task is open (`src/lib/dashboard-plan.test.ts`, `TodayPlanSection.test.tsx`).
+- Task grouping, sorting, helpers, compact list, and editor: Today/Tomorrow/Choose date/No date, one submit per double tap, and the calendar layer sitting on the popover's positioned wrapper (`TaskEditorDialog.test.tsx`).
+- Habit mutations, analytics, manager behavior, and editor (single named check-in control, details folded away on create).
+- Onboarding: three steps, no age question, a real task and a linked block, and no duplicates on back, reload or double tap (`onboarding-flow.test.tsx`, `src/lib/onboarding.test.ts`).
+- Feedback and activation helpers (`src/lib/activation.test.ts`).
+
 
 ### Journal
 

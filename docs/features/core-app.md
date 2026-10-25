@@ -15,7 +15,18 @@ The primary implementation is in:
 
 ## Onboarding
 
-`/onboarding` is a four-step first-run flow: a welcome step, display name and IANA timezone, a short explanation of the app's Plan/Act/Grow loop, and picking an initial journal template. Earlier steps asking for the user's intention and journaling rhythm were removed — that data was collected but never persisted or used anywhere, so it was pure friction. Completing the flow redirects into a first journal entry (`?firstEntry=1`), whose success screen and a matching dashboard welcome card (`?welcome=1`, dismissal in `localStorage`) orient a brand-new user instead of dropping them onto an unfamiliar dashboard.
+`/onboarding` (`src/components/onboarding/onboarding-flow.tsx`, helpers in `src/lib/onboarding.ts`) takes a new account to its first planned task in three steps:
+
+1. **Focus.** What the app is for, the name carried over from sign-up (with "Change name"; asked for only when none is known), and a choice of where the user wants more clarity (work or study, health, home and life admin, learning, a personal project). The focus only steers the suggestions on the next step and is not stored. The detected timezone is shown as one line, "Times use Europe/Berlin", with "Change timezone" revealing the picker.
+2. **First task.** One small, concrete thing to finish today, typed or picked from suggestions for the focus. "Save task" creates a real task (due today in the chosen timezone, priority high) that is editable on `/tasks` like any other.
+3. **Plan it for today.** A start time (the next quarter hour at least five minutes ahead, at most 23:30) and a length (15, 25, 45 or 60 minutes). "Plan it and finish" writes today's `day_plans` row, then the profile.
+
+The plan block is linked to the task (`source_type: "task"`, `source_id`), is the day's main priority, and has the id `onboarding-<taskId>` (`buildOnboardingPlan`). It is merged into an existing plan for the day rather than replacing it, the day window widens to include it, and `ritual_completed_at` is set so the morning planning prompt does not ask again that day.
+
+Duplicates are prevented three ways. The created task's id is kept in component state and in `sessionStorage` (`lifequest:onboarding:<userId>`), so going back and changing the title updates the same task, and a reload picks it up again; if that task was deleted meanwhile (`PGRST116` on update) a new one is created. Each save is guarded by a ref that is set before the first `await`, so a double tap sends one request. The plan block's fixed id makes a repeated finish replace its own block.
+
+The previous mandatory age question and the journal template choice are no longer part of this flow; `profiles.birth_year` stays in the schema but onboarding no longer writes it. Failures keep the input on screen with one message next to the field concerned. If the plan cannot be saved, the profile is not marked complete, so the flow can be retried. On success the flow opens `/dashboard?welcome=1`, where `FirstRunWelcome` confirms the planned task and offers a daily habit and an optional reflection (dismissal in `localStorage`). The card latches `show` on mount: it removes `?welcome=1` from the address, and reading the prop afterwards made it vanish about a second after it appeared.
+ Existing accounts (`onboarding_complete`) are redirected away from `/onboarding` and never see the flow.
 
 The timezone picker (shared with Settings via `src/lib/timezones.ts`) is generated from `Intl.supportedValuesOf('timeZone')` at render time and grouped by IANA region, rather than a curated list. The active value is always guaranteed a matching option, so the control cannot display a zone different from what is actually stored.
 
@@ -29,9 +40,26 @@ The dashboard server page loads the initial authenticated snapshot. Client widge
 
 ### Greeting and progression
 
-The top of the dashboard is `DashboardGreeting` (`src/components/dashboard/DashboardGreeting.tsx`): the avatar's head, hat included, and "Welcome back, <name>". Under the Trail theme the heading uses the scoped Fraunces font and ends in a full stop; the other themes keep the wave emoji. There is no hero card any more.
+The dashboard is ordered by the day's work (`src/app/(app)/dashboard/page.tsx`): greeting and date, Next up, Today's Plan, Habits, Tasks, and only then the journal nudge, challenge cards, goals, scorecard, reflection and quests. Challenge cards used to sit above the plan and push the first work action off a phone screen.
 
-Below it, `JournalNudge` (`src/components/dashboard/JournalNudge.tsx`) suggests the day's next move as a single 48px row: the first journal template not yet written today, labelled "Next best move", linking straight into it (or to `/journal` when the user has no templates). Once anything is journaled today it renders nothing; the journal tab is always in the navigation.
+The top is `DashboardGreeting` (`src/components/dashboard/DashboardGreeting.tsx`): a small avatar head (48px, 56px from `sm`), "Welcome back, <name>" and today's date in the profile timezone. Under the Trail theme the heading uses the scoped Fraunces font and ends in a full stop; the other themes keep the wave emoji. There is no hero card any more.
+
+`NextUpCard` (`src/components/dashboard/NextUpCard.tsx`) follows with one concrete next step, chosen by `nextUpFor` in `src/lib/dashboard-plan.ts`:
+
+| State | Shows | Action |
+| --- | --- | --- |
+| No plan, no open tasks | "Add your first task" | `/tasks?new=1` |
+| No plan | "Plan your day" | `/plan` |
+| A block is running | "Now · until HH:mm", its title, minutes left | "Mark task done" when it has an open linked task, "Edit plan" |
+| A block is ahead | "Next at HH:mm · in N min" | as above |
+| Every block is over, a linked task still open | "No more time blocks today", that task | "Mark task done", "Replan" |
+| Every block is over, nothing open | "No more time blocks today", open habits or a reflection hint | "Go to habits" (`#habits`) or "Edit plan" |
+
+Clock time and completion are separate: a block whose time has passed is never called done. "Mark task done" uses `completeTaskWithReward` (`src/lib/tasks.ts`), the same XP path as the task list.
+
+`JournalNudge` (`src/components/dashboard/JournalNudge.tsx`) suggests the day's next journal entry as a single 48px row: the first journal template not yet written today, labelled "Next best move", linking straight into it (or to `/journal` when the user has no templates). Once anything is journaled today it renders nothing. It sits below Tasks.
+
+At the bottom, "Something unclear or not working? Send feedback" opens `FeedbackDialog`; see [Feedback](#feedback).
 
 Level, XP progress, coins and streak are in the top bar that every page with the standard shell shows, so they are not repeated on the dashboard (`/profile` keeps its own `DashboardHero` card).
 
@@ -61,7 +89,7 @@ The sections with a page of their own have no "Manage …" / "Open …" / "All �
 | Scorecard, metric chart | `/journal/metrics` |
 | Quests | `/quests` |
 
-Adding happens from a small round "+" at the right of the section's header (`SectionAddButton` in `src/components/dashboard/SectionAddButton.tsx`), the same in every section: Habits and Tasks open their create dialog, Today's Plan goes straight to the timeline (`/plan?step=timeline`), and Goals opens `GoalEditorDialog` (title, why, category, target date), which replaced the form that used to unfold inside the section. `?goal=new` (`GOAL_FORM_HREF`) opens that dialog directly. While a section is empty the "+" is hidden: its own empty-state button ("Add habit", "Add task", "Plan my day", "Add Goal") is the one way in. The footers that held "Add …" buttons, and the Tasks "N open" count, are gone.
+Adding happens from a small round "+" at the right of the section's header (`SectionAddButton` in `src/components/dashboard/SectionAddButton.tsx`), the same in every section: Habits and Tasks open their create dialog, Today's Plan goes straight to the plan editor (`/plan?step=timeline`; `/plan` itself opens the editor too once a plan exists), and Goals opens `GoalEditorDialog` (title, why, category, target date), which replaced the form that used to unfold inside the section. `?goal=new` (`GOAL_FORM_HREF`) opens that dialog directly. While a section is empty the "+" is hidden: its own empty-state button ("Add habit", "Add task", "Plan my day", "Add Goal") is the one way in. The footers that held "Add …" buttons, and the Tasks "N open" count, are gone.
 
 A click on one of the section's own controls does not navigate: check-offs, the "+" buttons, "Show more", claim buttons, any link, and anything inside a dialog the section opened (React bubbles portal events through the component tree, so the section checks the click landed in its own DOM). `data-section-ignore` opts any other element out. Ctrl/Cmd-click opens the page in a new tab, and selecting text does not navigate. Goals, Daily Reflection and Routines have no page to open and are unchanged.
 
@@ -87,7 +115,9 @@ The widget is shared dashboard wiring. When changing tasks, habits, planning, or
 
 ### Today Plan summary
 
-`TodayPlanWidget` presents the committed intention, outcomes, blocks, current activity, and past activities. The complete editing ritual lives at `/plan`; see [Planning, tasks, habits, and routines](./planning-tasks-habits.md).
+`TodayPlanSection` (`src/components/dashboard/TodayPlanSection.tsx`) lists today's blocks around the one running now. Its header counts "N blocks left"; once every block is over it says "No blocks left", or "N open" when linked tasks of past blocks are still open, and the body says "No more time blocks today" plus the open count. It never says "all done": past blocks are dimmed but only struck through, with "Done", when their linked task is completed, and a past block with an open task shows "Open". The linked tasks' completion is read on the dashboard server page (`plannedTaskIds` in `src/lib/day-plans.ts`, then one `tasks` query). "Edit plan" opens the plan editor. The complete editing ritual lives at `/plan?step=ritual`; see [Planning, tasks, habits, and routines](./planning-tasks-habits.md).
+
+`TasksSection` marks a task that has a block in today's plan with "In plan", next to its due date ("Due Oct 30", "Overdue"). Its check-off is one `role="checkbox"` control named "Complete <title>".
 
 ### Daily Reflection
 
@@ -122,19 +152,24 @@ The center navigation action opens shortcuts to common creation flows. The dashb
 /dashboard?quick=routine
 ```
 
-`plan` redirects to the immersive planner. Goal and routine actions are admin-only in the current product.
+`plan` redirects to the immersive planner. `task` and `habit` redirect to `/tasks?new=1` and `/habits?new=1`, which open the create form straight away, as the sheet's "Task" and "Habit" entries do. The form's `?new=1` is removed from the address once it closes (`history.replaceState`), so a reload does not reopen it. Goal and routine actions are admin-only in the current product.
 
 Trusted/route-allowlisted admins additionally see a "LifeQuest Labs" entry at the top of the quick action sheet linking to `/admin`. The standard bottom navigation has no persistent admin entry point, so this is currently the only in-app way to reach the admin workspace on mobile without typing the URL.
 
+## Feedback
+
+`FeedbackDialog` (`src/components/feedback/FeedbackDialog.tsx`) is reachable from the dashboard footer and the `/profile` header. It asks for a kind ("Something is not working", "An idea", "Something else") and a message of up to 2000 characters, and inserts one row into `beta_feedback` with the page path it was sent from (no query string; `src/lib/feedback.ts`). The send button is locked while sending, the text stays in the form when sending fails, and the error is shown under the field. Admins read the latest entries on `/admin/tools`. The table comes from `supabase/migrations/20261025120000_beta_feedback_and_activation.sql`; until that migration is applied, sending shows the failure message.
+
 ## Navigation
+
 
 The standard mobile navigation contains:
 
 1. Home.
 2. Journal.
 3. Quick action.
-4. Library (`/learn`), the same page as "Learn" in the quick action sheet. It stays highlighted on the pages below it, such as `/learn/tools`.
-5. Avatar (`/profile`), drawn as the player's own head with the equipped hat (`AvatarHead`) rather than a generic icon; a ring around the head marks the active tab. Settings has no tab of its own: it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted on `/settings`.
+4. Library (`/learn`). The tab, the quick action sheet entry and the page title all say "Library" (they used to say Library, Learn and "Lifequest Academy"). It stays highlighted on the pages below it, such as `/learn/tools`.
+5. Profile (`/profile`), drawn as the player's own head with the equipped hat (`AvatarHead`) rather than a generic icon; a ring around the head marks the active tab. It was labelled "Avatar" while the page said "Profile"; both say Profile now, and the page description names the avatar, progress and account. Settings has no tab of its own: it opens from the Settings button on `/profile`, and the Profile tab stays highlighted on `/settings`.
 
 The top bar (level, XP, coins, streak) sits above the page on the same routes. The standard shell is hidden on immersive workflows, including Today Plan, journal entry forms, routine execution, and admin pages. This prevents competing navigation while the user is completing a focused flow.
 

@@ -25,26 +25,27 @@ const QUICK_ACTIONS = [
   },
   {
     href: '/learn',
-    title: 'Learn',
-    description: 'Open lessons, habits, and ideas.',
+    title: 'Library',
+    description: 'Short lessons and tools, a few minutes each.',
     icon: BookOpen,
   },
   {
-    href: '/tasks',
+    href: '/tasks?new=1',
     title: 'Task',
     description: 'Capture something that needs doing.',
     icon: ListTodo,
   },
   {
     href: '/plan',
-    title: 'Plan Today',
-    description: 'Choose your Top Three and shape the timeline.',
+    title: 'Plan today',
+    description: 'Set your priorities and time blocks for today.',
+
     icon: CalendarClock,
   },
   {
-    href: '/habits',
+    href: '/habits?new=1',
     title: 'Habit',
-    description: 'Add a small action to repeat.',
+    description: 'Create a small daily action to repeat.',
     icon: Flame,
   },
   {

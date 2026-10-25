@@ -137,3 +137,16 @@ The global design system is implemented through:
 
 The app uses `min-h-svh`/`min-h-dvh`, sticky actions, touch-sized controls, and responsive dialogs. Desktop and mobile often share business logic but use different density and navigation patterns.
 
+### Core page rules
+
+Applied to the core user pages (dashboard, tasks, habits, plan, onboarding, profile, library) for the first beta. New core UI follows them:
+
+- **Spacing** in steps of 4, 8, 12, 16, 24 and 32 px. Page gutters are 16 px on phones and 32 px from `sm` (`p-4 sm:p-8`); forms and long text stay within about 640–720 px.
+- **Type.** Body text and inputs 16 px (`text-base`), supporting text 14 px (`text-sm`; no 10–12 px text for anything that explains an action), section titles 18–20 px, page titles 28 px / 32 px from `sm` (`PageHeader`).
+- **Targets.** Primary buttons 48 px high (`h-12`); every essential control at least 44 × 44 px. Card radius 16 px (`rounded-2xl`), inputs and buttons 10–12 px.
+- **Page header.** `src/components/ui/page-header.tsx`: title, optional eyebrow and one-line description, and the page's main action. A create action belongs there, never at the bottom of a list where the fixed navigation covers it.
+- **Create/edit** opens in a dialog that asks for the one required field first and folds the rest under "Details (optional)".
+- **States.** Selected options use `aria-pressed` with the primary border, a 10 % primary fill and a ring. Saving disables the submit button, shows "Saving…" and is guarded by a ref so a second tap sends nothing. Errors are one message next to the field concerned (`aria-invalid` + `aria-describedby`), the input is kept, and the button offers a retry. Done states pair colour with a tick or a word ("Done", "Open", "In today's plan").
+- **Completion** is one control per item: `CompletionToggle` (`role="checkbox"`, named "Complete …"/"Reopen …").
+- **Layers.** Dialogs sit at `z-50`; popovers, selects, menus and tooltips put `z-[90]` on their positioner, so they open above a dialog.
+- **Contrast.** Measured against the theme tokens in `globals.css` for all four modes (light, dark, white, trail): body text, muted text on background, card and muted surfaces, primary, and the destructive colour on background and on its 10 % tint all reach at least 4.5:1. Dark mode's destructive colour was 2.0:1 and light mode's 3.8:1 before this rule.

@@ -6,6 +6,8 @@ import { showAdminUi } from '@/lib/admin'
 import { fetchJournalInsights } from '@/lib/journal-insights'
 import { LearningPathLibrary } from '@/components/learn/LearningPathLibrary'
 import { AcademyLibrary } from '@/components/learn/AcademyLibrary'
+import { PageHeader } from '@/components/ui/page-header'
+
 import { BookOpenCheck, Wrench } from 'lucide-react'
 import { fetchLearningExperience } from '@/lib/learning-api'
 import {
@@ -36,27 +38,30 @@ function LearnPageShell({
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="mx-auto max-w-5xl space-y-7">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.045em]">{title}</h1>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Link
-              href="/learn/tools"
-              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
-              <Wrench className="size-3.5" />
-              Toolbox
-            </Link>
-            <Link
-              href="/journal/insights"
-              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
-              <BookOpenCheck className="size-3.5" />
-              Journal Insights
-            </Link>
-          </div>
-        </div>
+        {/* "Library" everywhere: the tab, the + menu and this title used to
+            say Library, Learn and Lifequest Academy for the same page. */}
+        <PageHeader
+          title={title}
+          description="Short lessons and tools, a few minutes each."
+          actions={
+            <>
+              <Link
+                href="/learn/tools"
+                className="flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                <Wrench className="size-4" />
+                Toolbox
+              </Link>
+              <Link
+                href="/journal/insights"
+                className="flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                <BookOpenCheck className="size-4" />
+                Journal Insights
+              </Link>
+            </>
+          }
+        />
         {children}
       </div>
     </div>
@@ -123,7 +128,7 @@ export default async function LearnPage() {
     const insights = await fetchJournalInsights(supabase, user.id)
 
     return (
-      <LearnPageShell title="Lifequest Academy">
+      <LearnPageShell title="Library">
         <AcademyLibrary lessons={lessons} insights={insights} />
       </LearnPageShell>
     )

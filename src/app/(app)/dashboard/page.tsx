@@ -7,6 +7,9 @@ import { DashboardGreeting } from '@/components/dashboard/DashboardGreeting'
 import { TrailPageSpine } from '@/components/dashboard/TrailPageSpine'
 import { JournalNudge } from '@/components/dashboard/JournalNudge'
 import { TodayPlanSection } from '@/components/dashboard/TodayPlanSection'
+import { NextUpCard } from '@/components/dashboard/NextUpCard'
+import { FeedbackDialog } from '@/components/feedback/FeedbackDialog'
+import { plannedTaskIds } from '@/lib/day-plans'
 import { HabitsSection } from '@/components/dashboard/HabitsSection'
 import { TasksSection } from '@/components/dashboard/TasksSection'
 import {
@@ -84,8 +87,8 @@ type QuickActionTarget = 'task' | 'plan' | 'habit' | 'routine'
  */
 const QUICK_ACTION_ROUTES: Record<QuickActionTarget, string> = {
   plan: '/plan',
-  task: '/tasks',
-  habit: '/habits',
+  task: '/tasks?new=1',
+  habit: '/habits?new=1',
   routine: '/routines',
 }
 
@@ -438,6 +441,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   } | null
   const planMetadata = parseTodayPlanNotes(dayPlan?.notes).metadata
   const planCommitted = Boolean(planMetadata?.ritual_completed_at)
+  // Whether each planned task is done, so a block that is merely over is not
+  // shown as finished. Read separately: the dashboard's task query only has
+  // open tasks due by today, and a planned task may be due later or done.
+  const planTaskIds = plannedTaskIds(dayPlan?.blocks)
+  const planTaskRows =
+    planTaskIds.length > 0
+      ? (((
+          await supabase
+            .from('tasks')
+            .select('id, is_completed')
+            .eq('user_id', user.id)
+            .in('id', planTaskIds)
+        ).data ?? []) as { id: string; is_completed: boolean }[])
+      : []
+  const planTaskDone = new Map(planTaskRows.map((row) => [row.id, row.is_completed]))
   const planBlocks = ((dayPlan?.blocks ?? [])
     .slice()
     .sort((a, b) => a.start_time.localeCompare(b.start_time))
@@ -453,8 +471,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         missionType: block.mission_type ?? null,
         isCurrent: start <= nowMinutes && end > nowMinutes,
         isPast: end <= nowMinutes,
+        taskId: block.source_type === 'task' ? block.source_id ?? null : null,
+        // A linked task that no longer exists (deleted) counts as no task.
+        taskCompleted:
+          block.source_type === 'task' && block.source_id && planTaskDone.has(block.source_id)
+            ? planTaskDone.get(block.source_id)
+            : undefined,
       }
     }))
+  const dateLabel = new Intl.DateTimeFormat('en-US', {
+    timeZone: profile.timezone ?? 'UTC',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date())
   const dashboardRoutines = routines
     .filter((routine) => routine.items.length > 0)
     .map((routine) => {
@@ -485,14 +515,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <DashboardGreeting
           username={profile.username}
           equippedItems={avatarState.equippedItems}
-        />
-
-        <JournalNudge
-          journals={briefingJournals}
-          completedJournalCount={todayEntries.length}
+          dateLabel={dateLabel}
         />
 
         <FirstRunWelcome show={showWelcome} />
+
+        {/* The order is the order of the day's work: what to do next, the
+            plan it sits in, the daily habits, the open tasks -- and only then
+            reflection, challenges and everything else. */}
+        <NextUpCard
+          userId={user.id}
+          blocks={planBlocks}
+          nowMinutes={nowMinutes}
+          openTaskCount={dueTasks.length + undatedTasks.length}
+          openHabits={briefingHabits.length - habitsCompletedToday}
+        />
         <DailyPlanPrompt
           today={today}
           planCommitted={planCommitted || !dailyPlanWindow}
@@ -528,29 +565,40 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           tasksCompletedThisWeek={tasksCompletedThisWeek}
         />
 
-        {activeChallenges.map(({ program, view }) => (
-          <ChallengeDashboardCard key={program.template.id} program={program} view={view} />
-        ))}
-
         {shows('today_plan') && (
           <TodayPlanSection blocks={planBlocks} nowMinutes={nowMinutes} />
         )}
 
         {shows('habits') && (
-          <HabitsSection
-            userId={user.id}
-            today={today}
-            habits={dashboardHabits}
-          />
+          // scroll-mt clears the sticky top bar when #habits is the target.
+          <div id="habits" className="scroll-mt-20">
+            <HabitsSection
+              userId={user.id}
+              today={today}
+              habits={dashboardHabits}
+            />
+          </div>
         )}
 
         {shows('tasks') && (
           <TasksSection
             userId={user.id}
+            today={today}
             dueTasks={dueTasks}
             undatedTasks={undatedTasks}
+            plannedTaskIds={planTaskIds}
           />
         )}
+
+        <JournalNudge
+          journals={briefingJournals}
+          completedJournalCount={todayEntries.length}
+        />
+
+        {activeChallenges.map(({ program, view }) => (
+          <ChallengeDashboardCard key={program.template.id} program={program} view={view} />
+        ))}
+
 
         {shows('goals') && (
           // scroll-mt clears the sticky top bar when #goals is the target.
@@ -608,7 +656,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
         )}
 
+        <p className="flex flex-wrap items-center justify-center gap-x-2 pt-2 text-sm text-muted-foreground">
+          Something unclear or not working?
+          <FeedbackDialog variant="link" />
+        </p>
+
         {/* Without this, someone who turned everything off sees a hero and
+
             some prompts and cannot tell that from a broken page. */}
         {visibleSectionCount(sectionPrefs, { isAdmin }) === 0 && (
           <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">

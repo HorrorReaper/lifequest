@@ -16,6 +16,8 @@ interface DashboardGreetingProps {
   username: string | null
   /** Drives the avatar head, hat included. */
   equippedItems: Record<AvatarSlot, string | null>
+  /** Today in words, e.g. "Saturday, October 25", in the user's timezone. */
+  dateLabel?: string
 }
 
 /**
@@ -23,7 +25,7 @@ interface DashboardGreetingProps {
  * streak used to live in a hero card here; they are in the top bar on every
  * page now (see `AppTopBar`).
  */
-export function DashboardGreeting({ username, equippedItems }: DashboardGreetingProps) {
+export function DashboardGreeting({ username, equippedItems, dateLabel }: DashboardGreetingProps) {
   const { theme } = useTheme()
   const name = username ?? 'Adventurer'
 
@@ -32,16 +34,22 @@ export function DashboardGreeting({ username, equippedItems }: DashboardGreeting
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex items-center gap-4"
+      className="flex items-center gap-3"
     >
-      <AvatarHead equippedItems={equippedItems} className="size-20 shrink-0 sm:size-24" />
-      {theme === 'trail' ? (
-        <h1 className={`${fraunces.className} text-2xl leading-snug text-foreground sm:text-3xl`}>
-          Welcome back, {name}.
-        </h1>
-      ) : (
-        <h1 className="font-heading text-xl font-bold sm:text-2xl">Welcome back, {name} 👋</h1>
-      )}
+      {/* Kept small on purpose: the greeting is orientation, and the next
+          task below it is the part of the page that asks for attention. */}
+      <AvatarHead equippedItems={equippedItems} className="size-12 shrink-0 sm:size-14" />
+      <div className="min-w-0">
+        {theme === 'trail' ? (
+          <h1 className={`${fraunces.className} text-xl leading-snug text-foreground sm:text-2xl`}>
+            Welcome back, {name}.
+          </h1>
+        ) : (
+          <h1 className="font-heading text-xl font-semibold sm:text-2xl">Welcome back, {name} 👋</h1>
+        )}
+        {dateLabel && <p className="text-sm text-muted-foreground">{dateLabel}</p>}
+      </div>
+
     </motion.div>
   )
 }

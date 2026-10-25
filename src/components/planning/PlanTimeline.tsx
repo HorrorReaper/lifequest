@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { GripHorizontal, Plus } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { Plus } from "lucide-react";
+
 import type { DayPlanBlock, DayPlanCategory, DayPlanMissionType } from "@/lib/types";
 import {
   applyBlockTimeChange,
@@ -101,6 +102,7 @@ export function PlanTimeline({
   onChange,
   onCreateBlock,
 }: PlanTimelineProps) {
+  const keyboardHintId = useId();
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   // A pointer gesture ends in a click on the same element. Now that a click
@@ -209,6 +211,14 @@ export function PlanTimeline({
     event: React.KeyboardEvent<HTMLElement>,
     block: DayPlanBlock
   ) {
+    // Enter and Space open the block's editor with its exact time fields --
+    // the way in for anyone not dragging. A div with role="button" does not
+    // get this from the browser the way a <button> would.
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect(block.id);
+      return;
+    }
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
 
     const start = timeToMinutes(block.start_time);
@@ -299,7 +309,12 @@ export function PlanTimeline({
 
   return (
     <div className="grid grid-cols-[3.25rem_1fr] rounded-2xl border bg-background/55 p-3 sm:p-4">
+      <p id={keyboardHintId} className="sr-only">
+        Enter opens exact start and end times. Arrow keys move the block;
+        Shift with an arrow key changes its length.
+      </p>
       {/* Hour gutter */}
+
       <div className="relative" style={{ height }}>
         {hours.map((minute) => (
           <span
@@ -419,6 +434,9 @@ export function PlanTimeline({
                 role="button"
                 tabIndex={0}
                 aria-label={`${block.title || "Untitled block"}, ${block.start_time} to ${block.end_time}`}
+                aria-describedby={keyboardHintId}
+
+
                 aria-current={selected ? "true" : undefined}
                 onPointerDown={(event) => beginDrag(event, block, "move")}
                 onPointerMove={moveDrag}
@@ -486,10 +504,25 @@ export function PlanTimeline({
                   onPointerMove={moveDrag}
                   onPointerUp={endDrag}
                   onPointerCancel={endDrag}
-                  className="absolute inset-x-0 bottom-0 flex h-3 cursor-ns-resize items-center justify-center opacity-0 transition-opacity hover:opacity-100"
+                  // Always visible, not only on hover: a touch screen has no
+                  // hover, and the bare edge read as part of the block, so
+                  // pulling it moved the block instead of lengthening it.
+                  // A short block gets a thin strip: the full 16px one covered
+                  // nearly all of an 18px, 15-minute block, so tapping it
+                  // started a resize instead of opening the block.
+                  className={cn(
+                    "absolute inset-x-0 bottom-0 flex cursor-ns-resize touch-none items-end justify-center",
+                    compact ? "h-1.5" : "h-4 items-center"
+                  )}
                 >
-                  <GripHorizontal className="size-3 text-muted-foreground" />
+                  <span
+                    className={cn(
+                      "rounded-full bg-foreground/30 transition-colors hover:bg-foreground/50",
+                      compact ? "mb-px h-0.5 w-8" : "h-1.5 w-10"
+                    )}
+                  />
                 </span>
+
               </div>
             </div>
           );

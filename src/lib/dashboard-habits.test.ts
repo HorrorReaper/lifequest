@@ -69,7 +69,7 @@ describe('buildDashboardHabits', () => {
   })
 
   it('falls back to a default emoji', () => {
-    expect(buildDashboardHabits(habits, [], '2026-08-31')[1].emoji).toBe('✅')
+    expect(buildDashboardHabits(habits, [], '2026-08-31')[1].emoji).toBe('🌱')
   })
 
   it('carries the skill category through for XP attribution', () => {

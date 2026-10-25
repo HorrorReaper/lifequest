@@ -85,6 +85,9 @@ For a release containing an additive migration:
 
 Avoid deploying browser code that requires a column/function before the database has it. For destructive or incompatible changes, use expand-and-contract across multiple releases.
 
+The first-cohort release (`feat/first-cohort-readiness`) adds `supabase/migrations/20261025120000_beta_feedback_and_activation.sql`. It is additive. Without it the app still works, except that "Send feedback" shows its failure message and the Beta activation card on `/admin/tools` says the numbers are not available yet; apply it before inviting the cohort.
+
+
 ## Production smoke test
 
 After Vercel reports Ready:

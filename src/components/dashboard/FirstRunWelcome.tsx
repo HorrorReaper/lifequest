@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, Flame, ListChecks, X } from 'lucide-react'
+import { Flame, NotebookPen, X } from 'lucide-react'
 
 // Set once the card is dismissed so a bookmarked or re-shared ?welcome=1 URL
 // does not keep resurfacing it for a returning user.
@@ -24,25 +25,29 @@ function readDismissedOnServer() {
   return true
 }
 
+// What comes after the first planned task, each with the place to do it.
+// Reflection is offered here, after the productive first step, and stays
+// optional -- onboarding no longer asks anyone to pick a journal first.
 const POINTS = [
   {
-    icon: ListChecks,
-    title: 'Tasks & habits',
-    description: 'Add the ones worth repeating from the briefing below.',
-  },
-  {
     icon: Flame,
-    title: 'Streaks',
-    description: 'Journaling again tomorrow keeps yours alive.',
+    title: 'Add a daily habit',
+    description: 'One small action to check off each day.',
+    href: '/habits?new=1',
   },
   {
-    icon: Building2,
-    title: 'Your city',
-    description: "Open City to spend today's XP and coins.",
+    icon: NotebookPen,
+    title: 'Reflect, if you like',
+    description: 'A short check-in at the end of the day. Optional.',
+    href: '/journal',
   },
 ]
 
-export function FirstRunWelcome({ show }: { show: boolean }) {
+export function FirstRunWelcome({ show: requested }: { show: boolean }) {
+  // Latched on mount. Dropping ?welcome=1 below re-renders the page with
+  // show=false, and reading the prop directly made the card vanish about a
+  // second after it appeared -- before anyone could read its next steps.
+  const [show] = useState(requested)
   const router = useRouter()
   const pathname = usePathname()
   const dismissed = useSyncExternalStore(
@@ -52,11 +57,12 @@ export function FirstRunWelcome({ show }: { show: boolean }) {
   )
 
   useEffect(() => {
-    if (!show) return
+    if (!requested) return
     // The query param did its job getting us here; drop it so refreshing or
     // sharing this URL later doesn't replay the welcome card.
     router.replace(pathname)
-  }, [show, pathname, router])
+  }, [requested, pathname, router])
+
 
   function dismiss() {
     window.localStorage.setItem(DISMISS_KEY, '1')
@@ -73,26 +79,37 @@ export function FirstRunWelcome({ show }: { show: boolean }) {
         type="button"
         onClick={dismiss}
         aria-label="Dismiss welcome"
-        className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        className="absolute right-2 top-2 flex size-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+
       >
         <X className="size-4" />
       </button>
 
-      <p className="pr-8 text-sm font-semibold">
-        This is your dashboard. Here&apos;s what the rest of LifeQuest is for.
+      <p className="pr-8 text-base font-semibold">
+        Your first task is saved and planned for today.
+      </p>
+      <p className="mt-1 pr-8 text-sm text-muted-foreground">
+        It is shown under Next up and in Today&apos;s Plan below. Check it off
+        when it is done. When you are ready:
       </p>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        {POINTS.map(({ icon: Icon, title, description }) => (
-          <div key={title} className="flex items-start gap-2">
-            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-background text-primary">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {POINTS.map(({ icon: Icon, title, description, href }) => (
+          <Link
+            key={title}
+            href={href}
+            className="flex min-h-12 items-start gap-2 rounded-xl border bg-background/70 p-3 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Icon className="size-3.5" />
             </span>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold">{title}</p>
-              <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
-            </div>
-          </div>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">{title}</span>
+              <span className="block text-sm leading-relaxed text-muted-foreground">
+                {description}
+              </span>
+            </span>
+          </Link>
         ))}
       </div>
     </div>

@@ -6,6 +6,19 @@ import { HabitEditorDialog } from "./HabitEditorDialog";
 afterEach(cleanup);
 
 describe("HabitEditorDialog skill picker", () => {
+  it("asks only for a name when creating, with the details folded away", () => {
+    render(
+      <HabitEditorDialog open onOpenChange={() => undefined} onSubmit={() => undefined} />
+    );
+
+    expect(screen.getByLabelText("Name")).toBeTruthy();
+    expect(screen.getByText("Daily habit")).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /physical health/i })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /icon, color and skill/i }).getAttribute("aria-expanded")
+    ).toBe("false");
+  });
+
   it("includes the chosen skill category in the submitted value", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
@@ -18,12 +31,13 @@ describe("HabitEditorDialog skill picker", () => {
     );
 
     await user.type(screen.getByLabelText("Name"), "Morning run");
+    await user.click(screen.getByRole("button", { name: /icon, color and skill/i }));
     await user.click(screen.getByRole("radio", { name: /physical health/i }));
     await user.click(screen.getByRole("button", { name: /create habit/i }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       name: "Morning run",
-      emoji: "✅",
+      emoji: "🌱",
       color: "blue",
       skillCategory: "physical_health",
     });
@@ -60,6 +74,7 @@ describe("HabitEditorDialog skill picker", () => {
     );
 
     await user.type(screen.getByLabelText("Name"), "Meditate");
+    await user.click(screen.getByRole("button", { name: /icon, color and skill/i }));
     const focusChip = screen.getByRole("radio", { name: /focus/i });
     await user.click(focusChip);
     await user.click(focusChip);

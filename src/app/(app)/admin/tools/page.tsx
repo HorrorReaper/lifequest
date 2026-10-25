@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { AdminTestingTools } from '@/components/dev/AdminTestingTools'
 import { SignupAnalytics } from '@/components/admin/SignupAnalytics'
+import { BetaActivation } from '@/components/admin/BetaActivation'
+import { buildActivationSteps } from '@/lib/activation'
 import { hasTrustedAdminRole } from '@/lib/admin'
 import { dateInTimezone } from '@/lib/dates'
 import {
@@ -32,7 +34,8 @@ export default async function AdminToolsPage({
   const today = dateInTimezone(new Date(), 'UTC')
   const since = signupRangeStart(today, range)
 
-  const [{ data }, seriesResult, statsResult] = await Promise.all([
+  const untyped = supabase as unknown as SupabaseClient
+  const [{ data }, seriesResult, statsResult, funnelResult, feedbackResult] = await Promise.all([
     supabase
       .from('profiles')
       .select('onboarding_complete')
@@ -44,7 +47,14 @@ export default async function AdminToolsPage({
       ? (supabase as unknown as SupabaseClient).rpc('admin_signup_series', { p_since: since })
       : null,
     trusted ? supabase.rpc('admin_app_stats').single() : null,
+    trusted ? untyped.rpc('admin_activation_funnel', { p_since: since }) : null,
+    trusted ? untyped.rpc('admin_beta_feedback', { p_limit: 20 }) : null,
   ])
+  const activationUnavailable = !trusted
+    ? 'untrusted'
+    : funnelResult?.error || feedbackResult?.error
+      ? 'error'
+      : null
   const onboardingComplete = (data as { onboarding_complete?: boolean } | null)?.onboarding_complete ?? true
 
   const daily = buildSignupSeries(seriesResult?.data, since, today)
@@ -70,6 +80,13 @@ export default async function AdminToolsPage({
         </p>
       </header>
       <SignupAnalytics range={range} daily={daily} baseline={baseline} unavailable={unavailable} />
+      <BetaActivation
+        since={since}
+        steps={buildActivationSteps(funnelResult?.data)}
+        feedback={(feedbackResult?.data as Parameters<typeof BetaActivation>[0]['feedback']) ?? null}
+        unavailable={activationUnavailable}
+      />
+
       <AdminTestingTools userId={user.id} onboardingComplete={onboardingComplete} />
     </div>
   )

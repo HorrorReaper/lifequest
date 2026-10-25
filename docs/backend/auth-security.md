@@ -111,6 +111,8 @@ Expected policy patterns:
 - System exercises: trusted admins can read them alongside their own custom exercises; browser mutation is denied.
 - Admin domains: both ownership and trusted admin claim are required.
 - Foreign user IDs supplied by the browser are rejected by policy.
+- Write-only inbox: `beta_feedback` lets a user insert rows with their own `user_id` and has no select policy, so feedback cannot be read back through the API, even by its author. The trusted-admin function `admin_beta_feedback` is the only reader, and `admin_activation_funnel` returns counts only. The funnel is derived from existing tables on purpose: an event log would have meant a second copy of activity, and task titles, journal text or free answers must not end up in analytics.
+
 
 Security Invoker functions execute under the caller's role and should perform explicit ownership/claim checks before mutation.
 

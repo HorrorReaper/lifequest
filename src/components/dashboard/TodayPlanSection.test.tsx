@@ -100,7 +100,7 @@ describe('TodayPlanSection', () => {
   it('counts what is still ahead', () => {
     render(<TodayPlanSection blocks={day()} nowMinutes={MIDDAY} />)
 
-    expect(screen.getByText('5 left')).toBeTruthy()
+    expect(screen.getByText("5 blocks left")).toBeTruthy()
   })
 
   it('moves the highlight on as the day passes, without a reload', () => {
@@ -149,7 +149,7 @@ describe('TodayPlanSection', () => {
   it('lets you look back over a day that is entirely spent', () => {
     render(<TodayPlanSection blocks={day()} nowMinutes={23 * 60} />)
 
-    expect(screen.getByText(/every block is behind you/i)).toBeTruthy()
+    expect(screen.getByText(/no more time blocks today/i)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /show full day/i }))
     expect(screen.getByText('Morning pages')).toBeTruthy()
   })

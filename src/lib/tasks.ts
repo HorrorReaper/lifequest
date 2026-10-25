@@ -196,3 +196,25 @@ export async function awardTaskCompletionXp(
   if (updateError) throw updateError
   return { awarded: true, previousTotal, newTotal }
 }
+
+/**
+ * Marks a task done and pays its completion XP, the same way from every
+ * place that offers a check-off.
+ *
+ * The XP step never fails the completion: the task is done either way, and
+ * awardTaskCompletionXp refuses a second award for the same task, so
+ * reopening and completing again does not pay twice.
+ */
+export async function completeTaskWithReward(
+  supabase: SupabaseClient,
+  userId: string,
+  task: Pick<ManagedTask, 'id' | 'title'>
+): Promise<TaskXpAwardResult> {
+  await toggleTask(supabase, task.id, true)
+  try {
+    return await awardTaskCompletionXp(supabase, userId, task)
+  } catch (error) {
+    console.error('Failed to award task XP', error)
+    return { awarded: false, previousTotal: 0, newTotal: 0 }
+  }
+}

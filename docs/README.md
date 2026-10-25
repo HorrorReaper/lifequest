@@ -36,6 +36,8 @@ Last verified: 2026-07-26 against application commit `edb6610`.
 - [Deployment and production](./operations/deployment.md)
 - [Production readiness and UX plan](./operations/production-readiness-plan-2026-07-26.md) — evidence-backed audit, priorities, milestones, and release gates.
 - [Open work and handover](./operations/open-work-2026-08-04.md) — branch status, applied migrations, and what has not been verified.
+- [First-cohort readiness](./operations/first-cohort-readiness.md) — implementation list and verification status for the 2026-10-25 UX test report.
+
 - [Repository map](./reference/repository-map.md)
 - [Known constraints and technical debt](./reference/known-limitations.md)
 - [Documentation maintenance](./reference/maintenance.md)

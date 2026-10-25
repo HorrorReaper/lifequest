@@ -56,6 +56,7 @@ Insight metadata is stored on journal responses so a saved answer can be marked 
 | `goals` | User-owned longer-term goals (admin-only until `20260922120000_open_goals_to_all_users.sql`) |
 | `productivity_daily_priorities` | Admin top-three task priorities by date |
 | `focus_sessions` | Planned/actual admin focus sessions |
+| `beta_feedback` | "Send feedback" messages: `category` (`problem`, `idea`, `other`), `message` (1–2000 characters), `page_path` (path only, ≤200), owner `user_id` (defaults to `auth.uid()`). Users can insert their own rows only; there is no select policy, admins read through `admin_beta_feedback` |
 
 `tasks` and `day_plans` are actively used but are not included as complete table mappings in the current `Database` type. Their original creation migrations are also absent from this repository snapshot.
 
@@ -195,6 +196,8 @@ Project tasks reuse `tasks` rather than having a separate task table.
 
 - `admin_app_stats` — registered users and waitlist size
 - `admin_signup_series` — waitlist entries and new accounts per UTC day since a date
+- `admin_activation_funnel(p_since)` — for accounts created since a date: signed up, onboarding completed, first task, first day plan, first completed habit log, and activity on a later calendar day (profile timezone). Counts derived from existing rows; no event table
+- `admin_beta_feedback(p_limit)` — the latest `beta_feedback` rows (at most 500)
 - `get_level`
 - `get_city_tier`
 - `xp_to_next_level`
@@ -217,6 +220,8 @@ Migrations currently cover:
 10. Knowledge and projects.
 11. The metadata-only exercise catalog import.
 12. Skill categories (`habits`/`quests`/`xp_events`) and habit check-in reward RPCs, including the `xp_events.source_id` widening to `text` and the habit-dedup unique index.
+13. First-cohort readiness: `beta_feedback` and the admin activation and feedback functions (`20261025120000_beta_feedback_and_activation.sql`).
+
 
 Apply migrations strictly in filename timestamp order.
 
