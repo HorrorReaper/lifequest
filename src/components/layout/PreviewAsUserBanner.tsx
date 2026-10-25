@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button'
  * live somewhere that is always on screen rather than inside the workspace it
  * hides. It renders above the app rather than inside a page so it survives
  * whichever route the admin wanders onto.
+ *
+ * Its height is fixed (`h-12` plus the border) so the top bar can stick
+ * beneath it; see `PREVIEW_BANNER_HEIGHT`.
  */
 export function PreviewAsUserBanner() {
   const router = useRouter()
@@ -38,7 +41,7 @@ export function PreviewAsUserBanner() {
 
   return (
     <div className="sticky top-0 z-[60] border-b border-amber-500/30 bg-amber-500/10 backdrop-blur">
-      <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-2">
+      <div className="mx-auto flex h-12 max-w-2xl items-center gap-3 px-4">
         <Eye className="size-4 shrink-0 text-amber-700 dark:text-amber-400" />
         <p className="min-w-0 flex-1 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
           <span className="font-semibold">Viewing as a normal user.</span>{' '}

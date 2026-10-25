@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { motion, useReducedMotion } from 'framer-motion'
 import { CalendarCheck } from 'lucide-react'
 import {
   Dialog,
@@ -51,7 +50,6 @@ export function WeeklyReviewPrompt({
   tasksCompletedThisWeek,
   onPreviewClose,
 }: WeeklyReviewPromptProps) {
-  const reduceMotion = useReducedMotion()
   const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('weekly_review', weekStart))
 
   // Preview mode is "an admin is looking at this", so it must not touch the
@@ -69,22 +67,13 @@ export function WeeklyReviewPrompt({
     <Dialog open={open} onOpenChange={(next) => { if (!next) close() }}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <motion.span
-            className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"
-            animate={reduceMotion ? undefined : { y: [0, -6, 0], rotate: [0, -1.5, 0] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-          >
+          <span className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <CalendarCheck className="size-6" />
-          </motion.span>
-          <motion.div
-            className="space-y-2"
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.3 }}
-          >
+          </span>
+          <div className="space-y-2">
             <DialogTitle>{copy.title}</DialogTitle>
             <DialogDescription>{copy.description}</DialogDescription>
-          </motion.div>
+          </div>
         </DialogHeader>
         <div className="flex gap-2 rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">
           <span>{habitsCompletedThisWeek} habit check-ins</span>

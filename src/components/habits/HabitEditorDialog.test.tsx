@@ -70,3 +70,51 @@ describe("HabitEditorDialog skill picker", () => {
     );
   });
 });
+
+describe("HabitEditorDialog edit actions", () => {
+  const existing = {
+    id: "habit-1",
+    user_id: "user-1",
+    name: "Meditation",
+    emoji: "🧘",
+    color: "blue",
+    skill_category: null,
+    is_archived: false,
+    sort_order: 0,
+    created_at: "2026-07-01T00:00:00.000Z",
+  };
+
+  it("offers stats and archiving for an existing habit", async () => {
+    const user = userEvent.setup();
+    const onArchive = vi.fn();
+    render(
+      <HabitEditorDialog
+        open
+        habit={existing}
+        onOpenChange={() => undefined}
+        onSubmit={vi.fn()}
+        onArchive={onArchive}
+        detailsHref="/habits/habit-1"
+      />
+    );
+
+    expect(screen.getByRole("link", { name: /details & stats/i }).getAttribute("href")).toBe("/habits/habit-1");
+    await user.click(screen.getByRole("button", { name: /archive habit/i }));
+    expect(onArchive).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows neither while creating a new habit", () => {
+    render(
+      <HabitEditorDialog
+        open
+        onOpenChange={() => undefined}
+        onSubmit={vi.fn()}
+        onArchive={vi.fn()}
+        detailsHref="/habits/x"
+      />
+    );
+
+    expect(screen.queryByRole("link", { name: /details & stats/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /archive habit/i })).toBeNull();
+  });
+});

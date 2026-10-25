@@ -192,4 +192,43 @@ describe('HabitsSection', () => {
       expect(screen.getByText(/already exists/i)).toBeTruthy()
     )
   })
+
+  it('lists the habits still open above the ones already done', () => {
+    render(
+      <HabitsSection
+        userId="user-1"
+        today="2026-08-31"
+        habits={[
+          habit({ completed: true }),
+          habit({ id: 'habit-2', name: 'Read' }),
+          habit({ id: 'habit-3', name: 'Walk' }),
+        ]}
+      />
+    )
+
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      expect.stringContaining('Read'),
+      expect.stringContaining('Walk'),
+      expect.stringContaining('Meditation'),
+    ])
+  })
+
+  it('drops a habit below the open ones as soon as it is ticked off', async () => {
+    render(
+      <HabitsSection
+        userId="user-1"
+        today="2026-08-31"
+        habits={[habit(), habit({ id: 'habit-2', name: 'Read' })]}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /meditation/i }))
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+        expect.stringContaining('Read'),
+        expect.stringContaining('Meditation'),
+      ])
+    )
+  })
 })

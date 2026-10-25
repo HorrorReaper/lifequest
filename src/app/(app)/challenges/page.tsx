@@ -3,7 +3,13 @@ import { Flame } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { dateInTimezone } from '@/lib/dates'
 import { loadChallengesForUser } from '@/lib/challenge-programs'
-import { CHALLENGE_FALLBACK_TIMEZONE, getChallengeView, sortChallengePrograms } from '@/lib/challenges'
+import {
+  CHALLENGE_FALLBACK_TIMEZONE,
+  challengeCelebrationsFrom,
+  getChallengeView,
+  sortChallengePrograms,
+} from '@/lib/challenges'
+import { ChallengeCompletionNotifier } from '@/components/challenges/ChallengeCompletionNotifier'
 import { ChallengeCard } from '@/components/challenges/ChallengeCard'
 import { CreateChallengeForm } from '@/components/challenges/CreateChallengeForm'
 
@@ -23,15 +29,13 @@ export default async function ChallengesPage() {
 
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
+      <ChallengeCompletionNotifier celebrations={challengeCelebrationsFrom(programs, sync)} />
       <div className="mx-auto max-w-2xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Challenges</h1>
-          <p className="text-sm text-muted-foreground">
-            One concrete action a day: follow a guided program, or set up your own “X days of Y”.
-          </p>
         </div>
 
-        <CreateChallengeForm />
+        {/*<CreateChallengeForm />*/}
 
         {sorted.length === 0 ? (
           <div className="rounded-2xl border border-dashed p-8 text-center">

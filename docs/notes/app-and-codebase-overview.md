@@ -62,7 +62,7 @@ Supabase
 
 - **Landing** (`/`) — light, amber-accented marketing page; hero with typed headline, "How it works" with real screenshots, six feature panels, mission, roadmap, "completely free" pricing. `NEXT_PUBLIC_IS_MVP=true` sends CTAs to `/login`, `false` to the waitlist modal. Details → [[Landing Page]].
 - **Onboarding** (`/onboarding`) — 4-step first-run flow (welcome, name + timezone, the core loop, first template).
-- **Dashboard** (`/dashboard`) — hero (level, XP, coins, streak, equipped avatar items) followed by **sections the user can toggle** in Settings (`src/lib/dashboard-sections.ts`, stored in `profiles.dashboard_sections`): Today's Plan, Habits, Tasks, Scorecard (metric targets), Metric chart, Daily Reflection (rotating question, fixed template id), Quests, Routines (admin). On top of that the four **ritual prompts** (Daily Plan, Evening Review, Weekly Review, Weekly Plan) open themselves in their windows → [[Rituale & Prompts]]. `/dashboard2` is a retained experiment.
+- **Dashboard** (`/dashboard`) — greeting (avatar head + "Welcome back"; level, XP, coins and streak moved to the global top bar) followed by **sections the user can toggle** in Settings (`src/lib/dashboard-sections.ts`, stored in `profiles.dashboard_sections`): Today's Plan, Habits, Tasks, Scorecard (metric targets), Metric chart, Daily Reflection (rotating question, fixed template id), Quests, Routines (admin). On top of that the four **ritual prompts** (Daily Plan, Evening Review, Weekly Review, Weekly Plan) open themselves in their windows → [[Rituale & Prompts]]. `/dashboard2` is a retained experiment.
 - **Today's Plan** (`/plan`) — six-step daily ritual (`TodayPlanner`): Mood → Intention → Top Three (Main Quest required) → Anchors → Timeline (drag, 15-min grid) → Commit; stored in `day_plans` with a metadata envelope in `notes`.
 - **Journal** (`/journal/*`) — template-based structured journaling. Entry form is **one question per step at every width** since 2026-09-20 (was mobile-only). Archive, insights (learning/problem/idea/decision/win), custom templates with 16 field types, `/journal/metrics` charts for `track_as_metric` number fields. System templates: Morning Reflection, Evening Review, Quick Insight, Daily Reflection, **Weekly Review**, **Weekly Plan** (the last three seeded by migration with fixed ids).
 - **Tasks** (`/tasks`) — full task manager; tasks can also be captured inside an entry.
@@ -73,7 +73,7 @@ Supabase
 - **Analytics** (`/analytics`) — journal stats, mood/activity charts, Skills tab with per-category XP.
 - **Settings** (`/settings`) — appearance, profile, timezone, dashboard sections, AI consent, sign-out, account deletion.
 
-Bottom nav: Home · Journal · **(quick action)** · Avatar · Settings. The quick action sheet links to journal, learn, tasks, plan, habits, routines, quests and — for admins — LifeQuest Labs.
+Top bar (every standard-shell page): Lv + XP bar, coins, streak. Bottom nav: Home · Journal · **(quick action)** · Library (`/learn`) · Avatar (the player's own head as icon). Settings opens from the button on `/profile`; the Avatar tab stays highlighted on `/settings`. The quick action sheet links to journal, learn, tasks, plan, habits, routines, quests and — for admins — LifeQuest Labs.
 
 ## 5. LifeQuest Labs (`/admin`) — purpose and the trust-boundary gotcha ⟳
 
@@ -129,7 +129,7 @@ An allowlisted-but-not-trusted user can navigate the `/admin` UI but gets DB per
 
 - **Dates:** everything goes through `src/lib/dates.ts` — `dateInTimezone(date, tz)` for "today" in the profile timezone, `dayNumber`/`addDays` for arithmetic (DST-immune), `weekdayOf` (Mon = 0 … Sun = 6) and `weekStart` for the weekly loop. `YYYY-MM-DD` strings are never parsed as UTC midnight; date pickers parse at local noon. **Never** `Date.getDay()`.
 - **Transactions:** integrity-critical flows use atomic RPCs; others remain sequential client-side writes as known debt.
-- **State split:** Supabase is authoritative; Zustand (`user-store.ts`) is presentation-only (XP/coins/streak/level-up), refreshed by the bottom nav after mount. Invalidation = `lifequest-data-updated` event + `router.refresh()`.
+- **State split:** Supabase is authoritative; Zustand (`user-store.ts`) is presentation-only (XP/coins/streak/equipped items/level-up), seeded from the `(app)` layout's server load and refreshed by the bottom nav after mount. Invalidation = `lifequest-data-updated` event + `router.refresh()`.
 - **Draft persistence** is workflow-specific and not synced across devices: journal drafts → `sessionStorage`; Today Planner → `sessionStorage`; knowledge notes → `localStorage`; "Not now" on ritual prompts → `localStorage` with a self-expiring period key.
 - **Rendering split:** Server Components own auth/data-fetch; "manager" Client Components own interactivity. Hydration-sensitive UI (prompts) renders the "closed" state on the server so nothing flashes.
 - **Config normalization:** stored JSON/rows are read through a `normalize*()` that keeps what validates and falls back per field — never trust a row, never throw on the dashboard.

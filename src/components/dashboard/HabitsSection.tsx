@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Check, ChevronDown, Flame, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { createHabit, setHabitLogCompletion } from '@/lib/habits'
 import { applyHabitCheckInReward } from '@/lib/habit-check-in'
 import { useUserStore } from '@/lib/stores/user-store'
-import type { DashboardHabit } from '@/lib/dashboard-habits'
+import { openHabitsFirst, type DashboardHabit } from '@/lib/dashboard-habits'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
+import { SectionAddButton } from '@/components/dashboard/SectionAddButton'
 import {
   HabitEditorDialog,
   type HabitEditorValue,
@@ -45,6 +47,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
   const [editorSaving, setEditorSaving] = useState(false)
   const [editorError, setEditorError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   async function handleCreate(value: HabitEditorValue) {
     setEditorSaving(true)
@@ -69,6 +72,10 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
   }
 
   const doneCount = habits.filter((habit) => completedIds.has(habit.id)).length
+  // From the optimistic set, so a ticked habit drops to the bottom on the tap
+  // itself rather than after the save; the preview's first rows are then
+  // always the habits still left to do.
+  const orderedHabits = openHabitsFirst(habits, completedIds)
 
   async function toggleHabit(habit: DashboardHabit) {
     if (busyId) return
@@ -132,19 +139,28 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
   }
 
   return (
-    <section className="rounded-2xl border bg-card p-5">
+    <ClickableSection href="/habits" className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Flame className="size-4" />
           </span>
-          <h2 className="text-lg font-semibold sm:text-base">Habits</h2>
+          <h2 className="text-lg font-semibold sm:text-base">
+            <SectionHeadingLink href="/habits">Habits</SectionHeadingLink>
+          </h2>
         </div>
-        {habits.length > 0 && (
-          <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
-            {doneCount} of {habits.length} today
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Empty, the section's own "Add habit" button is the way in;
+              a second one up here would only repeat it. */}
+          {habits.length > 0 && (
+            <>
+              <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
+                {doneCount} of {habits.length} today
+              </span>
+              <SectionAddButton label="Add habit" onClick={() => setEditorOpen(true)} />
+            </>
+          )}
+        </div>
       </div>
 
       {habits.length === 0 ? (
@@ -174,12 +190,18 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
           </div>
 
           <ul className="mt-4 space-y-2">
-            {(expanded ? habits : habits.slice(0, HABITS_PREVIEW_COUNT)).map((habit) => {
+            {(expanded ? orderedHabits : orderedHabits.slice(0, HABITS_PREVIEW_COUNT)).map((habit) => {
               const checked = completedIds.has(habit.id)
               const busy = busyId === habit.id
 
               return (
-                <li key={habit.id}>
+                // layout slides a habit to its new place instead of jumping;
+                // skipped for anyone who asked the system for less motion.
+                <motion.li
+                  key={habit.id}
+                  layout={reduceMotion ? false : 'position'}
+                  transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                >
                   {/* Mobile-first: the larger sizes are the base and desktop
                       steps back down, since thumbs need the room more than a
                       cursor does. */}
@@ -221,7 +243,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
                       {habit.name}
                     </span>
                   </button>
-                </li>
+                </motion.li>
               )
             })}
           </ul>
@@ -239,19 +261,6 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
               />
             </button>
           )}
-
-          <div className="mt-4 flex items-center justify-between border-t pt-3">
-            <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
-              <Plus />
-              Add habit
-            </Button>
-            <Link
-              href="/habits"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
-            >
-              Manage habits →
-            </Link>
-          </div>
         </>
       )}
 
@@ -268,6 +277,6 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
         }}
         onSubmit={handleCreate}
       />
-    </section>
+    </ClickableSection>
   )
 }

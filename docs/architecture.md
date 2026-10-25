@@ -51,7 +51,7 @@ Supabase
 - Route pages under `src/app/(app)` are mostly Server Components. They validate the session, fetch initial data, and pass serializable props into client components.
 - Interactive managers such as `TaskManager`, `HabitManager`, `TodayPlanner`, `WorkoutHub`, and `NutritionHub` are Client Components.
 - Public marketing pages render without the authenticated app shell.
-- The app shell adds bottom navigation and, for admins, the chatbot. It suppresses both on immersive routes such as `/plan`, journal entry screens, routine runners, and all admin pages.
+- The app shell adds a sticky top bar (level, XP, coins, streak), the bottom navigation and, for admins, the chatbot. It suppresses both on immersive routes such as `/plan`, journal entry screens, routine runners, and all admin pages.
 - The admin layout uses a separate responsive shell with desktop sidebar and mobile horizontal navigation.
 
 ## Authentication lifecycle
@@ -79,7 +79,7 @@ Supabase is authoritative for user data. Most managers load their own data and w
 
 ### Presentation state
 
-`src/lib/stores/user-store.ts` holds current XP, coins, streak, and level-up presentation state. The bottom navigation refreshes authoritative XP and coins after mount.
+`src/lib/stores/user-store.ts` holds current XP, coins, streak, equipped avatar items, and level-up presentation state. The `(app)` layout loads the first four from Supabase on every request (`fetchShellStats` in `src/lib/shell-stats.ts`) and `AppShell` copies them into the store after mount (`useShellStats`); until then it renders the server props directly, because the store is a module singleton that is shared between requests on the server. The top bar and the bottom navigation's avatar icon read from it. The bottom navigation still refreshes authoritative XP and coins after mount.
 
 ### Cross-component refresh
 
@@ -129,7 +129,7 @@ Rules:
 
 The global design system is implemented through:
 
-- `src/app/globals.css` for theme variables, animation, safe areas, and global styles.
+- `src/app/globals.css` for theme variables, animation, safe areas, and global styles. The White and Trail themes soften vivid gradients by overriding `--tw-gradient-from` / `--tw-gradient-to` on `[class*="from-primary"]`, `[class*="to-purple"]` and similar. Those overrides must be a plain colour: Tailwind 4 registers both properties as `<color>` (`@property`), so a v3-style value such as `hsl(…) var(--tw-gradient-from-position)` is invalid, falls back to transparent, and makes every matching gradient disappear (this hid the icon tile in the dashboard's ritual prompts).
 - `src/components/ui/` for reusable controls.
 - `ThemeProvider` for `white`, `system`, and `dark` appearance modes.
 - `AppShell`, `BottomNav`, and `AdminShell` for navigation structure.

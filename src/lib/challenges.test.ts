@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getChallengeView, getProgramDayState, sortChallengePrograms } from '@/lib/challenges'
+import { challengeCelebrationsFrom, getChallengeView, getProgramDayState, sortChallengePrograms } from '@/lib/challenges'
 import type { ChallengeProgram } from '@/lib/challenge-programs'
 
 function program(
@@ -208,5 +208,38 @@ describe('sortChallengePrograms', () => {
       'fresh',
       'done',
     ])
+  })
+})
+
+describe('challengeCelebrationsFrom', () => {
+  const syncRow = {
+    enrollment_id: 'enrollment-1',
+    day_number: 3,
+    completion_type: 'goals_created' as const,
+    progress: 1,
+    target: 1,
+    met: true,
+    available_from: '2026-07-22',
+    completed_now: true,
+    challenge_completed: false,
+  }
+
+  it('turns a day the sync just completed into a celebration', () => {
+    expect(challengeCelebrationsFrom([program()], [syncRow])).toEqual([
+      {
+        enrollmentId: 'enrollment-1',
+        challengeTitle: '7 days of focus',
+        dayNumber: 3,
+        totalDays: 7,
+        challengeCompleted: false,
+        xpReward: 200,
+        coinReward: 80,
+      },
+    ])
+  })
+
+  it('ignores rows the sync only checked, and rows without a loaded program', () => {
+    expect(challengeCelebrationsFrom([program()], [{ ...syncRow, completed_now: false }])).toEqual([])
+    expect(challengeCelebrationsFrom([program()], [{ ...syncRow, enrollment_id: 'other' }])).toEqual([])
   })
 })

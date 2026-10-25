@@ -9,6 +9,7 @@ The primary implementation is in:
 - `src/app/(app)/dashboard/page.tsx`
 - `src/components/dashboard/`
 - `src/components/layout/app-shell.tsx`
+- `src/components/layout/app-top-bar.tsx`
 - `src/components/layout/bottom-nav.tsx`
 - `src/components/layout/quick-action-button.tsx`
 
@@ -26,16 +27,51 @@ The authenticated layout and Supabase session middleware redirect incomplete pro
 
 The dashboard server page loads the initial authenticated snapshot. Client widgets then support focused mutations and refresh the server snapshot when needed.
 
-### Hero and progression
+### Greeting and progression
 
-The hero displays:
+The top of the dashboard is `DashboardGreeting` (`src/components/dashboard/DashboardGreeting.tsx`): the avatar's head, hat included, and "Welcome back, <name>". Under the Trail theme the heading uses the scoped Fraunces font and ends in a full stop; the other themes keep the wave emoji. There is no hero card any more.
 
-- Current level and XP progress.
-- Current and best journaling streak.
-- Coins and city tier information.
-- The next meaningful city reward.
+Below it, `JournalNudge` (`src/components/dashboard/JournalNudge.tsx`) suggests the day's next move as a single 48px row: the first journal template not yet written today, labelled "Next best move", linking straight into it (or to `/journal` when the user has no templates). Once anything is journaled today it renders nothing; the journal tab is always in the navigation.
+
+Level, XP progress, coins and streak are in the top bar that every page with the standard shell shows, so they are not repeated on the dashboard (`/profile` keeps its own `DashboardHero` card).
+
+#### Top bar
+
+`src/components/layout/app-top-bar.tsx` is one row: `Lv N`, a thin XP progress bar with "XP / next level threshold", coins, and the current streak (best streak stays on `/profile`). It is sticky at the top of `AppShell` and hidden on the same immersive routes as the bottom navigation. A brand-new account's raw progress is below zero (level 1 starts above 0 XP), so the bar clamps it to 0 to 100.
+
+Earning XP or coins anywhere in the app shows in the bar: a small "+N XP" / "+N" rises from the value and fades in about a second, and the number gives a short springy pulse. `useGains` (`src/components/layout/use-gains.ts`) collects only increases after the bar first rendered, so loading a page or the shell's first sync with the server animates nothing, and a decrease (an unticked habit) shows no "-N". Gains that land in the same render are shown as one; under reduced motion nothing animates and the number simply updates.
+
+While an admin previews as a user, the bar sticks directly beneath `PreviewAsUserBanner` instead of behind it: the layout sets `--preview-banner-height` (`src/components/layout/preview-banner-height.ts`) and the banner has a fixed height to match. Keep the two in step.
+
+#### Where the numbers come from
+
+`src/app/(app)/layout.tsx` calls `fetchShellStats` (`src/lib/shell-stats.ts`) on every request: `total_xp` and `current_streak` from `profiles`, `coins` from `city_states`, and the equipped avatar items via `fetchAvatarState`. A part that fails falls back to its default so chrome can never take a page down. `AppShell` hands the result to `useShellStats` (`src/components/layout/use-shell-stats.ts`), which renders the server values first, then copies them into the Zustand user store and reads from it. Anything that already calls `addXp`, `setCoins`, `updateStreak` or `setEquippedItems` therefore moves the bar and the nav's avatar immediately, and a `router.refresh()` re-syncs the store with fresh server values.
 
 XP and coins are persisted in Supabase. The Zustand user store exists for responsive presentation and level-up feedback; it is not the durable source of truth.
+
+### Sections open their page
+
+The sections with a page of their own have no "Manage …" / "Open …" / "All …" link any more. Clicking anywhere on the section opens the page instead (`ClickableSection` in `src/components/dashboard/ClickableSection.tsx`), and its heading is that link for the keyboard and screen readers (`SectionHeadingLink`, with a small chevron):
+
+| Section | Opens |
+| --- | --- |
+| Today's Plan | `/plan` (or the Work planner when embedded there) |
+| Habits | `/habits` |
+| Tasks | `/tasks` |
+| Scorecard, metric chart | `/journal/metrics` |
+| Quests | `/quests` |
+
+Adding happens from a small round "+" at the right of the section's header (`SectionAddButton` in `src/components/dashboard/SectionAddButton.tsx`), the same in every section: Habits and Tasks open their create dialog, Today's Plan goes straight to the timeline (`/plan?step=timeline`), and Goals opens `GoalEditorDialog` (title, why, category, target date), which replaced the form that used to unfold inside the section. `?goal=new` (`GOAL_FORM_HREF`) opens that dialog directly. While a section is empty the "+" is hidden: its own empty-state button ("Add habit", "Add task", "Plan my day", "Add Goal") is the one way in. The footers that held "Add …" buttons, and the Tasks "N open" count, are gone.
+
+A click on one of the section's own controls does not navigate: check-offs, the "+" buttons, "Show more", claim buttons, any link, and anything inside a dialog the section opened (React bubbles portal events through the component tree, so the section checks the click landed in its own DOM). `data-section-ignore` opts any other element out. Ctrl/Cmd-click opens the page in a new tab, and selecting text does not navigate. Goals, Daily Reflection and Routines have no page to open and are unchanged.
+
+### Ritual prompts
+
+`DailyPlanPrompt`, `EveningReviewPrompt`, `WeeklyPlanPrompt` and `WeeklyReviewPrompt` (`src/components/dashboard/`) open as dialogs over the dashboard in their windows (configured at `/admin/rituals`). The daily plan (morning briefing) has a start time but no end, so it ends where the evening review's window begins (`isDailyPlanWindow` in `src/lib/rituals.ts`): a visit after that start, whether the first of the day or with the plan left open since the morning, gets only the evening review. With the evening review switched off, the briefing stays on offer all day. They are static: an icon tile, the title and description, "Not now" and the call to action. The looping icon bob and the text fade-in they used to have were removed because the motion distracted inside a dialog.
+
+### Habits
+
+`HabitsSection` (`src/components/dashboard/HabitsSection.tsx`) lists today's habits, each checkable in place with the same XP and coin rewards as `/habits`. Habits still open come first and done ones after (`openHabitsFirst` in `src/lib/dashboard-habits.ts`); within each group the order is the user's own from `/habits`. The order follows the optimistic check-in state, so a habit slides below the open ones on the tap itself (a framer-motion layout animation, skipped when the system asks for reduced motion) and back up when unticked. The five-row preview therefore always starts with what is left to do.
 
 ### Daily briefing
 
@@ -97,10 +133,10 @@ The standard mobile navigation contains:
 1. Home.
 2. Journal.
 3. Quick action.
-4. City.
-5. Settings.
+4. Library (`/learn`), the same page as "Learn" in the quick action sheet. It stays highlighted on the pages below it, such as `/learn/tools`.
+5. Avatar (`/profile`), drawn as the player's own head with the equipped hat (`AvatarHead`) rather than a generic icon; a ring around the head marks the active tab. Settings has no tab of its own: it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted on `/settings`.
 
-The standard shell is hidden on immersive workflows, including Today Plan, journal entry forms, routine execution, and admin pages. This prevents competing navigation while the user is completing a focused flow.
+The top bar (level, XP, coins, streak) sits above the page on the same routes. The standard shell is hidden on immersive workflows, including Today Plan, journal entry forms, routine execution, and admin pages. This prevents competing navigation while the user is completing a focused flow.
 
 ## Settings
 

@@ -26,16 +26,16 @@
 | Route | Purpose |
 | --- | --- |
 | `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
-| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, the daily reflection prompt, goals, quests, and admin-only widgets |
+| `/dashboard` | Main LifeQuest briefing: avatar greeting, the ritual prompts, today's plan, habits, tasks, the daily reflection prompt, goals, quests, and admin-only widgets (XP, coins and streak are in the top bar). `?goal=new#goals` opens the goal form and scrolls to it |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
 | `/plan` | Five-step Today Plan ritual |
 | `/tasks` | Full task manager |
 | `/habits` | Today/history/archived habit manager |
 | `/habits/[habitId]` | Habit detail and analytics |
 | `/quests` | Achievements and custom one-time quests; links to `/challenges` |
-| `/challenges` | Every published challenge plus the user's personal ones, running first; form to create a personal "X days of Y" challenge |
+| `/challenges` | Every published challenge plus the user's personal ones, running first. The form to create a personal "X days of Y" challenge is currently hidden (commented out in `src/app/(app)/challenges/page.tsx`) |
 | `/challenges/[id]` | One challenge: today's step (manual or auto-detected), deep link, all days |
-| `/learn` | Article library; admins additionally get the interactive Academy courses |
+| `/learn` | Article library, titled "Lifequest Academy" and shown as the Library tab in the bottom navigation; admins additionally get the interactive Academy courses, titled "Learn by doing". The page header is the title only, with no intro text, and the reading-progress block (articles read, XP earned) is currently hidden (commented out in `src/components/learn/AcademyLibrary.tsx`) |
 | `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
@@ -98,13 +98,17 @@ Detailed contracts are in [HTTP API and external providers](./backend/api.md).
 
 ## Navigation behavior
 
+Every page with the standard shell also shows a sticky top bar with level, XP progress, coins and streak (`src/components/layout/app-top-bar.tsx`). It is hidden on the same immersive routes as the bottom navigation.
+
 The standard bottom navigation contains:
 
 - Home → `/dashboard`
 - Journal → `/journal`
 - Center quick action button
-- City → `/city`
-- Settings → `/settings`
+- Library → `/learn` (also reachable as "Learn" from the quick action sheet; stays highlighted on `/learn/tools` and its sub-pages)
+- Avatar → `/profile` (icon is the player's own head with the equipped hat)
+
+Settings (`/settings`) has no tab of its own; it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted there (`src/components/layout/bottom-nav.tsx`).
 
 The quick action opens direct paths into tasks, habits, journaling, Today Plan, and admin-only tools. Trusted/route-allowlisted admins additionally see a "LifeQuest Labs" entry in the quick action sheet linking to `/admin`, since the standard bottom navigation has no persistent admin entry point. Bottom navigation and the admin chatbot are hidden on immersive routes.
 

@@ -29,11 +29,10 @@ describe('JournalNudge', () => {
     expect(cta.getAttribute('href')).toBe('/journal/new/evening')
   })
 
-  it('offers a further reflection once the day is already journaled', () => {
-    render(<JournalNudge journals={journals} completedJournalCount={1} />)
+  it('renders nothing once the day is already journaled', () => {
+    const { container } = render(<JournalNudge journals={journals} completedJournalCount={1} />)
 
-    const cta = screen.getByRole('link', { name: /add reflection/i })
-    expect(cta.getAttribute('href')).toBe('/journal')
+    expect(container.firstChild).toBeNull()
   })
 
   it('still routes to the journal when the user has no templates at all', () => {
@@ -41,5 +40,12 @@ describe('JournalNudge', () => {
 
     const cta = screen.getByRole('link', { name: /open journal/i })
     expect(cta.getAttribute('href')).toBe('/journal')
+  })
+
+  it('is one link, labelled as the next best move, while today is still open', () => {
+    render(<JournalNudge journals={journals} completedJournalCount={0} />)
+
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByText('Next best move')).toBeTruthy()
   })
 })

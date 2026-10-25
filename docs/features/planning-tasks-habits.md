@@ -96,7 +96,8 @@ Each habit shows its emoji, color, today's state, current streak, and seven-day 
 - Daily cadence display; richer schedules are intentionally unsupported.
 - Check or uncheck today.
 - Check a past, non-future day after the habit's creation date.
-- Drag or use buttons to reorder.
+- Reorder by dragging the card (on the Today tab): a long press (250 ms) on touch, so a normal swipe still scrolls, or a 6 px mouse drag. The grip handle on every card is the keyboard route (Space to pick up, arrows to move). The new order is saved as `sort_order`.
+- Tapping a card (anywhere but the check-in circle and the grip) opens it in `HabitEditorDialog`. In edit mode the dialog also links to the habit's stats page (`/habits/[habitId]`, "Details & stats") and offers "Archive habit". Archiving hands over to the existing confirmation dialog, so it stays two steps. The cards carry no separate edit/archive icons or up/down buttons.
 - Archive with confirmation.
 - Restore.
 - Retry failed mutations after optimistic rollback.

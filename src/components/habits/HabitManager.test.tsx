@@ -315,3 +315,53 @@ describe("HabitManager", () => {
     );
   });
 });
+
+describe("HabitManager card actions", () => {
+  it("opens the habit's editor when the card is tapped, with stats and archive inside", async () => {
+    fetchHabits.mockResolvedValue([habit()]);
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Meditation" }));
+
+    expect(await screen.findByRole("heading", { name: "Edit habit" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /details & stats/i }).getAttribute("href")).toBe(
+      "/habits/habit-1"
+    );
+    expect(screen.getByRole("button", { name: /archive habit/i })).toBeTruthy();
+  });
+
+  it("asks for confirmation before archiving from the editor", async () => {
+    fetchHabits.mockResolvedValue([habit()]);
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Meditation" }));
+    fireEvent.click(await screen.findByRole("button", { name: /archive habit/i }));
+
+    expect(await screen.findByRole("heading", { name: "Archive Meditation?" })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Edit habit" })).toBeNull());
+  });
+
+  it("checks a habit off without opening it", async () => {
+    setHabitLogCompletion.mockResolvedValue({ id: "log-1" });
+    fetchHabits.mockResolvedValue([habit()]);
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark Meditation complete for 2026-08-09" }));
+
+    expect(screen.queryByRole("heading", { name: "Edit habit" })).toBeNull();
+  });
+
+  it("drops the separate edit/archive icons and the up/down reorder row", async () => {
+    fetchHabits.mockResolvedValue([habit(), habit({ id: "habit-2", name: "Reading", sort_order: 1 })]);
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("Reading")).toBeTruthy());
+
+    expect(screen.queryByRole("button", { name: /^Archive Meditation$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Move Meditation (up|down)/ })).toBeNull();
+    // Reordering stays reachable from the keyboard through the grip.
+    expect(screen.getByRole("button", { name: "Drag Meditation to reorder" })).toBeTruthy();
+  });
+});

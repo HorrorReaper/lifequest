@@ -39,6 +39,7 @@ export function AvatarPicker({
 }: AvatarPickerProps) {
   const supabase = createClient()
   const setStoreCoins = useUserStore((state) => state.setCoins)
+  const setStoreEquipped = useUserStore((state) => state.setEquippedItems)
   const [avatarState, setAvatarState] = useState(initialAvatarState)
   const [coins, setCoins] = useState(initialCoins)
   const [busyItemId, setBusyItemId] = useState<string | null>(null)
@@ -74,6 +75,7 @@ export function AvatarPicker({
         avatarState.equippedItems
       )
       setAvatarState((prev) => ({ ...prev, equippedItems: nextEquipped }))
+      setStoreEquipped(nextEquipped)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update your avatar.')
     } finally {
