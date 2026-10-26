@@ -93,6 +93,15 @@ Adding happens from a small round "+" at the right of the section's header (`Sec
 
 A click on one of the section's own controls does not navigate: check-offs, the "+" buttons, "Show more", claim buttons, any link, and anything inside a dialog the section opened (React bubbles portal events through the component tree, so the section checks the click landed in its own DOM). `data-section-ignore` opts any other element out. Ctrl/Cmd-click opens the page in a new tab, and selecting text does not navigate. Goals, Daily Reflection and Routines have no page to open and are unchanged.
 
+### Section headers with a figure
+
+Habits and Tasks lead with their number (`SectionStatHeader` in `src/components/dashboard/SectionStatHeader.tsx`): the section's icon and title shrink to a small label, which is still the `SectionHeadingLink`, and below it the day's figure is the largest thing in the header, with its unit in smaller muted type. The "+" sits on the right, level with the number. While a section is empty it shows the label only, with no number and no "+".
+
+- **Habits** reads "3 of 11 today", with one continuous orange bar under the header filling as habits are checked. It replaced the row of one dot per habit, which grew wider than the card as habits were added.
+- **Tasks** reads "N due today", counting only tasks due today itself. Overdue tasks show as a red "N overdue" chip under the header. When nothing is due and the section falls back to undated tasks, the number is 0 and a "N without a date" chip says what is listed instead.
+
+The other dashboard sections keep the older header: an icon in a round chip, the title, and a small count on the right.
+
 ### Ritual prompts
 
 `DailyPlanPrompt`, `EveningReviewPrompt`, `WeeklyPlanPrompt` and `WeeklyReviewPrompt` (`src/components/dashboard/`) open as dialogs over the dashboard in their windows (configured at `/admin/rituals`). The daily plan (morning briefing) has a start time but no end, so it ends where the evening review's window begins (`isDailyPlanWindow` in `src/lib/rituals.ts`): a visit after that start, whether the first of the day or with the plan left open since the morning, gets only the evening review. With the evening review switched off, the briefing stays on offer all day. They are static: an icon tile, the title and description, "Not now" and the call to action. The looping icon bob and the text fade-in they used to have were removed because the motion distracted inside a dialog.

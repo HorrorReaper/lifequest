@@ -68,8 +68,9 @@ describe('TasksSection', () => {
       />
     )
 
-    expect(screen.getByText(/1 overdue/)).toBeTruthy()
-    expect(screen.getByText(/1 today/)).toBeTruthy()
+    // The big number counts today's tasks only; overdue ones are a chip.
+    expect(screen.getByText('due today').parentElement?.textContent).toBe('1 due today')
+    expect(screen.getByText('1 overdue')).toBeTruthy()
   })
 
   it('completes a task through the idempotent XP helper', async () => {
@@ -98,8 +99,8 @@ describe('TasksSection', () => {
       />
     )
 
-    expect(screen.getByText(/nothing due today/i)).toBeTruthy()
-    expect(screen.getByText(/1 without a date/)).toBeTruthy()
+    expect(screen.getByText('due today').parentElement?.textContent).toBe('0 due today')
+    expect(screen.getByText('1 without a date')).toBeTruthy()
     expect(screen.getByRole('checkbox', { name: /someday idea/i })).toBeTruthy()
   })
 
