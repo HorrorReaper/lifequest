@@ -68,7 +68,14 @@ describe('HabitsSection', () => {
       />
     )
 
-    expect(screen.getByText('1 of 2 today')).toBeTruthy()
+    // The number and its unit are styled apart but read as one phrase.
+    expect(screen.getByText('of 2 today').parentElement?.textContent).toBe('1 of 2 today')
+  })
+
+  it('shows no count while there are no habits', () => {
+    render(<HabitsSection userId="user-1" today="2026-08-31" habits={[]} />)
+
+    expect(screen.queryByText(/of 0 today/)).toBeNull()
   })
 
   it('rewards a check-in with the streak through yesterday plus today', async () => {

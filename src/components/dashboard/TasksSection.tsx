@@ -10,8 +10,9 @@ import { useUserStore } from '@/lib/stores/user-store'
 import { formatTaskDate } from '@/lib/task-manager'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
+import { ClickableSection } from '@/components/dashboard/ClickableSection'
 import { SectionAddButton } from '@/components/dashboard/SectionAddButton'
+import { SectionStatHeader } from '@/components/dashboard/SectionStatHeader'
 import { TaskEditorDialog, type TaskEditorDraft } from '@/components/tasks/TaskEditorDialog'
 
 interface TasksSectionProps {
@@ -115,34 +116,36 @@ export function TasksSection({
 
   return (
     <ClickableSection href="/tasks" className="rounded-2xl border bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <ListTodo className="size-4" />
-          </span>
-          <h2 className="text-lg font-semibold sm:text-base">
-            <SectionHeadingLink href="/tasks">Tasks</SectionHeadingLink>
-          </h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
-            {showingUndated ? (
-              <>Nothing due today &middot; {undatedTasks.length} without a date</>
-            ) : dueTasks.length > 0 ? (
-              <>
-                {overdueCount > 0 && (
-                  <span className="text-destructive">{overdueCount} overdue &middot; </span>
-                )}
-                {dueTasks.length - overdueCount} today
-              </>
-            ) : null}
-          </span>
-          {/* Empty, the section's own "Add task" button is the way in. */}
-          {tasks.length > 0 && (
+      {/* Empty, the section's own "Add task" button is the way in. The
+          number counts what is due today itself; overdue and undated work
+          sits beside it as chips rather than inflating it. */}
+      <SectionStatHeader
+        icon={ListTodo}
+        title="Tasks"
+        href="/tasks"
+        value={tasks.length > 0 ? dueTasks.length - overdueCount : undefined}
+        unit="due today"
+        action={
+          tasks.length > 0 && (
             <SectionAddButton label="Add task" onClick={() => setEditorOpen(true)} />
+          )
+        }
+      />
+
+      {(overdueCount > 0 || showingUndated) && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {overdueCount > 0 && (
+            <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-sm font-medium tabular-nums text-destructive sm:text-xs">
+              {overdueCount} overdue
+            </span>
+          )}
+          {showingUndated && (
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-sm tabular-nums text-muted-foreground sm:text-xs">
+              {undatedTasks.length} without a date
+            </span>
           )}
         </div>
-      </div>
+      )}
 
       {tasks.length === 0 ? (
         <div className="mt-4 space-y-3">

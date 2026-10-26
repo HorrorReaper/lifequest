@@ -11,8 +11,9 @@ import { useUserStore } from '@/lib/stores/user-store'
 import { openHabitsFirst, type DashboardHabit } from '@/lib/dashboard-habits'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
+import { ClickableSection } from '@/components/dashboard/ClickableSection'
 import { SectionAddButton } from '@/components/dashboard/SectionAddButton'
+import { SectionStatHeader } from '@/components/dashboard/SectionStatHeader'
 import {
   HabitEditorDialog,
   type HabitEditorValue,
@@ -140,28 +141,20 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
 
   return (
     <ClickableSection href="/habits" className="rounded-2xl border bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Flame className="size-4" />
-          </span>
-          <h2 className="text-lg font-semibold sm:text-base">
-            <SectionHeadingLink href="/habits">Habits</SectionHeadingLink>
-          </h2>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Empty, the section's own "Add habit" button is the way in;
-              a second one up here would only repeat it. */}
-          {habits.length > 0 && (
-            <>
-              <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
-                {doneCount} of {habits.length} today
-              </span>
-              <SectionAddButton label="Add habit" onClick={() => setEditorOpen(true)} />
-            </>
-          )}
-        </div>
-      </div>
+      {/* Empty, the section's own "Add habit" button is the way in; a count
+          and a second one up here would only repeat it. */}
+      <SectionStatHeader
+        icon={Flame}
+        title="Habits"
+        href="/habits"
+        value={habits.length > 0 ? doneCount : undefined}
+        unit={`of ${habits.length} today`}
+        action={
+          habits.length > 0 && (
+            <SectionAddButton label="Add habit" onClick={() => setEditorOpen(true)} />
+          )
+        }
+      />
 
       {habits.length === 0 ? (
         <div className="mt-4 space-y-3">
@@ -175,18 +168,14 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
         </div>
       ) : (
         <>
-          {/* One dot per habit rather than a percentage: it carries the same
-              completion signal and also says how many habits there are. */}
-          <div className="mt-3 flex flex-wrap gap-1.5" aria-hidden="true">
-            {habits.map((habit) => (
-              <span
-                key={habit.id}
-                className={cn(
-                  'h-1.5 w-6 rounded-full transition-colors',
-                  completedIds.has(habit.id) ? 'bg-orange-500' : 'bg-muted'
-                )}
-              />
-            ))}
+          {/* One continuous bar rather than a dot per habit: the header
+              already says how many there are, and a row of dots grew wider
+              than the card with every habit added. */}
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <div
+              className="h-full rounded-full bg-orange-500 transition-[width] duration-300"
+              style={{ width: `${(doneCount / habits.length) * 100}%` }}
+            />
           </div>
 
           <ul className="mt-4 space-y-2">
