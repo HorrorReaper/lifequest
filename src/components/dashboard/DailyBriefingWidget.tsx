@@ -133,8 +133,8 @@ export function DailyBriefingWidget({
   const totalItems = localHabits.length + openTasks + activePlanBlocks + Math.max(journals.length > 0 ? 1 : 0, 0)
   const doneItems = completedHabits + completedJournalCount + blocks.filter((block) => block.isPast).length
   const allClear = totalItems > 0 && doneItems >= totalItems
-  // Deliberately says nothing about journaling any more: that is the
-  // JournalNudge section's job, and it sits directly above this card.
+  // Deliberately says nothing about journaling any more: the Journal tab in
+  // the nav is the way in.
   // Nor about the timeline: TodayPlanSection owns that, higher up the page.
   const focusCopy = mainQuestTitle
     ? `Your Main Quest is “${mainQuestTitle}”. Protect its next block before reacting to everything else.`

@@ -57,7 +57,7 @@ The top is `DashboardGreeting` (`src/components/dashboard/DashboardGreeting.tsx`
 
 Clock time and completion are separate: a block whose time has passed is never called done. "Mark task done" uses `completeTaskWithReward` (`src/lib/tasks.ts`), the same XP path as the task list.
 
-`JournalNudge` (`src/components/dashboard/JournalNudge.tsx`) suggests the day's next journal entry as a single 48px row: the first journal template not yet written today, labelled "Next best move", linking straight into it (or to `/journal` when the user has no templates). Once anything is journaled today it renders nothing. It sits below Tasks.
+The dashboard has no journal suggestion of its own. The "Next best move" row (`JournalNudge`) that sat below Tasks and linked to the first journal template not yet written today was removed as no longer needed, together with the `journal_templates` query that only fed it. Journaling starts from the Journal tab in the nav, and the evening review prompt still offers its template.
 
 At the bottom, "Something unclear or not working? Send feedback" opens `FeedbackDialog`; see [Feedback](#feedback).
 
