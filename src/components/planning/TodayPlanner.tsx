@@ -22,7 +22,6 @@ import {
   HeartPulse,
   Plus,
   Sparkles,
-  Target,
   Trash2,
   TriangleAlert,
   X,
@@ -48,7 +47,7 @@ import {
   MOOD_REASON_NOTE_MAX,
   MOOD_REASONS,
 } from "@/lib/mood-reasons";
-import { TaskCombobox } from "@/components/planning/TaskCombobox";
+import { TodayPriorities } from "@/components/planning/TodayPriorities";
 import { PlanTimeline } from "@/components/planning/PlanTimeline";
 import type {
   DayPlanBlock,
@@ -63,8 +62,6 @@ import {
   createDefaultTodayPlanMetadata,
   findTodayPlanBlockProblems,
   formatPlanMinutes,
-  MAX_OUTCOME_MINUTES,
-  MIN_OUTCOME_MINUTES,
   minutesToTime,
   nextGridStart,
   parseTodayPlanNotes,
@@ -146,8 +143,8 @@ const STEPS = [
   },
   {
     label: "Priorities",
-    title: "Choose today's priorities",
-    description: "A main priority is required. The other two are optional.",
+    title: "What matters most today?",
+    description: "Choose one focus. Add one more if there’s room.",
   },
   {
     label: "Anchors",
@@ -184,47 +181,20 @@ const COMMIT_STEP = 5;
 export type PlannerEntryPoint = "timeline";
 
 /**
- * One plain name per role.
+ * One plain name per role, as the review step lists them.
  *
  * The roles used to be "Must Win", then "Main Quest / Side Quest / Recovery
  * Quest". Both asked a new user to learn a vocabulary before planning a day.
- * The labels now say what the role is; the quest flavour lives on only in
- * the helper line, where it adds colour without being required reading.
+ * The priorities step itself words them as "Your main focus", "Also worth
+ * doing" and "A moment to recharge" (TodayPriorities).
  */
 const OUTCOME_META: Record<
   DayPlanOutcomeRole,
-  {
-    label: string;
-    helper: string;
-    icon: typeof Target;
-    style: string;
-    defaultDuration: number;
-  }
+  { label: string; defaultDuration: number }
 > = {
-  must_win: {
-    label: "Main priority",
-    helper: "The one thing that has to move today -- your main quest.",
-    icon: Target,
-    style:
-      "border-violet-500/35 bg-violet-500/8 text-violet-700 dark:text-violet-300",
-    defaultDuration: 90,
-  },
-  progress: {
-    label: "Second priority",
-    helper: "A concrete step toward something bigger.",
-    icon: Sparkles,
-    style:
-      "border-blue-500/35 bg-blue-500/8 text-blue-700 dark:text-blue-300",
-    defaultDuration: 60,
-  },
-  health: {
-    label: "Recovery",
-    helper: "What protects your energy: a walk, training, real rest.",
-    icon: HeartPulse,
-    style:
-      "border-emerald-500/35 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300",
-    defaultDuration: 45,
-  },
+  must_win: { label: "Main priority", defaultDuration: 90 },
+  progress: { label: "Second priority", defaultDuration: 60 },
+  health: { label: "Recovery", defaultDuration: 45 },
 };
 
 const CATEGORY_LABELS: Record<DayPlanCategory, string> = {
@@ -400,12 +370,6 @@ export function TodayPlanner({
   const [saving, setSaving] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  // What is being typed into a block-length field, per role, while it is not
-  // yet a usable number. Committing on every keystroke instead would clamp
-  // "9" up to the minimum before "90" could ever be finished.
-  const [lengthDrafts, setLengthDrafts] = useState<
-    Partial<Record<DayPlanOutcomeRole, string>>
-  >({});
   const [draftReady, setDraftReady] = useState(false);
   const [restoredDraft, setRestoredDraft] = useState(false);
 
@@ -504,36 +468,30 @@ export function TodayPlanner({
     setStepError(null);
   }
 
-  function changeBlockLength(role: DayPlanOutcomeRole, raw: string) {
-    const digits = raw.replace(/[^0-9]/g, "").slice(0, 3);
-    setLengthDrafts((current) => ({ ...current, [role]: digits }));
-
-    const minutes = Number(digits);
-    if (
-      digits !== "" &&
-      minutes >= MIN_OUTCOME_MINUTES &&
-      minutes <= MAX_OUTCOME_MINUTES
-    ) {
-      updateOutcome(role, { duration_minutes: minutes });
-    }
+  function removeOutcome(role: DayPlanOutcomeRole) {
+    setMetadata((current) => ({
+      ...current,
+      outcomes: current.outcomes.filter((outcome) => outcome.role !== role),
+    }));
+    setStepError(null);
   }
 
   /**
-   * Drops the draft so the field falls back to the stored value.
+   * Links a task to a role for today.
    *
-   * Anything half-typed or out of range never reached the outcome, so this
-   * is what snaps a field showing "3" or "900" back to what is actually
-   * planned, rather than leaving a number on screen that is not real.
+   * Only the plan changes: the task's own record, its due date included, is
+   * not touched, since planning a task into today is not the same as making
+   * it due today. A task already holding another role is refused, so one
+   * task cannot be both the main focus and the second task.
    */
-  function commitBlockLength(role: DayPlanOutcomeRole) {
-    setLengthDrafts((current) => {
-      const next = { ...current };
-      delete next[role];
-      return next;
-    });
-  }
-
   function assignTaskToRole(role: DayPlanOutcomeRole, task: TodayPlannerTask) {
+    if (
+      metadata.outcomes.some(
+        (outcome) => outcome.role !== role && outcome.task_id === task.id
+      )
+    ) {
+      return;
+    }
     updateOutcome(role, {
       title: task.title,
       task_id: task.id,
@@ -542,9 +500,12 @@ export function TodayPlanner({
     });
   }
 
-  async function createAndAssignTask(role: DayPlanOutcomeRole, title: string) {
+  async function createAndAssignTask(
+    role: DayPlanOutcomeRole,
+    title: string
+  ): Promise<boolean> {
     const trimmed = title.trim();
-    if (!trimmed || creatingRole) return;
+    if (!trimmed || creatingRole) return false;
 
     setCreatingRole(role);
     setCreateTaskError(null);
@@ -560,12 +521,14 @@ export function TodayPlanner({
       };
       setTaskList((current) => [plannerTask, ...current]);
       assignTaskToRole(role, plannerTask);
+      return true;
     } catch (error) {
       console.error("Failed to create task from Today Plan", error);
       setCreateTaskError({
         role,
         message: "Could not create the task. Please try again.",
       });
+      return false;
     } finally {
       setCreatingRole(null);
     }
@@ -652,7 +615,7 @@ export function TodayPlanner({
       return "Pick how you are feeling before moving on.";
     }
     if (step === OUTCOMES_STEP && !mainOutcome?.title.trim()) {
-      return "Choose a main priority before moving on.";
+      return "Choose your main focus before moving on.";
     }
     if (
       step === ANCHORS_STEP &&
@@ -1109,117 +1072,23 @@ export function TodayPlanner({
           )}
 
           {step === OUTCOMES_STEP && (
-            <div className="space-y-4">
-              {(Object.keys(OUTCOME_META) as DayPlanOutcomeRole[]).map(
-                (role) => {
-                  const outcome = roleOutcome(metadata, role);
-                  const item = OUTCOME_META[role];
-                  const Icon = item.icon;
-                  return (
-                    <Card
-                      key={role}
-                      // Card clips overflow by default for rounded image
-                      // corners; every role renders a TaskCombobox whose
-                      // dropdown needs to escape that clip.
-                      className="overflow-visible rounded-3xl transition"
-                    >
-                      <CardContent className="space-y-4 p-5 sm:p-6">
-                        <div className="flex items-start gap-3">
-                          <span
-                            className={cn(
-                              "flex size-10 shrink-0 items-center justify-center rounded-2xl border",
-                              item.style
-                            )}
-                          >
-                            <Icon className="size-5" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-baseline gap-2">
-                              <h2 className="font-semibold">{item.label}</h2>
-                              {role === "must_win" ? (
-                                <span className="text-xs font-medium text-muted-foreground">
-                                  Required
-                                </span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  Optional
-                                </span>
-                              )}
-                            </div>
-                            {/* The question, asked once. It used to be here
-                                and again inside the field, in slightly
-                                different words. */}
-                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                              {item.helper}
-                            </p>
-                          </div>
-                        </div>
-                        <TaskCombobox
-                          ariaLabel={`${item.label} outcome`}
-                          tasks={taskList}
-                          linkedTaskId={outcome?.task_id ?? null}
-                          value={outcome?.title ?? ""}
-                          onChangeText={(text) =>
-                            updateOutcome(role, { title: text, task_id: null })
-                          }
-                          onSelectTask={(task) => assignTaskToRole(role, task)}
-                          onCreateTask={(title) =>
-                            void createAndAssignTask(role, title)
-                          }
-                          creating={creatingRole === role}
-                          // Says what the field does, not what to think
-                          // about -- the helper above already asked.
-                          placeholder="Search your tasks, or write something new"
-                        />
-                        {createTaskError?.role === role && (
-                          <p role="alert" className="text-xs text-destructive">
-                            {createTaskError.message}
-                          </p>
-                        )}
-                        {/* Nothing to say about an empty field. This used
-                            to read "Standalone outcome" under three blank
-                            inputs, where there was no outcome yet. */}
-                        {outcome?.title.trim() && (
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs text-muted-foreground">
-                            {outcome?.task_id
-                              ? "Linked to a task"
-                              : "Not saved as a task"}
-                          </span>
-                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {/* Named for what it becomes on the timeline,
-                                rather than "Budget", which said nothing
-                                about where the number goes. */}
-                            Block length
-                            <span className="flex items-center gap-1.5">
-                              <Input
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                aria-label={`${item.label} block length in minutes`}
-                                value={
-                                  lengthDrafts[role] ??
-                                  String(
-                                    outcome?.duration_minutes ??
-                                      item.defaultDuration
-                                  )
-                                }
-                                onChange={(event) =>
-                                  changeBlockLength(role, event.target.value)
-                                }
-                                onBlur={() => commitBlockLength(role)}
-                                className="h-9 w-16 px-2 text-center tabular-nums"
-                              />
-                              min
-                            </span>
-                          </label>
-                        </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                }
-              )}
-            </div>
+            <TodayPriorities
+              outcomes={metadata.outcomes}
+              tasks={taskList}
+              today={date}
+              mainMissing={Boolean(stepError) && !mainOutcome?.title.trim()}
+              creatingRole={creatingRole}
+              createError={createTaskError}
+              onSelectTask={assignTaskToRole}
+              onCreateTask={createAndAssignTask}
+              onUseText={(role, title) =>
+                updateOutcome(role, { title, task_id: null })
+              }
+              onDurationChange={(role, minutes) =>
+                updateOutcome(role, { duration_minutes: minutes })
+              }
+              onRemove={removeOutcome}
+            />
           )}
 
           {step === ANCHORS_STEP && (

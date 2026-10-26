@@ -5,6 +5,7 @@ import {
   buildTodayPlanSchedule,
   calculateTodayPlanCapacity,
   createDefaultTodayPlanMetadata,
+  describeTaskDue,
   findTodayPlanBlockProblems,
   parseTodayPlanNotes,
   blockSpanForGap,
@@ -785,5 +786,24 @@ describe("mood reasons in plan notes", () => {
     const parsed = parseTodayPlanNotes(serializeTodayPlanNotes(metadata));
 
     expect(parsed.metadata?.mood_reason_note.length).toBe(120);
+  });
+});
+
+describe("describeTaskDue", () => {
+  it("names the due date relative to the day being planned", () => {
+    expect(describeTaskDue("2026-07-25", "2026-07-25")).toBe("Due today");
+    expect(describeTaskDue("2026-07-26", "2026-07-25")).toBe("Due tomorrow");
+    expect(describeTaskDue("2026-08-03", "2026-07-25")).toBe("Due Aug 3");
+    expect(describeTaskDue("2026-07-20", "2026-07-25")).toBe(
+      "Overdue since Jul 20"
+    );
+  });
+
+  it("says nothing for a task without a due date", () => {
+    expect(describeTaskDue(null, "2026-07-25")).toBeNull();
+  });
+
+  it("crosses a month end without a zone moving the day", () => {
+    expect(describeTaskDue("2026-08-01", "2026-07-31")).toBe("Due tomorrow");
   });
 });

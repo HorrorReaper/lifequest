@@ -16,6 +16,7 @@ import {
 const push = vi.fn();
 const refresh = vi.fn();
 const upsertDayPlan = vi.fn();
+const createTask = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, refresh }),
@@ -27,6 +28,10 @@ vi.mock("@/lib/supabase/client", () => ({
 
 vi.mock("@/lib/day-plans", () => ({
   upsertDayPlan: (...args: unknown[]) => upsertDayPlan(...args),
+}));
+
+vi.mock("@/lib/tasks", () => ({
+  createTask: (...args: unknown[]) => createTask(...args),
 }));
 
 const defaultProps = {
@@ -78,6 +83,25 @@ describe("TodayPlanner", () => {
     fireEvent.click(screen.getByRole("button", { name: /good/i }));
     next();
   };
+
+  /** Opens the main focus picker and takes the existing task from it. */
+  const pickMainTask = (title = "Write launch brief") => {
+    fireEvent.click(screen.getByRole("button", { name: /Choose your main task/ }));
+    fireEvent.click(screen.getByRole("option", { name: new RegExp(title) }));
+  };
+
+  /** Plans a main focus as plain text, without creating a task. */
+  const planMainText = (title: string) => {
+    fireEvent.click(screen.getByRole("button", { name: /Choose your main task/ }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Search your tasks" }), {
+      target: { value: title },
+    });
+    fireEvent.click(screen.getByRole("option", { name: /without a task/ }));
+  };
+
+  /** Reopens the picker of a filled main focus, where its block length is. */
+  const reopenMain = () =>
+    fireEvent.click(screen.getByRole("button", { name: /Change your main focus/ }));
 
   it("blocks progress until a mood is chosen", () => {
     render(<TodayPlanner {...defaultProps} />);
@@ -161,8 +185,7 @@ describe("TodayPlanner", () => {
     next();
 
     next();
-    fireEvent.focus(screen.getByLabelText("Main priority outcome"));
-    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
+    pickMainTask();
     next();
     next();
     next();
@@ -188,20 +211,29 @@ describe("TodayPlanner", () => {
 
     next();
     expect(
-      screen.getByRole("heading", { name: "Choose today's priorities" })
+      screen.getByRole("heading", { name: "What matters most today?" })
     ).toBeTruthy();
   });
 
-  it("names each quest once, and says which one is required", () => {
+  it("gives the main focus the weight and keeps recharge apart from the priorities", () => {
     render(<TodayPlanner {...defaultProps} />);
     pickMood();
     next();
 
     // "Must Win" beside a "Main Quest" badge was two names for one thing.
     expect(screen.queryByText("Must Win")).toBeNull();
-    expect(screen.getByRole("heading", { name: "Main priority" })).toBeTruthy();
-    expect(screen.getByText("Required")).toBeTruthy();
-    expect(screen.getAllByText("Optional")).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: "Your main focus" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Also worth doing/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "A moment to recharge" })).toBeTruthy();
+    expect(screen.getByText("Make room for yourself, too.")).toBeTruthy();
+    // One choice is required, said once; the second task is the optional one.
+    expect(screen.getByText(/Required\. If you finish one thing today/)).toBeTruthy();
+    expect(screen.getAllByText("Optional")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /Choose a second task/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Add a moment to recharge/ })).toBeTruthy();
+    // No form on the page itself: every choice happens in the picker.
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("says nothing about an outcome that does not exist yet", () => {
@@ -211,15 +243,13 @@ describe("TodayPlanner", () => {
 
     // The old copy read "Standalone outcome" under three blank fields.
     expect(screen.queryByText("Standalone outcome")).toBeNull();
-    expect(screen.queryByText("Not saved as a task")).toBeNull();
-    expect(screen.queryByLabelText("Main priority block length in minutes")).toBeNull();
+    expect(screen.queryByText(/Not saved as a task/)).toBeNull();
 
-    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
-      target: { value: "Ship the fix" },
-    });
+    planMainText("Ship the fix");
 
-    expect(screen.getByText("Not saved as a task")).toBeTruthy();
-    expect(screen.getByLabelText("Main priority block length in minutes")).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("Ship the fix")).toBeTruthy();
+    expect(screen.getByText("1h 30m · Not saved as a task")).toBeTruthy();
   });
 
   it("takes a block length to the minute, not just the presets", () => {
@@ -227,10 +257,9 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
-      target: { value: "Ship the fix" },
-    });
-    const field = () => screen.getByLabelText("Main priority block length in minutes");
+    planMainText("Ship the fix");
+    reopenMain();
+    const field = () => screen.getByLabelText("Block length in minutes");
     expect(field()).toHaveProperty("value", "90");
 
     fireEvent.change(field(), { target: { value: "37" } });
@@ -242,10 +271,9 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
-      target: { value: "Ship the fix" },
-    });
-    const field = () => screen.getByLabelText("Main priority block length in minutes");
+    planMainText("Ship the fix");
+    reopenMain();
+    const field = () => screen.getByLabelText("Block length in minutes");
 
     // "9" is below the minimum, but jumping it to 5 here would make "90"
     // impossible to finish typing.
@@ -261,10 +289,9 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
-      target: { value: "Ship the fix" },
-    });
-    const field = () => screen.getByLabelText("Main priority block length in minutes");
+    planMainText("Ship the fix");
+    reopenMain();
+    const field = () => screen.getByLabelText("Block length in minutes");
 
     fireEvent.change(field(), { target: { value: "900" } });
     fireEvent.blur(field());
@@ -279,10 +306,9 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.change(screen.getByLabelText("Main priority outcome"), {
-      target: { value: "Ship the fix" },
-    });
-    const field = screen.getByLabelText("Main priority block length in minutes");
+    planMainText("Ship the fix");
+    reopenMain();
+    const field = screen.getByLabelText("Block length in minutes");
     fireEvent.change(field, { target: { value: "4h5" } });
 
     expect(field).toHaveProperty("value", "45");
@@ -293,12 +319,14 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
 
-    fireEvent.focus(screen.getByLabelText("Main priority outcome"));
-    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
-    fireEvent.change(
-      screen.getByLabelText("Main priority block length in minutes"),
-      { target: { value: "37" } }
-    );
+    pickMainTask();
+    reopenMain();
+    fireEvent.change(screen.getByLabelText("Block length in minutes"), {
+      target: { value: "37" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    // The overview shows the new length without reopening anything.
+    expect(screen.getByText("37m · Due today")).toBeTruthy();
 
     next();
     next();
@@ -309,31 +337,281 @@ describe("TodayPlanner", () => {
     ).toBeTruthy();
   });
 
-  it("asks each question once, in the label rather than twice", () => {
-    render(<TodayPlanner {...defaultProps} />);
+  it("opens a compact picker that searches the tasks and says when each is due", () => {
+    render(
+      <TodayPlanner
+        {...defaultProps}
+        tasks={[
+          ...defaultProps.tasks,
+          {
+            id: "task-2",
+            title: "Review pull request",
+            dueDate: "2026-07-26",
+            priority: "medium" as const,
+            isOverdue: false,
+            estimateMinutes: null,
+          },
+        ]}
+      />
+    );
     pickMood();
     next();
 
-    const field = screen.getByLabelText("Main priority outcome")
-    expect(field.getAttribute("placeholder")).toBe(
-      "Search your tasks, or write something new"
-    );
-    expect(screen.getByText(/The one thing that has to move today/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Choose your main task/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Choose your main task" })).toBeTruthy();
+    const search = within(dialog).getByRole("combobox", { name: "Search your tasks" });
+    expect(search.getAttribute("placeholder")).toBe("Search tasks, or type a new one");
+    expect(within(dialog).getByRole("option", { name: /Write launch brief.*Due today · 1h · High priority/ })).toBeTruthy();
+    expect(within(dialog).getByRole("option", { name: /Review pull request.*Due tomorrow/ })).toBeTruthy();
+
+    fireEvent.change(search, { target: { value: "review" } });
+    expect(within(dialog).queryByRole("option", { name: /Write launch brief/ })).toBeNull();
+    expect(within(dialog).getByRole("option", { name: /Review pull request/ })).toBeTruthy();
   });
 
-  it("blocks progress until a Must Win is selected", () => {
+  it("blocks progress until a main focus is chosen", () => {
     render(<TodayPlanner {...defaultProps} />);
 
     pickMood();
     next();
     expect(
-      screen.getByRole("heading", { name: "Choose today's priorities" })
+      screen.getByRole("heading", { name: "What matters most today?" })
     ).toBeTruthy();
 
     next();
     expect(screen.getByRole("alert").textContent).toContain(
-      "Choose a main priority"
+      "Choose your main focus"
     );
+    expect(
+      screen.getByRole("heading", { name: "What matters most today?" })
+    ).toBeTruthy();
+
+    pickMainTask();
+    expect(screen.queryByRole("alert")).toBeNull();
+    next();
+    expect(
+      screen.getByRole("heading", { name: "Add your daily anchors" })
+    ).toBeTruthy();
+  });
+
+  it("shows the choice in the overview at once and hands focus back to the row", async () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    const row = screen.getByRole("button", { name: /Choose your main task/ });
+    row.focus();
+    fireEvent.click(row);
+    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const changed = screen.getByRole("button", { name: /Change your main focus: Write launch brief/ });
+    expect(changed.textContent).toContain("1h · Due today");
+    await waitFor(() => expect(document.activeElement).toBe(changed));
+  });
+
+  it("keeps one task from being both the main focus and the second task", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    pickMainTask();
+    fireEvent.click(screen.getByRole("button", { name: /Choose a second task/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByRole("option", { name: /Write launch brief/ })).toBeNull();
+    // Typing its exact title does not slip it in either: it offers a new
+    // task or plain text, never the one already in use.
+    fireEvent.change(within(dialog).getByRole("combobox"), {
+      target: { value: "Write launch brief" },
+    });
+    expect(
+      within(dialog)
+        .getAllByRole("option")
+        .every((option) => !option.textContent?.includes("1h"))
+    ).toBe(true);
+  });
+
+  it("changes and removes the optional second task", () => {
+    render(
+      <TodayPlanner
+        {...defaultProps}
+        tasks={[
+          ...defaultProps.tasks,
+          {
+            id: "task-2",
+            title: "Review pull request",
+            dueDate: null,
+            priority: "medium" as const,
+            isOverdue: false,
+            estimateMinutes: 25,
+          },
+        ]}
+      />
+    );
+    pickMood();
+    next();
+
+    fireEvent.click(screen.getByRole("button", { name: /Choose a second task/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
+    expect(screen.getByRole("button", { name: /Change your second task: Write launch brief/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /Change your second task/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Review pull request/ }));
+    expect(screen.getByRole("button", { name: /Change your second task: Review pull request/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove second task" }));
+    expect(screen.getByRole("button", { name: /Choose a second task/ })).toBeTruthy();
+    expect(screen.queryByText("Review pull request")).toBeNull();
+
+    // And from inside the picker as well.
+    fireEvent.click(screen.getByRole("button", { name: /Choose a second task/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Review pull request/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Change your second task/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove from today" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: /Choose a second task/ })).toBeTruthy();
+  });
+
+  it("does not offer to remove the required main focus", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    pickMainTask();
+    reopenMain();
+    expect(screen.queryByRole("button", { name: "Remove from today" })).toBeNull();
+  });
+
+  it("adds a moment to recharge without making it a task, and removes it again", async () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+    pickMainTask();
+
+    fireEvent.click(screen.getByRole("button", { name: /Add a moment to recharge/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Go for a walk" }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: /Change your recharge moment: Go for a walk/ })).toBeTruthy();
+    expect(screen.getByText("45m set aside for it")).toBeTruthy();
+    expect(createTask).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove recharge moment" }));
+    expect(screen.getByRole("button", { name: /Add a moment to recharge/ })).toBeTruthy();
+  });
+
+  it("creates a new task from the picker and links it, leaving its due date alone", async () => {
+    createTask.mockResolvedValue({
+      id: "task-new",
+      title: "Draft the pitch",
+      due_date: null,
+      priority: "medium",
+    });
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    fireEvent.click(screen.getByRole("button", { name: /Choose your main task/ }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Search your tasks" }), {
+      target: { value: "Draft the pitch" },
+    });
+    fireEvent.click(screen.getByRole("option", { name: /Create task “Draft the pitch”/ }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Only a title: planning it into today does not make it due today.
+    expect(createTask).toHaveBeenCalledTimes(1);
+    expect(createTask.mock.calls[0][2]).toEqual({ title: "Draft the pitch" });
+    expect(screen.getByRole("button", { name: /Change your main focus: Draft the pitch/ })).toBeTruthy();
+
+    next();
+    next();
+    next();
+    fireEvent.click(screen.getByRole("button", { name: /Save today's plan/i }));
+    await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
+    const saved = upsertDayPlan.mock.calls[0][2];
+    expect(saved.notes).toContain("task-new");
+    expect(saved.blocks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Draft the pitch",
+          source_type: "task",
+          source_id: "task-new",
+          outcome_role: "must_win",
+        }),
+      ])
+    );
+  });
+
+  it("keeps the picker open with the reason when a task cannot be created", async () => {
+    createTask.mockRejectedValue(new Error("offline"));
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+
+    fireEvent.click(screen.getByRole("button", { name: /Choose your main task/ }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Search your tasks" }), {
+      target: { value: "Draft the pitch" },
+    });
+    fireEvent.click(screen.getByRole("option", { name: /Create task/ }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain(
+        "Could not create the task"
+      )
+    );
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByDisplayValue("Draft the pitch")).toBeTruthy();
+    quiet.mockRestore();
+  });
+
+  it("brings the chosen priorities back with a restored draft", async () => {
+    const first = render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+    pickMainTask();
+    await waitFor(() =>
+      expect(
+        sessionStorage.getItem("lifequest:today-plan:user-1:2026-07-25")
+      ).toContain("task-1")
+    );
+    first.unmount();
+
+    render(<TodayPlanner {...defaultProps} />);
+    expect(screen.getByText("Your unfinished plan was restored.")).toBeTruthy();
+    await waitFor(() => next());
+    next();
+    expect(
+      screen.getByRole("button", { name: /Change your main focus: Write launch brief/ })
+    ).toBeTruthy();
+  });
+
+  it("shows a plan's main focus written before tasks were linked", () => {
+    render(
+      <TodayPlanner
+        {...defaultProps}
+        initialNotes={serializeTodayPlanNotes({
+          ...createDefaultTodayPlanMetadata(),
+          mood: "good",
+          outcomes: [
+            {
+              id: "old",
+              role: "must_win",
+              title: "Finish the quarterly report",
+              task_id: null,
+              duration_minutes: 120,
+            },
+          ],
+        })}
+      />
+    );
+    next();
+    next();
+
+    expect(
+      screen.getByRole("button", { name: /Change your main focus: Finish the quarterly report/ }).textContent
+    ).toContain("2h · Not saved as a task");
   });
 
   it.each(["/dashboard", "/admin/work"])("builds the same timeline, saves once and returns to %s", async (returnHref) => {
@@ -341,8 +619,7 @@ describe("TodayPlanner", () => {
 
     pickMood();
     next();
-    fireEvent.focus(screen.getByLabelText("Main priority outcome"));
-    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
+    pickMainTask();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     fireEvent.click(screen.getByRole("button", { name: /Read/ }));
@@ -374,23 +651,6 @@ describe("TodayPlanner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close daily planning" }));
     expect(push).toHaveBeenCalledWith("/admin/work");
     expect(upsertDayPlan).not.toHaveBeenCalled();
-  });
-
-  it("gives Progress and Health their own task combobox instead of a shared sidebar", () => {
-    render(<TodayPlanner {...defaultProps} />);
-    pickMood();
-    next();
-
-    expect(screen.queryByText("Pull from tasks")).toBeNull();
-
-    fireEvent.focus(screen.getByLabelText("Second priority outcome"));
-    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
-
-    expect(screen.getByLabelText("Second priority outcome")).toHaveProperty(
-      "value",
-      "Write launch brief"
-    );
-    expect(screen.getByLabelText("Recovery outcome")).toHaveProperty("value", "");
   });
 
   it("restores an unfinished tab-local draft", async () => {
@@ -475,8 +735,7 @@ describe("TodayPlanner", () => {
 
     pickMood();
     next();
-    fireEvent.focus(screen.getByLabelText("Main priority outcome"));
-    fireEvent.click(screen.getByRole("option", { name: /Write launch brief/ }));
+    pickMainTask();
     next();
     fireEvent.click(screen.getByRole("button", { name: /Read/ }));
     next();

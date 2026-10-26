@@ -5,6 +5,7 @@ import type {
   DayPlanOutcomeRole,
   DayPlanSourceType,
 } from "@/lib/types";
+import { addDays, formatDateOnly } from "@/lib/dates";
 import { isValidMoodValue } from "@/lib/mood";
 import {
   MOOD_REASON_NOTE_MAX,
@@ -792,6 +793,24 @@ export function buildTodayPlanSchedule({
   }
 
   return next.sort((a, b) => a.start_time.localeCompare(b.start_time));
+}
+
+/**
+ * A task's due date in words, relative to the day being planned.
+ *
+ * Shown beside a task while it is being chosen for today, so the two dates
+ * stay visibly separate: choosing a task for today plans it, and never
+ * changes when it is due. Null for a task without a due date.
+ */
+export function describeTaskDue(
+  dueDate: string | null,
+  today: string
+): string | null {
+  if (!dueDate) return null;
+  if (dueDate === today) return "Due today";
+  if (dueDate === addDays(today, 1)) return "Due tomorrow";
+  const label = formatDateOnly(dueDate, { month: "short", day: "numeric" });
+  return dueDate < today ? `Overdue since ${label}` : `Due ${label}`;
 }
 
 export function formatPlanMinutes(minutes: number): string {

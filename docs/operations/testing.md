@@ -66,7 +66,7 @@ The repository currently contains 32 test files.
 ### Planning, tasks, and habits
 
 - Day-plan normalization.
-- Today Plan calculations and UI, including the plan editor (save state, save failure keeps edits, block problems in words) and which mode `/plan` opens in (`TodayPlanner.test.tsx`, `TodayPlanScreen.test.tsx`).
+- Today Plan calculations and UI, including the plan editor (save state, save failure keeps edits, block problems in words) and which mode `/plan` opens in (`TodayPlanner.test.tsx`, `TodayPlanScreen.test.tsx`). The priorities step is covered there too: choosing, changing and removing through the picker dialog, a required main focus, one task per role, creating a task without a due date and linking it into the saved blocks, a failed create keeping the dialog open, focus back on the row, and restored drafts. The picker's inline list is in `TaskCombobox.test.tsx`, due labels in `today-plan.test.ts` (`describeTaskDue`).
 - Dashboard plan status: a block that is over is never reported as done while its linked task is open (`src/lib/dashboard-plan.test.ts`, `TodayPlanSection.test.tsx`).
 - Task grouping, sorting, helpers, compact list, and editor: Today/Tomorrow/Choose date/No date, one submit per double tap, and the calendar layer sitting on the popover's positioned wrapper (`TaskEditorDialog.test.tsx`).
 - Habit mutations, analytics, manager behavior, and editor (single named check-in control, details folded away on create).

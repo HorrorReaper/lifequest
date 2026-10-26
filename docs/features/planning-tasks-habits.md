@@ -12,12 +12,30 @@
 
 1. **Mood** — how the day starts; optional reasons.
 2. **Intention** — the day's guiding line.
-3. **Priorities** — a main priority (required), a second priority and recovery (both optional). These replace the earlier "Must Win" and "Main / Side / Recovery Quest" names; the quest wording survives only in the main priority's helper line. Blocks show "Main priority", "Priority", "Anchor" or "Recovery".
+3. **Priorities** — "What matters most today?" ("Choose one focus. Add one more if there’s room."). One main focus (required), one optional second task, and a separate, optional moment to recharge. See [Priorities step](#priorities-step). These replace the earlier "Must Win" and "Main / Side / Recovery Quest" names. The review step and blocks still say "Main priority", "Second priority", "Priority", "Anchor" or "Recovery".
 4. **Anchors** — habits, reflections and the admin-only training anchor, grouped under "Habits", "Reflections" and "Training". Each says whether it "Rides along, reserves no time" or "Reserves N min on the timeline". Journal templates with the same name are told apart by `journalAnchorTitles`: "(standard)" for the built-in one, "(your copy)" for the user's own.
 5. **Timeline** — turn choices into a realistic schedule.
 6. **Review** — capacity, conflicts, and "Save today's plan".
 
 Each outcome can include a duration and a linked existing task. The day also has start, end, and shutdown times.
+
+### Priorities step
+
+`src/components/planning/TodayPriorities.tsx` renders the step as an overview with no form on it. There are three rows, separated by hairlines rather than boxed in cards, so the main focus visibly outweighs the rest:
+
+- **Your main focus** (`must_win`). It has a thin primary-coloured accent on the left. The chosen title is set larger than the line under it, which shows the block length and, for a linked task, its due date (`describeTaskDue` in `src/lib/today-plan.ts`: "Due today", "Due tomorrow", "Due Aug 3", "Overdue since Jul 20"). A plain-text focus shows "Not saved as a task" instead. Empty, the row reads "Choose your main task", with "Required. If you finish one thing today, make it this." under it. "Next" without a main focus shows "Choose your main focus before moving on." and turns the accent to the destructive colour. The main focus can be changed but not removed.
+- **Also worth doing** · Optional (`progress`). Less weight: base-size title, muted empty state "Choose a second task". When filled it has a "Remove second task" button beside the row.
+- **A moment to recharge** (`health`). Its own section under a second hairline, with a leaf icon and "Make room for yourself, too.". The action button reads "Add", or the chosen activity once there is one, with "Remove recharge moment" beside it. Recovery is not a third priority level.
+
+Every row is a single button with a visible change indicator (chevron; "Change" from 400px up). It opens `src/components/planning/PriorityPickerDialog.tsx`, a compact dialog with:
+
+- The current choice, if any. Its "Block length" in minutes (5–240, digits only, typed digit by digit, snapping back on blur when unusable) lives here instead of on the overview. For the second task and recharge there is also "Remove from today".
+- The task search: `TaskCombobox` in its `inline` mode (`src/components/planning/TaskCombobox.tsx`). The list stays under the field instead of in a popup, shows every loaded task with due date, estimate and "High priority" on a second line, and is navigated with the arrow keys through `aria-activedescendant`. A title with no exact match offers "Create task “…”" and "Plan “…” without a task". The first creates a real task through `createTask` with only the title. The second keeps the outcome as plain text (`task_id: null`), as earlier plans could.
+- For recharge only, while the search is empty, three starting points as plain text: "Go for a walk", "Stretch for 10 minutes", "Read a book".
+
+Choosing closes the dialog straight away. The overview shows the result, a polite live region announces it, and focus returns to the row that opened the picker. Removing from the overview also puts focus back on that row. With a pointer or keyboard the search field takes focus on open. On touch the dialog title does, so the on-screen keyboard does not cover the list. A task creation that fails keeps the dialog open with "Could not create the task. Please try again." and the typed title. A second create cannot start while one is running.
+
+A task can hold only one role for the day. The picker leaves out tasks used by another role, and `assignTaskToRole` in `TodayPlanner` refuses one that slipped through. Choosing a task for today only writes the plan: the task's record, including its due date, is not updated. A created task gets no due date.
 
 ### Timeline construction
 
