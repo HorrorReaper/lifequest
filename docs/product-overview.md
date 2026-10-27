@@ -6,7 +6,7 @@ LifeQuest is a mobile-first personal operating system built around a journaling 
 
 The core loop is:
 
-1. **Plan** — choose today’s intention, three outcomes, anchors, and time blocks.
+1. **Plan** — choose today’s intention and priorities, then shape the day on a timeline with time blocks, habits, reflections, and breaks.
 2. **Act** — complete tasks, habits, routines, journal prompts, quests, and lessons.
 3. **Reflect** — save a structured journal entry and mark durable insights.
 4. **Grow** — earn XP and coins, maintain a streak, unlock buildings, and expand the city.

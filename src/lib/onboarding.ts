@@ -164,7 +164,9 @@ export function buildOnboardingPlan({
     ],
     day_start: base.day_start <= start ? base.day_start : start,
     day_end: base.day_end >= end ? base.day_end : end,
-    shutdown_time: base.shutdown_time >= end ? base.shutdown_time : end,
+    // '' is a reminder the user turned off; it stays off.
+    shutdown_time:
+      base.shutdown_time === '' || base.shutdown_time >= end ? base.shutdown_time : end,
     ritual_completed_at: base.ritual_completed_at ?? now.toISOString(),
   }
 

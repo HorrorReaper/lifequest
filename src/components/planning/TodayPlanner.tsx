@@ -1,32 +1,17 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
-  CalendarClock,
   Check,
-  CircleGauge,
-  Clock3,
-  Dumbbell,
-  Flame,
-  HeartPulse,
   Plus,
   Sparkles,
-  Trash2,
   TriangleAlert,
   X,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -49,6 +34,25 @@ import {
 } from "@/lib/mood-reasons";
 import { TodayPriorities } from "@/components/planning/TodayPriorities";
 import { PlanTimeline } from "@/components/planning/PlanTimeline";
+import { DayFrameBar } from "@/components/planning/DayFrameBar";
+import { PlanCapacityLine } from "@/components/planning/PlanCapacityLine";
+import { AlsoToday } from "@/components/planning/AlsoToday";
+import {
+  AddToDayDialog,
+  type AddEntry,
+  type AddRequest,
+} from "@/components/planning/AddToDayDialog";
+import {
+  BlockEditorDialog,
+  PRIORITY_LABELS,
+} from "@/components/planning/BlockEditorDialog";
+import {
+  earlierStep,
+  furthestStepFor,
+  PLANNER_STEP_IDS,
+  resolvePlannerStep,
+  type PlannerStepId,
+} from "@/components/planning/planner-steps";
 import type {
   DayPlanBlock,
   DayPlanCategory,
@@ -56,19 +60,20 @@ import type {
 } from "@/lib/types";
 import {
   anchorTakesTime,
-  applyBlockTimeChange,
+  blockForAnchor,
   buildTodayPlanSchedule,
   calculateTodayPlanCapacity,
   createDefaultTodayPlanMetadata,
   findTodayPlanBlockProblems,
-  formatPlanMinutes,
-  minutesToTime,
-  nextGridStart,
+  flexibleAnchors,
+  keepAnchorFlexible,
+  occupiedSpans,
   parseTodayPlanNotes,
   planBlockId,
+  removeAnchorFromPlan,
+  reserveAnchorBlock,
   resolveOverlaps,
   serializeTodayPlanNotes,
-  shiftEndTime,
   timeToMinutes,
   type TodayPlanAnchor,
   type TodayPlanMetadata,
@@ -130,107 +135,72 @@ interface PlannerDraft {
   blocks: DayPlanBlock[];
 }
 
-const STEPS = [
-  {
+/** What sessionStorage holds: the plan, and the step it was left on. */
+interface StoredDraft extends PlannerDraft {
+  step: PlannerStepId | null;
+}
+
+const STEP_COPY: Record<
+  PlannerStepId,
+  { label: string; title: string; description: string }
+> = {
+  mood: {
     label: "Mood",
     title: "How are you feeling right now?",
     description: "Name it before you plan around it. One tap is enough.",
   },
-  {
+  intention: {
     label: "Intention",
     title: "What quality should guide today?",
     description: "A short line you can hold every later tradeoff against.",
   },
-  {
+  priorities: {
     label: "Priorities",
     title: "What matters most today?",
     description: "Choose one focus. Add one more if there’s room.",
   },
-  {
-    label: "Anchors",
-    title: "Add your daily anchors",
-    description: "Make room for habits, reflection, training, and shutdown.",
+  timeline: {
+    label: "Shape your day",
+    title: "Make room for your day",
+    description:
+      "Your priorities on the clock, with habits, reflection and breaks around them.",
   },
-  {
-    label: "Timeline",
-    title: "Shape the timeline",
-    description: "Give each commitment a place, not just a priority.",
-  },
-  {
+  review: {
     label: "Review",
     title: "Review and save your plan",
     description: "Check the time you scheduled, fix any conflicts, then save.",
   },
-] as const;
+};
+
+const STEPS = PLANNER_STEP_IDS.map((id) => ({ id, ...STEP_COPY[id] }));
 
 /**
  * Where each step sits in STEPS.
  *
- * Two steps have been inserted into the middle of this flow already, and
- * every `step === 3` scattered through validation and rendering had to be
- * found and shifted by hand. Naming them keeps that to one edit.
+ * Steps have been inserted into and taken out of this flow; naming them
+ * keeps every check below to the step it means rather than a number.
  */
-const MOOD_STEP = 0;
-const INTENTION_STEP = 1;
-const OUTCOMES_STEP = 2;
-const ANCHORS_STEP = 3;
-const TIMELINE_STEP = 4;
-const COMMIT_STEP = 5;
+const MOOD_STEP = PLANNER_STEP_IDS.indexOf("mood");
+const INTENTION_STEP = PLANNER_STEP_IDS.indexOf("intention");
+const OUTCOMES_STEP = PLANNER_STEP_IDS.indexOf("priorities");
+const TIMELINE_STEP = PLANNER_STEP_IDS.indexOf("timeline");
+const COMMIT_STEP = PLANNER_STEP_IDS.indexOf("review");
 
 /** Where the planner may be asked to open, via ?step= on the route. */
 export type PlannerEntryPoint = "timeline";
 
 /**
- * One plain name per role, as the review step lists them.
+ * How long a priority's block runs before anyone sets a length.
  *
- * The roles used to be "Must Win", then "Main Quest / Side Quest / Recovery
- * Quest". Both asked a new user to learn a vocabulary before planning a day.
- * The priorities step itself words them as "Your main focus", "Also worth
- * doing" and "A moment to recharge" (TodayPriorities).
+ * The roles are named once, in PRIORITY_LABELS ("Main focus", "Second
+ * task", "Recharge"), so the timeline, the block editor and the review step
+ * call them the same thing.
  */
-const OUTCOME_META: Record<
-  DayPlanOutcomeRole,
-  { label: string; defaultDuration: number }
-> = {
-  must_win: { label: "Main priority", defaultDuration: 90 },
-  progress: { label: "Second priority", defaultDuration: 60 },
-  health: { label: "Recovery", defaultDuration: 45 },
+const OUTCOME_META: Record<DayPlanOutcomeRole, { defaultDuration: number }> = {
+  must_win: { defaultDuration: 90 },
+  progress: { defaultDuration: 60 },
+  health: { defaultDuration: 45 },
 };
-
-const CATEGORY_LABELS: Record<DayPlanCategory, string> = {
-  deep_work: "Deep Work",
-  meeting: "Meeting",
-  break: "Break",
-  personal: "Personal",
-  exercise: "Exercise",
-  other: "Other",
-};
-
-const MISSION_LABELS: Record<
-  NonNullable<DayPlanBlock["mission_type"]>,
-  string
-> = {
-  main_quest: "Main priority",
-  side_quest: "Priority",
-  anchor: "Anchor",
-  recovery: "Recovery",
-};
-
-/**
- * Why a block is marked invalid, in words, for the block editor.
- *
- * "Check title and time" named two suspects and left the user to guess.
- */
-function blockProblem(block: DayPlanBlock): string | null {
-  if (!block.title.trim()) return "Give this block a title.";
-  const start = timeToMinutes(block.start_time);
-  const end = timeToMinutes(block.end_time);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) {
-    return "Enter a start and an end time.";
-  }
-  if (end <= start) return "The end time has to be after the start time.";
-  return null;
-}
 
 /**
  * Journal names as the anchor list shows them.
@@ -280,9 +250,15 @@ function draftKey(userId: string, date: string) {
   return `lifequest:today-plan:${userId}:${date}`;
 }
 
-function normalizeDraft(value: unknown): PlannerDraft | null {
+/**
+ * Reads a draft back from sessionStorage.
+ *
+ * Drafts from before the anchors step was folded into the timeline carry no
+ * step, or an index into the old six steps; resolvePlannerStep maps both.
+ */
+export function normalizeDraft(value: unknown): StoredDraft | null {
   if (typeof value !== "object" || value === null) return null;
-  const candidate = value as Partial<PlannerDraft>;
+  const candidate = value as Partial<PlannerDraft> & { step?: unknown };
   if (!Array.isArray(candidate.blocks) || !candidate.metadata) return null;
 
   const metadata = parseTodayPlanNotes(
@@ -300,7 +276,9 @@ function normalizeDraft(value: unknown): PlannerDraft | null {
     );
   });
 
-  return metadata ? { metadata, blocks } : null;
+  return metadata
+    ? { metadata, blocks, step: resolvePlannerStep(candidate.step) }
+    : null;
 }
 
 function roleOutcome(
@@ -310,12 +288,20 @@ function roleOutcome(
   return metadata.outcomes.find((outcome) => outcome.role === role) ?? null;
 }
 
-function lastScheduledMinute(blocks: DayPlanBlock[], fallback: string) {
-  return blocks.reduce(
-    (latest, block) =>
-      Math.max(latest, timeToMinutes(block.end_time) || 0),
-    timeToMinutes(fallback) || 8 * 60
-  );
+/** The block for a task added from "Add to your day", or a plain-text one. */
+function taskBlock(
+  entry: Extract<AddEntry, { kind: "task" }>
+): DayPlanBlock {
+  return {
+    id: planBlockId(),
+    start_time: entry.startTime,
+    end_time: entry.endTime,
+    title: entry.title,
+    category: "deep_work" as DayPlanCategory,
+    mission_type: "side_quest",
+    source_type: entry.task ? "task" : "manual",
+    source_id: entry.task?.id ?? null,
+  };
 }
 
 export function TodayPlanner({
@@ -368,8 +354,15 @@ export function TodayPlanner({
   const [stepError, setStepError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // State lags a render behind a second tap on Save; the ref does not, so a
+  // double tap cannot send the plan twice.
+  const savingRef = useRef(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addRequest, setAddRequest] = useState<AddRequest>({});
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [addTaskError, setAddTaskError] = useState<string | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const [restoredDraft, setRestoredDraft] = useState(false);
 
@@ -400,6 +393,15 @@ export function TodayPlanner({
           setMetadata(recovered.metadata);
           setBlocks(recovered.blocks);
           setRestoredDraft(true);
+          // Back where it was left, but never past a step whose answer
+          // the draft is missing. The editor has no steps to return to.
+          if (!editMode) {
+            const resumeAt = earlierStep(
+              recovered.step ?? "mood",
+              furthestStepFor(recovered.metadata)
+            );
+            setStep(PLANNER_STEP_IDS.indexOf(resumeAt));
+          }
         } else {
           sessionStorage.removeItem(draftKey(userId, date));
         }
@@ -409,16 +411,20 @@ export function TodayPlanner({
     } finally {
       setDraftReady(true);
     }
+    // Restores once per user and day; editMode is fixed for the mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, userId]);
 
+  const stepId = PLANNER_STEP_IDS[step];
   useEffect(() => {
     if (!draftReady) return;
     if (!isDirty) {
       sessionStorage.removeItem(draftKey(userId, date));
       return;
     }
-    sessionStorage.setItem(draftKey(userId, date), JSON.stringify(currentDraft));
-  }, [currentDraft, date, draftReady, isDirty, userId]);
+    const stored: StoredDraft = { ...currentDraft, step: stepId };
+    sessionStorage.setItem(draftKey(userId, date), JSON.stringify(stored));
+  }, [currentDraft, date, draftReady, isDirty, stepId, userId]);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -500,15 +506,17 @@ export function TodayPlanner({
     });
   }
 
-  async function createAndAssignTask(
-    role: DayPlanOutcomeRole,
+  /**
+   * Creates a real task from a title, with no due date.
+   *
+   * Shared by the priority picker and "Add to your day". Resolves null when
+   * the insert failed, so the caller keeps its dialog and the typed title.
+   */
+  async function createPlannerTask(
     title: string
-  ): Promise<boolean> {
+  ): Promise<TodayPlannerTask | null> {
     const trimmed = title.trim();
-    if (!trimmed || creatingRole) return false;
-
-    setCreatingRole(role);
-    setCreateTaskError(null);
+    if (!trimmed) return null;
     try {
       const created = await createTask(supabase, userId, { title: trimmed });
       const plannerTask: TodayPlannerTask = {
@@ -520,94 +528,158 @@ export function TodayPlanner({
         estimateMinutes: null,
       };
       setTaskList((current) => [plannerTask, ...current]);
-      assignTaskToRole(role, plannerTask);
-      return true;
+      return plannerTask;
     } catch (error) {
       console.error("Failed to create task from Today Plan", error);
-      setCreateTaskError({
-        role,
-        message: "Could not create the task. Please try again.",
-      });
-      return false;
+      return null;
+    }
+  }
+
+  async function createAndAssignTask(
+    role: DayPlanOutcomeRole,
+    title: string
+  ): Promise<boolean> {
+    if (!title.trim() || creatingRole) return false;
+
+    setCreatingRole(role);
+    setCreateTaskError(null);
+    try {
+      const created = await createPlannerTask(title);
+      if (!created) {
+        setCreateTaskError({
+          role,
+          message: "Could not create the task. Please try again.",
+        });
+        return false;
+      }
+      assignTaskToRole(role, created);
+      return true;
     } finally {
       setCreatingRole(null);
     }
   }
 
-  function toggleAnchor(anchor: TodayPlanAnchor) {
-    setMetadata((current) => {
-      const selected = current.anchors.some((item) => item.id === anchor.id);
-      return {
+  async function createTaskForDay(
+    title: string
+  ): Promise<TodayPlannerTask | null> {
+    if (creatingTask) return null;
+    setCreatingTask(true);
+    setAddTaskError(null);
+    try {
+      const created = await createPlannerTask(title);
+      if (!created) {
+        setAddTaskError("Could not create the task. Please try again.");
+      }
+      return created;
+    } finally {
+      setCreatingTask(false);
+    }
+  }
+
+  function openAdd(request: AddRequest = {}) {
+    setAddRequest(request);
+    setAddTaskError(null);
+    setAddOpen(true);
+  }
+
+  /**
+   * Puts what "Add to your day" returned into the plan.
+   *
+   * Each path is safe to repeat: a task already on the timeline is retimed
+   * rather than added twice, and habits and reflections go through
+   * reserveAnchorBlock and keepAnchorFlexible, which never duplicate.
+   */
+  function addToDay(entry: AddEntry) {
+    setStepError(null);
+    if (entry.kind === "anchor") {
+      const state = { metadata, blocks };
+      const next =
+        entry.mode === "flexible"
+          ? keepAnchorFlexible(state, entry.anchor)
+          : reserveAnchorBlock(
+              state,
+              entry.anchor,
+              entry.startTime,
+              entry.endTime
+            );
+      setMetadata(next.metadata);
+      setBlocks(next.blocks);
+      return;
+    }
+
+    if (entry.kind === "break") {
+      setBlocks((current) => [
         ...current,
-        anchors: selected
-          ? current.anchors.filter((item) => item.id !== anchor.id)
-          : [...current.anchors, anchor],
-      };
+        {
+          id: planBlockId(),
+          start_time: entry.startTime,
+          end_time: entry.endTime,
+          title: entry.title,
+          category: "break",
+          mission_type: "recovery",
+          source_type: "manual",
+          source_id: null,
+        },
+      ]);
+      return;
+    }
+
+    setBlocks((current) => {
+      const existing = entry.task
+        ? current.find(
+            (block) =>
+              block.source_type === "task" && block.source_id === entry.task?.id
+          )
+        : undefined;
+      if (existing) {
+        return current.map((block) =>
+          block.id === existing.id
+            ? { ...block, start_time: entry.startTime, end_time: entry.endTime }
+            : block
+        );
+      }
+      return [...current, taskBlock(entry)];
     });
   }
 
-  function updateBlock(id: string, patch: Partial<DayPlanBlock>) {
-    setBlocks((current) =>
-      current.map((block) =>
-        block.id === id ? { ...block, ...patch } : block
-      )
+  function removeAnchor(anchor: TodayPlanAnchor) {
+    const next = removeAnchorFromPlan({ metadata, blocks }, anchor);
+    setMetadata(next.metadata);
+    setBlocks(next.blocks);
+  }
+
+  /** The anchor a habit or reflection block was reserved for. */
+  function anchorForBlock(block: DayPlanBlock): TodayPlanAnchor | undefined {
+    return [...metadata.anchors, ...anchorOptions].find(
+      (anchor) =>
+        anchor.source_type === block.source_type &&
+        (anchor.source_id ?? anchor.id) === block.source_id
     );
-    setStepError(null);
   }
 
   /**
-   * Retimes a block and carries the rest of the day with it.
+   * Takes a block out of today's plan.
    *
-   * Separate from updateBlock because only a time change ripples -- renaming
-   * a block or switching its category must leave the schedule alone.
+   * For a habit or reflection the anchor goes too, so it does not quietly
+   * reappear under "Also today". The task, habit or template behind the
+   * block is a separate record and is never touched.
    */
-  function updateBlockTime(
-    id: string,
-    patch: Pick<Partial<DayPlanBlock>, "start_time" | "end_time">
-  ) {
-    setBlocks((current) => applyBlockTimeChange(current, id, patch));
+  function removeBlock(block: DayPlanBlock) {
+    const anchor = anchorForBlock(block);
+    if (anchor) {
+      removeAnchor(anchor);
+    } else {
+      setBlocks((current) => current.filter((item) => item.id !== block.id));
+    }
     setStepError(null);
   }
 
-  function newBlock(
-    startTime: string,
-    endTime: string,
-    category: DayPlanCategory = "other"
-  ): DayPlanBlock {
-    return {
-      id: planBlockId(),
-      start_time: startTime,
-      end_time: endTime,
-      title: category === "break" ? "Recovery break" : "New plan block",
-      category,
-      mission_type: category === "break" ? "recovery" : "side_quest",
-      source_type: "manual",
-    };
-  }
-
-  function addManualBlock(category: DayPlanCategory = "other") {
-    const last = lastScheduledMinute(blocks, metadata.day_start);
-    const start = blocks.length
-      ? nextGridStart(last)
-      : Math.min(last, 23 * 60);
-    const end = Math.min(start + 30, 23 * 60 + 59);
-    const block = newBlock(minutesToTime(start), minutesToTime(end), category);
-    setBlocks((current) => [...current, block]);
-    setSelectedBlockId(block.id);
-  }
-
-  /**
-   * Adds a block into free time on the axis.
-   *
-   * The timeline sized it to fit the gap it was dropped into, so this never
-   * ripples the rest of the day -- it cannot collide with anything. Selected
-   * straight away, since an untitled block is the next thing to deal with.
-   */
-  function createBlockAt(startTime: string, endTime: string) {
-    const block = newBlock(startTime, endTime);
-    setBlocks((current) => [...current, block]);
-    setSelectedBlockId(block.id);
-    setStepError(null);
+  function keepBlockFlexible(block: DayPlanBlock) {
+    const anchor = anchorForBlock(block);
+    if (!anchor) return;
+    const next = keepAnchorFlexible({ metadata, blocks }, anchor);
+    setMetadata(next.metadata);
+    setBlocks(next.blocks);
   }
 
   function validateCurrentStep() {
@@ -618,10 +690,10 @@ export function TodayPlanner({
       return "Choose your main focus before moving on.";
     }
     if (
-      step === ANCHORS_STEP &&
+      step === TIMELINE_STEP &&
       timeToMinutes(metadata.day_end) <= timeToMinutes(metadata.day_start)
     ) {
-      return "Your day must end after it starts.";
+      return "Your day must end after it starts. Use “Edit day hours” to fix it.";
     }
     if (step === TIMELINE_STEP && problems.invalidBlockIds.length > 0) {
       return "A block needs attention: every block needs a title and an end time after its start. Tap the red block to fix it.";
@@ -638,7 +710,10 @@ export function TodayPlanner({
       setStepError(error);
       return;
     }
-    if (step === ANCHORS_STEP) {
+    // The priorities become blocks on the way into the timeline. Safe to
+    // repeat on every pass: a priority that already has a block keeps its
+    // times and only follows a changed choice.
+    if (step === OUTCOMES_STEP) {
       setBlocks((current) =>
         buildTodayPlanSchedule({ blocks: current, metadata })
       );
@@ -675,12 +750,13 @@ export function TodayPlanner({
    * planned day either way.
    */
   async function savePlanEdits() {
-    if (saving) return;
+    if (savingRef.current) return;
     const error = validateCurrentStep();
     if (error) {
       setStepError(error);
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     setSaveError(null);
     setStepError(null);
@@ -724,17 +800,20 @@ export function TodayPlanner({
           ?.scrollIntoView?.({ block: "center", behavior: "smooth" })
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
 
   async function commitPlan() {
+    if (savingRef.current) return;
     if (!canCommit) {
       setStepError(
         "Resolve the highlighted plan issues before committing the day."
       );
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     setSaveError(null);
     const committedMetadata: TodayPlanMetadata = {
@@ -761,6 +840,8 @@ export function TodayPlanner({
       setSaveError(
         "Your plan is still safe in this tab, but it could not be saved. Check your connection and retry."
       );
+      // Only a failure frees Save again; after success the page is leaving.
+      savingRef.current = false;
     } finally {
       setSaving(false);
     }
@@ -798,12 +879,13 @@ export function TodayPlanner({
       : []),
   ];
 
-  // Habits and journal prompts chosen as anchors, which no longer take a slot
-  // on the timeline. They stay in metadata.anchors either way, so committing
-  // still records what the day was meant to carry.
-  const ridingAlong = metadata.anchors.filter(
-    (anchor) => !anchorTakesTime(anchor)
-  );
+  // Habits and reflections kept for today without a time block. They stay in
+  // metadata.anchors either way, so committing still records what the day
+  // was meant to carry.
+  const flexible = flexibleAnchors(metadata, blocks);
+  const reservedAnchorCount = metadata.anchors.filter(
+    (anchor) => !anchorTakesTime(anchor) && blockForAnchor(blocks, anchor)
+  ).length;
 
   function anchorCompletedToday(anchor: TodayPlanAnchor) {
     if (anchor.source_type === "habit") {
@@ -891,7 +973,8 @@ export function TodayPlanner({
                     : "All changes saved"}
             </span>
           ) : (
-            <span className="text-sm font-medium text-muted-foreground">
+            <span className="text-right text-sm font-medium text-muted-foreground">
+              <span className="hidden sm:inline">{STEPS[step].label} · </span>
               Step {step + 1} of {STEPS.length}
             </span>
           )}
@@ -956,7 +1039,7 @@ export function TodayPlanner({
                 </Link>
                 <span className="text-muted-foreground">
                   {" "}
-                  (mood, priorities, anchors)
+                  (mood, intention, priorities)
                 </span>
               </p>
             )}
@@ -1091,577 +1174,285 @@ export function TodayPlanner({
             />
           )}
 
-          {step === ANCHORS_STEP && (
-            <div className="grid gap-5 lg:grid-cols-[1fr_0.75fr]">
-              <div className="space-y-5">
-                <Card className="rounded-3xl">
-                  <CardContent className="p-5 sm:p-6">
-                    <div className="flex items-center gap-2">
-                      <Flame className="size-4 text-orange-500" />
-                      <h2 className="font-semibold">Daily anchors</h2>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Pick only what is worth protecting today. Habits and
-                      reflections ride along with the day and reserve no time
-                      on the timeline; only training gets a time block.
-                    </p>
-                    {anchorOptions.length > 0 ? (
-                      <div className="mt-5 space-y-5">
-                        {(
-                          [
-                            ["Habits", anchorOptions.filter((a) => a.source_type === "habit")],
-                            ["Reflections", anchorOptions.filter((a) => a.source_type === "journal")],
-                            ["Training", anchorOptions.filter((a) => a.source_type === "workout")],
-                          ] as const
-                        )
-                          .filter(([, group]) => group.length > 0)
-                          .map(([groupLabel, group]) => (
-                      <div key={groupLabel} role="group" aria-labelledby={`anchor-group-${groupLabel}`}>
-                        <h3
-                          id={`anchor-group-${groupLabel}`}
-                          className="mb-2 text-sm font-semibold text-muted-foreground"
-                        >
-                          {groupLabel}
-                        </h3>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {group.map((anchor) => {
-                          const selected = metadata.anchors.some(
-                            (item) => item.id === anchor.id
-                          );
-                          const completed =
-                            anchor.source_type === "habit"
-                              ? habits.find(
-                                  (habit) => habit.id === anchor.source_id
-                                )?.completedToday
-                              : anchor.source_type === "journal"
-                                ? journals.find(
-                                    (journal) => journal.id === anchor.source_id
-                                  )?.completedToday
-                                : false;
-                          const Icon =
-                            anchor.source_type === "workout"
-                              ? Dumbbell
-                              : anchor.source_type === "journal"
-                                ? BookOpen
-                                : Flame;
-                          return (
-                            <button
-                              key={anchor.id}
-                              type="button"
-                              aria-pressed={selected}
-                              onClick={() => toggleAnchor(anchor)}
-                              className={cn(
-                                "flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl border p-3 text-left transition",
-                                selected
-                                  ? "border-primary bg-primary/8 ring-1 ring-primary/15"
-                                  : "hover:border-primary/30 hover:bg-primary/5"
-                              )}
-                            >
-                              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-lg">
-                                {anchor.emoji || <Icon className="size-4" />}
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-medium">
-                                  {anchor.title}
-                                </span>
-                                <span className="mt-0.5 block text-sm text-muted-foreground">
-                                  {completed
-                                    ? "Already done today"
-                                    : anchorTakesTime(anchor)
-                                      ? `Reserves ${formatPlanMinutes(anchor.duration_minutes)} on the timeline`
-                                      : "Rides along, reserves no time"}
-                                </span>
-                              </span>
-                              <span
-                                className={cn(
-                                  "flex size-6 shrink-0 items-center justify-center rounded-full border",
-                                  selected &&
-                                    "border-primary bg-primary text-primary-foreground"
-                                )}
-                              >
-                                {selected && <Check className="size-3.5" />}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      </div>
-                          ))}
-                      </div>
-                    ) : (
-                      <p className="mt-5 rounded-2xl border border-dashed p-5 text-center text-sm text-muted-foreground">
-                        Add habits or journal templates to turn them into
-                        protected anchors.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="h-fit rounded-3xl lg:sticky lg:top-24">
-                <CardContent className="space-y-5 p-5 sm:p-6">
-                  <div className="flex items-center gap-2">
-                    <Clock3 className="size-4 text-violet-500" />
-                    <h2 className="font-semibold">Day boundaries</h2>
-                  </div>
-                  {/* Three fields of the same kind, so they get the same
-                      cell and the same treatment. The shutdown field used to
-                      sit full width below with a moon icon inside it, which
-                      collided with the digits: Input carries sm:px-2.5, and a
-                      breakpointless pl-10 does not survive that from 640px
-                      up. The label already says what the field is. */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-                      Day starts
-                      <Input
-                        type="time"
-                        value={metadata.day_start}
-                        onChange={(event) =>
-                          updateMetadata({
-                            day_start: event.target.value,
-                            day_end: shiftEndTime(
-                              metadata.day_start,
-                              metadata.day_end,
-                              event.target.value
-                            ),
-                          })
-                        }
-                        className="h-11 rounded-xl text-foreground"
-                      />
-                    </label>
-                    <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-                      Day ends
-                      <Input
-                        type="time"
-                        value={metadata.day_end}
-                        onChange={(event) =>
-                          updateMetadata({ day_end: event.target.value })
-                        }
-                        className="h-11 rounded-xl text-foreground"
-                      />
-                    </label>
-                    <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
-                      Shutdown ritual
-                      <Input
-                        type="time"
-                        value={metadata.shutdown_time}
-                        onChange={(event) =>
-                          updateMetadata({ shutdown_time: event.target.value })
-                        }
-                        className="h-11 rounded-xl text-foreground"
-                      />
-                    </label>
-                  </div>
-                  <p className="rounded-2xl bg-muted/55 p-3 text-xs leading-relaxed text-muted-foreground">
-                    A shutdown time turns planning into a bounded commitment.
-                    Unused capacity is recovery, not failure.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
           {step === TIMELINE_STEP && (
-            <div className="grid gap-5 lg:grid-cols-[1fr_17rem]">
-              <div className="space-y-3">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    {editMode
-                      ? "Moving a block moves everything after it. Nothing is saved until you press Save plan."
-                      : "Moving a block moves everything after it. Nothing is saved until the last step."}
+            <div className="w-full max-w-3xl space-y-5">
+              <DayFrameBar
+                hours={{
+                  day_start: metadata.day_start,
+                  day_end: metadata.day_end,
+                  shutdown_time: metadata.shutdown_time,
+                }}
+                blocks={blocks}
+                onChange={(hours) => updateMetadata(hours)}
+              />
+
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={() => openAdd()}
+                  className="h-12 rounded-xl px-5 text-base sm:h-11"
+                >
+                  <Plus aria-hidden="true" className="size-5" />
+                  Add to your day
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  Tasks, habits, reflections and breaks.
+                </p>
+              </div>
+
+              {problems.overlappingBlockIds.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/35 bg-destructive/8 p-3 text-sm">
+                  <TriangleAlert
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-destructive"
+                  />
+                  <p className="min-w-0 flex-1">
+                    Two blocks want the same minutes.
                   </p>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addManualBlock("break")}
-                    >
-                      <HeartPulse className="mr-1.5 size-4" />
-                      Add break
-                    </Button>
-                    {/* Mobile gets the round button in the footer instead,
-                        so exactly one control named "Add block" exists at
-                        any width. */}
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => addManualBlock()}
-                      className="hidden sm:inline-flex"
-                    >
-                      <Plus className="mr-1.5 size-4" />
-                      Add block
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setBlocks((current) => resolveOverlaps(current));
+                      setStepError(null);
+                    }}
+                  >
+                    Space them out
+                  </Button>
                 </div>
+              )}
 
-                {ridingAlong.length > 0 && (
-                  // Read-only on purpose: checking a habit here would write to
-                  // the database, and this step promises that nothing is saved
-                  // until the final step. Checking them off stays on the home
-                  // screen, where it already works.
-                  <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border bg-background/65 p-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Rides along
-                    </span>
-                    {ridingAlong.map((anchor) => {
-                      const done = anchorCompletedToday(anchor);
-                      return (
-                        <span
-                          key={anchor.id}
-                          className={cn(
-                            "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs",
-                            done
-                              ? "border-emerald-500/40 bg-emerald-500/8 text-emerald-700 dark:text-emerald-300"
-                              : "bg-muted/40"
-                          )}
+              <div>
+                <PlanTimeline
+                  blocks={blocks}
+                  dayStart={metadata.day_start}
+                  dayEnd={metadata.day_end}
+                  shutdownTime={metadata.shutdown_time}
+                  invalidBlockIds={problems.invalidBlockIds}
+                  overlappingBlockIds={problems.overlappingBlockIds}
+                  selectedId={selectedBlockId}
+                  onSelect={setSelectedBlockId}
+                  onChange={(next) => {
+                    setBlocks(next);
+                    setStepError(null);
+                  }}
+                  onCreateBlock={(startTime) => {
+                    const start = timeToMinutes(startTime);
+                    const next = occupiedSpans(blocks).find(
+                      (span) => span.startMinutes >= start
+                    );
+                    openAdd({
+                      startMinutes: start,
+                      roomMinutes: (next?.startMinutes ?? 24 * 60 - 1) - start,
+                    });
+                  }}
+                />
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  Drag a block to move it; everything after it moves along.
+                  Pull the bar on its bottom edge to make it longer. Tap a
+                  block for exact times.
+                </p>
+
+                {/* A block with an unreadable time cannot be drawn on a
+                    time axis, so it would vanish exactly when it needs
+                    fixing. Listed here until it is valid again. */}
+                {unplaceableBlocks.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {unplaceableBlocks.map((block) => (
+                      <li key={block.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBlockId(block.id)}
+                          className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-xl border border-destructive/55 bg-destructive/8 px-3 py-2 text-left text-sm"
                         >
-                          {done && <Check className="size-3" />}
-                          <span aria-hidden="true">{anchor.emoji}</span>
-                          {anchor.title}
-                        </span>
-                      );
-                    })}
-                    <span className="ml-auto text-sm text-muted-foreground">
-                      Reserves no time
-                    </span>
-                  </div>
-                )}
-
-                {problems.overlappingBlockIds.length > 0 && (
-                  <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/35 bg-destructive/8 p-4 text-sm">
-                    <TriangleAlert className="size-4 shrink-0 text-destructive" />
-                    <p className="min-w-0 flex-1">
-                      Two blocks want the same minutes.
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setBlocks((current) => resolveOverlaps(current));
-                        setStepError(null);
-                      }}
-                    >
-                      Space them out
-                    </Button>
-                  </div>
-                )}
-
-                {sortedBlocks.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed bg-background/65 p-8 text-center">
-                    <CalendarClock className="mx-auto size-8 text-muted-foreground" />
-                    <p className="mt-3 font-medium">The timeline is empty.</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Go back and choose commitments, or add a manual block.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <PlanTimeline
-                      blocks={blocks}
-                      dayStart={metadata.day_start}
-                      dayEnd={metadata.day_end}
-                      invalidBlockIds={problems.invalidBlockIds}
-                      overlappingBlockIds={problems.overlappingBlockIds}
-                      selectedId={selectedBlockId}
-                      onSelect={setSelectedBlockId}
-                      onChange={(next) => {
-                        setBlocks(next);
-                        setStepError(null);
-                      }}
-                      onCreateBlock={createBlockAt}
-                    />
-
-                    <p className="mt-3 text-center text-sm leading-relaxed text-muted-foreground">
-                      Drag a block to move it, pull the handle on its bottom
-                      edge to make it longer. Tap a block for exact start and
-                      end times, its name and its type.
-                    </p>
-
-                    {/* A block with an unreadable time cannot be drawn on a
-                        time axis, so it would vanish exactly when it needs
-                        fixing. Listed here until it is valid again. */}
-                    {unplaceableBlocks.length > 0 && (
-                      <ul className="mt-3 space-y-2">
-                        {unplaceableBlocks.map((block) => (
-                          <li key={block.id}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedBlockId(block.id)}
-                              className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-destructive/55 bg-destructive/8 px-3 py-2 text-left text-sm"
-                            >
-                              <TriangleAlert className="size-4 shrink-0 text-destructive" />
-                              <span className="min-w-0 flex-1 truncate">
-                                {block.title || "Untitled block"}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                needs a valid time
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
+                          <TriangleAlert className="size-4 shrink-0 text-destructive" />
+                          <span className="min-w-0 flex-1 truncate">
+                            {block.title || "Untitled block"}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            needs a valid time
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
 
-              <aside className="h-fit rounded-2xl border bg-background/75 p-5 lg:sticky lg:top-24">
-                <div className="flex items-center gap-2">
-                  <CircleGauge className="size-5 text-primary" />
-                  <h2 className="text-sm font-semibold">
-                    Capacity of scheduled blocks
-                  </h2>
-                </div>
-                <p className="mt-3 text-2xl font-semibold">
-                  {formatPlanMinutes(capacity.plannedMinutes)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  in time blocks, of{" "}
-                  {formatPlanMinutes(capacity.availableMinutes)} between{" "}
-                  {metadata.day_start} and {metadata.day_end}
-                </p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all",
-                      capacity.status === "over"
-                        ? "bg-destructive"
-                        : capacity.status === "full"
-                          ? "bg-amber-500"
-                          : "bg-primary"
-                    )}
-                    style={
-                      {
-                        width: `${Math.min(capacity.utilizationPercent, 100)}%`,
-                      } as CSSProperties
-                    }
-                  />
-                </div>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  {capacity.remainingMinutes >= 0
-                    ? `${formatPlanMinutes(capacity.remainingMinutes)} remains for transitions, interruptions, and recovery.`
-                    : `${formatPlanMinutes(capacity.remainingMinutes)} over capacity. Remove or shorten a block.`}
-                </p>
-                {ridingAlong.length > 0 && (
-                  <p className="mt-3 border-t pt-3 text-sm leading-relaxed text-muted-foreground">
-                    {ridingAlong.length}{" "}
-                    {ridingAlong.length === 1 ? "anchor rides" : "anchors ride"}{" "}
-                    along without a time block, so{" "}
-                    {ridingAlong.length === 1 ? "it is" : "they are"} not counted
-                    here.
-                  </p>
-                )}
-              </aside>
+              <PlanCapacityLine
+                capacity={capacity}
+                hasOverlap={problems.overlappingBlockIds.length > 0}
+              />
+
+              <AlsoToday
+                anchors={flexible}
+                isDone={anchorCompletedToday}
+                onAdd={() => openAdd({ kind: "habit", mode: "flexible" })}
+                onSchedule={(anchor) =>
+                  openAdd({ anchorId: anchor.id, mode: "block" })
+                }
+                onRemove={removeAnchor}
+              />
             </div>
           )}
 
           {step === COMMIT_STEP && (
-            <div className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
-              <div className="space-y-5">
-                <Card className="overflow-hidden rounded-3xl border-primary/25">
-                  <CardContent className="p-0">
-                    <div className="bg-primary/8 p-5 sm:p-6">
-                      <p className="text-sm font-semibold text-primary">
-                        Main priority
+            <div className="grid w-full gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+              <div className="min-w-0 space-y-8">
+                <section
+                  aria-labelledby="review-focus"
+                  className="border-l-[3px] border-primary pl-5"
+                >
+                  <h2
+                    id="review-focus"
+                    className="text-xs font-semibold uppercase tracking-[0.12em] text-primary"
+                  >
+                    Your main focus
+                  </h2>
+                  <p className="mt-1.5 break-words text-xl font-medium">
+                    {mainOutcome?.title || "Choose your main focus"}
+                  </p>
+                  {metadata.intention && (
+                    <p className="mt-1.5 text-sm italic text-muted-foreground">
+                      “{metadata.intention}”
+                    </p>
+                  )}
+                  {metadata.outcomes
+                    .filter(
+                      (outcome) =>
+                        outcome.role !== "must_win" && outcome.title.trim()
+                    )
+                    .map((outcome) => (
+                      <p key={outcome.role} className="mt-3 text-sm">
+                        <span className="text-muted-foreground">
+                          {PRIORITY_LABELS[outcome.role]}:
+                        </span>{" "}
+                        <span className="font-medium">{outcome.title}</span>
                       </p>
-                      <h2 className="mt-2 text-xl font-semibold">
-                        {mainOutcome?.title || "Choose your main priority"}
-                      </h2>
-                      {metadata.intention && (
-                        <p className="mt-2 text-sm italic text-muted-foreground">
-                          “{metadata.intention}”
-                        </p>
-                      )}
-                    </div>
-                    <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
-                      {metadata.outcomes
-                        .filter(
-                          (outcome) =>
-                            outcome.role !== "must_win" && outcome.title.trim()
-                        )
-                        .map((outcome) => (
-                          <div
-                            key={outcome.role}
-                            className="rounded-2xl border bg-background/70 p-4"
-                          >
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              {OUTCOME_META[outcome.role].label}
-                            </p>
-                            <p className="mt-1 text-sm font-medium">
-                              {outcome.title}
-                            </p>
-                          </div>
-                        ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                    ))}
+                </section>
 
-                <Card className="rounded-3xl">
-                  <CardContent className="space-y-4 p-5 sm:p-6">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h2 className="font-semibold">Capacity of scheduled blocks</h2>
-                        <p className="text-sm text-muted-foreground">
-                          Counts time blocks only. Anchors without a block
-                          reserve no time.
-                        </p>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "rounded-full",
-                          capacity.status === "over" &&
-                            "border-destructive/40 text-destructive",
-                          capacity.status === "full" &&
-                            "border-amber-500/40 text-amber-700 dark:text-amber-300",
-                          capacity.status === "balanced" &&
-                            "border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
-                        )}
-                      >
-                        {capacity.utilizationPercent}% planned
-                      </Badge>
-                    </div>
-                    <div className="h-3 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all",
-                          capacity.status === "over"
-                            ? "bg-destructive"
-                            : capacity.status === "full"
-                              ? "bg-amber-500"
-                              : "bg-primary"
-                        )}
-                        style={{
-                          width: `${Math.min(capacity.utilizationPercent, 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-xl bg-muted/55 p-3">
-                        <p className="text-sm font-semibold">
-                          {formatPlanMinutes(capacity.availableMinutes)}
-                        </p>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                          Available
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-muted/55 p-3">
-                        <p className="text-sm font-semibold">
-                          {formatPlanMinutes(capacity.plannedMinutes)}
-                        </p>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                          Planned
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-muted/55 p-3">
-                        <p
-                          className={cn(
-                            "text-sm font-semibold",
-                            capacity.remainingMinutes < 0 && "text-destructive"
-                          )}
-                        >
-                          {capacity.remainingMinutes < 0 ? "−" : ""}
-                          {formatPlanMinutes(capacity.remainingMinutes)}
-                        </p>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                          Buffer
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <section aria-labelledby="review-day" className="space-y-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b pb-2">
+                    <h2 id="review-day" className="text-base font-semibold">
+                      Your day · {metadata.day_start}–{metadata.day_end}
+                    </h2>
+                    <PlanCapacityLine
+                      capacity={capacity}
+                      hasOverlap={problems.overlappingBlockIds.length > 0}
+                    />
+                  </div>
+                  {sortedBlocks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No time blocks yet. Go back to add some, or save the
+                      day as it is.
+                    </p>
+                  ) : (
+                    <ol className="divide-y">
+                      {sortedBlocks.map((block) => (
+                        <li key={block.id} className="flex gap-4 py-2.5">
+                          <span className="w-24 shrink-0 text-sm tabular-nums text-muted-foreground">
+                            {block.start_time}–{block.end_time}
+                          </span>
+                          <span className="min-w-0 flex-1 break-words text-sm font-medium">
+                            {block.title || "Untitled block"}
+                            {block.outcome_role && (
+                              <span className="ml-2 font-normal text-primary">
+                                {PRIORITY_LABELS[block.outcome_role]}
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {metadata.shutdown_time
+                      ? `Day-end reminder at ${metadata.shutdown_time}. It reserves no time.`
+                      : "No day-end reminder."}
+                  </p>
+                </section>
+
+                <section aria-labelledby="review-also" className="space-y-1.5">
+                  <h2 id="review-also" className="text-base font-semibold">
+                    Also today
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      No time reserved
+                    </span>
+                  </h2>
+                  <p className="text-sm">
+                    {flexible.length > 0
+                      ? flexible.map((anchor) => anchor.title).join(" · ")
+                      : "Nothing kept flexible today."}
+                  </p>
+                  {reservedAnchorCount > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {reservedAnchorCount === 1
+                        ? "1 habit or reflection has a time block above."
+                        : `${reservedAnchorCount} habits or reflections have a time block above.`}
+                    </p>
+                  )}
+                </section>
 
                 {(problems.invalidBlockIds.length > 0 ||
                   problems.overlappingBlockIds.length > 0) && (
-                  <div className="flex items-start gap-3 rounded-2xl border border-destructive/35 bg-destructive/8 p-4 text-sm">
+                  <div className="flex items-start gap-3 rounded-xl border border-destructive/35 bg-destructive/8 p-4 text-sm">
                     <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
                     <div>
                       <p className="font-medium">Timeline needs attention</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Return to the timeline and fix invalid or overlapping
-                        blocks before committing.
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Go back to the timeline and fix invalid or overlapping
+                        blocks before saving.
                       </p>
                     </div>
                   </div>
                 )}
               </div>
 
-              <aside className="h-fit space-y-4 lg:sticky lg:top-24">
-                <Card className="rounded-3xl">
-                  <CardContent className="space-y-4 p-5 sm:p-6">
-                    <div className="flex items-center gap-2">
-                      <CalendarClock className="size-4 text-violet-500" />
-                      <h2 className="font-semibold">Today at a glance</h2>
-                    </div>
-                    <dl className="space-y-3 text-sm">
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">Window</dt>
-                        <dd className="font-medium">
-                          {metadata.day_start}–{metadata.day_end}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">Blocks</dt>
-                        <dd className="font-medium">{blocks.length}</dd>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">Anchors</dt>
-                        <dd className="font-medium">
-                          {metadata.anchors.length}
-                          {ridingAlong.length > 0 && (
-                            <span className="font-normal text-muted-foreground">
-                              {" "}
-                              ({ridingAlong.length} without time)
-                            </span>
-                          )}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">Shutdown</dt>
-                        <dd className="font-medium">
-                          {metadata.shutdown_time}
-                        </dd>
-                      </div>
-                    </dl>
-                    <div className="rounded-2xl bg-muted/55 p-4 text-xs leading-relaxed text-muted-foreground">
-                      You are committing to direction, not perfection. Replan
-                      when reality changes.
-                    </div>
+              <aside className="h-fit space-y-4 border-t pt-5 lg:sticky lg:top-24 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6">
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  You are committing to direction, not perfection. Replan
+                  when reality changes.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {saving
+                    ? "Saving…"
+                    : "Saving replaces today's saved plan."}
+                </p>
+                <Button
+                  type="button"
+                  size="lg"
+                  className="hidden w-full rounded-xl sm:inline-flex"
+                  disabled={!canCommit}
+                  onClick={() => void commitPlan()}
+                >
+                  {saving ? (
+                    "Saving…"
+                  ) : (
+                    <>
+                      <Check className="mr-1.5 size-5" />
+                      Save today&apos;s plan
+                    </>
+                  )}
+                </Button>
+                {saveError && (
+                  <div
+                    role="alert"
+                    className="space-y-2 rounded-xl border border-destructive/35 bg-destructive/8 p-3"
+                  >
+                    <p className="text-sm text-destructive">{saveError}</p>
                     <Button
                       type="button"
-                      size="lg"
-                      className="hidden w-full rounded-xl sm:inline-flex"
-                      disabled={!canCommit}
+                      variant="outline"
+                      className="w-full"
                       onClick={() => void commitPlan()}
+                      disabled={saving}
                     >
-                      {saving ? (
-                        "Saving…"
-                      ) : (
-                        <>
-                          <Check className="mr-1.5 size-5" />
-                          Save today&apos;s plan
-                        </>
-                      )}
+                      Retry save
                     </Button>
-                    {saveError && (
-                      <div className="space-y-2 rounded-xl border border-destructive/35 bg-destructive/8 p-3">
-                        <p className="text-xs text-destructive">{saveError}</p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => void commitPlan()}
-                          disabled={saving}
-                        >
-                          Retry save
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  </div>
+                )}
               </aside>
             </div>
           )}
@@ -1700,20 +1491,13 @@ export function TodayPlanner({
             {step === MOOD_STEP || editMode ? "Dashboard" : "Back"}
           </Button>
 
-          {/* The timeline's own Add block sits at the top of a scrolling
-              column, which on a phone is wherever you are not. This takes the
-              gap the footer already leaves between Back and Next, and matches
-              the round button the home screen puts in the same place.
-              Creating selects, so the properties open with it. */}
-          {step === TIMELINE_STEP && (
-            <Button
-              type="button"
-              aria-label="Add block"
-              onClick={() => addManualBlock()}
-              className="relative -top-5 size-14 shrink-0 rounded-full border-4 border-background p-0 shadow-[0_16px_40px_rgba(0,0,0,0.22)] transition-transform hover:scale-105 sm:hidden white-mode:shadow-[0_12px_30px_rgba(68,64,60,0.14)]"
-            >
-              <Plus className="size-7" />
-            </Button>
+          {/* Nothing reaches the database before the last step; saying so
+              where the buttons are answers "did that save?" before it is
+              asked. The editor says it in the header instead. */}
+          {!editMode && (
+            <span className="hidden min-w-0 truncate text-sm text-muted-foreground min-[400px]:block">
+              Draft · not saved
+            </span>
           )}
 
           {editMode ? (
@@ -1729,7 +1513,7 @@ export function TodayPlanner({
             </Button>
           ) : step < STEPS.length - 1 ? (
             <Button type="button" size="lg" onClick={goNext} className="h-12">
-              Next
+              {step === TIMELINE_STEP ? "Review plan" : "Next"}
               <ArrowRight className="ml-1.5 size-4" />
             </Button>
           ) : (
@@ -1749,167 +1533,40 @@ export function TodayPlanner({
       {/* The block's properties belong on top of the day, not underneath it:
           on a phone an editor below the axis is off-screen exactly when it
           opens, and the block it describes is no longer in view. */}
-      <Dialog
-        open={Boolean(selectedBlock)}
+      <BlockEditorDialog
+        block={selectedBlock}
+        blocks={blocks}
+        dayStart={metadata.day_start}
+        dayEnd={metadata.day_end}
         onOpenChange={(open) => {
           if (!open) setSelectedBlockId(null);
         }}
-      >
-        {/* Centred at every width: the block being edited is the thing on
-            screen, so the editor belongs in front of it rather than sliding
-            up from an edge. Scrolls inside itself on a short screen. */}
-        <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit block</DialogTitle>
-            <DialogDescription>
-              Times here are exact; dragging on the timeline is faster.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedBlock && (
-            <div className="space-y-3">
-                <div className="flex items-start gap-2">
-                  <Input
-                    aria-label="Block title"
-                    value={selectedBlock.title}
-                    onChange={(event) =>
-                      updateBlock(selectedBlock.id, {
-                        title: event.target.value,
-                      })
-                    }
-                    maxLength={160}
-                    className="h-11 min-w-0 flex-1 rounded-xl font-medium"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Delete ${selectedBlock.title}`}
-                    onClick={() => {
-                      setBlocks((current) =>
-                        current.filter(
-                          (item) => item.id !== selectedBlock.id
-                        )
-                      );
-                      setSelectedBlockId(null);
-                    }}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
+        onApply={(next) => {
+          setBlocks(next);
+          setStepError(null);
+        }}
+        onRemove={removeBlock}
+        onKeepFlexible={keepBlockFlexible}
+      />
 
-                {/* The fields stay alongside the drag gesture: a
-                    pointer is faster, typing is exact, and a keyboard
-                    user needs a way in that is not a drag. */}
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.25fr]">
-                  <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-                    Start
-                    <Input
-                      type="time"
-                      value={selectedBlock.start_time}
-                      onChange={(event) =>
-                        updateBlockTime(selectedBlock.id, {
-                          start_time: event.target.value,
-                          end_time: shiftEndTime(
-                            selectedBlock.start_time,
-                            selectedBlock.end_time,
-                            event.target.value
-                          ),
-                        })
-                      }
-                      className="h-10 rounded-xl text-foreground"
-                    />
-                  </label>
-                  <label className="space-y-1 text-[11px] font-medium text-muted-foreground">
-                    End
-                    <Input
-                      type="time"
-                      value={selectedBlock.end_time}
-                      onChange={(event) =>
-                        updateBlockTime(selectedBlock.id, {
-                          end_time: event.target.value,
-                        })
-                      }
-                      className="h-10 rounded-xl text-foreground"
-                    />
-                  </label>
-                  <label className="col-span-2 space-y-1 text-[11px] font-medium text-muted-foreground sm:col-span-1">
-                    Type
-                    <select
-                      value={selectedBlock.category}
-                      onChange={(event) =>
-                        updateBlock(selectedBlock.id, {
-                          category: event.target
-                            .value as DayPlanCategory,
-                        })
-                      }
-                      className="h-10 w-full rounded-xl border bg-background px-3 text-sm text-foreground"
-                    >
-                      {Object.entries(CATEGORY_LABELS).map(
-                        ([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </label>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {selectedBlock.mission_type && (
-                    <Badge
-                      variant="outline"
-                      className="rounded-full text-[10px]"
-                    >
-                      {MISSION_LABELS[selectedBlock.mission_type]}
-                    </Badge>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {formatPlanMinutes(
-                      Math.max(
-                        0,
-                        timeToMinutes(selectedBlock.end_time) -
-                          timeToMinutes(selectedBlock.start_time)
-                      )
-                    )}
-                  </span>
-                </div>
-
-                {blockProblem(selectedBlock) && (
-                  <p role="alert" className="text-sm text-destructive">
-                    {blockProblem(selectedBlock)}
-                  </p>
-                )}
-
-                {/* The banner behind the dialog carries this too, but a
-                    modal makes it unreachable -- and typing a time in here
-                    is the likeliest way to cause an overlap in the first
-                    place. */}
-                {problems.overlappingBlockIds.includes(selectedBlock.id) && (
-                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/35 bg-destructive/8 p-3">
-                    <TriangleAlert className="size-4 shrink-0 text-destructive" />
-                    <p className="min-w-0 flex-1 text-sm">
-                      Overlaps another block. Change a time, or space the
-                      blocks out automatically.
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setBlocks((current) => resolveOverlaps(current));
-                        setStepError(null);
-                      }}
-                    >
-                      Space them out
-                    </Button>
-                  </div>
-                )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <AddToDayDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        request={addRequest}
+        blocks={blocks}
+        dayStart={metadata.day_start}
+        dayEnd={metadata.day_end}
+        today={date}
+        tasks={taskList}
+        habits={habits}
+        journals={journals}
+        anchorOptions={anchorOptions}
+        plannedAnchors={metadata.anchors}
+        creatingTask={creatingTask}
+        createTaskError={addTaskError}
+        onCreateTask={createTaskForDay}
+        onSubmit={addToDay}
+      />
 
       <Dialog open={closeOpen} onOpenChange={setCloseOpen}>
         <DialogContent className="bottom-0 top-auto max-w-none translate-y-0 rounded-b-none rounded-t-3xl sm:bottom-auto sm:top-1/2 sm:max-w-md sm:-translate-y-1/2 sm:rounded-2xl">

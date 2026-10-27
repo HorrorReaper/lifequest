@@ -10,7 +10,7 @@ Die vier „automatischen“ Rituale sind Dialoge, die sich auf `/dashboard` sel
 
 | Ritual | Komponente | Standardfenster | Führt zu | „Erledigt“ heißt |
 |---|---|---|---|---|
-| Daily Plan („Morning Briefing“) | `DailyPlanPrompt` | täglich ab 00:00 | `/plan` → `TodayPlanner` (6-Schritte-Wizard: Mood → Intention → Top Three → Anchors → Timeline → Commit) | `day_plans.notes` enthält `ritual_completed_at` |
+| Daily Plan („Morning Briefing“) | `DailyPlanPrompt` | täglich ab 00:00 | `/plan` → `TodayPlanner` (5-Schritte-Wizard: Mood → Intention → Priorities → Shape your day (Timeline mit Habits und Reflexionen) → Review) | `day_plans.notes` enthält `ritual_completed_at` |
 | Evening Review („Daily Review“) | `EveningReviewPrompt` | täglich ab 20:00 | `/journal/new/<template>` | fertiger Journal-Eintrag mit dem Ziel-Template **heute** |
 | Weekly Review | `WeeklyReviewPrompt` | Sonntag ab 18:00 | `/journal/new/<template>` | fertiger Eintrag mit dem Ziel-Template in **dieser Woche** (Mo–So) |
 | Weekly Plan | `WeeklyPlanPrompt` | Montag ab 00:00 | `/journal/new/<template>` | wie Weekly Review |
