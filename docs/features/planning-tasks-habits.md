@@ -4,35 +4,91 @@
 
 `/plan` is the daily planner implemented by `TodayPlanner`. It has two modes:
 
-- **Plan editor.** When today already has blocks, `/plan` opens straight on the timeline (`TodayPlanScreen` passes `startAt="timeline"`). The header shows "Edit today's plan" and a save state ("All changes saved", "Unsaved changes", "Saving…", "Saved at HH:mm") instead of step numbers. The footer has "Dashboard" and "Save plan"; Save is disabled until something changed. Saving (`savePlanEdits`) writes the plan and stays on the timeline. It does not require a main priority, keeps `ritual_completed_at` (or sets it if the plan never had one), and on failure keeps the edits on screen with "Not saved. Your changes are still here in this tab.", turns the header status red ("Not saved") and scrolls the message into view, since Save sits in the footer and the message at the end of the page.
+- **Plan editor.** When today already has blocks, `/plan` opens straight on the timeline (`TodayPlanScreen` passes `startAt="timeline"`). The header shows "Edit today's plan" and a save state ("All changes saved", "Unsaved changes", "Saving…", "Saved at HH:mm") instead of step numbers. The page is the same timeline as the ritual's timeline step (day hours, "Add to your day", "Also today"). The footer has "Dashboard" and "Save plan"; Save is disabled until something changed. Saving (`savePlanEdits`) writes the plan and stays on the timeline. It does not require a main priority, keeps `ritual_completed_at` (or sets it if the plan never had one), and on failure keeps the edits on screen with "Not saved. Your changes are still here in this tab.", turns the header status red ("Not saved") and scrolls the message into view, since Save sits in the footer and the message at the end of the page.
  Leaving with unsaved changes offers "Save plan", "Continue editing", "Leave and keep draft" and "Discard draft". `?step=timeline` opens the same editor.
-- **Daily ritual.** Without blocks, or with `?step=ritual` (linked from the editor as "Start the full daily ritual instead"), the six-step ritual below runs from the start.
+- **Daily ritual.** Without blocks, or with `?step=ritual` (linked from the editor as "Start the full daily ritual instead (mood, intention, priorities)"), the five-step ritual below runs from the start.
 
 ### Steps
 
-1. **Mood** — how the day starts; optional reasons.
-2. **Intention** — the day's guiding line.
-3. **Priorities** — a main priority (required), a second priority and recovery (both optional). These replace the earlier "Must Win" and "Main / Side / Recovery Quest" names; the quest wording survives only in the main priority's helper line. Blocks show "Main priority", "Priority", "Anchor" or "Recovery".
-4. **Anchors** — habits, reflections and the admin-only training anchor, grouped under "Habits", "Reflections" and "Training". Each says whether it "Rides along, reserves no time" or "Reserves N min on the timeline". Journal templates with the same name are told apart by `journalAnchorTitles`: "(standard)" for the built-in one, "(your copy)" for the user's own.
-5. **Timeline** — turn choices into a realistic schedule.
-6. **Review** — capacity, conflicts, and "Save today's plan".
+The step order lives in `src/components/planning/planner-steps.ts` (`PLANNER_STEP_IDS`). The header reads "Step N of 5", from 640px up with the step name in front ("Shape your day · Step 4 of 5"), over a five-part progress bar.
 
-Each outcome can include a duration and a linked existing task. The day also has start, end, and shutdown times.
+1. **Mood** — how the day starts; optional reasons. Required to go on.
+2. **Intention** — the day's guiding line. Optional.
+3. **Priorities** — "What matters most today?" ("Choose one focus. Add one more if there’s room."). One main focus (required), one optional second task, and a separate, optional moment to recharge. See [Priorities step](#priorities-step). "Next" turns the chosen priorities into blocks (`buildTodayPlanSchedule`).
+4. **Shape your day** — "Make room for your day". The timeline, with the day hours, "Add to your day" and "Also today" around it. See [Timeline step](#timeline-step). Its forward button reads "Review plan"; it refuses to go on while a block is invalid, two blocks overlap, or the day ends before it starts.
+5. **Review** — the main focus and intention, the day's blocks in time order with the capacity line, the day-end reminder, what is kept flexible, conflicts, and "Save today's plan".
 
-### Timeline construction
+Daily anchors used to be a step of their own between the priorities and the timeline. Its parts moved into the timeline step: the day hours into the line above the timeline, habits and reflections into "Add to your day" and "Also today". The footer shows "Back" (on the first step "Dashboard"), "Draft · not saved" from 400px up, and "Next".
 
-The planner:
+Each outcome can include a duration and a linked existing task. The day also has start and end times and an optional day-end reminder.
 
-- Preserves existing manually stored blocks.
-- Creates mission blocks from selected outcomes and anchors.
-- Adds ten-minute transition gaps where possible.
-- Calculates available, planned, and remaining minutes.
-- Classifies the plan as open, balanced, full, or over capacity.
-- Rejects invalid time ranges and overlapping blocks.
+### Priorities step
 
-The capacity panel is titled "Capacity of scheduled blocks" and counts time blocks only; when anchors ride along it adds that they are not counted. The review step's summary shows how many anchors have no time.
+`src/components/planning/TodayPriorities.tsx` renders the step as an overview with no form on it. There are three rows, separated by hairlines rather than boxed in cards, so the main focus visibly outweighs the rest:
 
-Every block has an always-visible resize pill on its bottom edge (no hover needed on touch). Blocks shorter than 25 minutes get a thin 6px strip instead of the 16px one, which would otherwise cover a 15-minute block and turn every tap on it into a resize. The accessible alternative to dragging: Enter or Space on a block opens its editor with exact start and end fields, and arrow keys move it (Shift with arrows changes the length), described to screen readers through `aria-describedby`. The block editor says what is wrong in words ("Give this block a title.", "The end time has to be after the start time.") and offers "Space them out" for an overlap.
+- **Your main focus** (`must_win`). It has a thin primary-coloured accent on the left. The chosen title is set larger than the line under it, which shows the block length and, for a linked task, its due date (`describeTaskDue` in `src/lib/today-plan.ts`: "Due today", "Due tomorrow", "Due Aug 3", "Overdue since Jul 20"). A plain-text focus shows "Not saved as a task" instead. Empty, the row reads "Choose your main task", with "Required. If you finish one thing today, make it this." under it. "Next" without a main focus shows "Choose your main focus before moving on." and turns the accent to the destructive colour. The main focus can be changed but not removed.
+- **Also worth doing** · Optional (`progress`). Less weight: base-size title, muted empty state "Choose a second task". When filled it has a "Remove second task" button beside the row.
+- **A moment to recharge** (`health`). Its own section under a second hairline, with a leaf icon and "Make room for yourself, too.". The action button reads "Add", or the chosen activity once there is one, with "Remove recharge moment" beside it. Recovery is not a third priority level.
+
+Every row is a single button with a visible change indicator (chevron; "Change" from 400px up). It opens `src/components/planning/PriorityPickerDialog.tsx`, a compact dialog with:
+
+- The current choice, if any. Its "Block length" in minutes (5–240, digits only, typed digit by digit, snapping back on blur when unusable) lives here instead of on the overview. For the second task and recharge there is also "Remove from today".
+- The task search: `TaskCombobox` in its `inline` mode (`src/components/planning/TaskCombobox.tsx`). The list stays under the field instead of in a popup, shows every loaded task with due date, estimate and "High priority" on a second line, and is navigated with the arrow keys through `aria-activedescendant`. A title with no exact match offers "Create task “…”" and "Plan “…” without a task". The first creates a real task through `createTask` with only the title. The second keeps the outcome as plain text (`task_id: null`), as earlier plans could.
+- For recharge only, while the search is empty, three starting points as plain text: "Go for a walk", "Stretch for 10 minutes", "Read a book".
+
+Choosing closes the dialog straight away. The overview shows the result, a polite live region announces it, and focus returns to the row that opened the picker. Removing from the overview also puts focus back on that row. With a pointer or keyboard the search field takes focus on open. On touch the dialog title does, so the on-screen keyboard does not cover the list. A task creation that fails keeps the dialog open with "Could not create the task. Please try again." and the typed title. A second create cannot start while one is running.
+
+A task can hold only one role for the day. The picker leaves out tasks used by another role, and `assignTaskToRole` in `TodayPlanner` refuses one that slipped through. Choosing a task for today only writes the plan: the task's record, including its due date, is not updated. A created task gets no due date.
+
+Going back from the timeline and changing a priority updates its block: `buildTodayPlanSchedule` gives an existing block with that `outcome_role` the new title and task link (`source_type`/`source_id`) and keeps its times, and drops the block of a priority that was removed. Going back and forward again never adds a second block for the same priority.
+
+### Timeline step
+
+From top to bottom, in one column of at most 48rem (no side panels):
+
+1. **Day hours line** (`src/components/planning/DayFrameBar.tsx`): "Your day · 08:00–18:00", under it "Day-end reminder · 18:00 · No time block" (or "No day-end reminder"), and "Edit day hours". The button opens `DayHoursDialog.tsx` with "Day starts", "Day ends", a "Day-end reminder" switch ("Optional. A marker on the timeline; it reserves no time.") and "Reminder at". Problems are stated under their field ("Your day has to end after it starts.", "The reminder has to come after your day starts.", "Choose a time for the reminder, or turn it off.") and Apply stays disabled until they are fixed. Cancel and Escape change nothing. When the new hours would leave blocks outside, the dialog lists them ("1 block falls outside these hours.", title and times) and says they stay where they are. Applying never moves or deletes a block.
+2. **"Add to your day"**, the step's main action, with "Tasks, habits, reflections and breaks." beside it.
+3. A conflict banner when blocks overlap: "Two blocks want the same minutes." with "Space them out" (`resolveOverlaps`).
+4. **The timeline** (`src/components/planning/PlanTimeline.tsx`), described below, with a line on how to drag under it.
+5. **Capacity line** (`PlanCapacityLine.tsx`), e.g. "2h 15m scheduled · 7h 45m unplanned". See [Capacity](#capacity).
+6. **Also today** (`AlsoToday.tsx`), see [Flexible habits and reflections](#flexible-habits-and-reflections).
+
+#### The timeline
+
+A block is as tall as it is long (1.2px per minute). Each shows its title and, from 40 minutes up, "08:00–09:30 · 1h 30m" plus its priority ("Main focus", "Second task", "Recharge"), "Outside day hours" and "Overlaps" where they apply. Shorter blocks show title and times on one line. Only the main focus has a tinted fill; other blocks are card-coloured with a thin category or mission colour on the left edge. A block outside the day hours has a dashed border and `data-outside="true"`, and the time outside the day hours is shaded.
+
+Free time at least 20 minutes long carries a visible "+ 45m free" label. Hovering previews the hour that would be offered; tapping (or Enter on the focused gap) opens "Add to your day" with that start filled in and suggested lengths capped to the room before the next block.
+
+Free time of two hours or more (`COMPRESS_FREE_MINUTES`) is folded into one 48px row: "12:00–18:00 · 6h 15m free" with "Show" (`aria-expanded="false"`). Only free time folds, so every block keeps its real height and its real distance to its neighbours (`timelineSegments`, `offsetForMinute`, `minuteForOffset` in `src/lib/today-plan.ts`). "Show" opens that stretch at scale; "Show full day" above the timeline opens all of them and "Compact view" folds them again. The layout is held still while a block is dragged.
+
+The day-end reminder is a dashed line across the timeline labelled "Day-end reminder · 18:00". It is never a block and is not counted.
+
+Blocks are dragged to move and pulled at the always-visible bar on their bottom edge to lengthen (a thin strip on blocks under 20 minutes, so a tap still opens them). Both go through `applyBlockTimeChange`, which carries every later block along by the same amount. While dragging, a polite line above the timeline says where the block is and how many later blocks it moves ("Also moves 2 later blocks."). A drag that moved does not also open the block.
+
+Tapping a block, or Enter/Space on it, opens `BlockEditorDialog.tsx` ("Edit block"), the full alternative to dragging: title, "Starts", "Ends" (moving the start keeps the length), "Type", and for a priority block "Main focus for today · linked to a task". Nothing changes until Apply; Cancel leaves the day as it was. Problems are stated at their field ("Give this block a title.", "Enter a start time.", "The end time has to be after the start time.") and disable Apply. When the new times would push later blocks, a group titled "This change moves N later blocks" lists them with their new start and shift ("Side quest → 09:45 (+30m)") and offers "Move them along" or "Keep them where they are". An overlap that results is named at the start or end field ("Overlaps “Side quest” (09:15–10:00). You can still apply and space them out on the timeline."). "Remove from plan" takes the block out of today's plan and says what stays ("Removing it keeps the task in your task list."); a habit or reflection block also offers "Keep flexible instead". Arrow keys move a focused block by 5 minutes, Shift with an arrow changes its length; the hint is tied to each block through `aria-describedby`. A block whose times cannot be drawn is listed under the timeline with "needs a valid time" and opens the same editor.
+
+#### Add to your day
+
+`src/components/planning/AddToDayDialog.tsx`, opened by "Add to your day", by tapping free time, and from "Also today". "What to add" is a row of choices: Task, Habit, Reflection, Break, and for admins with workouts Training.
+
+- **Task**: the inline `TaskCombobox` (search, "Create task “…”", "Plan “…” without a task"). Tasks already on the timeline are not offered. The chosen task shows its due date with "its due date stays as it is"; the planned time is stored in the block only.
+- **Habit** and **Reflection**: a list of the user's habits or journal templates. Habits and reflections already done today are hidden; "Show completed (N)" shows them, marked "Done today". Each row says its suggested length and, when already planned, "In today's plan · 10:00–10:15" or "In today's plan · no time reserved". Reflections say "Built-in template" or "Your template", and templates with the same name keep the "(standard)" / "(your copy)" names from `journalAnchorTitles`. Then "Planning": **"Reserve a time block"** (start and length) or **"Keep flexible"** ("On today's list, no time reserved.").
+- **Break**: a name ("Break" by default) and a time block.
+- **Training**: always a time block.
+
+Time blocks take "Starts" and "Length" (5 minutes to 4 hours). The field states problems ("Enter a start time.", "This would run past midnight. …"), a collision ("Overlaps “Side quest” (09:15–10:00).") with a button to "Start at 10:00 instead" (`firstFreeStart`), or that the time is outside the day hours; otherwise "Ends at 10:45". Without a choice, confirming says "Choose a task, or type a title." (or "Choose a habit." / "Choose a reflection."). The confirm button reads "Add to your day", or "Update today's plan" for a habit or reflection already in the plan.
+
+Nothing is planned twice: the dialog accepts one confirm and closes, a task already on the timeline is retimed instead of added again, and habits and reflections go through `reserveAnchorBlock` and `keepAnchorFlexible`, which keep one anchor and at most one block per habit or template. Planning is not doing: nothing here checks off a habit or writes a journal entry, and habits stay on their normal pages whether planned or not.
+
+#### Flexible habits and reflections
+
+A habit or reflection kept flexible is stored in `metadata.anchors` without a block (`flexibleAnchors`). A reserved one is the same anchor plus one block with `mission_type: "anchor"`, `source_type` `habit` or `journal` and `source_id` the habit or template id (`blockForAnchor` matches on these, never on the title). Training (`source_type: "workout"`) always gets a block.
+
+"Also today" lists the flexible ones as rows: emoji, title, "Habit" or "Reflection" and, separately, "Done today" when the habit or template is already done. Each row has "Set a time" (opens the dialog on that item with "Reserve a time block") and "Remove … from today's plan". Removing drops the anchor and any block of it; the habit or template and its history are untouched. An empty list shows one line instead of a box. The section header has "Add" for a flexible item. Turning a reserved block back with "Keep flexible instead" removes only its block.
+
+#### Capacity
+
+`calculateTodayPlanCapacity` counts the minutes covered by valid blocks, merging overlaps so shared minutes count once (`occupiedSpans`). Minutes inside the day hours are "scheduled"; the day hours left over are "unplanned", never negative. Minutes before the start or after the end are reported apart ("· 45m outside your day hours", in amber) and set the status to `over`. Flexible habits and reflections and the day-end reminder never count. When blocks overlap the line adds "· overlapping time counted once"; the overlap itself is flagged by `findTodayPlanBlockProblems` as before. Invalid blocks count as 0 minutes.
 
 At least one main priority is required to finish the ritual; the plan editor does not ask for one.
 
@@ -44,9 +100,11 @@ The committed plan is stored in `day_plans`. Rich Today Plan metadata is seriali
 LIFEQUEST_TODAY_PLAN_V1:
 ```
 
-The envelope preserves legacy free-form notes rather than replacing them.
+The envelope preserves legacy free-form notes rather than replacing them. `shutdown_time` is `""` when the day-end reminder is turned off; a missing or unreadable value still falls back to the day's end, as plans from before the switch expect.
 
-Before commitment, the planner stores a user-and-date-scoped draft in `sessionStorage`. Closing or leaving a dirty plan asks for discard confirmation. No database write occurs until commit.
+Before commitment, the planner stores a user-and-date-scoped draft in `sessionStorage` (`lifequest:today-plan:<userId>:<date>`): the metadata, the blocks, and the step it was on as a step id (`"timeline"`). A restored draft shows "Your unfinished plan was restored." and reopens on that step, but never past a missing answer: without a mood on the mood step, without a main focus on the priorities (`furthestStepFor`). Drafts from before the anchors step was folded in carry no step (reopen at the start), an old step index (0–5 of the six-step order) or the name `anchors`; `resolvePlannerStep` maps the old anchors step to the timeline. The plan editor ignores the stored step. Closing or leaving a dirty plan asks for discard confirmation. No database write occurs until commit, apart from creating a task from a picker or "Add to your day".
+
+Saving is guarded against double taps by a ref, so a second tap while a save runs sends nothing. A failed final save keeps every choice on screen and in the draft, shows "Your plan is still safe in this tab, but it could not be saved." with "Retry save", and stays on the review step. Removing anything from the plan only changes `day_plans`; tasks, habits, journal templates and their history are separate records.
 
 ## Task manager
 

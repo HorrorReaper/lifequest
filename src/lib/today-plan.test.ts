@@ -5,6 +5,7 @@ import {
   buildTodayPlanSchedule,
   calculateTodayPlanCapacity,
   createDefaultTodayPlanMetadata,
+  describeTaskDue,
   findTodayPlanBlockProblems,
   parseTodayPlanNotes,
   blockSpanForGap,
@@ -15,6 +16,20 @@ import {
   timelineWindow,
   serializeTodayPlanNotes,
   shiftEndTime,
+  blocksOutsideDay,
+  blockForAnchor,
+  COLLAPSED_ROW_PX,
+  describeRipple,
+  firstFreeStart,
+  flexibleAnchors,
+  keepAnchorFlexible,
+  minuteForOffset,
+  offsetForMinute,
+  removeAnchorFromPlan,
+  reserveAnchorBlock,
+  timelineSegments,
+  TIMELINE_PX_PER_MINUTE,
+  type TodayPlanAnchor,
 } from "@/lib/today-plan";
 
 describe("today plan notes", () => {
@@ -232,14 +247,52 @@ describe("today plan capacity and validation", () => {
     },
   ];
 
-  it("calculates capacity from canonical block durations", () => {
+  it("counts overlapping minutes once", () => {
+    // 09:00-10:30 and 10:00-11:00 cover 09:00-11:00: two hours, not 2h 30m.
     expect(calculateTodayPlanCapacity(blocks, "08:00", "12:00")).toEqual({
       availableMinutes: 240,
-      plannedMinutes: 150,
-      remainingMinutes: 90,
-      utilizationPercent: 63,
+      plannedMinutes: 120,
+      outsideMinutes: 0,
+      remainingMinutes: 120,
+      utilizationPercent: 50,
       status: "open",
     });
+  });
+
+  it("reports time planned outside the day apart, never as negative room", () => {
+    const capacity = calculateTodayPlanCapacity(blocks, "08:00", "10:00");
+    expect(capacity).toMatchObject({
+      availableMinutes: 120,
+      plannedMinutes: 120,
+      outsideMinutes: 60,
+      remainingMinutes: 60,
+      status: "over",
+    });
+  });
+
+  it("gives an invalid block no time", () => {
+    const capacity = calculateTodayPlanCapacity(
+      [
+        {
+          id: "bad",
+          start_time: "11:00",
+          end_time: "10:00",
+          title: "Backwards",
+          category: "other",
+        },
+      ],
+      "08:00",
+      "12:00"
+    );
+    expect(capacity.plannedMinutes).toBe(0);
+    expect(capacity.remainingMinutes).toBe(240);
+  });
+
+  it("names the blocks outside the day hours", () => {
+    expect(
+      blocksOutsideDay(blocks, "08:00", "10:00").map((block) => block.id)
+    ).toEqual(["one", "two"]);
+    expect(blocksOutsideDay(blocks, "08:00", "12:00")).toEqual([]);
   });
 
   it("finds overlaps and invalid blocks", () => {
@@ -785,5 +838,221 @@ describe("mood reasons in plan notes", () => {
     const parsed = parseTodayPlanNotes(serializeTodayPlanNotes(metadata));
 
     expect(parsed.metadata?.mood_reason_note.length).toBe(120);
+  });
+});
+
+describe("describeTaskDue", () => {
+  it("names the due date relative to the day being planned", () => {
+    expect(describeTaskDue("2026-07-25", "2026-07-25")).toBe("Due today");
+    expect(describeTaskDue("2026-07-26", "2026-07-25")).toBe("Due tomorrow");
+    expect(describeTaskDue("2026-08-03", "2026-07-25")).toBe("Due Aug 3");
+    expect(describeTaskDue("2026-07-20", "2026-07-25")).toBe(
+      "Overdue since Jul 20"
+    );
+  });
+
+  it("says nothing for a task without a due date", () => {
+    expect(describeTaskDue(null, "2026-07-25")).toBeNull();
+  });
+
+  it("crosses a month end without a zone moving the day", () => {
+    expect(describeTaskDue("2026-08-01", "2026-07-31")).toBe("Due tomorrow");
+  });
+});
+
+describe("day-end reminder", () => {
+  it("keeps a reminder turned off, and falls back only for a broken one", () => {
+    const off = serializeTodayPlanNotes({
+      ...createDefaultTodayPlanMetadata(),
+      shutdown_time: "",
+    });
+    expect(parseTodayPlanNotes(off).metadata?.shutdown_time).toBe("");
+
+    const broken = off.replace('"shutdown_time":""', '"shutdown_time":"25:99"');
+    expect(parseTodayPlanNotes(broken).metadata?.shutdown_time).toBe("18:00");
+  });
+});
+
+describe("timelineSegments", () => {
+  const blocks: DayPlanBlock[] = [
+    { id: "a", start_time: "08:00", end_time: "09:00", title: "A", category: "other" },
+    { id: "b", start_time: "13:00", end_time: "14:00", title: "B", category: "other" },
+  ];
+
+  it("folds only free stretches of two hours or more", () => {
+    const segments = timelineSegments(blocks, 8 * 60, 18 * 60);
+    expect(
+      segments.map((s) => [s.startMinutes, s.endMinutes, s.collapsed])
+    ).toEqual([
+      [480, 540, false],
+      [540, 780, true],
+      [780, 840, false],
+      [840, 1080, true],
+    ]);
+    expect(segments[1].height).toBe(COLLAPSED_ROW_PX);
+  });
+
+  it("keeps blocks at their real size and distance", () => {
+    const segments = timelineSegments(blocks, 8 * 60, 18 * 60);
+    const top = offsetForMinute(segments, 13 * 60);
+    const bottom = offsetForMinute(segments, 14 * 60);
+    expect(bottom - top).toBeCloseTo(60 * TIMELINE_PX_PER_MINUTE, 5);
+    expect(top).toBeCloseTo(60 * TIMELINE_PX_PER_MINUTE + COLLAPSED_ROW_PX, 5);
+  });
+
+  it("leaves a stretch the user opened at scale", () => {
+    const segments = timelineSegments(blocks, 8 * 60, 18 * 60, (start) => start === 540);
+    expect(segments.filter((s) => s.collapsed).map((s) => s.startMinutes)).toEqual([840]);
+  });
+
+  it("maps pixels back to the same minutes", () => {
+    const segments = timelineSegments(blocks, 8 * 60, 18 * 60);
+    for (const minute of [480, 510, 600, 780, 815, 900, 1080]) {
+      expect(minuteForOffset(segments, offsetForMinute(segments, minute))).toBeCloseTo(minute, 5);
+    }
+  });
+});
+
+describe("firstFreeStart", () => {
+  const blocks: DayPlanBlock[] = [
+    { id: "a", start_time: "09:00", end_time: "10:00", title: "A", category: "other" },
+    { id: "b", start_time: "10:15", end_time: "11:00", title: "B", category: "other" },
+  ];
+
+  it("returns the requested start when it is free", () => {
+    expect(firstFreeStart(blocks, 8 * 60, 30)).toBe(8 * 60);
+  });
+
+  it("skips gaps too short for the length", () => {
+    expect(firstFreeStart(blocks, 9 * 60 + 30, 30)).toBe(11 * 60);
+    expect(firstFreeStart(blocks, 9 * 60 + 30, 15)).toBe(10 * 60);
+  });
+
+  it("gives null when nothing fits before midnight", () => {
+    expect(firstFreeStart(blocks, 23 * 60 + 50, 30)).toBeNull();
+  });
+});
+
+describe("describeRipple", () => {
+  it("lists the other blocks that moved, and by how much", () => {
+    const before: DayPlanBlock[] = [
+      { id: "a", start_time: "08:00", end_time: "09:00", title: "A", category: "other" },
+      { id: "b", start_time: "09:15", end_time: "10:00", title: "B", category: "other" },
+    ];
+    const after = applyBlockTimeChange(before, "a", { end_time: "09:30" });
+    expect(
+      describeRipple(before, after, "a").map((item) => [item.block.id, item.shiftMinutes])
+    ).toEqual([["b", 30]]);
+  });
+});
+
+describe("anchors in the plan", () => {
+  const habit: TodayPlanAnchor = {
+    id: "habit-h1",
+    source_type: "habit",
+    source_id: "h1",
+    title: "Read",
+    emoji: "📚",
+    duration_minutes: 15,
+  };
+  const base = { metadata: createDefaultTodayPlanMetadata(), blocks: [] as DayPlanBlock[] };
+  let n = 0;
+  const ids = () => `block-${(n += 1)}`;
+
+  it("keeps an anchor flexible without a block", () => {
+    const state = keepAnchorFlexible(base, habit);
+    expect(state.metadata.anchors).toEqual([habit]);
+    expect(state.blocks).toEqual([]);
+    expect(flexibleAnchors(state.metadata, state.blocks)).toEqual([habit]);
+  });
+
+  it("reserves a block linked to the habit, once", () => {
+    const once = reserveAnchorBlock(base, habit, "10:00", "10:15", ids);
+    const twice = reserveAnchorBlock(once, habit, "11:00", "11:15", ids);
+    expect(twice.metadata.anchors).toHaveLength(1);
+    expect(twice.blocks).toHaveLength(1);
+    expect(twice.blocks[0]).toMatchObject({
+      start_time: "11:00",
+      end_time: "11:15",
+      source_type: "habit",
+      source_id: "h1",
+      mission_type: "anchor",
+    });
+    expect(flexibleAnchors(twice.metadata, twice.blocks)).toEqual([]);
+    // Matched on the record, not the title: renaming keeps the link.
+    const renamed = twice.blocks.map((block) => ({ ...block, title: "Evening read" }));
+    expect(blockForAnchor(renamed, habit)?.id).toBe(twice.blocks[0].id);
+  });
+
+  it("turns a reserved habit back to flexible without a second entry", () => {
+    const reserved = reserveAnchorBlock(base, habit, "10:00", "10:15", ids);
+    const flexible = keepAnchorFlexible(reserved, habit);
+    expect(flexible.blocks).toEqual([]);
+    expect(flexible.metadata.anchors).toEqual([habit]);
+  });
+
+  it("removes the anchor and its block from the plan only", () => {
+    const reserved = reserveAnchorBlock(base, habit, "10:00", "10:15", ids);
+    const removed = removeAnchorFromPlan(reserved, habit);
+    expect(removed.metadata.anchors).toEqual([]);
+    expect(removed.blocks).toEqual([]);
+  });
+});
+
+describe("priority blocks follow the priorities", () => {
+  it("retitles and relinks a priority's block when the choice changes, keeping its times", () => {
+    const metadata = {
+      ...createDefaultTodayPlanMetadata(),
+      outcomes: [
+        {
+          id: "outcome-must_win",
+          role: "must_win" as const,
+          title: "New task",
+          task_id: "t2",
+          duration_minutes: 60,
+        },
+      ],
+    };
+    const blocks: DayPlanBlock[] = [
+      {
+        id: "main",
+        start_time: "09:00",
+        end_time: "10:30",
+        title: "Old task",
+        category: "deep_work",
+        mission_type: "main_quest",
+        source_type: "task",
+        source_id: "t1",
+        outcome_role: "must_win",
+      },
+    ];
+    const next = buildTodayPlanSchedule({ blocks, metadata });
+    expect(next).toHaveLength(1);
+    expect(next[0]).toMatchObject({
+      id: "main",
+      title: "New task",
+      source_id: "t2",
+      start_time: "09:00",
+      end_time: "10:30",
+    });
+  });
+
+  it("drops the block of a priority that was removed", () => {
+    const blocks: DayPlanBlock[] = [
+      {
+        id: "second",
+        start_time: "11:00",
+        end_time: "12:00",
+        title: "Second",
+        category: "deep_work",
+        outcome_role: "progress",
+      },
+      { id: "manual", start_time: "13:00", end_time: "14:00", title: "Lunch", category: "break" },
+    ];
+    const next = buildTodayPlanSchedule({
+      blocks,
+      metadata: createDefaultTodayPlanMetadata(),
+    });
+    expect(next.map((block) => block.id)).toEqual(["manual"]);
   });
 });

@@ -5,6 +5,7 @@ import type {
   DayPlanOutcomeRole,
   DayPlanSourceType,
 } from "@/lib/types";
+import { addDays, formatDateOnly } from "@/lib/dates";
 import { isValidMoodValue } from "@/lib/mood";
 import {
   MOOD_REASON_NOTE_MAX,
@@ -90,6 +91,13 @@ export interface TodayPlanMetadata {
   anchors: TodayPlanAnchor[];
   day_start: string;
   day_end: string;
+  /**
+   * The day-end reminder, "HH:mm", or "" when the user turned it off.
+   *
+   * A marker on the timeline, never a block: it reserves no time and is not
+   * counted as planned. Plans saved before it could be turned off always
+   * carry a time.
+   */
   shutdown_time: string;
   ritual_completed_at: string | null;
 }
@@ -100,10 +108,22 @@ export interface ParsedTodayPlanNotes {
 }
 
 export interface TodayPlanCapacity {
+  /** Minutes between the day's start and end. */
   availableMinutes: number;
+  /**
+   * Minutes covered by at least one valid block, anywhere in the day.
+   *
+   * Overlapping blocks are counted once: two blocks fighting over the same
+   * half hour are a conflict to resolve, not an hour of work.
+   */
   plannedMinutes: number;
+  /** Planned minutes before the day starts or after it ends. */
+  outsideMinutes: number;
+  /** Day hours nothing is planned in. Never negative. */
   remainingMinutes: number;
+  /** Share of the day hours that is planned. */
   utilizationPercent: number;
+  /** "over" means something is planned outside the day hours. */
   status: "open" | "balanced" | "full" | "over";
 }
 
@@ -203,9 +223,14 @@ function normalizeMetadata(value: unknown): TodayPlanMetadata | null {
   const fallback = createDefaultTodayPlanMetadata();
   const dayStart = isTime(value.day_start) ? value.day_start : fallback.day_start;
   const dayEnd = isTime(value.day_end) ? value.day_end : fallback.day_end;
-  const shutdown = isTime(value.shutdown_time)
-    ? value.shutdown_time
-    : dayEnd;
+  // "" is the reminder switched off; only a missing or broken value falls
+  // back to the end of the day, as plans from before the switch expect.
+  const shutdown =
+    value.shutdown_time === ""
+      ? ""
+      : isTime(value.shutdown_time)
+        ? value.shutdown_time
+        : dayEnd;
   const outcomes = Array.isArray(value.outcomes)
     ? value.outcomes
         .map(normalizeOutcome)
@@ -458,6 +483,130 @@ export function blockSpanForGap(
   return { startMinutes, endMinutes: startMinutes + duration };
 }
 
+/**
+ * Free time at least this long is folded into one labelled row.
+ *
+ * At 1.2px per minute an empty morning is a screen of blank hour lines
+ * before the first thing planned. Shorter gaps stay at scale, since they are
+ * the room between commitments that the axis exists to show.
+ */
+export const COMPRESS_FREE_MINUTES = 120;
+
+/** How tall a folded stretch of free time is drawn, whatever its length. */
+export const COLLAPSED_ROW_PX = 48;
+
+/** One vertical run of the timeline: drawn at scale, or folded. */
+export interface TimelineSegment {
+  startMinutes: number;
+  endMinutes: number;
+  collapsed: boolean;
+  /** Pixels from the top of the track. */
+  top: number;
+  height: number;
+}
+
+/**
+ * Splits the drawn window into runs drawn at scale and folded free stretches.
+ *
+ * Only free time is ever folded, so every block keeps its true height and
+ * its true distance to its neighbours. `isExpanded` receives a free
+ * stretch's start minute and keeps that stretch at scale.
+ */
+export function timelineSegments(
+  blocks: DayPlanBlock[],
+  windowStart: number,
+  windowEnd: number,
+  isExpanded: (gapStart: number) => boolean = () => false
+): TimelineSegment[] {
+  const folded = findTimelineGaps(blocks, windowStart, windowEnd).filter(
+    (gap) =>
+      gap.endMinutes - gap.startMinutes >= COMPRESS_FREE_MINUTES &&
+      !isExpanded(gap.startMinutes)
+  );
+
+  const segments: TimelineSegment[] = [];
+  let cursor = windowStart;
+  let top = 0;
+  const push = (startMinutes: number, endMinutes: number, collapsed: boolean) => {
+    if (endMinutes <= startMinutes) return;
+    const height = collapsed
+      ? COLLAPSED_ROW_PX
+      : (endMinutes - startMinutes) * TIMELINE_PX_PER_MINUTE;
+    segments.push({ startMinutes, endMinutes, collapsed, top, height });
+    top += height;
+  };
+
+  for (const gap of folded) {
+    push(cursor, gap.startMinutes, false);
+    push(gap.startMinutes, gap.endMinutes, true);
+    cursor = gap.endMinutes;
+  }
+  push(cursor, windowEnd, false);
+  return segments;
+}
+
+/** Total drawn height of a set of segments. */
+export function segmentsHeight(segments: TimelineSegment[]): number {
+  const last = segments[segments.length - 1];
+  return last ? last.top + last.height : 0;
+}
+
+/**
+ * Where a minute is drawn. Inside a folded stretch the position is spread
+ * evenly over the row, so a drag across it still moves continuously.
+ */
+export function offsetForMinute(
+  segments: TimelineSegment[],
+  minute: number
+): number {
+  if (segments.length === 0) return 0;
+  const first = segments[0];
+  if (minute <= first.startMinutes) {
+    return first.top - (first.startMinutes - minute) * TIMELINE_PX_PER_MINUTE;
+  }
+  for (const segment of segments) {
+    if (minute > segment.endMinutes) continue;
+    const progress = minute - segment.startMinutes;
+    return segment.collapsed
+      ? segment.top +
+          (progress / (segment.endMinutes - segment.startMinutes)) *
+            segment.height
+      : segment.top + progress * TIMELINE_PX_PER_MINUTE;
+  }
+  const last = segments[segments.length - 1];
+  return (
+    last.top +
+    last.height +
+    (minute - last.endMinutes) * TIMELINE_PX_PER_MINUTE
+  );
+}
+
+/** The minute drawn at a pixel offset; the inverse of offsetForMinute. */
+export function minuteForOffset(
+  segments: TimelineSegment[],
+  offset: number
+): number {
+  if (segments.length === 0) return 0;
+  const first = segments[0];
+  if (offset <= first.top) {
+    return first.startMinutes - (first.top - offset) / TIMELINE_PX_PER_MINUTE;
+  }
+  for (const segment of segments) {
+    if (offset > segment.top + segment.height) continue;
+    const progress = offset - segment.top;
+    return segment.collapsed
+      ? segment.startMinutes +
+          (progress / segment.height) *
+            (segment.endMinutes - segment.startMinutes)
+      : segment.startMinutes + progress / TIMELINE_PX_PER_MINUTE;
+  }
+  const last = segments[segments.length - 1];
+  return (
+    last.endMinutes +
+    (offset - last.top - last.height) / TIMELINE_PX_PER_MINUTE
+  );
+}
+
 /** Rounds a minute value to the drag grid. */
 export function snapToDragGrid(minutes: number): number {
   return (
@@ -597,6 +746,43 @@ export function blockDurationMinutes(block: DayPlanBlock): number {
     : 0;
 }
 
+/**
+ * The minutes covered by valid blocks, merged into non-overlapping runs.
+ *
+ * Invalid blocks (unreadable or inverted times) cover nothing, the same way
+ * blockDurationMinutes gives them no length.
+ */
+export function occupiedSpans(
+  blocks: DayPlanBlock[]
+): { startMinutes: number; endMinutes: number }[] {
+  const spans = blocks
+    .filter((block) => blockDurationMinutes(block) > 0)
+    .map((block) => ({
+      startMinutes: timeToMinutes(block.start_time),
+      endMinutes: timeToMinutes(block.end_time),
+    }))
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+
+  const merged: { startMinutes: number; endMinutes: number }[] = [];
+  for (const span of spans) {
+    const last = merged[merged.length - 1];
+    if (last && span.startMinutes <= last.endMinutes) {
+      last.endMinutes = Math.max(last.endMinutes, span.endMinutes);
+    } else {
+      merged.push({ ...span });
+    }
+  }
+  return merged;
+}
+
+/**
+ * How much of the day is planned, and how much is left.
+ *
+ * Counts real time blocks only: a habit kept flexible or the day-end
+ * reminder reserve no time and never appear here. Overlaps count once, and
+ * whatever lies outside the day hours is reported apart rather than eating
+ * into the unplanned time inside them.
+ */
 export function calculateTodayPlanCapacity(
   blocks: DayPlanBlock[],
   dayStart: string,
@@ -604,34 +790,131 @@ export function calculateTodayPlanCapacity(
 ): TodayPlanCapacity {
   const start = timeToMinutes(dayStart);
   const end = timeToMinutes(dayEnd);
-  const availableMinutes =
-    Number.isFinite(start) && Number.isFinite(end) && end > start
-      ? end - start
-      : 0;
-  const plannedMinutes = blocks.reduce(
-    (sum, block) => sum + blockDurationMinutes(block),
-    0
-  );
-  const remainingMinutes = availableMinutes - plannedMinutes;
+  const validDay = Number.isFinite(start) && Number.isFinite(end) && end > start;
+  const availableMinutes = validDay ? end - start : 0;
+
+  let plannedMinutes = 0;
+  let insideMinutes = 0;
+  for (const span of occupiedSpans(blocks)) {
+    plannedMinutes += span.endMinutes - span.startMinutes;
+    if (validDay) {
+      insideMinutes += Math.max(
+        0,
+        Math.min(span.endMinutes, end) - Math.max(span.startMinutes, start)
+      );
+    }
+  }
+  const outsideMinutes = plannedMinutes - insideMinutes;
+  const remainingMinutes = availableMinutes - insideMinutes;
   const utilizationPercent =
     availableMinutes > 0
-      ? Math.round((plannedMinutes / availableMinutes) * 100)
-      : plannedMinutes > 0
-        ? 100
-        : 0;
+      ? Math.round((insideMinutes / availableMinutes) * 100)
+      : 0;
 
   let status: TodayPlanCapacity["status"] = "open";
-  if (remainingMinutes < 0) status = "over";
+  if (outsideMinutes > 0) status = "over";
   else if (utilizationPercent >= 90) status = "full";
   else if (utilizationPercent >= 65) status = "balanced";
 
   return {
     availableMinutes,
     plannedMinutes,
+    outsideMinutes,
     remainingMinutes,
     utilizationPercent,
     status,
   };
+}
+
+/**
+ * Valid blocks that start before the day does or end after it.
+ *
+ * Changing the day hours never moves or deletes a block; these are the ones
+ * the timeline then marks, so the change stays visible.
+ */
+export function blocksOutsideDay(
+  blocks: DayPlanBlock[],
+  dayStart: string,
+  dayEnd: string
+): DayPlanBlock[] {
+  const start = timeToMinutes(dayStart);
+  const end = timeToMinutes(dayEnd);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
+  return blocks
+    .filter((block) => blockDurationMinutes(block) > 0)
+    .filter(
+      (block) =>
+        timeToMinutes(block.start_time) < start ||
+        timeToMinutes(block.end_time) > end
+    )
+    .sort(byStartTime);
+}
+
+/** Valid blocks, other than `exceptId`, that share minutes with a span. */
+export function blocksOverlapping(
+  blocks: DayPlanBlock[],
+  startMinutes: number,
+  endMinutes: number,
+  exceptId?: string
+): DayPlanBlock[] {
+  return blocks
+    .filter((block) => block.id !== exceptId && blockDurationMinutes(block) > 0)
+    .filter(
+      (block) =>
+        timeToMinutes(block.start_time) < endMinutes &&
+        timeToMinutes(block.end_time) > startMinutes
+    )
+    .sort(byStartTime);
+}
+
+/**
+ * The first minute at or after `fromMinutes` where `duration` fits without
+ * touching a block, or null when nothing fits before the end of the day.
+ */
+export function firstFreeStart(
+  blocks: DayPlanBlock[],
+  fromMinutes: number,
+  duration: number
+): number | null {
+  let cursor = Math.max(0, fromMinutes);
+  for (const span of occupiedSpans(blocks)) {
+    if (span.endMinutes <= cursor) continue;
+    if (span.startMinutes >= cursor + duration) break;
+    cursor = span.endMinutes;
+  }
+  return cursor + duration <= END_OF_DAY_MINUTES ? cursor : null;
+}
+
+/** A block another one pushed along, and by how many minutes. */
+export interface RippledBlock {
+  block: DayPlanBlock;
+  shiftMinutes: number;
+}
+
+/**
+ * Which blocks, other than the edited one, moved between two versions of
+ * the day. Used to say what a time change carries along before it is made.
+ */
+export function describeRipple(
+  before: DayPlanBlock[],
+  after: DayPlanBlock[],
+  editedId: string
+): RippledBlock[] {
+  const previous = new Map(before.map((block) => [block.id, block]));
+  return after
+    .filter((block) => block.id !== editedId)
+    .flatMap((block) => {
+      const old = previous.get(block.id);
+      if (!old || old.start_time === block.start_time) return [];
+      return [
+        {
+          block,
+          shiftMinutes:
+            timeToMinutes(block.start_time) - timeToMinutes(old.start_time),
+        },
+      ];
+    })
+    .sort((a, b) => byStartTime(a.block, b.block));
 }
 
 export function findTodayPlanBlockProblems(
@@ -675,14 +958,13 @@ function outcomeMission(role: DayPlanOutcomeRole): {
 }
 
 /**
- * Whether an anchor is a commitment that occupies the clock.
+ * Whether an anchor always occupies the clock.
  *
  * A workout genuinely takes an hour of the day and belongs on the timeline.
- * A habit or a journal prompt does not: giving "Smile 5 times a day" a slot
- * from 12:10 to 12:25 invents a meeting that will never happen, and pushes
- * everything real later. Those ride along with the day as a checklist
- * instead -- they still live in metadata.anchors, they just never become
- * blocks.
+ * A habit or a journal prompt does not by default: giving "Smile 5 times a
+ * day" a slot from 12:10 to 12:25 invents a meeting that will never happen.
+ * Those stay flexible unless the user reserves a block for them
+ * (reserveAnchorBlock); either way they live in metadata.anchors.
  */
 export function anchorTakesTime(anchor: TodayPlanAnchor): boolean {
   return anchor.source_type === "workout";
@@ -694,6 +976,137 @@ function anchorCategory(
   if (sourceType === "workout") return "exercise";
   if (sourceType === "journal") return "personal";
   return "other";
+}
+
+/**
+ * The block an anchor reserved, if any.
+ *
+ * Matched on the record it points at (`source_type` and `source_id`), never
+ * on the title, so renaming a block cannot detach it and a habit cannot end
+ * up with two blocks.
+ */
+export function blockForAnchor(
+  blocks: DayPlanBlock[],
+  anchor: TodayPlanAnchor
+): DayPlanBlock | undefined {
+  const key = anchor.source_id ?? anchor.id;
+  return blocks.find(
+    (block) =>
+      block.source_type === anchor.source_type && block.source_id === key
+  );
+}
+
+/**
+ * Habits and reflections chosen for today without a time block.
+ *
+ * Training always takes time, so it never shows up here even before its
+ * block has been built.
+ */
+export function flexibleAnchors(
+  metadata: TodayPlanMetadata,
+  blocks: DayPlanBlock[]
+): TodayPlanAnchor[] {
+  return metadata.anchors.filter(
+    (anchor) => !anchorTakesTime(anchor) && !blockForAnchor(blocks, anchor)
+  );
+}
+
+interface PlanState {
+  metadata: TodayPlanMetadata;
+  blocks: DayPlanBlock[];
+}
+
+function withAnchor(
+  metadata: TodayPlanMetadata,
+  anchor: TodayPlanAnchor
+): TodayPlanMetadata {
+  return metadata.anchors.some((item) => item.id === anchor.id)
+    ? metadata
+    : { ...metadata, anchors: [...metadata.anchors, anchor] };
+}
+
+/**
+ * Plans an anchor into a time block, once.
+ *
+ * Confirming twice, or reserving a habit that already has a block, retimes
+ * the existing block instead of adding a second one. The anchor itself is
+ * recorded once as well.
+ */
+export function reserveAnchorBlock(
+  state: PlanState,
+  anchor: TodayPlanAnchor,
+  startTime: string,
+  endTime: string,
+  idFactory: () => string = defaultId
+): PlanState {
+  const metadata = withAnchor(state.metadata, anchor);
+  const existing = blockForAnchor(state.blocks, anchor);
+  if (existing) {
+    return {
+      metadata,
+      blocks: state.blocks.map((block) =>
+        block.id === existing.id
+          ? { ...block, start_time: startTime, end_time: endTime }
+          : block
+      ),
+    };
+  }
+  return {
+    metadata,
+    blocks: [
+      ...state.blocks,
+      {
+        id: idFactory(),
+        start_time: startTime,
+        end_time: endTime,
+        title: anchor.title,
+        category: anchorCategory(anchor.source_type),
+        mission_type: "anchor",
+        source_type: anchor.source_type,
+        source_id: anchor.source_id ?? anchor.id,
+      },
+    ],
+  };
+}
+
+/**
+ * Keeps an anchor in today's plan without reserving time for it.
+ *
+ * Turning a reserved habit back into a flexible one drops only its block.
+ */
+export function keepAnchorFlexible(
+  state: PlanState,
+  anchor: TodayPlanAnchor
+): PlanState {
+  const block = blockForAnchor(state.blocks, anchor);
+  return {
+    metadata: withAnchor(state.metadata, anchor),
+    blocks: block
+      ? state.blocks.filter((item) => item.id !== block.id)
+      : state.blocks,
+  };
+}
+
+/**
+ * Takes an anchor out of today's plan, with its block if it had one.
+ *
+ * Only the plan changes: the habit or journal template and its history are
+ * separate records and stay as they are.
+ */
+export function removeAnchorFromPlan(
+  state: PlanState,
+  anchor: TodayPlanAnchor
+): PlanState {
+  const block = blockForAnchor(state.blocks, anchor);
+  return {
+    metadata: {
+      ...state.metadata,
+      anchors: state.metadata.anchors.filter((item) => item.id !== anchor.id),
+    },
+    blocks: block
+      ? state.blocks.filter((item) => item.id !== block.id)
+      : state.blocks,
+  };
 }
 
 /**
@@ -725,7 +1138,24 @@ export function buildTodayPlanSchedule({
   metadata: TodayPlanMetadata;
   idFactory?: () => string;
 }): DayPlanBlock[] {
-  const next = blocks.map((block) => ({ ...block }));
+  // A priority's block follows the priority. Going back to swap the main
+  // focus for another task used to leave the old task's block on the
+  // timeline, still claiming to be the main focus; removing a priority left
+  // its block behind. The block keeps its times either way.
+  const chosen = metadata.outcomes.filter((outcome) => outcome.title.trim());
+  const next = blocks.flatMap((block) => {
+    if (!block.outcome_role) return [{ ...block }];
+    const outcome = chosen.find((item) => item.role === block.outcome_role);
+    if (!outcome) return [];
+    return [
+      {
+        ...block,
+        title: outcome.title,
+        source_type: outcome.task_id ? ("task" as const) : ("manual" as const),
+        source_id: outcome.task_id ?? outcome.id,
+      },
+    ];
+  });
   const dayStart = timeToMinutes(metadata.day_start) || 8 * 60;
   const latestEnd = next.reduce(
     (latest, block) =>
@@ -792,6 +1222,24 @@ export function buildTodayPlanSchedule({
   }
 
   return next.sort((a, b) => a.start_time.localeCompare(b.start_time));
+}
+
+/**
+ * A task's due date in words, relative to the day being planned.
+ *
+ * Shown beside a task while it is being chosen for today, so the two dates
+ * stay visibly separate: choosing a task for today plans it, and never
+ * changes when it is due. Null for a task without a due date.
+ */
+export function describeTaskDue(
+  dueDate: string | null,
+  today: string
+): string | null {
+  if (!dueDate) return null;
+  if (dueDate === today) return "Due today";
+  if (dueDate === addDays(today, 1)) return "Due tomorrow";
+  const label = formatDateOnly(dueDate, { month: "short", day: "numeric" });
+  return dueDate < today ? `Overdue since ${label}` : `Due ${label}`;
 }
 
 export function formatPlanMinutes(minutes: number): string {

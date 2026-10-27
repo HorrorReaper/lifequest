@@ -118,7 +118,12 @@ These are intentional current boundaries:
 - Habits are daily and binary. Flexible weekdays and weekly targets ("3× a week"), with streaks and stats counting only due days, are the planned extension after the first beta; they are not promised in the app or in acquisition copy.
 - The onboarding focus choice only steers first-task suggestions and is not stored.
 - Onboarding duplicate protection for the first task lives in `sessionStorage`: within one tab it survives back navigation and reloads; starting onboarding again in a second tab or browser before finishing can create a second task.
-- Anchors that ride along reserve no time; there is no per-anchor "reserve time" option yet, so a long habit can make the capacity check look roomier than the day is.
+- A habit or reflection kept flexible reserves no time, so a long one can make the capacity line look roomier than the day is; "Reserve a time block" in "Add to your day" is the way to count it.
+- The dashboard's plan section shows time blocks only. Habits and reflections kept flexible for today are listed on the planner ("Also today") and on the review step, not on the dashboard; they stay on their normal habit and journal pages either way.
+- Changing the day hours never moves or deletes blocks. Blocks left outside are marked and counted apart ("outside your day hours"); they do not block saving, so a plan can be saved with them.
+- "Add to your day" offers the training block only to admins with workouts, like the anchor step did before it.
+- Timeline blocks and free-time gaps are drawn at true scale (1.2px per minute), so anything shorter than about 37 minutes is less than 44px tall. Such a block is still a full-width target, reachable by Tab with Enter opening its exact times, and listed on the review step; a short gap can also be filled through "Add to your day".
+- The timeline's folded free time (two hours or more) is laid out from the blocks on every change; while a block is being dragged the layout is held still, so dragging a block into a folded stretch moves it through that stretch quickly and the stretch only opens around it when the drag ends.
 
 - Journal and Today Plan drafts do not sync between devices.
 - Admin work does not award XP/coins.

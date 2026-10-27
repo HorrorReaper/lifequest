@@ -121,7 +121,7 @@ src/app/
 | Mobile journal UX | `components/journal/mobile-journal-*`, `entry-form.tsx` |
 | New journal field | `lib/field-registry.ts`, field renderer, template builder |
 | Tasks/habits | `components/tasks/`, `components/habits/`, corresponding `lib` modules |
-| Today Plan | `components/planning/TodayPlanner.tsx`, `lib/today-plan.ts` |
+| Today Plan | `components/planning/TodayPlanner.tsx`, `lib/today-plan.ts`, step order in `components/planning/planner-steps.ts`; priorities step in `components/planning/TodayPriorities.tsx` and `PriorityPickerDialog.tsx`; timeline step in `PlanTimeline.tsx`, `DayFrameBar.tsx` + `DayHoursDialog.tsx`, `AddToDayDialog.tsx`, `BlockEditorDialog.tsx`, `AlsoToday.tsx`, `PlanCapacityLine.tsx` and `PlanTimeField.tsx` |
 | Dashboard next step and plan status | `components/dashboard/NextUpCard.tsx`, `lib/dashboard-plan.ts` |
 | Onboarding | `components/onboarding/onboarding-flow.tsx`, `lib/onboarding.ts` |
 | Feedback and beta activation | `components/feedback/FeedbackDialog.tsx`, `lib/feedback.ts`, `components/admin/BetaActivation.tsx`, `lib/activation.ts` |
