@@ -9,7 +9,7 @@ vi.mock('@/components/providers/theme-provider', () => ({
   useTheme: () => ({ theme: theme.current, setTheme: () => {} }),
 }))
 
-import { DashboardGreeting } from './DashboardGreeting'
+import { DashboardGreeting, greetingFor } from './DashboardGreeting'
 
 const bare = getDefaultAvatarState().equippedItems
 
@@ -32,12 +32,25 @@ describe('DashboardGreeting', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Adventurer')
   })
 
+  it('greets by the time of day in the profile timezone', () => {
+    const at = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
+    render(<DashboardGreeting username="Patrick" equippedItems={bare} nowMinutes={at('17:40')} />)
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Good afternoon, Patrick 👋')
+
+    expect(greetingFor(at('04:59'))).toBe('Good evening')
+    expect(greetingFor(at('05:00'))).toBe('Good morning')
+    expect(greetingFor(at('11:59'))).toBe('Good morning')
+    expect(greetingFor(at('12:00'))).toBe('Good afternoon')
+    expect(greetingFor(at('18:00'))).toBe('Good evening')
+    expect(greetingFor(undefined)).toBe('Welcome back')
+  })
+
   it('uses the Trail heading style and punctuation under the Trail theme', () => {
     theme.current = 'trail'
-    render(<DashboardGreeting username="Patrick" equippedItems={bare} />)
+    render(<DashboardGreeting username="Patrick" equippedItems={bare} nowMinutes={19 * 60} />)
 
     const heading = screen.getByRole('heading', { level: 1 })
-    expect(heading.textContent).toBe('Welcome back, Patrick.')
+    expect(heading.textContent).toBe('Good evening, Patrick.')
     expect(heading.className).toContain('font-fraunces')
   })
 })

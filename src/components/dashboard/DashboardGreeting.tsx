@@ -18,6 +18,24 @@ interface DashboardGreetingProps {
   equippedItems: Record<AvatarSlot, string | null>
   /** Today in words, e.g. "Saturday, October 25", in the user's timezone. */
   dateLabel?: string
+  /**
+   * Minutes past midnight in the profile timezone, measured on the server.
+   * Picks "Good morning / afternoon / evening"; without it the greeting is
+   * "Welcome back".
+   */
+  nowMinutes?: number
+}
+
+/**
+ * The opening words for the time of day: morning from 05:00, afternoon from
+ * 12:00, evening from 18:00 and through the night.
+ */
+export function greetingFor(nowMinutes: number | undefined): string {
+  if (nowMinutes === undefined || !Number.isFinite(nowMinutes)) return 'Welcome back'
+  const hour = Math.floor(nowMinutes / 60)
+  if (hour >= 5 && hour < 12) return 'Good morning'
+  if (hour >= 12 && hour < 18) return 'Good afternoon'
+  return 'Good evening'
 }
 
 /**
@@ -25,9 +43,15 @@ interface DashboardGreetingProps {
  * streak used to live in a hero card here; they are in the top bar on every
  * page now (see `AppTopBar`).
  */
-export function DashboardGreeting({ username, equippedItems, dateLabel }: DashboardGreetingProps) {
+export function DashboardGreeting({
+  username,
+  equippedItems,
+  dateLabel,
+  nowMinutes,
+}: DashboardGreetingProps) {
   const { theme } = useTheme()
   const name = username ?? 'Adventurer'
+  const opening = greetingFor(nowMinutes)
 
   return (
     <motion.div
@@ -42,10 +66,12 @@ export function DashboardGreeting({ username, equippedItems, dateLabel }: Dashbo
       <div className="min-w-0">
         {theme === 'trail' ? (
           <h1 className={`${fraunces.className} text-xl leading-snug text-foreground sm:text-2xl`}>
-            Welcome back, {name}.
+            {opening}, {name}.
           </h1>
         ) : (
-          <h1 className="font-heading text-xl font-semibold sm:text-2xl">Welcome back, {name} 👋</h1>
+          <h1 className="font-heading text-xl font-semibold sm:text-2xl">
+            {opening}, {name} 👋
+          </h1>
         )}
         {dateLabel && <p className="text-sm text-muted-foreground">{dateLabel}</p>}
       </div>

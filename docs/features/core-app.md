@@ -42,7 +42,7 @@ The dashboard server page loads the initial authenticated snapshot. Client widge
 
 The dashboard is ordered by the day's work (`src/app/(app)/dashboard/page.tsx`): greeting and date, Next up, Today's Plan, Habits, Tasks, and only then the journal nudge, challenge cards, goals, scorecard, reflection and quests. Challenge cards used to sit above the plan and push the first work action off a phone screen.
 
-The top is `DashboardGreeting` (`src/components/dashboard/DashboardGreeting.tsx`): a small avatar head (48px, 56px from `sm`), "Welcome back, <name>" and today's date in the profile timezone. Under the Trail theme the heading uses the scoped Fraunces font and ends in a full stop; the other themes keep the wave emoji. There is no hero card any more.
+The top is `DashboardGreeting` (`src/components/dashboard/DashboardGreeting.tsx`): a small avatar head (48px, 56px from `sm`), a greeting for the time of day and today's date, both in the profile timezone. `greetingFor` picks "Good morning" from 05:00, "Good afternoon" from 12:00 and "Good evening" from 18:00 and through the night, from the minutes the dashboard reads on the server (`currentMinutesInTimezone`); without them it says "Welcome back". The greeting deliberately carries no status chips: the day's state is the next-up card's job. Under the Trail theme the heading uses the scoped Fraunces font and ends in a full stop; the other themes keep the wave emoji. There is no hero card any more.
 
 `NextUpCard` (`src/components/dashboard/NextUpCard.tsx`) follows with one concrete next step, chosen by `nextUpFor` in `src/lib/dashboard-plan.ts`. It has two layouts:
 
