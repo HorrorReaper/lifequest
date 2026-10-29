@@ -43,7 +43,8 @@ import { showAdminUi } from '@/lib/admin'
 import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
 import { parseTodayPlanNotes, PRIORITY_LABELS } from '@/lib/today-plan'
-import type { PlannedReflection } from '@/lib/dashboard-plan'
+import { plannedTaskProgress, type PlannedReflection } from '@/lib/dashboard-plan'
+import { dayProgress } from '@/lib/day-progress'
 import { FirstRunWelcome } from '@/components/dashboard/FirstRunWelcome'
 import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
 import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
@@ -498,6 +499,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             : undefined,
       }
     }))
+  // What the hero scene grows with: every step the day was given and how
+  // many are done. The evening review counts only when it is switched on.
+  const plannedTasks = plannedTaskProgress(planBlocks)
+  const heroProgress = dayProgress({
+    habitsDone: habitsCompletedToday,
+    habitsTotal: briefingHabits.length,
+    plannedTasksDone: plannedTasks.done,
+    plannedTasks: plannedTasks.planned,
+    reflectionsWritten: plannedReflections.filter((reflection) => reflection.written).length,
+    reflectionsPlanned: plannedReflections.length,
+    eveningReviewDone:
+      rituals.evening_review.enabled && eveningReviewTemplateId !== null
+        ? eveningReviewDone
+        : null,
+  })
   const dateLabel = new Intl.DateTimeFormat('en-US', {
     timeZone: profile.timezone ?? 'UTC',
     weekday: 'long',
@@ -536,6 +552,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           equippedItems={avatarState.equippedItems}
           dateLabel={dateLabel}
           nowMinutes={nowMinutes}
+          progress={heroProgress}
         />
 
         <FirstRunWelcome show={showWelcome} />

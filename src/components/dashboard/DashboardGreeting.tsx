@@ -3,8 +3,10 @@
 import { Fraunces } from 'next/font/google'
 import { motion } from 'framer-motion'
 import { useTheme } from '@/components/providers/theme-provider'
-import { AvatarHead } from '@/components/profile/AvatarFigure'
+import { AvatarFigure } from '@/components/profile/AvatarFigure'
+import { DashboardHeroScene } from '@/components/dashboard/DashboardHeroScene'
 import type { AvatarSlot } from '@/lib/avatar'
+import type { DayProgress } from '@/lib/day-progress'
 
 // Scoped to this component only -- must not touch the app's global
 // font-sans/Inter setup in src/app/layout.tsx, the same isolation rule the
@@ -14,7 +16,7 @@ const fraunces = Fraunces({ subsets: ['latin'], weight: ['600'] })
 
 interface DashboardGreetingProps {
   username: string | null
-  /** Drives the avatar head, hat included. */
+  /** Drives the avatar, hat and gear included. */
   equippedItems: Record<AvatarSlot, string | null>
   /** Today in words, e.g. "Saturday, October 25", in the user's timezone. */
   dateLabel?: string
@@ -24,6 +26,8 @@ interface DashboardGreetingProps {
    * "Welcome back".
    */
   nowMinutes?: number
+  /** How much of today is done; picks the scene's stage. */
+  progress?: DayProgress
 }
 
 /**
@@ -39,43 +43,63 @@ export function greetingFor(nowMinutes: number | undefined): string {
 }
 
 /**
- * The top of the dashboard: the avatar and a welcome. Level, XP, coins and
- * streak used to live in a hero card here; they are in the top bar on every
- * page now (see `AppTopBar`).
+ * The top of the dashboard: a welcome over a small landscape the avatar
+ * stands in, which fills in as the day's steps get done (see
+ * `DashboardHeroScene` and `dayProgress`). Level, XP, coins and streak used
+ * to live in a hero card here; they are in the top bar on every page now
+ * (see `AppTopBar`).
+ *
+ * Kept short on purpose (160px on a phone): the greeting is orientation, and
+ * the next step below it is the part of the page that asks for attention.
  */
 export function DashboardGreeting({
   username,
   equippedItems,
   dateLabel,
   nowMinutes,
+  progress,
 }: DashboardGreetingProps) {
   const { theme } = useTheme()
   const name = username ?? 'Adventurer'
   const opening = greetingFor(nowMinutes)
+  const stage = progress?.stage ?? 0
 
   return (
-    <motion.div
+    <motion.section
+      aria-labelledby="dashboard-greeting"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex items-center gap-3"
+      className="relative h-40 overflow-hidden rounded-2xl border shadow-sm sm:h-44"
     >
-      {/* Kept small on purpose: the greeting is orientation, and the next
-          task below it is the part of the page that asks for attention. */}
-      <AvatarHead equippedItems={equippedItems} className="size-12 shrink-0 sm:size-14" />
-      <div className="min-w-0">
+      <DashboardHeroScene stage={stage} className="absolute inset-0" />
+
+      <div className="relative z-10 max-w-[56%] p-4 sm:p-5">
         {theme === 'trail' ? (
-          <h1 className={`${fraunces.className} text-xl leading-snug text-foreground sm:text-2xl`}>
+          <h1
+            id="dashboard-greeting"
+            className={`${fraunces.className} text-xl leading-snug text-foreground sm:text-2xl`}
+          >
             {opening}, {name}.
           </h1>
         ) : (
-          <h1 className="font-heading text-xl font-semibold sm:text-2xl">
+          <h1 id="dashboard-greeting" className="font-heading text-xl font-semibold sm:text-2xl">
             {opening}, {name} 👋
           </h1>
         )}
         {dateLabel && <p className="text-sm text-muted-foreground">{dateLabel}</p>}
+        {progress && progress.total > 0 && (
+          <p className="sr-only">
+            Your day so far: {progress.done} of {progress.total} steps done.
+          </p>
+        )}
       </div>
 
-    </motion.div>
+      {/* Standing on the path, right of the words so it never sits on them. */}
+      <AvatarFigure
+        equippedItems={equippedItems}
+        className="absolute bottom-1 left-[58%] z-10 h-24 w-auto sm:h-28"
+      />
+    </motion.section>
   )
 }

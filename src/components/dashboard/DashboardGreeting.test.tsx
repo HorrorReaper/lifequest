@@ -19,11 +19,12 @@ afterEach(() => {
 })
 
 describe('DashboardGreeting', () => {
-  it('shows the avatar head and a welcome by name, and nothing else', () => {
+  it('shows the avatar and a welcome by name, with no status chips', () => {
     render(<DashboardGreeting username="Patrick" equippedItems={{ ...bare, hat: 'trail-cap' }} />)
 
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Welcome back, Patrick 👋')
-    expect(screen.getByTestId('avatar-head')).toBeTruthy()
+    expect(screen.getByTestId('avatar-figure')).toBeTruthy()
+    expect(screen.queryByRole('listitem')).toBeNull()
     expect(document.querySelector('[data-avatar-item="trail-cap"]')).toBeTruthy()
   })
 
@@ -43,6 +44,34 @@ describe('DashboardGreeting', () => {
     expect(greetingFor(at('12:00'))).toBe('Good afternoon')
     expect(greetingFor(at('18:00'))).toBe('Good evening')
     expect(greetingFor(undefined)).toBe('Welcome back')
+  })
+
+  it('grows the scene with the day and says so in words', () => {
+    const { rerender } = render(<DashboardGreeting username="Patrick" equippedItems={bare} />)
+    const scene = () => document.querySelector('[data-slot="hero-scene"]') as SVGElement
+    expect(scene().getAttribute('data-stage')).toBe('0')
+    expect(scene().getAttribute('aria-hidden')).toBe('true')
+
+    rerender(
+      <DashboardGreeting
+        username="Patrick"
+        equippedItems={bare}
+        progress={{ done: 5, total: 7, stage: 2 }}
+      />
+    )
+    expect(scene().getAttribute('data-stage')).toBe('2')
+    expect(screen.getByText('Your day so far: 5 of 7 steps done.')).toBeTruthy()
+  })
+
+  it('says nothing about progress on a day with nothing on it', () => {
+    render(
+      <DashboardGreeting
+        username="Patrick"
+        equippedItems={bare}
+        progress={{ done: 0, total: 0, stage: 0 }}
+      />
+    )
+    expect(screen.queryByText(/Your day so far/)).toBeNull()
   })
 
   it('uses the Trail heading style and punctuation under the Trail theme', () => {
