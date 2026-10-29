@@ -1,21 +1,29 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultAvatarState } from '@/lib/avatar'
 
 const theme = vi.hoisted(() => ({ current: 'dark' }))
+const motionPreference = vi.hoisted(() => ({ reduce: false }))
+
+vi.mock('framer-motion', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('framer-motion')>()),
+  useReducedMotion: () => motionPreference.reduce,
+}))
 
 vi.mock('next/font/google', () => ({ Fraunces: () => ({ className: 'font-fraunces' }) }))
 vi.mock('@/components/providers/theme-provider', () => ({
   useTheme: () => ({ theme: theme.current, setTheme: () => {} }),
 }))
 
-import { DashboardGreeting, greetingFor } from './DashboardGreeting'
+import { DashboardGreeting, greetingFor, STAGE_STEP_MS } from './DashboardGreeting'
 
 const bare = getDefaultAvatarState().equippedItems
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   theme.current = 'dark'
+  motionPreference.reduce = false
 })
 
 describe('DashboardGreeting', () => {
@@ -46,13 +54,34 @@ describe('DashboardGreeting', () => {
     expect(greetingFor(undefined)).toBe('Welcome back')
   })
 
-  it('grows the scene with the day and says so in words', () => {
-    const { rerender } = render(<DashboardGreeting username="Patrick" equippedItems={bare} />)
-    const scene = () => document.querySelector('[data-slot="hero-scene"]') as SVGElement
-    expect(scene().getAttribute('data-stage')).toBe('0')
-    expect(scene().getAttribute('aria-hidden')).toBe('true')
+  const scene = () => document.querySelector('[data-slot="hero-scene"]') as SVGElement
 
-    rerender(
+  it('grows the scene stage by stage while the avatar walks in, and says so in words', () => {
+    vi.useFakeTimers()
+    render(
+      <DashboardGreeting
+        username="Patrick"
+        equippedItems={bare}
+        progress={{ done: 5, total: 7, stage: 2 }}
+      />
+    )
+    expect(scene().getAttribute('aria-hidden')).toBe('true')
+    expect(document.querySelector('[data-slot="hero-walker"]')).toBeTruthy()
+    expect(screen.getByText('Your day so far: 5 of 7 steps done.')).toBeTruthy()
+
+    expect(scene().getAttribute('data-stage')).toBe('0')
+    act(() => vi.advanceTimersByTime(STAGE_STEP_MS))
+    expect(scene().getAttribute('data-stage')).toBe('1')
+    act(() => vi.advanceTimersByTime(STAGE_STEP_MS))
+    expect(scene().getAttribute('data-stage')).toBe('2')
+    // And no further than the day has earned.
+    act(() => vi.advanceTimersByTime(STAGE_STEP_MS * 5))
+    expect(scene().getAttribute('data-stage')).toBe('2')
+  })
+
+  it('shows the finished scene at once for anyone who asked for less motion', () => {
+    motionPreference.reduce = true
+    render(
       <DashboardGreeting
         username="Patrick"
         equippedItems={bare}
@@ -60,7 +89,6 @@ describe('DashboardGreeting', () => {
       />
     )
     expect(scene().getAttribute('data-stage')).toBe('2')
-    expect(screen.getByText('Your day so far: 5 of 7 steps done.')).toBeTruthy()
   })
 
   it('says nothing about progress on a day with nothing on it', () => {

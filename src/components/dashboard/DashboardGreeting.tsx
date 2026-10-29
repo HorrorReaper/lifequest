@@ -1,12 +1,13 @@
 'use client'
 
 import { Fraunces } from 'next/font/google'
-import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { useTheme } from '@/components/providers/theme-provider'
 import { AvatarFigure } from '@/components/profile/AvatarFigure'
 import { DashboardHeroScene } from '@/components/dashboard/DashboardHeroScene'
 import type { AvatarSlot } from '@/lib/avatar'
-import type { DayProgress } from '@/lib/day-progress'
+import type { DayProgress, DayStage } from '@/lib/day-progress'
 
 // Scoped to this component only -- must not touch the app's global
 // font-sans/Inter setup in src/app/layout.tsx, the same isolation rule the
@@ -42,6 +43,16 @@ export function greetingFor(nowMinutes: number | undefined): string {
   return 'Good evening'
 }
 
+/** How long the avatar takes to walk onto the path, in seconds. */
+export const WALK_SECONDS = 1.6
+
+/** How far apart the scene's stages arrive while it walks, in milliseconds. */
+export const STAGE_STEP_MS = 600
+
+/** Four strides: a bob up and a slight lean each, ending upright. */
+const STRIDE_Y = [0, -5, 0, -5, 0, -5, 0, -5, 0]
+const STRIDE_ROTATE = [0, -4, 0, 4, 0, -4, 0, 4, 0]
+
 /**
  * The top of the dashboard: a welcome over a small landscape the avatar
  * stands in, which fills in as the day's steps get done (see
@@ -51,6 +62,11 @@ export function greetingFor(nowMinutes: number | undefined): string {
  *
  * Kept short on purpose (160px on a phone): the greeting is orientation, and
  * the next step below it is the part of the page that asks for attention.
+ *
+ * On load the avatar walks in from the left, bobbing with each stride, and
+ * the world grows stage by stage up to today's while it walks -- about a
+ * second and a half, then everything holds still. Anyone who asked for less
+ * motion gets the finished scene straight away.
  */
 export function DashboardGreeting({
   username,
@@ -63,6 +79,26 @@ export function DashboardGreeting({
   const name = username ?? 'Adventurer'
   const opening = greetingFor(nowMinutes)
   const stage = progress?.stage ?? 0
+  const reduceMotion = useReducedMotion()
+  // How far the walk has grown the scene so far; it climbs to `stage` one
+  // step at a time, and never past it.
+  const [reached, setReached] = useState<DayStage>(0)
+
+  useEffect(() => {
+    if (reduceMotion) return
+    const timers: ReturnType<typeof setTimeout>[] = []
+    for (let next = 1; next <= stage; next += 1) {
+      timers.push(
+        setTimeout(
+          () => setReached((current) => Math.max(current, next) as DayStage),
+          STAGE_STEP_MS * next
+        )
+      )
+    }
+    return () => timers.forEach(clearTimeout)
+  }, [stage, reduceMotion])
+
+  const shownStage = reduceMotion ? stage : (Math.min(reached, stage) as DayStage)
 
   return (
     <motion.section
@@ -72,7 +108,7 @@ export function DashboardGreeting({
       transition={{ duration: 0.4 }}
       className="relative h-40 overflow-hidden rounded-2xl border shadow-sm sm:h-44"
     >
-      <DashboardHeroScene stage={stage} className="absolute inset-0" />
+      <DashboardHeroScene stage={shownStage} className="absolute inset-0" />
 
       <div className="relative z-10 max-w-[56%] p-4 sm:p-5">
         {theme === 'trail' ? (
@@ -95,11 +131,24 @@ export function DashboardGreeting({
         )}
       </div>
 
-      {/* Standing on the path, right of the words so it never sits on them. */}
-      <AvatarFigure
-        equippedItems={equippedItems}
-        className="absolute bottom-1 left-[58%] z-10 h-24 w-auto sm:h-28"
-      />
+      {/* Ends standing on the path, right of the words so it never sits on
+          them. The outer layer walks it in; the inner one is the stride. */}
+      <motion.div
+        data-slot="hero-walker"
+        className="absolute bottom-1 z-10"
+        initial={reduceMotion ? false : { left: '-20%' }}
+        animate={{ left: '58%' }}
+        transition={{ duration: WALK_SECONDS, ease: 'easeOut' }}
+      >
+        <motion.div
+          initial={false}
+          animate={reduceMotion ? undefined : { y: STRIDE_Y, rotate: STRIDE_ROTATE }}
+          transition={{ duration: WALK_SECONDS, ease: 'linear' }}
+          style={{ transformOrigin: '50% 100%' }}
+        >
+          <AvatarFigure equippedItems={equippedItems} className="h-24 w-auto sm:h-28" />
+        </motion.div>
+      </motion.div>
     </motion.section>
   )
 }
