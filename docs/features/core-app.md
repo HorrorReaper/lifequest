@@ -53,6 +53,7 @@ Reflections use blue (eyebrow, ring, icon and filled button) so they are not mis
 
 | State | Layout | Shows | Action |
 | --- | --- | --- | --- |
+| Evening review due, no block running or ahead (with or without a plan) | Ring first, blue, moon icon | "No more time blocks today" (without a plan: "This evening"), "Complete your evening review", "Look back on today before you close it.", chips "N planned tasks open" and "N habits still open" | "Start evening review" (`/journal/new/<evening review template>`) |
 | No plan, no open tasks | Ring first, plus icon | "Add your first task" | "Add task" (`/tasks?new=1`) |
 | No plan, tasks due today or overdue | Ring first, list icon | "Next up · nothing planned yet", "N tasks due today", chips "N overdue" and the first due task | "Plan my day" (`/plan`) |
 | No plan, nothing due | Ring first, calendar icon | "Plan your day" | "Plan my day" |
@@ -63,6 +64,8 @@ Reflections use blue (eyebrow, ring, icon and filled button) so they are not mis
 | Habits done, a reflection chosen for today is unwritten | Ring first, blue: reflections written/chosen | "Reflection still open", its title, "+N more to write" | "Write now" (`/journal/new/<template>`) |
 | Every chosen reflection is written | Ring first, check icon | "Journal done for today", "Your reflection is written" or "N of N reflections written" | "Open journal" (`/journal`, outline) |
 | Every block is over, nothing open | Ring first, check icon | "Your planned blocks are behind you" | "Edit plan" |
+
+The evening review row comes first: once its window is open (`isRitualWindow` for `evening_review` in `src/lib/rituals.ts`), it has a template and no complete entry for it exists today, it is the next step as soon as no block is running or still to come, ahead of an open planned task, open habits and reflections, which it lists instead of leading with them. A block still running or ahead in the evening keeps its own card until it is over. Once the review is written, the order below it applies again. The state is decided when the page loads; a window that opens while the dashboard stays open shows after a reload.
 
 The dashboard page feeds the card: each block's kind (`source`), the reflection template it was reserved for, the linked task's due date and the priority name (`PRIORITY_LABELS` in `src/lib/today-plan.ts`); today's habits with their done state; the reflections chosen for today in the planner (journal anchors in the plan metadata, flexible or with a block) with whether today has a completed entry for each template; and the number of open tasks due by today and overdue, counted with their own queries because the dashboard's task list stops at 16.
 

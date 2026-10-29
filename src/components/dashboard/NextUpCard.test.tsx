@@ -167,4 +167,27 @@ describe('NextUpCard', () => {
     expect(screen.getByText('Journal done for today')).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Your reflection is written' })).toBeTruthy()
   })
+
+  it('asks for the evening review at the end of the day, with what is still open', () => {
+    const blocks: PlanStatusBlock[] = [
+      { id: 'a', startTime: '08:00', endTime: '09:00', title: 'Slides', taskId: 't1', taskCompleted: false },
+    ]
+    render(
+      <NextUpCard
+        {...base}
+        nowMinutes={at('19:00')}
+        blocks={blocks}
+        eveningReview={{ href: '/journal/new/tpl-evening' }}
+      />
+    )
+
+    expect(card().getAttribute('data-kind')).toBe('evening-review')
+    expect(screen.getByText('No more time blocks today')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Complete your evening review' })).toBeTruthy()
+    expect(screen.getByText('1 planned task open')).toBeTruthy()
+    expect(screen.getByText('3 habits still open')).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Start evening review' }).getAttribute('href')
+    ).toBe('/journal/new/tpl-evening')
+  })
 })
