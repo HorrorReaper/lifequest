@@ -140,8 +140,10 @@ export function DashboardGreeting({
         animate={{ left: '58%' }}
         transition={{ duration: WALK_SECONDS, ease: 'easeOut' }}
       >
+        {/* No `initial={false}` here: it makes keyframes jump straight to
+            their last value, which is the standing pose -- the stride would
+            never play. The keyframes start from rest, so nothing jumps. */}
         <motion.div
-          initial={false}
           animate={reduceMotion ? undefined : { y: STRIDE_Y, rotate: STRIDE_ROTATE }}
           transition={{ duration: WALK_SECONDS, ease: 'linear' }}
           style={{ transformOrigin: '50% 100%' }}
