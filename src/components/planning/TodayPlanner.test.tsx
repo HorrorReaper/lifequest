@@ -1002,6 +1002,45 @@ describe("TodayPlanner", () => {
     expect(screen.getByLabelText("Break, 10:00 to 10:15")).toBeTruthy();
   });
 
+  it("adds a general block that is only a time on the day, linked to nothing", async () => {
+    render(<TodayPlanner {...timelineProps} />);
+    gotoTimeline();
+    openAddDialog();
+    chooseKind("General");
+
+    // A title is all it asks for, and it is required.
+    submitAdd();
+    expect(within(dialog()).getByText("Give the block a title.")).toBeTruthy();
+
+    fireEvent.change(within(dialog()).getByLabelText("Title"), {
+      target: { value: "Lunch with Sam" },
+    });
+    fireEvent.change(within(dialog()).getByLabelText("Starts"), {
+      target: { value: "12:00" },
+    });
+    submitAdd();
+
+    expect(screen.getByLabelText("Lunch with Sam, 12:00 to 13:00")).toBeTruthy();
+    expect(createTask).not.toHaveBeenCalled();
+
+    reviewPlan();
+    fireEvent.click(screen.getByRole("button", { name: /Save today's plan/i }));
+    await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
+    expect(
+      upsertDayPlan.mock.calls[0][2].blocks.find(
+        (block: { title: string }) => block.title === "Lunch with Sam"
+      )
+    ).toMatchObject({
+      start_time: "12:00",
+      end_time: "13:00",
+      category: "other",
+      source_type: "manual",
+      source_id: null,
+    });
+    // Not a task, not a habit: nothing for the plan's anchors either.
+    expect(upsertDayPlan.mock.calls[0][2].notes).not.toContain("Lunch with Sam");
+  });
+
   it("explains a start that collides, at the field, and offers the next free time", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();

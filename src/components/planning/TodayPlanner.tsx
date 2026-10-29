@@ -624,6 +624,23 @@ export function TodayPlanner({
       return;
     }
 
+    // A general block is only a time on the day: no mission, no link.
+    if (entry.kind === "general") {
+      setBlocks((current) => [
+        ...current,
+        {
+          id: planBlockId(),
+          start_time: entry.startTime,
+          end_time: entry.endTime,
+          title: entry.title,
+          category: "other",
+          source_type: "manual",
+          source_id: null,
+        },
+      ]);
+      return;
+    }
+
     setBlocks((current) => {
       const existing = entry.task
         ? current.find(
@@ -1197,7 +1214,7 @@ export function TodayPlanner({
                   Add to your day
                 </Button>
                 <p className="text-sm text-muted-foreground">
-                  Tasks, habits, reflections and breaks.
+                  Tasks, habits, reflections, breaks or anything else.
                 </p>
               </div>
 
