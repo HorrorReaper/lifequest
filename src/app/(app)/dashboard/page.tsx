@@ -5,7 +5,6 @@ import { addDays, dateInTimezone, weekStart } from '@/lib/dates'
 import type { Database } from '@/lib/supabase/database.types'
 import { DashboardGreeting } from '@/components/dashboard/DashboardGreeting'
 import { TrailPageSpine } from '@/components/dashboard/TrailPageSpine'
-import { JournalNudge } from '@/components/dashboard/JournalNudge'
 import { TodayPlanSection } from '@/components/dashboard/TodayPlanSection'
 import { NextUpCard } from '@/components/dashboard/NextUpCard'
 import { FeedbackDialog } from '@/components/feedback/FeedbackDialog'
@@ -255,7 +254,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     briefingHabitsRes,
     briefingHabitLogsRes,
     briefingTasksRes,
-    briefingTemplatesRes,
     todayEntriesRes,
     dayPlanRes,
     routines,
@@ -292,13 +290,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(DASHBOARD_TASK_FETCH_LIMIT),
-    supabase
-      .from('journal_templates')
-      .select('id, name, icon')
-      .or(`user_id.eq.${user.id},is_system.eq.true`)
-      .eq('is_active', true)
-      .order('sort_order')
-      .limit(6),
     supabase
       .from('journal_entries')
       .select('id, template_id')
@@ -384,20 +375,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const completedTemplateIds = new Set(
     todayEntries.map((entry) => entry.template_id)
   )
-  // Reuses the entries already fetched for the journal nudge rather than
-  // asking again: today's reflection is just one of today's entries.
+  // Today's reflection is just one of today's entries, so no query of its own.
   const reflectionEntryId =
     todayEntries.find((entry) => entry.template_id === DAILY_REFLECTION_TEMPLATE_ID)?.id ?? null
-  const briefingJournals = ((briefingTemplatesRes.data ?? []) as {
-    id: string
-    name: string
-    icon: string | null
-  }[]).map((template) => ({
-    id: template.id,
-    name: template.name,
-    icon: template.icon ?? '📓',
-    completedToday: completedTemplateIds.has(template.id),
-  }))
   const nowMinutes = currentMinutesInTimezone(profile.timezone ?? 'UTC')
   const eveningReviewTemplateId = rituals.evening_review.templateId
   const eveningReviewDone =
@@ -589,11 +569,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             plannedTaskIds={planTaskIds}
           />
         )}
-
-        <JournalNudge
-          journals={briefingJournals}
-          completedJournalCount={todayEntries.length}
-        />
 
         {activeChallenges.map(({ program, view }) => (
           <ChallengeDashboardCard key={program.template.id} program={program} view={view} />
