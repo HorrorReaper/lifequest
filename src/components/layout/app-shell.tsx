@@ -52,6 +52,7 @@ export function isImmersiveRoute(pathname: string) {
   return (
     pathname.startsWith('/admin') ||
     pathname === '/plan' ||
+    pathname === '/learn/tools/focus-timer/run' ||
     (segments[0] === 'learn' && segments.length === 2) ||
     (pathname.startsWith('/routines/') && pathname.endsWith('/run')) ||
     isJournalEntryRoute(pathname)

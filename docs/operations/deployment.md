@@ -151,3 +151,7 @@ The contacts_management migration was applied to the shared LifeQuest database a
 Apply `20261029191235_learning_academy.sql` to the intended Supabase environment before saving the optional fourth course. Confirm the intended admin has trusted `app_metadata.role = admin`; email/route allowlisting alone is insufficient. The migration does not change account roles, seed content or publish drafts. Legacy article rewards and shared Toolbox operations are unaffected.
 
 After deployment, `/learn` offers the authored personal course as a labelled device-only preview if it has no published version. In Learning Studio, use Add personal course, inspect Preview draft, Save draft and explicitly Publish. Existing enrollments stay pinned to their prior versions. Verify normal users and normal-user preview retain the original Library and cannot call course RPCs. A code deployment without the database migration does not establish that backend role boundary.
+
+## Library focus timer
+
+Apply `20261029203006_library_focus_timer.sql` before deploying the Toolbox timer or updated admin timer. It adds owner SELECT and authenticated server-timed RPCs, preserving existing admin policies for compatibility. It has no dependency on the optional Academy migration and changes no existing sessions or roles. Verify normal-user start/resume/complete/cancel and admin return navigation. Rolling the frontend back is compatible with the additive migration; do not remove the RPCs while the new clients are deployed.

@@ -55,10 +55,12 @@ Insight metadata is stored on journal responses so a saved answer can be marked 
 | `routine_items` | Ordered habit membership in a routine |
 | `goals` | User-owned longer-term goals (admin-only until `20260922120000_open_goals_to_all_users.sql`) |
 | `productivity_daily_priorities` | Admin top-three task priorities by date |
-| `focus_sessions` | Planned/actual admin focus sessions |
+| `focus_sessions` | User-owned planned/actual focus sessions shared by Toolbox and admin Productivity |
 | `beta_feedback` | "Send feedback" messages: `category` (`problem`, `idea`, `other`), `message` (1–2000 characters), `page_path` (path only, ≤200), owner `user_id` (defaults to `auth.uid()`). Users can insert their own rows only; there is no select policy, admins read through `admin_beta_feedback` |
 
 `tasks` and `day_plans` are actively used but are not included as complete table mappings in the current `Database` type. Their original creation migrations are also absent from this repository snapshot.
+
+`20261029203006_library_focus_timer.sql` adds owner-only authenticated SELECT access and `start_focus_session(p_planned_minutes integer, p_task_id uuid default null)` / `finish_focus_session(p_session_id uuid, p_status text)` RPCs. Start validates 1–240 minutes and task ownership, serializes starts per user, and returns the active row as JSON. Finish accepts `completed` or `cancelled`, locks the owned session and profile, and returns `{ awarded, xpAwarded, previousTotal, newTotal }`. Server timestamps determine `actual_seconds`. Completed whole minutes yield one XP each, with the `focus_session` ledger entry and profile increment in the same transaction as closure. Retries of a closed session award nothing. Existing admin direct-write policy remains for older clients; normal users write only through RPCs.
 
 ## Workout domain
 

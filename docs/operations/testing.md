@@ -56,6 +56,8 @@ npx vitest run -t "flushes dirty sets"
 
 ## Current automated coverage
 
+Focus Timer: `FocusTimerTool.test.tsx` covers duration selection, duplicate submission, resume, validation, failed start retry and failed-load state. `FullscreenFocusTimer.test.tsx` covers control visibility, a single finish request, Library return navigation, XP synchronization and finish retry. Shell tests distinguish setup from immersive run. `scripts/verify-focus-timer.mjs` runs isolated PostgreSQL checks for owner SELECT, direct-write denial, task ownership, server time, bounds, idempotent starts/rewards, cancellation, sub-minute completion, transactional rollback and anonymous denial. Run with a separately installed PGlite module URL in `LIFEQUEST_PGLITE_MODULE`; the script reads no environment files and never connects to Supabase.
+
 The repository currently contains 32 test files.
 
 ### Auth

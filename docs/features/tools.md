@@ -9,13 +9,24 @@ Tools live in the Toolbox at `/learn/tools`, reachable from `/learn`.
 Primary implementation areas:
 
 - `src/lib/tools/registry.ts` — the list of available tools
+- `src/lib/tools/navigation.ts` — Toolbox navigation, including standalone workflows
 - `src/lib/tools/storage.ts` — generic persistence for every tool
 - `src/components/tools/<tool>/` — one directory per tool
 - `src/app/(app)/learn/tools/` — library and per-tool routes
 
+## Focus Timer
+
+The Focus Timer is a standalone workflow in `TOOLBOX_ITEMS`, visible in both the Library rail and Toolbox. It uses the existing `focus_sessions` records rather than `tool_entries`, so it is not offered as a lesson/challenge tool exercise.
+
+`/learn/tools/focus-timer` is available to every signed-in user. `FocusTimerTool` offers 15, 25, and 50-minute presets plus an integer duration from 1 to 240 minutes. An existing active session shows Resume instead of another start form. The full-screen `/learn/tools/focus-timer/run` reuses `FullscreenFocusTimer` and `NatureBackdrop` from the admin implementation. Complete and Cancel return to the Toolbox timer; the admin entry still returns to Productivity. Navigation is hidden only while the timer runs. Keyboard focus also reveals its controls.
+
+The setup route reads the owner's active session server-side. Failed loads show Retry instead of treating an unknown state as no session. Failed starts and finishes remain retryable. The countdown derives from the stored start timestamp, so leaving/reloading does not restart it. Finishing is explicit, including after the countdown reaches zero.
+
+`start_focus_session` resumes an existing active session or creates one with server time. `finish_focus_session` calculates elapsed seconds server-side, closes the session, and atomically awards one XP per whole minute for completed sessions. Cancelled and sub-minute sessions earn nothing. Both admin and Toolbox clients use `src/lib/focus-session-actions.ts`; no new timer storage or admin permission is required. See [authentication](../backend/auth-security.md#focus-timer-access) for the ownership boundary and [deployment](../operations/deployment.md#library-focus-timer) for the required migration.
+
 ## Adding a tool
 
-Two things, and nothing else:
+A reflection tool using the shared storage needs two things:
 
 1. A component in `src/components/tools/<tool>/`, accepting `ToolProps`.
 2. An entry in `TOOL_REGISTRY`.
@@ -30,7 +41,7 @@ Tools are also far more varied than quiz exercises. A weekly 15-minute grid, a c
 
 ## Storage
 
-All tools share `public.tool_entries`:
+Registry tools share `public.tool_entries`; the standalone Focus Timer uses `focus_sessions` as described above:
 
 | Column | Purpose |
 | --- | --- |

@@ -41,6 +41,8 @@
 | `/learn/courses/[pathId]` | Admin-only course overview with units, progress and next lesson; direct normal-user links redirect to `/learn` |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
+| `/learn/tools/focus-timer` | Focus Timer setup/resume for all signed-in users, backed by existing focus sessions |
+| `/learn/tools/focus-timer/run` | Shared full-screen nature timer; returns to Toolbox setup after completion/cancellation |
 | `/city` | Virtual city view/build mode |
 | `/settings` | Appearance, profile, timezone, AI consent, sign-out, account deletion |
 | `/analytics` | Journal stats, mood/activity charts, and a Skills tab with per-category XP levels |
