@@ -19,6 +19,7 @@ import {
   blocksOverlapping,
   describeRipple,
   formatPlanMinutes,
+  PRIORITY_LABELS,
   shiftEndTime,
   timeToMinutes,
 } from "@/lib/today-plan";
@@ -33,12 +34,9 @@ export const CATEGORY_LABELS: Record<DayPlanCategory, string> = {
   other: "Other",
 };
 
-/** What a block's priority is called on the timeline and in its editor. */
-export const PRIORITY_LABELS = {
-  must_win: "Main focus",
-  progress: "Second task",
-  health: "Recharge",
-} as const;
+// Defined with the plan model so the dashboard (a server component) can use
+// the same names; re-exported for the planner's components.
+export { PRIORITY_LABELS };
 
 interface BlockEditorDialogProps {
   block: DayPlanBlock | null;

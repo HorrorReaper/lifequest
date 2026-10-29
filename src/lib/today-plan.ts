@@ -61,6 +61,16 @@ const SOURCE_TYPES: DayPlanSourceType[] = [
   "manual",
 ];
 
+/**
+ * What each priority is called wherever the day is shown: the timeline, the
+ * block editor, the review step and the dashboard's next-up card.
+ */
+export const PRIORITY_LABELS: Record<DayPlanOutcomeRole, string> = {
+  must_win: "Main focus",
+  progress: "Second task",
+  health: "Recharge",
+};
+
 export interface TodayPlanOutcome {
   id: string;
   role: DayPlanOutcomeRole;
