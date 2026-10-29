@@ -246,3 +246,7 @@ Migration `20261003084218_projects_usability.sql` adds `project_areas` (owner/na
 
 ## Personal contacts
 The contacts_management migration adds owner-scoped profiles/channels, groups, explicit relationship types/pairs, shared events/interactions, occurrence state and links to existing Tasks/Knowledge. Composite owner FKs and admin RLS protect every entity; new FK access paths are indexed. See features/contacts.md for recurrence, deletion and consistency rules.
+
+## Personal Academy course
+
+The optional `entrepreneurial-information-systems` path uses the existing version/unit/lesson/exercise/enrollment tables. No new table or column is introduced. Optional visual blocks, product/company perspectives and reflection practice duration live in exercise `content` JSONB. `20261029191235_learning_academy.sql` accepts the fourth path, rejects unknown/duplicate IDs and protects learner RPCs with trusted-admin wrappers. Existing version pinning and transactional rewards are retained. The migration contains no seed or publication.

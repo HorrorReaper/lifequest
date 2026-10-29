@@ -1,178 +1,67 @@
 # Interactive learning paths
 
-## Product scope
+## Audience and routes
 
-LifeQuest now has two separate learning concepts:
+The normal user Library remains the article/tool/journal-insight interface in `AcademyLibrary`. Admins see the course interface in `LearningPathLibrary`, with the personal Business, Tech & AI course selected initially. `/learn`, `/learn/courses/[pathId]` and course lessons use `showAdminUi`, including its normal-user preview cookie. Normal-user direct links redirect to `/learn` before curriculum loads. Original article URLs and `LessonReader` remain unchanged.
 
-1. The Academy at `/learn`: authored, interactive curriculum.
-2. Journal insights at `/journal/insights`: knowledge discovered by the user.
+The course interface uses the approved learning-path design: sage surfaces, editorial headings, a CSS cover, expandable units, sequentially unlocked lessons, a next-lesson action and two practical perspectives. Styles in `src/components/learn/academy.module.css` are scoped to courses and support light/dark themes. Other published paths and the article archive remain available. Overviews retain existing app navigation; lesson routes remain immersive.
 
-The Academy contains three paths:
+## Personal curriculum
 
-- Social Intelligence.
-- Entrepreneurship.
-- Strength & Fitness.
+`src/lib/personal-learning.ts` authors **Unternehmerische Wirtschaftsinformatik** (`entrepreneurial-information-systems`). Eight modules cover opportunities, economics, processes/systems, data, software, AI foundations, AI integration and introduction/growth. The 32 four-step lessons contain explanation, knowledge check, application and reflection, with product-building and company-improvement cases. Each module's final reflection is a separately labelled practice assignment (45 minutes, or 120 minutes/multiple sessions for prototype assignments). These estimates are separate from the four-minute lesson estimate.
 
-Each path has three units, six lessons, and 24 exercises. The v1 catalog therefore ships with 9 units, 18 lessons, and 72 exercises across concept, multiple-choice, scenario, ordering, and reflection interactions.
+This is a distinct path; existing Entrepreneurship completions are not reinterpreted. The original fallback retains three paths and 19 lessons. The original database seed has 18 lessons; database versions remain authoritative.
 
-The original 13 article/quiz lessons remain available as the foundation archive.
+`withPersonalLearningPath` adds an authored preview only when the personal path is absent. It never replaces a published or enrollment-pinned version. An absent course or unavailable backend is explicitly labelled as a device-only preview, without XP/coin awards. A failed submission on a connected lesson never silently switches to local grading.
 
-## Who sees what
+## Player and content
 
-The Academy courses are admin-only while the curriculum is still being authored. `/learn` asks `showAdminUi`:
+`InteractiveLessonPlayer` composes `LearningBlocks`, the existing `LessonToolExercise`, existing buttons/textarea and `useLessonPlayer`. All existing exercise types remain supported: concept, choice, scenario, order, reflection and tool. A restrained progress indicator replaces hearts. Wrong answers remain retryable; feedback is announced and headings receive focus on step changes.
 
-- An admin sees the three paths, the path progress panel, and the article archive underneath them.
-- Everyone else sees only the articles, presented as the whole page rather than an archive.
+Concepts retain `body` and `takeaway`. Optional typed `blocks` support sequences, comparisons and callouts. Optional `perspectives.product` and `perspectives.company` supply case text and their own blocks. `practiceMinutes` identifies a longer reflection assignment. Fields round-trip through existing exercise `content` JSONB without another scoring type/table. Catalog validation checks optional structures and durations.
 
-`/learn/[lessonId]` is a Server Component that applies the same gate before anything renders: a non-admin who opens a course lesson slug is redirected to `/learn`, and the client never requests the catalog RPC for them. Because an admin previewing as a normal user goes through `showAdminUi`, the preview shows the article-only page too.
+The controller locks duplicate submissions, preserves failed reflections, and uses server grading, mistakes and actual reward amounts when connected. A completion returned by an earlier graded step is retained across a trailing concept; a reflection/tool need not be last. Existing server idempotency remains authoritative. Tool steps require a real stored tool entry verified by the backend.
 
-This is a view filter, not the authorization boundary. `get_published_learning_catalog()` and `submit_learning_exercise()` are still granted to every authenticated user; restricting them would need a migration and is listed under remaining backend work.
+## Preview state and privacy
 
-## Backend implementation
+Unpublished previews store progress/reflections under `lifequest.learning.progress.v1:<user-id>`. Local progress merges only for unpublished paths and cannot override synchronized published progress. Unscoped historical progress is not adopted into an account. This prevents accidental cross-account display, not access by code on the same origin or someone using the same browser profile. Clearing storage removes local preview results.
 
-Migrations:
+Studio preview serializes current curriculum to tab session storage and opens `/learn/[lessonId]?preview=draft` in another tab. Without a snapshot it loads the saved admin draft. Draft previews bypass sequencing for inspection, never call submission RPCs, never award rewards, and do not write learner preview completions. Snapshots contain curriculum, not private reflections. Routes remain admin-gated.
 
-- `20260726180730_interactive_learning_paths_backend.sql`
-- `20260726182058_learning_paths_covering_indexes.sql`
+Reflections remain owner-only in the backend. Account export/deletion coverage and privacy copy are cross-product follow-ups.
 
-The first migration creates and seeds the complete curriculum backend. The second adds covering foreign-key indexes and explicit RPC-only deny policies identified during Supabase advisor review.
+## Learning Studio
 
-### Versioned curriculum
+`/admin/learning` can add the personal course to its current unsaved draft without replacing other paths. Save and Publish are explicit actions. Existing import/copy and version pinning remain. Preview shows the edited draft rather than the published lesson.
 
-The schema contains:
+`LearningConceptDialog` edits visual blocks and both case explanations in a separate dialog. Apply validates; Cancel preserves the original. Reflections have a practice-duration field. Cover uploads, generated courses, tutor, spaced repetition and adaptive recommendations are not implemented here.
 
-- `learning_paths`
-- `learning_path_versions`
-- `learning_units`
-- `learning_lessons`
-- `learning_exercises`
+## Database migration and roles
 
-Published versions are immutable. Admin edits are written into one draft per path. Publishing archives the prior active version and atomically advances `published_version_id`.
+The existing schema/behavior comes from `20260726180730_interactive_learning_paths_backend.sql`, its covering-index migration and `20260805184127_add_tool_exercise_type.sql`.
 
-Learners are pinned to the path version on which they first submit an exercise. A later publication therefore does not change lesson content, answer keys, order, or rewards in the middle of an enrollment.
+`20261029191235_learning_academy.sql` extends the newest catalog-replacement function to accept the original three paths plus the optional personal path. Unknown/duplicate paths and lessons without graded exercises are rejected. Content JSON fields remain intact. The migration does not seed or publish curriculum.
 
-Exercise content and answer keys are stored separately. Choice indexes and correct ordering never leave the database through the learner catalog RPC.
-
-### Learner state
-
-The schema contains:
-
-- `learning_enrollments`
-- `learning_lesson_progress`
-- `learning_attempts`
-- `learning_exercise_responses`
-
-The backend records every submitted answer, correctness, retries, mistakes, best score, reflections, completion time, and enrollment completion.
-
-Reflections are owner-only data. They must be included in future account export/deletion work and must never be copied into broad analytics payloads.
-
-### RPC contracts
-
-Learner RPCs:
+The existing learner implementations move behind checked wrappers with unchanged external signatures:
 
 - `get_published_learning_catalog()`
 - `get_learning_progress()`
 - `submit_learning_exercise(p_lesson_slug, p_exercise_slug, p_response)`
 
-Admin RPCs:
+Wrappers require a signed-in user with trusted `app_metadata.role = 'admin'`. Internal renamed implementations are revoked from PUBLIC, anon and authenticated, as is the existing catalog-building helper. User-editable `user_metadata` and route/email allowlisting do not grant access. The user-preview cookie changes presentation, not account privileges.
 
-- `admin_get_learning_catalog()`
-- `admin_save_learning_catalog(p_catalog, p_change_summary)`
-- `admin_publish_learning_catalog(p_change_summary)`
+Published versions remain immutable and enrollment-pinned. Learner RPC output omits answer keys. Existing scoring, sequencing, response persistence and transactional/idempotent rewards remain. Progress tables retain owner-only RLS and RPC-only writes. Legacy article rewards and shared Toolbox operations are unchanged.
 
-Internal helper functions are revoked from `anon` and `authenticated`.
-
-Exercise submission:
-
-1. Requires an authenticated user.
-2. Resolves the learner’s pinned or currently published version.
-3. Verifies the previous lesson is complete.
-4. Grades against the server-only answer key.
-5. Records each response and mistake.
-6. Completes only after every non-concept exercise has a valid response.
-7. Computes the score on the server.
-8. Awards XP and coins once in the same transaction.
-
-The v1 reward rule is derived from authored mastery points and currently resolves to 50 XP and 20 coins for each seeded lesson. A per-user/per-lesson completion constraint, row lock, active-attempt constraint, and completion-state check prevent retry double-awards.
-
-### Authorization
-
-- Curriculum tables have RLS enabled and no browser table grants.
-- Explicit deny policies document that curriculum access is RPC-only.
-- Learners can select only their own enrollments, progress, attempts, and responses.
-- Progress writes are RPC-only.
-- Answer keys and drafts are not returned by learner RPCs.
-- Admin mutations require `auth.jwt().app_metadata.role = 'admin'`.
-- Route/email allowlisting alone cannot mutate curriculum.
-- Every security-definer function uses an empty `search_path`, schema-qualified names, and an internal authorization check where it is callable.
-
-## Frontend integration
-
-The learner experience now reads the catalog and progress from Supabase. Correctness is server-authoritative, and lesson completion displays actual XP/coin rewards.
-
-The admin Learning Studio now:
-
-- Loads the current database draft or published version.
-- Validates catalog JSON.
-- Saves protected drafts to Supabase.
-- Publishes immutable versions.
-- Accepts a change summary.
-- Keeps JSON copy/import and learner preview tools.
-
-The authored in-code catalog and local-storage helpers remain only as a resilience fallback if the learning RPCs are temporarily unavailable. They are not the primary persistence path.
+Apply the migration to the intended environment before saving four paths or relying on the new database role boundary. Until then the personal course works as a labelled local preview, and saving four paths fails the old constraint. Publication remains a separate Studio action.
 
 ## Verification
 
-Completed checks:
+- `personal-learning.test.ts`: curriculum, version preservation, optional content validation and account-scoped previews.
+- `InteractiveLessonPlayer.test.tsx`: both cases, wrong/correct answers, preview privacy, trailing-concept server completion, actual rewards, duplicate submissions, failed-save retry and draft isolation.
+- `LearningPathLibrary.test.tsx`: default course, expansion, existing paths and preview continuation.
+- `learning-access.test.tsx`: unchanged public Library branch and direct course/draft lesson rejection before catalog loading.
+- Existing article/Academy and backend tests remain applicable.
 
-- 3 paths, 9 units, 18 lessons, and 72 exercises seeded and published.
-- Admin catalog loaded from Supabase.
-- Identical JSON imported, saved as a draft, and published as a new immutable version.
-- Wrong answer rejected by the server.
-- Corrected answer accepted and both responses retained.
-- Reflection persisted.
-- First lesson completed at 90% with one recorded mistake.
-- Exactly one XP event written.
-- 50 XP and 20 coins awarded once.
-- Progress reloaded after navigation.
-- Next lesson unlocked after completion.
-- TypeScript, targeted ESLint, 120 tests, database advisor review, and production build passed.
+`scripts/verify-learning-academy.mjs` executes actual SQL in an isolated PGlite PostgreSQL instance. It uses minimal fixture tables, never `.env` or a Supabase connection. It checks role rejection (including user-metadata spoofing), internal helper denial, drafts/publication, JSON round trips, grading, sequencing, once-only rewards, owner RLS and pinned versions. Invocation is in `docs/operations/testing.md`.
 
-## Remaining backend work
-
-The new learning-path backend is complete for the three Academy paths. These cross-product follow-ups remain:
-
-1. Legacy archive migration
-   - Decide whether the 13 original lessons stay as a permanent archive or become a fourth versioned path.
-   - Seed them into the normalized curriculum if migrated.
-   - Map existing `lesson_completions.lesson_id` slugs without changing historical timestamps or rewards.
-   - Retire the hard-coded legacy `complete_lesson_reward` RPC after compatibility URLs are covered.
-
-2. Account lifecycle
-   - Include learning enrollments, attempts, responses, and reflections in account export.
-   - Confirm account deletion removes them through the existing `auth.users` cascades.
-   - Update privacy copy to name stored exercise responses and reflections.
-
-3. Analytics
-   - Add privacy-conscious path/lesson start, completion, abandonment, first-try correctness, and time-to-completion metrics.
-   - Aggregate reflection completion only; never send reflection text to general analytics.
-
-4. Admin operations
-   - Add explicit archive and rollback controls in the UI.
-   - Add drag-and-drop ordering.
-   - Add a version history/diff view and enrollment counts before publication.
-
-5. Course visibility
-   - Decide whether the courses stay admin-only or open to everyone.
-   - If they stay admin-only beyond the authoring phase, move the gate into the learner RPCs so the catalog is not merely hidden in the UI.
-
-6. Platform security backlog found by advisor review
-   - Existing functions outside this module still have mutable search paths or overly broad execution grants.
-   - Supabase leaked-password protection is disabled.
-   - Existing non-learning tables have unrelated missing foreign-key indexes.
-   - These were not changed because they predate and sit outside the learning-module scope.
-
-Relevant advisor references:
-
-- [Supabase database linter](https://supabase.com/docs/guides/database/database-linter)
-- [Password security and leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
+Live authenticated browser and deployed-database verification must be reported separately from component/isolated tests. Local preview is not evidence of migration deployment.

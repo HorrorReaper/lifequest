@@ -13,6 +13,7 @@ import { fetchLearningExperience } from '@/lib/learning-api'
 import {
   DEFAULT_LEARNING_CATALOG,
   EMPTY_LEARNING_PROGRESS,
+  type LearningPathId,
 } from '@/lib/learning-paths'
 
 interface LessonCompletion {
@@ -76,18 +77,22 @@ function LearnPageShell({
 async function AdminAcademy({
   supabase,
   lessons,
+  userId,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>
   lessons: LessonWithStatus[]
+  userId: string
 }) {
   let catalog = DEFAULT_LEARNING_CATALOG
   let progress = EMPTY_LEARNING_PROGRESS
   let backendEnabled = false
+  let publishedPathIds: LearningPathId[] = []
   try {
     const learning = await fetchLearningExperience(supabase)
     catalog = learning.catalog
     progress = learning.progress
     backendEnabled = true
+    publishedPathIds = catalog.paths.map((path) => path.id)
   } catch (error) {
     console.error('Could not load the learning backend; using the authored fallback.', error)
   }
@@ -98,6 +103,8 @@ async function AdminAcademy({
       progress={progress}
       backendEnabled={backendEnabled}
       legacyLessons={lessons}
+      publishedPathIds={publishedPathIds}
+      userId={userId}
     />
   )
 }
@@ -134,9 +141,5 @@ export default async function LearnPage() {
     )
   }
 
-  return (
-    <LearnPageShell title="Learn by doing">
-      <AdminAcademy supabase={supabase} lessons={lessons} />
-    </LearnPageShell>
-  )
+  return <AdminAcademy supabase={supabase} lessons={lessons} userId={user.id} />
 }

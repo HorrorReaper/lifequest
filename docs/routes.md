@@ -35,9 +35,10 @@
 | `/quests` | Achievements and custom one-time quests; links to `/challenges` |
 | `/challenges` | Every published challenge plus the user's personal ones, running first. The form to create a personal "X days of Y" challenge is currently hidden (commented out in `src/app/(app)/challenges/page.tsx`) |
 | `/challenges/[id]` | One challenge: today's step (manual or auto-detected), deep link, all days |
-| `/learn` | Article library, titled "Library" like its bottom-navigation tab and quick action; admins additionally get the interactive Academy courses, titled "Learn by doing". The header carries a one-line description and the Toolbox and Journal Insights links, and the reading-progress block (articles read, XP earned) is currently hidden (commented out in `src/components/learn/AcademyLibrary.tsx`) |
+| `/learn` | Normal users and user-preview retain the existing Library, Toolbox and journal-insight rails. Admins get the redesigned course overview, initially showing the personal Business, Tech & AI path; other courses and articles remain available |
 
 | `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
+| `/learn/courses/[pathId]` | Admin-only course overview with units, progress and next lesson; direct normal-user links redirect to `/learn` |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
 | `/city` | Virtual city view/build mode |
