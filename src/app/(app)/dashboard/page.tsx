@@ -535,6 +535,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           username={profile.username}
           equippedItems={avatarState.equippedItems}
           dateLabel={dateLabel}
+          nowMinutes={nowMinutes}
         />
 
         <FirstRunWelcome show={showWelcome} />
