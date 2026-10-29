@@ -553,6 +553,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           firstDueTitle={dueTasks[0]?.title ?? null}
           habits={briefingHabits}
           reflections={plannedReflections}
+          eveningReview={
+            eveningReviewWindow && !eveningReviewDone && eveningReviewTemplateId
+              ? { href: `/journal/new/${eveningReviewTemplateId}` }
+              : null
+          }
           today={today}
         />
         <DailyPlanPrompt

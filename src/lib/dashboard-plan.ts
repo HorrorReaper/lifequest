@@ -100,6 +100,12 @@ export type NextUp<T extends PlanStatusBlock = PlanStatusBlock> =
       written: number
     }
   | { kind: 'journal-done'; written: number }
+  | {
+      kind: 'evening-review'
+      /** Planned tasks the day's blocks left open, for context on the card. */
+      openTasks: number
+      openHabits: number
+    }
 
 /** Linked tasks planned into the day, counted once each, and how many are done. */
 export function plannedTaskProgress(blocks: readonly PlanStatusBlock[]): {
@@ -120,7 +126,10 @@ export function plannedTaskProgress(blocks: readonly PlanStatusBlock[]): {
 /**
  * The one thing the top of the dashboard points at.
  *
- * In order: the block running now, the next one ahead, a linked task the
+ * Once the evening review is due and no block is running or ahead, it is
+ * the next step, before anything else left from the day: that is where the
+ * day is looked back on, open tasks and habits included. Otherwise, in
+ * order: the block running now, the next one ahead, a linked task the
  * day's blocks left open, open habits, and then the reflections chosen for
  * today -- the first one still unwritten, or that all are written. Without a
  * plan it asks for one, naming how many tasks are due today when there are
@@ -135,6 +144,7 @@ export function nextUpFor<T extends PlanStatusBlock>({
   dueTodayCount = 0,
   overdueCount = 0,
   reflections = [],
+  eveningReviewDue = false,
 }: {
   blocks: readonly T[]
   nowMinutes: number
@@ -146,8 +156,14 @@ export function nextUpFor<T extends PlanStatusBlock>({
   overdueCount?: number
   /** Reflections chosen for today in the planner. */
   reflections?: readonly PlannedReflection[]
+  /**
+   * Whether today's evening review is due: its window is open, it has a
+   * template, and no entry for it is complete yet.
+   */
+  eveningReviewDue?: boolean
 }): NextUp<T> {
   if (blocks.length === 0) {
+    if (eveningReviewDue) return { kind: 'evening-review', openTasks: 0, openHabits }
     if (openTaskCount === 0) return { kind: 'first-task' }
     return dueTodayCount > 0
       ? { kind: 'tasks-due', dueToday: dueTodayCount, overdue: overdueCount }
@@ -173,6 +189,9 @@ export function nextUpFor<T extends PlanStatusBlock>({
   }
 
   const open = openTasksBehind(past)
+  if (eveningReviewDue) {
+    return { kind: 'evening-review', openTasks: open.length, openHabits }
+  }
   if (open[0]) {
     const progress = plannedTaskProgress(blocks)
     return {

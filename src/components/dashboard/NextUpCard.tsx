@@ -10,6 +10,7 @@ import {
   Check,
   ListChecks,
   Loader2,
+  Moon,
   PenLine,
   Plus,
   type LucideIcon,
@@ -50,6 +51,11 @@ interface NextUpCardProps {
   habits: NextUpHabit[]
   /** Reflections chosen for today in the planner. */
   reflections?: PlannedReflection[]
+  /**
+   * Today's evening review, when it is due (window open, not written yet).
+   * Null or left out otherwise.
+   */
+  eveningReview?: { href: string } | null
   /** The profile's date key; due dates are described against it. */
   today: string
   plannerHref?: string
@@ -109,6 +115,7 @@ export function NextUpCard({
   firstDueTitle = null,
   habits,
   reflections = [],
+  eveningReview = null,
   today,
   plannerHref = '/plan',
 }: NextUpCardProps) {
@@ -143,6 +150,7 @@ export function NextUpCard({
     dueTodayCount,
     overdueCount,
     reflections,
+    eveningReviewDue: Boolean(eveningReview),
   })
 
   async function markDone(block: PlanStatusBlock) {
@@ -394,6 +402,37 @@ export function NextUpCard({
           }
           primary={{ label: 'Open journal', icon: BookOpen, href: '/journal' }}
           quiet
+        />
+      )
+      break
+    case 'evening-review':
+      card = (
+        <RingLayout
+          tone="journal"
+          icon={Moon}
+          eyebrow={blocks.length > 0 ? 'No more time blocks today' : 'This evening'}
+          title="Complete your evening review"
+          detail="Look back on today before you close it."
+          // What is still open goes into the review, not ahead of it.
+          chips={[
+            next.openTasks > 0
+              ? {
+                  label: `${next.openTasks} planned ${next.openTasks === 1 ? 'task' : 'tasks'} open`,
+                  className: DUE_CHIP,
+                }
+              : null,
+            next.openHabits > 0
+              ? {
+                  label: `${next.openHabits} ${next.openHabits === 1 ? 'habit' : 'habits'} still open`,
+                  className: TONE.primary.chip,
+                }
+              : null,
+          ]}
+          primary={{
+            label: 'Start evening review',
+            icon: PenLine,
+            href: eveningReview?.href ?? '/journal',
+          }}
         />
       )
       break

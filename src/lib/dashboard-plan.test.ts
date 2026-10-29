@@ -139,6 +139,39 @@ describe('nextUpFor, tasks and reflections', () => {
   })
 })
 
+describe('nextUpFor, evening review', () => {
+  const base = { nowMinutes: at('19:00'), openTaskCount: 3, openHabits: 2 }
+
+  it('asks for the evening review once no block is running or ahead', () => {
+    const blocks = [
+      block('a', '08:00', '09:00', { taskId: 't1', taskCompleted: false }),
+      block('b', '10:00', '11:00'),
+    ]
+    expect(nextUpFor({ ...base, blocks, eveningReviewDue: true })).toEqual({
+      kind: 'evening-review',
+      openTasks: 1,
+      openHabits: 2,
+    })
+    // Without it due, the open task leads again.
+    expect(nextUpFor({ ...base, blocks }).kind).toBe('open-after-plan')
+  })
+
+  it('asks for it on an evening without a plan too', () => {
+    expect(nextUpFor({ ...base, blocks: [], eveningReviewDue: true })).toEqual({
+      kind: 'evening-review',
+      openTasks: 0,
+      openHabits: 2,
+    })
+  })
+
+  it('never puts it ahead of a block that is running or still to come', () => {
+    const running = [block('late', '18:30', '19:30')]
+    expect(nextUpFor({ ...base, blocks: running, eveningReviewDue: true }).kind).toBe('current')
+    const ahead = [block('later', '20:00', '20:30')]
+    expect(nextUpFor({ ...base, blocks: ahead, eveningReviewDue: true }).kind).toBe('next')
+  })
+})
+
 describe('plannedTaskProgress', () => {
   it('counts each linked task once and skips blocks without one', () => {
     expect(
