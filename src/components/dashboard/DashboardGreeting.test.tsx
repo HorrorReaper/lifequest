@@ -1,5 +1,5 @@
-import { act, cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultAvatarState } from '@/lib/avatar'
 
 const theme = vi.hoisted(() => ({ current: 'dark' }))
@@ -15,15 +15,34 @@ vi.mock('@/components/providers/theme-provider', () => ({
   useTheme: () => ({ theme: theme.current, setTheme: () => {} }),
 }))
 
-import { DashboardGreeting, greetingFor, STAGE_STEP_MS } from './DashboardGreeting'
+import {
+  DashboardGreeting,
+  greetingFor,
+  HERO_PAUSE_KEY,
+  STAGE_STEP_MS,
+} from './DashboardGreeting'
 
 const bare = getDefaultAvatarState().equippedItems
+
+// This test environment has no working localStorage of its own.
+const stored = new Map<string, string>()
+const storage = {
+  getItem: (key: string) => stored.get(key) ?? null,
+  setItem: (key: string, value: string) => void stored.set(key, value),
+  removeItem: (key: string) => void stored.delete(key),
+  clear: () => stored.clear(),
+}
+beforeEach(() => {
+  vi.stubGlobal('localStorage', storage)
+})
 
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
   theme.current = 'dark'
   motionPreference.reduce = false
+  stored.clear()
+  vi.unstubAllGlobals()
 })
 
 describe('DashboardGreeting', () => {
@@ -77,6 +96,24 @@ describe('DashboardGreeting', () => {
     // And no further than the day has earned.
     act(() => vi.advanceTimersByTime(STAGE_STEP_MS * 5))
     expect(scene().getAttribute('data-stage')).toBe('2')
+  })
+
+  it('keeps walking until paused, and remembers the pause', () => {
+    const { unmount } = render(<DashboardGreeting username="Patrick" equippedItems={bare} />)
+    const hero = () => document.querySelector('[data-hero-paused]') as HTMLElement
+    expect(hero().getAttribute('data-hero-paused')).toBe('false')
+    expect(document.querySelector('.hero-stride')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause the scene' }))
+    expect(hero().getAttribute('data-hero-paused')).toBe('true')
+    expect(stored.get(HERO_PAUSE_KEY)).toBe('true')
+    unmount()
+
+    // Next visit: still paused, and the button offers to play.
+    render(<DashboardGreeting username="Patrick" equippedItems={bare} />)
+    expect(hero().getAttribute('data-hero-paused')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Play the scene' }))
+    expect(hero().getAttribute('data-hero-paused')).toBe('false')
   })
 
   it('shows the finished scene at once for anyone who asked for less motion', () => {

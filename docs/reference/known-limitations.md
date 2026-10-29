@@ -120,6 +120,7 @@ These are intentional current boundaries:
 - Onboarding duplicate protection for the first task lives in `sessionStorage`: within one tab it survives back navigation and reloads; starting onboarding again in a second tab or browser before finishing can create a second task.
 - A habit or reflection kept flexible reserves no time, so a long one can make the capacity line look roomier than the day is; "Reserve a time block" in "Add to your day" is the way to count it.
 - The dashboard's plan section shows time blocks only. Habits and reflections kept flexible for today are listed on the planner ("Also today") and on the review step; on the dashboard only the next-up card picks up the reflections, once habits are done. They stay on their normal habit and journal pages either way.
+- The dashboard hero moves for as long as the page is open (paused when scrolled out of view, or for good with its pause button). It is cheap CSS, but it is continuous motion on the main page; reduced motion turns it off.
 - The next-up card shows no journal streak and only counts reflections chosen in today's plan; a reflection the user writes without planning it does not appear there.
 - Changing the day hours never moves or deletes blocks. Blocks left outside are marked and counted apart ("outside your day hours"); they do not block saving, so a plan can be saved with them.
 - "Add to your day" offers the training block only to admins with workouts, like the anchor step did before it.

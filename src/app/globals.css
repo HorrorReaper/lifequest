@@ -765,3 +765,41 @@
     animation: none;
   }
 }
+
+/* ── Dashboard hero scene (src/components/dashboard/DashboardHeroScene.tsx) ──
+   The landscape drifts past the walking avatar for as long as the dashboard
+   is open. Each scrolling layer holds two copies of a 480-unit tile and moves
+   by exactly one tile, so the loop has no seam. On an SVG element a px value
+   is a user unit. Everything here stops when the scene is paused (the pause
+   button, or the hero scrolled out of view) and is dropped entirely under
+   prefers-reduced-motion. */
+
+@keyframes hero-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-480px); }
+}
+
+@keyframes hero-stride {
+  0%, 50%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-4px) rotate(-3deg); }
+  75% { transform: translateY(-4px) rotate(3deg); }
+}
+
+.hero-scroll-far  { animation: hero-scroll 90s linear infinite; }
+.hero-scroll-near { animation: hero-scroll 45s linear infinite; }
+.hero-stride {
+  transform-origin: 50% 100%;
+  animation: hero-stride 1.4s ease-in-out infinite;
+}
+
+[data-hero-paused="true"] :is(.hero-scroll-far, .hero-scroll-near, .hero-stride) {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-scroll-far,
+  .hero-scroll-near,
+  .hero-stride {
+    animation: none;
+  }
+}

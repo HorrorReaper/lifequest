@@ -1,10 +1,12 @@
 'use client'
 
 import { Fraunces } from 'next/font/google'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Pause, Play } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useTheme } from '@/components/providers/theme-provider'
 import { AvatarFigure } from '@/components/profile/AvatarFigure'
+import { Button } from '@/components/ui/button'
 import { DashboardHeroScene } from '@/components/dashboard/DashboardHeroScene'
 import type { AvatarSlot } from '@/lib/avatar'
 import type { DayProgress, DayStage } from '@/lib/day-progress'
@@ -49,9 +51,41 @@ export const WALK_SECONDS = 1.6
 /** How far apart the scene's stages arrive while it walks, in milliseconds. */
 export const STAGE_STEP_MS = 600
 
-/** Four strides: a bob up and a slight lean each, ending upright. */
-const STRIDE_Y = [0, -5, 0, -5, 0, -5, 0, -5, 0]
-const STRIDE_ROTATE = [0, -4, 0, 4, 0, -4, 0, 4, 0]
+/** Where the viewer's choice to pause the scene is remembered, per browser. */
+export const HERO_PAUSE_KEY = 'lifequest:hero-scene-paused'
+const PAUSE_EVENT = 'lifequest-hero-pause'
+
+/**
+ * Whether the viewer paused the scene, read from localStorage. A store
+ * rather than state, so the server render (never paused) and the browser's
+ * remembered choice do not disagree during hydration.
+ */
+const pausePreference = {
+  subscribe(onChange: () => void) {
+    window.addEventListener('storage', onChange)
+    window.addEventListener(PAUSE_EVENT, onChange)
+    return () => {
+      window.removeEventListener('storage', onChange)
+      window.removeEventListener(PAUSE_EVENT, onChange)
+    }
+  },
+  get(): boolean {
+    try {
+      return window.localStorage.getItem(HERO_PAUSE_KEY) === 'true'
+    } catch {
+      return false
+    }
+  },
+  set(paused: boolean) {
+    try {
+      window.localStorage.setItem(HERO_PAUSE_KEY, String(paused))
+    } catch {
+      // A private window may refuse storage; the button still works for
+      // this page, it just is not remembered.
+    }
+    window.dispatchEvent(new Event(PAUSE_EVENT))
+  },
+}
 
 /**
  * The top of the dashboard: a welcome over a small landscape the avatar
@@ -63,10 +97,13 @@ const STRIDE_ROTATE = [0, -4, 0, 4, 0, -4, 0, 4, 0]
  * Kept short on purpose (160px on a phone): the greeting is orientation, and
  * the next step below it is the part of the page that asks for attention.
  *
- * On load the avatar walks in from the left, bobbing with each stride, and
- * the world grows stage by stage up to today's while it walks -- about a
- * second and a half, then everything holds still. Anyone who asked for less
- * motion gets the finished scene straight away.
+ * On load the avatar walks in from the left and the world grows stage by
+ * stage up to today's while it walks. After that it keeps walking slowly on
+ * the spot while the landscape drifts past, for as long as the page is open.
+ * The movement stops while the hero is scrolled out of view, and a button in
+ * the corner pauses it for good (remembered per browser) -- moving content
+ * beside other content needs a way to stop it. Anyone who asked for less
+ * motion gets the finished scene, standing still, straight away.
  */
 export function DashboardGreeting({
   username,
@@ -100,8 +137,26 @@ export function DashboardGreeting({
 
   const shownStage = reduceMotion ? stage : (Math.min(reached, stage) as DayStage)
 
+  const pausedByViewer = useSyncExternalStore(
+    pausePreference.subscribe,
+    pausePreference.get,
+    () => false
+  )
+  // No point moving a landscape nobody can see.
+  const heroRef = useRef<HTMLElement | null>(null)
+  const [inView, setInView] = useState(true)
+  useEffect(() => {
+    const node = heroRef.current
+    if (!node || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting))
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <motion.section
+      ref={heroRef}
+      data-hero-paused={pausedByViewer || !inView ? 'true' : 'false'}
       aria-labelledby="dashboard-greeting"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -131,8 +186,9 @@ export function DashboardGreeting({
         )}
       </div>
 
-      {/* Ends standing on the path, right of the words so it never sits on
-          them. The outer layer walks it in; the inner one is the stride. */}
+      {/* Ends on the path, right of the words so it never sits on them. The
+          outer layer walks it in once; the inner one is the stride, a CSS
+          loop that keeps going (`.hero-stride` in globals.css). */}
       <motion.div
         data-slot="hero-walker"
         className="absolute bottom-1 z-10"
@@ -140,17 +196,22 @@ export function DashboardGreeting({
         animate={{ left: '58%' }}
         transition={{ duration: WALK_SECONDS, ease: 'easeOut' }}
       >
-        {/* No `initial={false}` here: it makes keyframes jump straight to
-            their last value, which is the standing pose -- the stride would
-            never play. The keyframes start from rest, so nothing jumps. */}
-        <motion.div
-          animate={reduceMotion ? undefined : { y: STRIDE_Y, rotate: STRIDE_ROTATE }}
-          transition={{ duration: WALK_SECONDS, ease: 'linear' }}
-          style={{ transformOrigin: '50% 100%' }}
-        >
+        <div className="hero-stride">
           <AvatarFigure equippedItems={equippedItems} className="h-24 w-auto sm:h-28" />
-        </motion.div>
+        </div>
       </motion.div>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-pressed={pausedByViewer}
+        aria-label={pausedByViewer ? 'Play the scene' : 'Pause the scene'}
+        onClick={() => pausePreference.set(!pausedByViewer)}
+        className="absolute top-1 right-1 z-20 text-foreground/60 hover:text-foreground motion-reduce:hidden"
+      >
+        {pausedByViewer ? <Play className="size-4" /> : <Pause className="size-4" />}
+      </Button>
     </motion.section>
   )
 }
