@@ -32,7 +32,13 @@ import {
 } from "@/lib/today-plan";
 import { cn } from "@/lib/utils";
 
-export type AddKind = "task" | "habit" | "reflection" | "break" | "training";
+export type AddKind =
+  | "task"
+  | "habit"
+  | "reflection"
+  | "break"
+  | "general"
+  | "training";
 
 /** How the dialog opens: what it starts on and what it has filled in. */
 export interface AddRequest {
@@ -62,6 +68,8 @@ export type AddEntry =
       endTime: string;
     }
   | { kind: "break"; title: string; startTime: string; endTime: string }
+  /** A plain block: only a title and a time, linked to nothing. */
+  | { kind: "general"; title: string; startTime: string; endTime: string }
   | {
       kind: "anchor";
       anchor: TodayPlanAnchor;
@@ -98,6 +106,7 @@ const DEFAULT_MINUTES: Record<AddKind, number> = {
   habit: 15,
   reflection: 10,
   break: 15,
+  general: 60,
   training: 75,
 };
 
@@ -108,13 +117,14 @@ const KIND_LABELS: Record<AddKind, string> = {
   habit: "Habit",
   reflection: "Reflection",
   break: "Break",
+  general: "General",
   training: "Training",
 };
 
 /**
  * One way in for everything the day can hold: "Add to your day".
  *
- * Tasks, breaks and training become time blocks. Habits and reflections ask
+ * Tasks, breaks, general blocks and training become time blocks. Habits and reflections ask
  * first whether to reserve a time block or keep them flexible for today.
  * Planning is not doing: nothing here marks a habit done, and a done habit
  * is hidden until "Show completed" asks for it. Everything chosen keeps its
@@ -170,6 +180,7 @@ function AddForm({
   );
   const [mode, setMode] = useState<PlanMode>(request.mode ?? "block");
   const [breakTitle, setBreakTitle] = useState("Break");
+  const [generalTitle, setGeneralTitle] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const submitted = useRef(false);
@@ -270,6 +281,8 @@ function AddForm({
           ? "Choose a reflection."
           : kind === "break" && !breakTitle.trim()
             ? "Give the break a name."
+            : kind === "general" && !generalTitle.trim()
+              ? "Give the block a title."
             : null;
 
   function submit() {
@@ -284,6 +297,8 @@ function AddForm({
       entry = { kind: "task", task, title: taskTitle, startTime, endTime };
     } else if (kind === "break" && breakTitle.trim()) {
       entry = { kind: "break", title: breakTitle.trim(), startTime, endTime };
+    } else if (kind === "general" && generalTitle.trim()) {
+      entry = { kind: "general", title: generalTitle.trim(), startTime, endTime };
     } else if (anchor) {
       entry =
         asks && mode === "flexible"
@@ -306,8 +321,8 @@ function AddForm({
   const offeredTasks = tasks.filter((item) => !plannedTaskIds.has(item.id));
 
   const kinds: AddKind[] = trainingAnchor
-    ? ["task", "habit", "reflection", "break", "training"]
-    : ["task", "habit", "reflection", "break"];
+    ? ["task", "habit", "reflection", "break", "general", "training"]
+    : ["task", "habit", "reflection", "break", "general"];
 
   return (
     <form
@@ -409,6 +424,28 @@ function AddForm({
             onChange={(event) => setBreakTitle(event.target.value)}
             className="h-11 rounded-xl text-base sm:h-11 md:text-base"
           />
+        </div>
+      )}
+
+      {/* A block for anything that is not a task, habit or reflection --
+          lunch, a call, a commute. Nothing is created or linked. */}
+      {kind === "general" && (
+        <div className="space-y-1.5">
+          <label htmlFor="add-general-title" className="block text-sm font-medium">
+            Title
+          </label>
+          <Input
+            id="add-general-title"
+            value={generalTitle}
+            maxLength={160}
+            placeholder="For example: Lunch with Sam"
+            onChange={(event) => setGeneralTitle(event.target.value)}
+            className="h-11 rounded-xl text-base sm:h-11 md:text-base"
+          />
+          <p className="text-sm text-muted-foreground">
+            Only a time block in today&apos;s plan. It does not become a task or
+            habit.
+          </p>
         </div>
       )}
 

@@ -47,7 +47,7 @@ Going back from the timeline and changing a priority updates its block: `buildTo
 From top to bottom, in one column of at most 48rem (no side panels):
 
 1. **Day hours line** (`src/components/planning/DayFrameBar.tsx`): "Your day · 08:00–18:00", under it "Day-end reminder · 18:00 · No time block" (or "No day-end reminder"), and "Edit day hours". The button opens `DayHoursDialog.tsx` with "Day starts", "Day ends", a "Day-end reminder" switch ("Optional. A marker on the timeline; it reserves no time.") and "Reminder at". Problems are stated under their field ("Your day has to end after it starts.", "The reminder has to come after your day starts.", "Choose a time for the reminder, or turn it off.") and Apply stays disabled until they are fixed. Cancel and Escape change nothing. When the new hours would leave blocks outside, the dialog lists them ("1 block falls outside these hours.", title and times) and says they stay where they are. Applying never moves or deletes a block.
-2. **"Add to your day"**, the step's main action, with "Tasks, habits, reflections and breaks." beside it.
+2. **"Add to your day"**, the step's main action, with "Tasks, habits, reflections, breaks or anything else." beside it.
 3. A conflict banner when blocks overlap: "Two blocks want the same minutes." with "Space them out" (`resolveOverlaps`).
 4. **The timeline** (`src/components/planning/PlanTimeline.tsx`), described below, with a line on how to drag under it.
 5. **Capacity line** (`PlanCapacityLine.tsx`), e.g. "2h 15m scheduled · 7h 45m unplanned". See [Capacity](#capacity).
@@ -69,11 +69,12 @@ Tapping a block, or Enter/Space on it, opens `BlockEditorDialog.tsx` ("Edit bloc
 
 #### Add to your day
 
-`src/components/planning/AddToDayDialog.tsx`, opened by "Add to your day", by tapping free time, and from "Also today". "What to add" is a row of choices: Task, Habit, Reflection, Break, and for admins with workouts Training.
+`src/components/planning/AddToDayDialog.tsx`, opened by "Add to your day", by tapping free time, and from "Also today". "What to add" is a row of choices: Task, Habit, Reflection, Break, General, and for admins with workouts Training.
 
 - **Task**: the inline `TaskCombobox` (search, "Create task “…”", "Plan “…” without a task"). Tasks already on the timeline are not offered. The chosen task shows its due date with "its due date stays as it is"; the planned time is stored in the block only.
 - **Habit** and **Reflection**: a list of the user's habits or journal templates. Habits and reflections already done today are hidden; "Show completed (N)" shows them, marked "Done today". Each row says its suggested length and, when already planned, "In today's plan · 10:00–10:15" or "In today's plan · no time reserved". Reflections say "Built-in template" or "Your template", and templates with the same name keep the "(standard)" / "(your copy)" names from `journalAnchorTitles`. Then "Planning": **"Reserve a time block"** (start and length) or **"Keep flexible"** ("On today's list, no time reserved.").
 - **Break**: a name ("Break" by default) and a time block.
+- **General**: a "Title" (required: "Give the block a title.") and a time block, for anything that is neither a task nor a habit, such as lunch or a call. It is saved as a plain block (`category: "other"`, `source_type: "manual"`, no `source_id`, no mission) and creates no task, habit or anchor; "Plan “…” without a task" under Task does the same from the search field.
 - **Training**: always a time block.
 
 Time blocks take "Starts" and "Length" (5 minutes to 4 hours). The field states problems ("Enter a start time.", "This would run past midnight. …"), a collision ("Overlaps “Side quest” (09:15–10:00).") with a button to "Start at 10:00 instead" (`firstFreeStart`), or that the time is outside the day hours; otherwise "Ends at 10:45". Without a choice, confirming says "Choose a task, or type a title." (or "Choose a habit." / "Choose a reflection."). The confirm button reads "Add to your day", or "Update today's plan" for a habit or reflection already in the plan.
