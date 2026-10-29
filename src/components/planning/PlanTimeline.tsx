@@ -82,22 +82,26 @@ interface DragState extends DragOrigin {
   originEnd: number;
 }
 
-// The hue a block shares with the dashboard's plan section, kept to a thin
-// edge. The main focus is the one block with a tinted fill.
+// The hue a block shares with the dashboard's plan section, as its left edge
+// and a light fill of the same hue. A card-coloured fill disappeared: in the
+// default and dark themes the card colour is the page colour. The tint is
+// mixed into the card colour rather than laid over it with transparency, so
+// the hour lines behind a block do not show through. The main focus gets the
+// strongest fill.
 const MISSION_ACCENT: Record<DayPlanMissionType, string> = {
-  main_quest: "border-l-primary bg-primary/10",
-  side_quest: "border-l-purple-500 bg-card",
-  anchor: "border-l-blue-500 bg-card",
-  recovery: "border-l-green-500 bg-card",
+  main_quest: "border-l-primary bg-[color-mix(in_oklab,var(--primary)_15%,var(--card))]",
+  side_quest: "border-l-purple-500 bg-[color-mix(in_oklab,var(--color-purple-500)_10%,var(--card))]",
+  anchor: "border-l-blue-500 bg-[color-mix(in_oklab,var(--color-blue-500)_10%,var(--card))]",
+  recovery: "border-l-green-500 bg-[color-mix(in_oklab,var(--color-green-500)_10%,var(--card))]",
 };
 
 const CATEGORY_ACCENT: Record<string, string> = {
-  deep_work: "border-l-purple-500 bg-card",
-  meeting: "border-l-blue-500 bg-card",
-  break: "border-l-yellow-500 bg-card",
-  personal: "border-l-green-500 bg-card",
-  exercise: "border-l-red-500 bg-card",
-  other: "border-l-muted-foreground/40 bg-card",
+  deep_work: "border-l-purple-500 bg-[color-mix(in_oklab,var(--color-purple-500)_10%,var(--card))]",
+  meeting: "border-l-blue-500 bg-[color-mix(in_oklab,var(--color-blue-500)_10%,var(--card))]",
+  break: "border-l-yellow-500 bg-[color-mix(in_oklab,var(--color-yellow-500)_12%,var(--card))]",
+  personal: "border-l-green-500 bg-[color-mix(in_oklab,var(--color-green-500)_10%,var(--card))]",
+  exercise: "border-l-red-500 bg-[color-mix(in_oklab,var(--color-red-500)_10%,var(--card))]",
+  other: "border-l-muted-foreground/50 bg-muted",
 };
 
 function accentFor(block: DayPlanBlock) {
@@ -389,7 +393,12 @@ export function PlanTimeline({
   const anyOpened = showFullDay || expanded.size > 0;
 
   return (
-    <div>
+    // The day gets a surface of its own -- the one card on the step -- so
+    // it reads as the thing to work on rather than as more page.
+    <div
+      data-slot="plan-timeline"
+      className="rounded-2xl border bg-card p-3 shadow-sm sm:p-4 dark:bg-muted/50"
+    >
       <div className="mb-2 flex min-h-11 items-center justify-between gap-3">
         <p aria-live="polite" className="min-w-0 text-sm text-muted-foreground">
           {dragNote}
@@ -547,7 +556,7 @@ export function PlanTimeline({
                           TIMELINE_PX_PER_MINUTE,
                       }}
                     >
-                      <span className="flex items-center gap-1.5 rounded-full border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      <span className="flex items-center gap-1.5 rounded-full border bg-card px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         <Plus className="size-3" />
                         {minutesToTime(shown.startMinutes)}&ndash;
                         {minutesToTime(shown.endMinutes)}
@@ -568,7 +577,7 @@ export function PlanTimeline({
                 className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-dashed border-primary/60"
                 style={{ top: offsetOf(shutdownMinutes) }}
               >
-                <span className="absolute right-0 -translate-y-1/2 rounded-full bg-background px-2 text-xs font-medium text-primary">
+                <span className="absolute right-0 -translate-y-1/2 rounded-full bg-card px-2 text-xs font-medium text-primary">
                   Day-end reminder · {minutesToTime(shutdownMinutes)}
                 </span>
               </div>
@@ -639,7 +648,8 @@ export function PlanTimeline({
                     : "cursor-grab hover:shadow-sm",
                   selected && "ring-2 ring-ring",
                   outside && "border-dashed",
-                  (invalid || overlapping) && "border-destructive/60 bg-destructive/10"
+                  (invalid || overlapping) &&
+                    "border-destructive/60 bg-[color-mix(in_oklab,var(--destructive)_12%,var(--card))]"
                 )}
                 style={{
                   top: offsetOf(start),
