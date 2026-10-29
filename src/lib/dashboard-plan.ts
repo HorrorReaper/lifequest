@@ -19,6 +19,21 @@ export interface PlanStatusBlock {
   taskId?: string | null
   /** Whether that task is completed. Undefined for a block with no task. */
   taskCompleted?: boolean
+  /** The linked task's due date, "YYYY-MM-DD"; null when it has none. */
+  taskDueDate?: string | null
+  /** What the block was planned from, so the card can offer the right action. */
+  source?: 'task' | 'habit' | 'journal' | 'other'
+  /** The journal template a reflection block was reserved for. */
+  templateId?: string | null
+  /** "Main focus", "Second task" or "Recharge" for a priority's block. */
+  priorityLabel?: string | null
+}
+
+/** A reflection chosen for today in the planner, and whether it is written. */
+export interface PlannedReflection {
+  templateId: string
+  title: string
+  written: boolean
 }
 
 export function minutesFromTime(time: string): number {
@@ -66,32 +81,77 @@ export function openTasksBehind<T extends PlanStatusBlock>(past: readonly T[]): 
 export type NextUp<T extends PlanStatusBlock = PlanStatusBlock> =
   | { kind: 'first-task' }
   | { kind: 'plan-day' }
-  | { kind: 'current'; block: T; minutesLeft: number }
+  | { kind: 'tasks-due'; dueToday: number; overdue: number }
+  | { kind: 'current'; block: T; minutesLeft: number; durationMinutes: number }
   | { kind: 'next'; block: T; minutesUntil: number }
-  | { kind: 'open-after-plan'; block: T; moreOpen: number }
+  | {
+      kind: 'open-after-plan'
+      block: T
+      moreOpen: number
+      /** Distinct tasks planned into today's blocks, and how many are done. */
+      plannedTasks: number
+      plannedDone: number
+    }
   | { kind: 'plan-finished'; openHabits: number }
+  | {
+      kind: 'journal-open'
+      reflection: PlannedReflection
+      planned: number
+      written: number
+    }
+  | { kind: 'journal-done'; written: number }
+
+/** Linked tasks planned into the day, counted once each, and how many are done. */
+export function plannedTaskProgress(blocks: readonly PlanStatusBlock[]): {
+  planned: number
+  done: number
+} {
+  const status = new Map<string, boolean>()
+  for (const block of blocks) {
+    if (!block.taskId || block.taskCompleted === undefined) continue
+    status.set(block.taskId, block.taskCompleted)
+  }
+  return {
+    planned: status.size,
+    done: Array.from(status.values()).filter(Boolean).length,
+  }
+}
 
 /**
  * The one thing the top of the dashboard points at.
  *
  * In order: the block running now, the next one ahead, a linked task the
- * day's blocks left open, and otherwise what is left of the day. Without a
- * plan it asks for one -- or, on an account with no tasks at all, for the
- * first task, since there is nothing to plan yet.
+ * day's blocks left open, open habits, and then the reflections chosen for
+ * today -- the first one still unwritten, or that all are written. Without a
+ * plan it asks for one, naming how many tasks are due today when there are
+ * any -- or, on an account with no tasks at all, for the first task, since
+ * there is nothing to plan yet.
  */
 export function nextUpFor<T extends PlanStatusBlock>({
   blocks,
   nowMinutes,
   openTaskCount,
   openHabits,
+  dueTodayCount = 0,
+  overdueCount = 0,
+  reflections = [],
 }: {
   blocks: readonly T[]
   nowMinutes: number
   openTaskCount: number
   openHabits: number
+  /** Open tasks due today or earlier (overdue ones included). */
+  dueTodayCount?: number
+  /** The part of dueTodayCount that is past its due date. */
+  overdueCount?: number
+  /** Reflections chosen for today in the planner. */
+  reflections?: readonly PlannedReflection[]
 }): NextUp<T> {
   if (blocks.length === 0) {
-    return openTaskCount === 0 ? { kind: 'first-task' } : { kind: 'plan-day' }
+    if (openTaskCount === 0) return { kind: 'first-task' }
+    return dueTodayCount > 0
+      ? { kind: 'tasks-due', dueToday: dueTodayCount, overdue: overdueCount }
+      : { kind: 'plan-day' }
   }
 
   const { past, current, upcoming } = splitPlanByTime(blocks, nowMinutes)
@@ -100,6 +160,8 @@ export function nextUpFor<T extends PlanStatusBlock>({
       kind: 'current',
       block: current,
       minutesLeft: minutesFromTime(current.endTime) - nowMinutes,
+      durationMinutes:
+        minutesFromTime(current.endTime) - minutesFromTime(current.startTime),
     }
   }
   if (upcoming[0]) {
@@ -112,9 +174,43 @@ export function nextUpFor<T extends PlanStatusBlock>({
 
   const open = openTasksBehind(past)
   if (open[0]) {
-    return { kind: 'open-after-plan', block: open[0], moreOpen: open.length - 1 }
+    const progress = plannedTaskProgress(blocks)
+    return {
+      kind: 'open-after-plan',
+      block: open[0],
+      moreOpen: open.length - 1,
+      plannedTasks: progress.planned,
+      plannedDone: progress.done,
+    }
   }
-  return { kind: 'plan-finished', openHabits }
+  if (openHabits > 0) return { kind: 'plan-finished', openHabits }
+
+  const written = reflections.filter((reflection) => reflection.written).length
+  const unwritten = reflections.find((reflection) => !reflection.written)
+  if (unwritten) {
+    return {
+      kind: 'journal-open',
+      reflection: unwritten,
+      planned: reflections.length,
+      written,
+    }
+  }
+  if (written > 0) return { kind: 'journal-done', written }
+  return { kind: 'plan-finished', openHabits: 0 }
+}
+
+/**
+ * A duration split for a large figure and its unit: 45 → "45" "min",
+ * 80 → "1 h 20" "min", 120 → "2" "h".
+ */
+export function durationFigure(minutes: number): { value: string; unit: string } {
+  const safe = Math.max(0, Math.round(minutes))
+  if (safe < 60) return { value: String(safe), unit: 'min' }
+  const hours = Math.floor(safe / 60)
+  const rest = safe % 60
+  return rest === 0
+    ? { value: String(hours), unit: 'h' }
+    : { value: `${hours} h ${rest}`, unit: 'min' }
 }
 
 /** "in 5 min", "in 1 h 20 min" -- how far away a time is, for a heading. */

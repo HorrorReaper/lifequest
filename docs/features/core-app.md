@@ -44,16 +44,27 @@ The dashboard is ordered by the day's work (`src/app/(app)/dashboard/page.tsx`):
 
 The top is `DashboardGreeting` (`src/components/dashboard/DashboardGreeting.tsx`): a small avatar head (48px, 56px from `sm`), "Welcome back, <name>" and today's date in the profile timezone. Under the Trail theme the heading uses the scoped Fraunces font and ends in a full stop; the other themes keep the wave emoji. There is no hero card any more.
 
-`NextUpCard` (`src/components/dashboard/NextUpCard.tsx`) follows with one concrete next step, chosen by `nextUpFor` in `src/lib/dashboard-plan.ts`:
+`NextUpCard` (`src/components/dashboard/NextUpCard.tsx`) follows with one concrete next step, chosen by `nextUpFor` in `src/lib/dashboard-plan.ts`. It has two layouts:
 
-| State | Shows | Action |
-| --- | --- | --- |
-| No plan, no open tasks | "Add your first task" | `/tasks?new=1` |
-| No plan | "Plan your day" | `/plan` |
-| A block is running | "Now · until HH:mm", its title, minutes left | "Mark task done" when it has an open linked task, "Edit plan" |
-| A block is ahead | "Next at HH:mm · in N min" | as above |
-| Every block is over, a linked task still open | "No more time blocks today", that task | "Mark task done", "Replan" |
-| Every block is over, nothing open | "No more time blocks today", open habits or a reflection hint | "Go to habits" (`#habits`) or "Edit plan" |
+- **Time first** (a block running now or coming up): the eyebrow ("Now · until 11:00", "Next at 20:30"), the time as a large figure ("45 min left", "40 min to go", split by `durationFigure`), a small ring of how much of a running block has passed or an icon for one that is ahead, the block's title, a line with its priority ("Main focus", "Second task", "Recharge"), the linked task's due date, "Reflection" or "Habit", and its times, then one action that spans the card on a phone. A block that is ahead offers its action as an outline button.
+- **Ring first** (anything counted, or no plan): a ring with "done/total" (`src/components/ui/progress-ring.tsx`), or an icon, beside the eyebrow and title, chips under it, then the actions. The count is also given as text for screen readers.
+
+Reflections use blue (eyebrow, ring, icon and filled button) so they are not mistaken for a task; everything else uses the theme's primary colour. Due-date and overdue chips are amber.
+
+| State | Layout | Shows | Action |
+| --- | --- | --- | --- |
+| No plan, no open tasks | Ring first, plus icon | "Add your first task" | "Add task" (`/tasks?new=1`) |
+| No plan, tasks due today or overdue | Ring first, list icon | "Next up · nothing planned yet", "N tasks due today", chips "N overdue" and the first due task | "Plan my day" (`/plan`) |
+| No plan, nothing due | Ring first, calendar icon | "Plan your day" | "Plan my day" |
+| A block is running | Time first | minutes left | an open linked task: "Mark task done"; a reflection: "Write now" (`/journal/new/<template>`); a habit: "Check in" (`#habits`); each with "Edit plan" beside it. Any other block: "Edit plan" |
+| A block is ahead | Time first, outline action | minutes to go | an open linked task: "Mark task done"; a reflection: "Start early"; with "Edit plan". Otherwise "Edit plan" |
+| Every block is over, a linked task still open | Ring first: planned tasks done/total | "Planned today, still open", that task, its due date, "+N more open" | "Mark task done", "Replan" |
+| Every block is over, habits open | Ring first: habits done/total | "No more time blocks today", "N habits still open", the first two open habits, "+N more" | "Check in" (`#habits`) |
+| Habits done, a reflection chosen for today is unwritten | Ring first, blue: reflections written/chosen | "Reflection still open", its title, "+N more to write" | "Write now" (`/journal/new/<template>`) |
+| Every chosen reflection is written | Ring first, check icon | "Journal done for today", "Your reflection is written" or "N of N reflections written" | "Open journal" (`/journal`, outline) |
+| Every block is over, nothing open | Ring first, check icon | "Your planned blocks are behind you" | "Edit plan" |
+
+The dashboard page feeds the card: each block's kind (`source`), the reflection template it was reserved for, the linked task's due date and the priority name (`PRIORITY_LABELS` in `src/lib/today-plan.ts`); today's habits with their done state; the reflections chosen for today in the planner (journal anchors in the plan metadata, flexible or with a block) with whether today has a completed entry for each template; and the number of open tasks due by today and overdue, counted with their own queries because the dashboard's task list stops at 16.
 
 Clock time and completion are separate: a block whose time has passed is never called done. "Mark task done" uses `completeTaskWithReward` (`src/lib/tasks.ts`), the same XP path as the task list.
 

@@ -42,7 +42,8 @@ import { fetchGoals } from '@/lib/goals'
 import { showAdminUi } from '@/lib/admin'
 import { fetchDashboardLearnings } from '@/lib/dashboard-learnings'
 import { AdminLearningWidget } from '@/components/dashboard/AdminLearningWidget'
-import { parseTodayPlanNotes } from '@/lib/today-plan'
+import { parseTodayPlanNotes, PRIORITY_LABELS } from '@/lib/today-plan'
+import type { PlannedReflection } from '@/lib/dashboard-plan'
 import { FirstRunWelcome } from '@/components/dashboard/FirstRunWelcome'
 import { DailyPlanPrompt } from '@/components/dashboard/DailyPlanPrompt'
 import { EveningReviewPrompt } from '@/components/dashboard/EveningReviewPrompt'
@@ -430,12 +431,38 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       ? (((
           await supabase
             .from('tasks')
-            .select('id, is_completed')
+            .select('id, is_completed, due_date')
             .eq('user_id', user.id)
             .in('id', planTaskIds)
-        ).data ?? []) as { id: string; is_completed: boolean }[])
+        ).data ?? []) as { id: string; is_completed: boolean; due_date: string | null }[])
       : []
   const planTaskDone = new Map(planTaskRows.map((row) => [row.id, row.is_completed]))
+  const planTaskDue = new Map(planTaskRows.map((row) => [row.id, row.due_date]))
+  // Counted on their own: the task list above stops at a display limit, and
+  // "16 tasks due today" must not be a quiet cap on a longer list.
+  const openTaskBase = () =>
+    supabase
+      .from('tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .is('parent_task_id', null)
+      .neq('status', 'cancelled')
+      .eq('is_completed', false)
+  const [dueTodayRes, overdueRes] = await Promise.all([
+    openTaskBase().lte('due_date', today),
+    openTaskBase().lt('due_date', today),
+  ])
+  const dueTodayCount = dueTodayRes.count ?? 0
+  const overdueCount = overdueRes.count ?? 0
+  // The reflections chosen for today in the planner, kept flexible or given
+  // a block, and whether each is written yet.
+  const plannedReflections: PlannedReflection[] = (planMetadata?.anchors ?? [])
+    .filter((anchor) => anchor.source_type === 'journal' && anchor.source_id)
+    .map((anchor) => ({
+      templateId: anchor.source_id as string,
+      title: anchor.title,
+      written: completedTemplateIds.has(anchor.source_id as string),
+    }))
   const planBlocks = ((dayPlan?.blocks ?? [])
     .slice()
     .sort((a, b) => a.start_time.localeCompare(b.start_time))
@@ -452,6 +479,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         isCurrent: start <= nowMinutes && end > nowMinutes,
         isPast: end <= nowMinutes,
         taskId: block.source_type === 'task' ? block.source_id ?? null : null,
+        taskDueDate:
+          block.source_type === 'task' && block.source_id
+            ? planTaskDue.get(block.source_id) ?? null
+            : null,
+        source:
+          block.source_type === 'task' ||
+          block.source_type === 'habit' ||
+          block.source_type === 'journal'
+            ? block.source_type
+            : ('other' as const),
+        templateId: block.source_type === 'journal' ? block.source_id ?? null : null,
+        priorityLabel: block.outcome_role ? PRIORITY_LABELS[block.outcome_role] : null,
         // A linked task that no longer exists (deleted) counts as no task.
         taskCompleted:
           block.source_type === 'task' && block.source_id && planTaskDone.has(block.source_id)
@@ -508,7 +547,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           blocks={planBlocks}
           nowMinutes={nowMinutes}
           openTaskCount={dueTasks.length + undatedTasks.length}
-          openHabits={briefingHabits.length - habitsCompletedToday}
+          dueTodayCount={dueTodayCount}
+          overdueCount={overdueCount}
+          firstDueTitle={dueTasks[0]?.title ?? null}
+          habits={briefingHabits}
+          reflections={plannedReflections}
+          today={today}
         />
         <DailyPlanPrompt
           today={today}
