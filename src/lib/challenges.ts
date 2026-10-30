@@ -2,6 +2,7 @@ import { daysBetween } from '@/lib/dates'
 import type { ChallengeProgram, ChallengeSyncState } from '@/lib/challenge-programs'
 import { isAutomaticRule } from '@/lib/challenge-rules'
 import type { ChallengeDayRow } from '@/lib/supabase/database.types'
+import type { ChallengeDayCelebration } from '@/lib/stores/user-store'
 
 // Derived state for the challenge surfaces (/challenges, the detail page and
 // the dashboard card), for shared and personal challenges alike.
@@ -132,3 +133,32 @@ export function sortChallengePrograms(programs: ChallengeProgram[]): ChallengePr
  * then refuses.
  */
 export const CHALLENGE_FALLBACK_TIMEZONE = 'Europe/Berlin'
+
+/**
+ * The days a sync just completed, as celebrations for ChallengeDayOverlay.
+ *
+ * `completed_now` is true only on the sync that completed the day, so a page
+ * that renders this on load celebrates a day once: the next load's sync finds
+ * it already done. Rows without a matching program are skipped.
+ */
+export function challengeCelebrationsFrom(
+  programs: readonly ChallengeProgram[],
+  sync: readonly ChallengeSyncState[]
+): ChallengeDayCelebration[] {
+  return sync.flatMap((row) => {
+    if (!row.completed_now) return []
+    const program = programs.find((item) => item.enrollment?.id === row.enrollment_id)
+    if (!program) return []
+    return [
+      {
+        enrollmentId: row.enrollment_id,
+        challengeTitle: program.template.title,
+        dayNumber: row.day_number,
+        totalDays: program.template.duration_days,
+        challengeCompleted: row.challenge_completed,
+        xpReward: program.template.xp_reward,
+        coinReward: program.template.coin_reward,
+      },
+    ]
+  })
+}

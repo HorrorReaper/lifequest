@@ -2,29 +2,47 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, NotebookPen, Settings, UserCircle2 } from 'lucide-react'
+import { Home, Library, NotebookPen } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useUserStore } from '@/lib/stores/user-store'
 import { createClient } from '@/lib/supabase/client'
 import { getLevel } from '@/lib/gamification'
+import type { AvatarSlot } from '@/lib/avatar'
+import { AvatarHead } from '@/components/profile/AvatarFigure'
 import { QuickActionButton } from '@/components/layout/quick-action-button'
 import { cn } from '@/lib/utils'
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string
+  label: string
+  /** Omitted for the avatar tab, which draws the player's own head instead. */
+  icon?: typeof Home
+  /** Other routes reached from this tab, which keep it highlighted. */
+  alsoActiveOn?: readonly string[]
+}
+
+const NAV_ITEMS: readonly NavItem[] = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/journal', label: 'Journal', icon: NotebookPen },
   // { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  { href: '/learn', label: 'Library', icon: Library },
   // City itself is retired as a reachable feature; this slot is its
   // replacement rather than a new one. See
   // docs/superpowers/specs/2026-08-30-avatar-nature-redesign-design.md.
-  { href: '/profile', label: 'Avatar', icon: UserCircle2 },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  // Settings has no tab of its own: it opens from the button on /profile.
+  { href: '/profile', label: 'Profile', alsoActiveOn: ['/settings'] },
 ]
 
 const LEFT_NAV_ITEMS = NAV_ITEMS.slice(0, 2)
 const RIGHT_NAV_ITEMS = NAV_ITEMS.slice(2)
 
-export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
+interface BottomNavProps {
+  isAdmin?: boolean
+  /** What the avatar tab's head is wearing. */
+  equippedItems: Record<AvatarSlot, string | null>
+}
+
+export function BottomNav({ isAdmin = false, equippedItems }: BottomNavProps) {
   const pathname = usePathname()
   const totalXp = useUserStore((s) => s.totalXp)
   const setProfile = useUserStore((s) => s.setProfile)
@@ -82,9 +100,10 @@ export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
     })()
   }, [notifyLevelUp, setCoins, setProfile])
 
-  function renderNavItem(item: (typeof NAV_ITEMS)[number]) {
-    const isActive =
-      pathname === item.href || pathname.startsWith(item.href + '/')
+  function renderNavItem(item: NavItem) {
+    const isActive = [item.href, ...(item.alsoActiveOn ?? [])].some(
+      (href) => pathname === href || pathname.startsWith(href + '/')
+    )
     const Icon = item.icon
 
     return (
@@ -98,7 +117,20 @@ export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
             : 'text-muted-foreground hover:text-foreground'
         )}
       >
-        <Icon className="size-5.5" />
+        {Icon ? (
+          <Icon className="size-5.5" />
+        ) : (
+          // A ring, not a colour change, marks the active tab: the head keeps
+          // its own colours, so text-primary would not reach it.
+          <span
+            className={cn(
+              'flex size-5.5 items-center justify-center overflow-hidden rounded-full bg-muted ring-2 transition-colors',
+              isActive ? 'ring-primary' : 'ring-transparent'
+            )}
+          >
+            <AvatarHead equippedItems={equippedItems} className="size-full" />
+          </span>
+        )}
         <span className="max-w-full truncate">{item.label}</span>
       </Link>
     )

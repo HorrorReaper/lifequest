@@ -290,7 +290,7 @@ export function SettingsForm({
             <div id="ai-assistant-status" className="text-xs leading-relaxed text-muted-foreground">
               {aiAssistantEnabled ? (
                 <p>
-                  Enabled{aiConsentAt ? ` since ${new Date(aiConsentAt).toLocaleDateString()}` : ''}. You can withdraw consent at any time; future AI requests will be blocked immediately.
+                  Enabled{aiConsentAt ? ` since ${new Date(aiConsentAt).toLocaleDateString('en-US')}` : ''}. You can withdraw consent at any time; future AI requests will be blocked immediately.
                 </p>
               ) : (
                 <p>Disabled. LifeQuest will not send your app context to the AI provider.</p>

@@ -1,10 +1,15 @@
 import { redirect } from 'next/navigation'
-import { Flame } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { HabitManager } from '@/components/habits/HabitManager'
 import { dateInTimezone } from '@/lib/dates'
 
-export default async function HabitsPage() {
+export default async function HabitsPage({
+  searchParams,
+}: {
+  /** `new=1` opens the create form straight away (the + menu's "Habit"). */
+  searchParams?: Promise<{ new?: string }>
+}) {
+  const params = searchParams ? await searchParams : {}
   const supabase = await createClient()
   const {
     data: { user },
@@ -23,19 +28,15 @@ export default async function HabitsPage() {
   return (
     <main className="min-h-svh bg-background p-4 pb-24 sm:p-8">
       <div className="mx-auto max-w-3xl space-y-6">
-        <header>
-          <div className="flex items-center gap-3">
-            <span className="flex size-11 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
-              <Flame className="size-5" />
-            </span>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Habits</h1>
-              <p className="text-sm text-muted-foreground">Build, track, edit, and organize your daily habits.</p>
-            </div>
-          </div>
-        </header>
-
-        <HabitManager userId={user.id} timezone={timezone} today={today} />
+        <HabitManager
+          // Remounts when ?new=1 arrives again, so the + menu opens the form
+          // even when you are already on this page.
+          key={params.new === '1' ? 'new' : 'list'}
+          userId={user.id}
+          timezone={timezone}
+          today={today}
+          initiallyOpen={params.new === '1'}
+        />
       </div>
     </main>
   )

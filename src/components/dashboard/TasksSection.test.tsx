@@ -13,6 +13,12 @@ vi.mock('@/lib/tasks', async () => {
     ...actual,
     toggleTask: (...a: unknown[]) => toggleTask(...a),
     awardTaskCompletionXp: (...a: unknown[]) => awardTaskCompletionXp(...a),
+    // The real helper calls toggleTask and awardTaskCompletionXp from inside
+    // the module, past these mocks; this stand-in keeps the same two steps.
+    completeTaskWithReward: async (supabase: unknown, userId: string, t: { id: string }) => {
+      await toggleTask(supabase, t.id, true)
+      return awardTaskCompletionXp(supabase, userId, t)
+    },
     createTask: (...a: unknown[]) => createTask(...a),
   }
 })
@@ -46,12 +52,11 @@ describe('TasksSection', () => {
         userId="user-1"
         dueTasks={[task(), task({ id: 'task-2', title: 'Call the bank' })]}
         undatedTasks={[]}
-        openTaskCount={2}
       />
     )
 
-    expect(screen.getByRole('button', { name: /write the report/i })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /call the bank/i })).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: /write the report/i })).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: /call the bank/i })).toBeTruthy()
   })
 
   it('separates overdue from due today in the header', () => {
@@ -60,20 +65,20 @@ describe('TasksSection', () => {
         userId="user-1"
         dueTasks={[task({ isOverdue: true, dueDate: '2026-08-20' }), task({ id: 'task-2' })]}
         undatedTasks={[]}
-        openTaskCount={2}
       />
     )
 
-    expect(screen.getByText(/1 overdue/)).toBeTruthy()
-    expect(screen.getByText(/1 today/)).toBeTruthy()
+    // The big number counts today's tasks only; overdue ones are a chip.
+    expect(screen.getByText('due today').parentElement?.textContent).toBe('1 due today')
+    expect(screen.getByText('1 overdue')).toBeTruthy()
   })
 
   it('completes a task through the idempotent XP helper', async () => {
     render(
-      <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} openTaskCount={1} />
+      <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /write the report/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /write the report/i }))
 
     await waitFor(() => expect(toggleTask).toHaveBeenCalledWith(expect.anything(), 'task-1', true))
     await waitFor(() =>
@@ -91,24 +96,23 @@ describe('TasksSection', () => {
         userId="user-1"
         dueTasks={[]}
         undatedTasks={[task({ id: 'task-9', title: 'Someday idea', dueDate: null })]}
-        openTaskCount={1}
       />
     )
 
-    expect(screen.getByText(/nothing due today/i)).toBeTruthy()
-    expect(screen.getByText(/1 unscheduled/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: /someday idea/i })).toBeTruthy()
+    expect(screen.getByText('due today').parentElement?.textContent).toBe('0 due today')
+    expect(screen.getByText('1 without a date')).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: /someday idea/i })).toBeTruthy()
   })
 
   it('reads as finished when nothing is open at all', () => {
-    render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} openTaskCount={0} />)
+    render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} />)
 
-    expect(screen.getByText('Nothing due today.')).toBeTruthy()
+    expect(screen.getByText(/Nothing due today. Capture/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /add task/i })).toBeTruthy()
   })
 
   it('opens the create dialog in place instead of routing to the task list', async () => {
-    render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} openTaskCount={0} />)
+    render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} />)
 
     expect(screen.queryByLabelText('Task')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /add task/i }))
@@ -118,7 +122,7 @@ describe('TasksSection', () => {
 
   it('can add a task even when the list is not empty', async () => {
     render(
-      <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} openTaskCount={1} />
+      <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} />
     )
 
     fireEvent.click(screen.getByRole('button', { name: /add task/i }))
@@ -127,7 +131,7 @@ describe('TasksSection', () => {
   })
 
   it('creates the task the dialog submits', async () => {
-    render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} openTaskCount={0} />)
+    render(<TasksSection userId="user-1" dueTasks={[]} undatedTasks={[]} />)
 
     fireEvent.click(screen.getByRole('button', { name: /add task/i }))
     await waitFor(() => expect(screen.getByLabelText('Task')).toBeTruthy())
@@ -144,21 +148,25 @@ describe('TasksSection', () => {
     )
   })
 
-  it('shows the full open count in the footer, not just the visible rows', () => {
-    render(
-      <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} openTaskCount={14} />
-    )
+  it('adds from the + in the header, with no footer of links or counts', () => {
+    render(<TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} />)
 
-    expect(screen.getByRole('link', { name: /all tasks \(14\)/i })).toBeTruthy()
+    // The section opens /tasks itself; the heading is that link.
+    expect(screen.queryByRole('link', { name: /all tasks/i })).toBeNull()
+    expect(screen.queryByText(/\d+ open/)).toBeNull()
+    expect(screen.getByRole('link', { name: 'Tasks' }).getAttribute('href')).toBe('/tasks')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
   })
 
   it('restores the row and explains when completing fails', async () => {
     toggleTask.mockRejectedValue(new Error('offline'))
     render(
-      <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} openTaskCount={1} />
+      <TasksSection userId="user-1" dueTasks={[task()]} undatedTasks={[]} />
     )
 
-    const row = screen.getByRole('button', { name: /write the report/i })
+    const row = screen.getByRole('checkbox', { name: /write the report/i })
     fireEvent.click(row)
 
     await waitFor(() => expect(screen.getByText('offline')).toBeTruthy())

@@ -28,9 +28,11 @@ export const TASK_PRIORITY_ORDER: Record<TaskPriority, number> = {
   low: 2,
 }
 
+// English on purpose, like the rest of the interface: the browser's own
+// locale used to turn "Oct 30" into "30. Okt." inside an English sentence.
 export function formatTaskDate(
   dateKey: string,
-  locale?: string,
+  locale = 'en-US',
   options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
 ): string {
   const date = parseLocalDate(dateKey)

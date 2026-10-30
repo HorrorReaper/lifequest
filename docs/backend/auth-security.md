@@ -111,6 +111,8 @@ Expected policy patterns:
 - System exercises: trusted admins can read them alongside their own custom exercises; browser mutation is denied.
 - Admin domains: both ownership and trusted admin claim are required.
 - Foreign user IDs supplied by the browser are rejected by policy.
+- Write-only inbox: `beta_feedback` lets a user insert rows with their own `user_id` and has no select policy, so feedback cannot be read back through the API, even by its author. The trusted-admin function `admin_beta_feedback` is the only reader, and `admin_activation_funnel` returns counts only. The funnel is derived from existing tables on purpose: an event log would have meant a second copy of activity, and task titles, journal text or free answers must not end up in analytics.
+
 
 Security Invoker functions execute under the caller's role and should perform explicit ownership/claim checks before mutation.
 
@@ -194,3 +196,13 @@ Before shipping a new feature:
 Areas, links and the project overview preserve the current trusted-admin boundary. Table policies require both `auth.uid() = user_id` and `app_metadata.role = admin`; new tables revoke anonymous access and explicitly grant authenticated CRUD. Composite owner foreign keys prevent linking to another owner's project or area. The summary view uses `security_invoker=true`, and mutation RPCs run as the caller. Checklists reject foreign parents, cycles, nesting and mismatched project families. No normal-user access is enabled by this release. Knowledge return links accept only local project routes; external/protocol-relative redirect targets are rejected.
 
 Contact profiles and all association tables require owner plus trusted app_metadata.role=admin, with explicit authenticated grants and no anonymous RPC execution. Contacts are independent of Auth accounts and are not added to AI context. Policies, composite ownership FKs and invoker mutations apply even when a route allowlist admits someone to the admin shell.
+
+## Admin Academy
+
+With `20261029191235_learning_academy.sql` applied, the three course learner RPCs require a signed-in trusted `app_metadata.role = admin`. Their renamed implementations are not executable by public/anon/authenticated roles. A user-editable metadata claim cannot grant access. UI routes additionally use `showAdminUi` so normal-user preview keeps the original article Library. Legacy article rewards and Toolbox access are unchanged. Without the migration, the previous authenticated course-RPC grants remain; the frontend filter alone is not a database boundary.
+
+Unpublished local progress/reflections are keyed by authenticated user ID and never replace synchronized published progress. This isolates account display, not same-origin scripts. Studio preview snapshots contain curriculum only, use session storage and never write learner results. See `../features/learning-paths.md`.
+
+## Focus timer access
+
+After `20261029203006_library_focus_timer.sql`, signed-in users may SELECT only their own `focus_sessions`. Normal users have no direct INSERT/UPDATE/DELETE policy. `start_focus_session` and `finish_focus_session` intentionally use `SECURITY DEFINER` with an empty search path, fully qualified tables, `auth.uid()` ownership checks, validated inputs, and EXECUTE limited to authenticated callers (revoked from PUBLIC and anon). A task from another user cannot be linked; another user's timer cannot be closed. Client-supplied elapsed time, XP and owner IDs are never accepted. Locks make starts/resumes and completed rewards idempotent across tabs; XP failure rolls back closure so the user can retry. The existing trusted-admin own-row write policy remains for compatibility. Toolbox access does not grant access to admin routes.

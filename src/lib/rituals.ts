@@ -162,6 +162,27 @@ export function isRitualWindow(
   return nowMinutes >= setting.fromMinutes
 }
 
+/**
+ * Whether the daily plan (morning briefing) is still on offer.
+ *
+ * Its window has a start but no end, so on its own it stays open all day and
+ * would open alongside the evening review once that starts. The evening
+ * window ends it: from then on the day is for looking back, not planning,
+ * whether this is the first visit of the day or the plan was left open since
+ * the morning. With the evening review switched off, the plan stays on offer
+ * all day as before.
+ */
+export function isDailyPlanWindow(
+  settings: Pick<RitualSettings, 'daily_plan' | 'evening_review'>,
+  today: string,
+  nowMinutes: number
+): boolean {
+  return (
+    isRitualWindow(settings.daily_plan, today, nowMinutes) &&
+    !isRitualWindow(settings.evening_review, today, nowMinutes)
+  )
+}
+
 /** Matches the DashboardHero fallback so the greeting reads the same across the page. */
 const NAME_FALLBACK = 'Adventurer'
 

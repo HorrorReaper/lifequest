@@ -19,6 +19,7 @@ import type {
 } from "@/lib/contacts/types";
 import { ContactFormDialog } from "./ContactFormDialog";
 import { ContactsUpcoming } from "./ContactsUpcoming";
+import { ConversationNudge } from "./ConversationNudge";
 import { ProjectConfirmDialog } from "@/components/ui/workspace-form-dialog";
 
 export function ContactsOverview({
@@ -109,9 +110,12 @@ export function ContactsOverview({
             Menschen, Beziehungen und gemeinsame Geschichte.
           </p>
         </div>
-        <Button disabled={!ready} onClick={() => setEditor("contact")}>
-          Kontakt erstellen
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ConversationNudge />
+          <Button disabled={!ready} onClick={() => setEditor("contact")}>
+            Kontakt erstellen
+          </Button>
+        </div>
       </header>
       {data && (
         <div className="grid grid-cols-3 gap-2">

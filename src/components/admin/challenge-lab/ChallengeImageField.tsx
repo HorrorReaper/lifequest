@@ -1,7 +1,7 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
-import { CHALLENGE_IMAGE_HOSTS, isAllowedChallengeImageUrl } from '@/lib/challenge-images'
+import { OPTIMIZED_IMAGE_HOSTS, isAllowedChallengeImageUrl, isOptimizedImageUrl } from '@/lib/challenge-images'
 import { ChallengeCover } from '@/components/challenges/ChallengeCover'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +25,7 @@ export function ChallengeImageField({
 }) {
   const trimmed = value.trim()
   const invalid = trimmed.length > 0 && !isAllowedChallengeImageUrl(trimmed)
+  const unoptimized = trimmed.length > 0 && !invalid && !isOptimizedImageUrl(trimmed)
 
   return (
     <div className="flex items-start gap-3">
@@ -36,12 +37,14 @@ export function ChallengeImageField({
           aria-invalid={invalid || undefined}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder={`${label}: https://${CHALLENGE_IMAGE_HOSTS[0]}/photo-…`}
+          placeholder={`${label}: https://…`}
         />
         <p className={cn('text-xs', invalid ? 'text-destructive' : 'text-muted-foreground')}>
           {invalid
-            ? `This link cannot be shown. Use an https image link from ${CHALLENGE_IMAGE_HOSTS.join(' or ')}.`
-            : `Optional. An image link from ${CHALLENGE_IMAGE_HOSTS.join(' or ')}, like the article covers.`}
+            ? 'This link cannot be shown. Use a direct https link to an image.'
+            : unoptimized
+              ? `Loaded as it is, without resizing. Keep the file reasonably small; links from ${OPTIMIZED_IMAGE_HOSTS.join(' or ')} are resized automatically.`
+              : 'Optional. A direct https link to an image, like the article covers.'}
         </p>
       </div>
     </div>

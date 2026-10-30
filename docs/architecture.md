@@ -51,7 +51,7 @@ Supabase
 - Route pages under `src/app/(app)` are mostly Server Components. They validate the session, fetch initial data, and pass serializable props into client components.
 - Interactive managers such as `TaskManager`, `HabitManager`, `TodayPlanner`, `WorkoutHub`, and `NutritionHub` are Client Components.
 - Public marketing pages render without the authenticated app shell.
-- The app shell adds bottom navigation and, for admins, the chatbot. It suppresses both on immersive routes such as `/plan`, journal entry screens, routine runners, and all admin pages.
+- The app shell adds a sticky top bar (level, XP, coins, streak), the bottom navigation and, for admins, the chatbot. It suppresses both on immersive routes such as `/plan`, journal entry screens, routine runners, and all admin pages.
 - The admin layout uses a separate responsive shell with desktop sidebar and mobile horizontal navigation.
 
 ## Authentication lifecycle
@@ -79,7 +79,7 @@ Supabase is authoritative for user data. Most managers load their own data and w
 
 ### Presentation state
 
-`src/lib/stores/user-store.ts` holds current XP, coins, streak, and level-up presentation state. The bottom navigation refreshes authoritative XP and coins after mount.
+`src/lib/stores/user-store.ts` holds current XP, coins, streak, equipped avatar items, and level-up presentation state. The `(app)` layout loads the first four from Supabase on every request (`fetchShellStats` in `src/lib/shell-stats.ts`) and `AppShell` copies them into the store after mount (`useShellStats`); until then it renders the server props directly, because the store is a module singleton that is shared between requests on the server. The top bar and the bottom navigation's avatar icon read from it. The bottom navigation still refreshes authoritative XP and coins after mount.
 
 ### Cross-component refresh
 
@@ -129,7 +129,7 @@ Rules:
 
 The global design system is implemented through:
 
-- `src/app/globals.css` for theme variables, animation, safe areas, and global styles.
+- `src/app/globals.css` for theme variables, animation, safe areas, and global styles. The White and Trail themes soften vivid gradients by overriding `--tw-gradient-from` / `--tw-gradient-to` on `[class*="from-primary"]`, `[class*="to-purple"]` and similar. Those overrides must be a plain colour: Tailwind 4 registers both properties as `<color>` (`@property`), so a v3-style value such as `hsl(…) var(--tw-gradient-from-position)` is invalid, falls back to transparent, and makes every matching gradient disappear (this hid the icon tile in the dashboard's ritual prompts).
 - `src/components/ui/` for reusable controls.
 - `ThemeProvider` for `white`, `system`, and `dark` appearance modes.
 - `AppShell`, `BottomNav`, and `AdminShell` for navigation structure.
@@ -137,3 +137,16 @@ The global design system is implemented through:
 
 The app uses `min-h-svh`/`min-h-dvh`, sticky actions, touch-sized controls, and responsive dialogs. Desktop and mobile often share business logic but use different density and navigation patterns.
 
+### Core page rules
+
+Applied to the core user pages (dashboard, tasks, habits, plan, onboarding, profile, library) for the first beta. New core UI follows them:
+
+- **Spacing** in steps of 4, 8, 12, 16, 24 and 32 px. Page gutters are 16 px on phones and 32 px from `sm` (`p-4 sm:p-8`); forms and long text stay within about 640–720 px.
+- **Type.** Body text and inputs 16 px (`text-base`), supporting text 14 px (`text-sm`; no 10–12 px text for anything that explains an action), section titles 18–20 px, page titles 28 px / 32 px from `sm` (`PageHeader`).
+- **Targets.** Primary buttons 48 px high (`h-12`); every essential control at least 44 × 44 px. Card radius 16 px (`rounded-2xl`), inputs and buttons 10–12 px.
+- **Page header.** `src/components/ui/page-header.tsx`: title, optional eyebrow and one-line description, and the page's main action. A create action belongs there, never at the bottom of a list where the fixed navigation covers it.
+- **Create/edit** opens in a dialog that asks for the one required field first and folds the rest under "Details (optional)".
+- **States.** Selected options use `aria-pressed` with the primary border, a 10 % primary fill and a ring. Saving disables the submit button, shows "Saving…" and is guarded by a ref so a second tap sends nothing. Errors are one message next to the field concerned (`aria-invalid` + `aria-describedby`), the input is kept, and the button offers a retry. Done states pair colour with a tick or a word ("Done", "Open", "In today's plan").
+- **Completion** is one control per item: `CompletionToggle` (`role="checkbox"`, named "Complete …"/"Reopen …").
+- **Layers.** Dialogs sit at `z-50`; popovers, selects, menus and tooltips put `z-[90]` on their positioner, so they open above a dialog.
+- **Contrast.** Measured against the theme tokens in `globals.css` for all four modes (light, dark, white, trail): body text, muted text on background, card and muted surfaces, primary, and the destructive colour on background and on its 10 % tint all reach at least 4.5:1. Dark mode's destructive colour was 2.0:1 and light mode's 3.8:1 before this rule.

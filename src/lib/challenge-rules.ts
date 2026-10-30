@@ -1,4 +1,5 @@
 import type { ChallengeCompletionType } from '@/lib/supabase/database.types'
+import { GOAL_FORM_HREF } from '@/lib/goals'
 
 /**
  * The Challenge Reflection journal template and its one answer field,
@@ -112,7 +113,7 @@ export const CHALLENGE_RULES: ChallengeRuleDef[] = [
     kind: 'state',
     adminLabel: 'Has at least N goals',
     unit: ['goal', 'goals'],
-    defaultHref: '/dashboard',
+    defaultHref: GOAL_FORM_HREF,
     defaultActionLabel: 'Set a goal',
   },
   {
@@ -120,7 +121,7 @@ export const CHALLENGE_RULES: ChallengeRuleDef[] = [
     kind: 'activity',
     adminLabel: 'Sets N new goals',
     unit: ['new goal', 'new goals'],
-    defaultHref: '/dashboard',
+    defaultHref: GOAL_FORM_HREF,
     defaultActionLabel: 'Set a goal',
   },
   {

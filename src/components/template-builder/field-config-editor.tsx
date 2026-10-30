@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DecimalInput } from '@/components/ui/decimal-input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
@@ -223,8 +224,34 @@ export function FieldConfigEditor({
             </div>
           )}
 
-          {/* Min/Max for number and slider */}
-          {['number', 'slider'].includes(editedField.field_type) && (
+          {/* Optional limits for a number: empty means no limit. A weight or
+              a revenue has no natural range, so a new number field starts
+              without one. Decimals are always allowed. */}
+          {editedField.field_type === 'number' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="number-min">Min</Label>
+                <DecimalInput
+                  id="number-min"
+                  placeholder="No limit"
+                  value={typeof config.min === 'number' ? config.min : null}
+                  onValueChange={(min) => updateConfig('min', min ?? undefined)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="number-max">Max</Label>
+                <DecimalInput
+                  id="number-max"
+                  placeholder="No limit"
+                  value={typeof config.max === 'number' ? config.max : null}
+                  onValueChange={(max) => updateConfig('max', max ?? undefined)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Min/Max for slider */}
+          {editedField.field_type === 'slider' && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Min</Label>

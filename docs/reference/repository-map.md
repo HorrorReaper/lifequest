@@ -121,7 +121,13 @@ src/app/
 | Mobile journal UX | `components/journal/mobile-journal-*`, `entry-form.tsx` |
 | New journal field | `lib/field-registry.ts`, field renderer, template builder |
 | Tasks/habits | `components/tasks/`, `components/habits/`, corresponding `lib` modules |
-| Today Plan | `components/planning/TodayPlanner.tsx`, `lib/today-plan.ts` |
+| Today Plan | `components/planning/TodayPlanner.tsx`, `lib/today-plan.ts`, step order in `components/planning/planner-steps.ts`; priorities step in `components/planning/TodayPriorities.tsx` and `PriorityPickerDialog.tsx`; timeline step in `PlanTimeline.tsx`, `DayFrameBar.tsx` + `DayHoursDialog.tsx`, `AddToDayDialog.tsx`, `BlockEditorDialog.tsx`, `AlsoToday.tsx`, `PlanCapacityLine.tsx` and `PlanTimeField.tsx` |
+| Dashboard greeting and hero scene | `components/dashboard/DashboardGreeting.tsx`, `components/dashboard/DashboardHeroScene.tsx`, `lib/day-progress.ts` |
+| Dashboard next step and plan status | `components/dashboard/NextUpCard.tsx`, `lib/dashboard-plan.ts`, `components/ui/progress-ring.tsx` |
+| Onboarding | `components/onboarding/onboarding-flow.tsx`, `lib/onboarding.ts` |
+| Feedback and beta activation | `components/feedback/FeedbackDialog.tsx`, `lib/feedback.ts`, `components/admin/BetaActivation.tsx`, `lib/activation.ts` |
+| Shared page header, completion control | `components/ui/page-header.tsx`, `components/ui/completion-toggle.tsx` |
+
 | Workout | `components/admin/workouts/`, `WorkoutHub.tsx` |
 | Nutrition | `components/admin/nutrition/`, `lib/nutrition/`, food API routes |
 | Knowledge/projects | admin hubs plus `lib/knowledge`/`lib/projects` |

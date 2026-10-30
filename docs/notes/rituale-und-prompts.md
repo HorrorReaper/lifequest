@@ -10,7 +10,7 @@ Die vier „automatischen“ Rituale sind Dialoge, die sich auf `/dashboard` sel
 
 | Ritual | Komponente | Standardfenster | Führt zu | „Erledigt“ heißt |
 |---|---|---|---|---|
-| Daily Plan („Morning Briefing“) | `DailyPlanPrompt` | täglich ab 00:00 | `/plan` → `TodayPlanner` (6-Schritte-Wizard: Mood → Intention → Top Three → Anchors → Timeline → Commit) | `day_plans.notes` enthält `ritual_completed_at` |
+| Daily Plan („Morning Briefing“) | `DailyPlanPrompt` | täglich ab 00:00 | `/plan` → `TodayPlanner` (5-Schritte-Wizard: Mood → Intention → Priorities → Shape your day (Timeline mit Habits und Reflexionen) → Review) | `day_plans.notes` enthält `ritual_completed_at` |
 | Evening Review („Daily Review“) | `EveningReviewPrompt` | täglich ab 20:00 | `/journal/new/<template>` | fertiger Journal-Eintrag mit dem Ziel-Template **heute** |
 | Weekly Review | `WeeklyReviewPrompt` | Sonntag ab 18:00 | `/journal/new/<template>` | fertiger Eintrag mit dem Ziel-Template in **dieser Woche** (Mo–So) |
 | Weekly Plan | `WeeklyPlanPrompt` | Montag ab 00:00 | `/journal/new/<template>` | wie Weekly Review |
@@ -21,6 +21,7 @@ Alle vier liegen in `src/components/dashboard/`, verdrahtet in `src/app/(app)/da
 
 - **Fenster:** eine Regel für alle vier — `isRitualWindow(setting, today, nowMinutes)` = `enabled && (weekday === null || weekdayOf(today) === weekday) && nowMinutes >= fromMinutes`. Wochentag Mo = 0 … So = 6 (`weekdayOf()` in `src/lib/dates.ts`, **nie** `Date.getDay()`). Zeiten sind Minuten nach Mitternacht in der **Profil-Zeitzone**.
 - **„Not now“** wird in localStorage gemerkt: `lifequest-ritual-<ritual>-dismissed-<period>`; `period` = Datum bei den Tages-Ritualen, **Montag der Woche** bei den Wochen-Ritualen. Der Key läuft mit der nächsten Periode von selbst ab.
+- **Abend beendet das Morning Briefing:** Der Daily Plan hat nur einen Start, kein Ende. Ab dem Start des Evening-Review-Fensters wird er nicht mehr angeboten (`isDailyPlanWindow` in `src/lib/rituals.ts`), egal ob es der erste Besuch des Tages ist oder der Plan seit dem Morgen offen war. Am Abend erscheint so nur das Evening Review. Ist das Evening Review ausgeschaltet, bleibt das Briefing den ganzen Tag.
 - **Vorrang-Regel („hold-back“):** Weekly Review hält das Evening Review zurück, Weekly Plan den Daily Plan — solange das Wochen-Fenster offen ist, kein Wochen-Eintrag existiert und ein Ziel-Template gesetzt ist. Erst nach „Not now“ oder Erledigen kommt der Tages-Prompt. Sonst würden am Sonntagabend zwei Dialoge übereinander liegen.
 - **Kein Ziel-Template** (`template_id = null`, z. B. Template gelöscht) → Prompt bleibt unsichtbar statt auf 404 zu führen.
 - Gemeinsamer Hook `usePromptDismissal(key)` / `usePromptHeldBack(key)` in `prompt-dismissal.ts`; hydration-sicher (Server rendert „dismissed“, damit nichts vor der Hydration aufblitzt).

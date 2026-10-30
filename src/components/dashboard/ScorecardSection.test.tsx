@@ -1,5 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }))
+
 import { ScorecardSection } from '@/components/dashboard/ScorecardSection'
 import type { ScorecardRow } from '@/lib/metric-targets'
 
@@ -75,7 +78,8 @@ describe('ScorecardSection', () => {
     render(<ScorecardSection rows={[row()]} />)
 
     expect(
-      screen.getByRole('link', { name: /metrics/i }).getAttribute('href')
+      // The heading is the link; the section itself opens the same page.
+      screen.getByRole('link', { name: 'Scorecard' }).getAttribute('href')
     ).toBe('/journal/metrics')
   })
 

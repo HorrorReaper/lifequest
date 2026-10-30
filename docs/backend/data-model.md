@@ -55,9 +55,12 @@ Insight metadata is stored on journal responses so a saved answer can be marked 
 | `routine_items` | Ordered habit membership in a routine |
 | `goals` | User-owned longer-term goals (admin-only until `20260922120000_open_goals_to_all_users.sql`) |
 | `productivity_daily_priorities` | Admin top-three task priorities by date |
-| `focus_sessions` | Planned/actual admin focus sessions |
+| `focus_sessions` | User-owned planned/actual focus sessions shared by Toolbox and admin Productivity |
+| `beta_feedback` | "Send feedback" messages: `category` (`problem`, `idea`, `other`), `message` (1–2000 characters), `page_path` (path only, ≤200), owner `user_id` (defaults to `auth.uid()`). Users can insert their own rows only; there is no select policy, admins read through `admin_beta_feedback` |
 
 `tasks` and `day_plans` are actively used but are not included as complete table mappings in the current `Database` type. Their original creation migrations are also absent from this repository snapshot.
+
+`20261029203006_library_focus_timer.sql` adds owner-only authenticated SELECT access and `start_focus_session(p_planned_minutes integer, p_task_id uuid default null)` / `finish_focus_session(p_session_id uuid, p_status text)` RPCs. Start validates 1–240 minutes and task ownership, serializes starts per user, and returns the active row as JSON. Finish accepts `completed` or `cancelled`, locks the owned session and profile, and returns `{ awarded, xpAwarded, previousTotal, newTotal }`. Server timestamps determine `actual_seconds`. Completed whole minutes yield one XP each, with the `focus_session` ledger entry and profile increment in the same transaction as closure. Retries of a closed session award nothing. Existing admin direct-write policy remains for older clients; normal users write only through RPCs.
 
 ## Workout domain
 
@@ -195,6 +198,8 @@ Project tasks reuse `tasks` rather than having a separate task table.
 
 - `admin_app_stats` — registered users and waitlist size
 - `admin_signup_series` — waitlist entries and new accounts per UTC day since a date
+- `admin_activation_funnel(p_since)` — for accounts created since a date: signed up, onboarding completed, first task, first day plan, first completed habit log, and activity on a later calendar day (profile timezone). Counts derived from existing rows; no event table
+- `admin_beta_feedback(p_limit)` — the latest `beta_feedback` rows (at most 500)
 - `get_level`
 - `get_city_tier`
 - `xp_to_next_level`
@@ -217,6 +222,8 @@ Migrations currently cover:
 10. Knowledge and projects.
 11. The metadata-only exercise catalog import.
 12. Skill categories (`habits`/`quests`/`xp_events`) and habit check-in reward RPCs, including the `xp_events.source_id` widening to `text` and the habit-dedup unique index.
+13. First-cohort readiness: `beta_feedback` and the admin activation and feedback functions (`20261025120000_beta_feedback_and_activation.sql`).
+
 
 Apply migrations strictly in filename timestamp order.
 
@@ -241,3 +248,7 @@ Migration `20261003084218_projects_usability.sql` adds `project_areas` (owner/na
 
 ## Personal contacts
 The contacts_management migration adds owner-scoped profiles/channels, groups, explicit relationship types/pairs, shared events/interactions, occurrence state and links to existing Tasks/Knowledge. Composite owner FKs and admin RLS protect every entity; new FK access paths are indexed. See features/contacts.md for recurrence, deletion and consistency rules.
+
+## Personal Academy course
+
+The optional `entrepreneurial-information-systems` path uses the existing version/unit/lesson/exercise/enrollment tables. No new table or column is introduced. Optional visual blocks, product/company perspectives and reflection practice duration live in exercise `content` JSONB. `20261029191235_learning_academy.sql` accepts the fourth path, rejects unknown/duplicate IDs and protects learner RPCs with trusted-admin wrappers. Existing version pinning and transactional rewards are retained. The migration contains no seed or publication.

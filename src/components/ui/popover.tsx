@@ -26,13 +26,26 @@ function PopoverContent({
 }) {
   return (
     <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Positioner sideOffset={sideOffset} align={align}>
+      {/* The layer goes on the positioner, not the popup. The positioner is
+          the absolutely positioned box the popup lives in, so a z-index on
+          the popup alone only orders it inside that box -- the box itself
+          stayed at the page's base layer and a dialog (z-50) covered it,
+          calendar and all, while clicks fell through to the dialog. Above
+          z-50 on purpose: a popover is usually opened from inside a dialog.
+          collisionPadding keeps it on screen in a short window, where it
+          flips above its trigger instead of running off the bottom. */}
+      <PopoverPrimitive.Positioner
+        sideOffset={sideOffset}
+        align={align}
+        collisionPadding={12}
+        className="isolate z-[90]"
+      >
         <PopoverPrimitive.Popup
           className={cn(
-            // Above z-50 on purpose: a popover is usually opened from
-            // inside a dialog, which sits at z-50 itself. At equal
-            // levels it would only paint on top by portal order.
-            "z-[90] rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg outline-none",
+            // Capped to the room the positioner measured, scrolling inside
+            // it: in a short window (200 % zoom) neither side of the trigger
+            // fits a calendar, and it used to flip up and run off the top.
+            "max-h-(--available-height) overflow-y-auto rounded-xl border bg-popover p-3 text-popover-foreground shadow-lg outline-none",
             "origin-[var(--transform-origin)] transition-[transform,opacity] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
             className
           )}

@@ -4,6 +4,7 @@ import {
   completedHabitIdsFor,
   habitStreakWindowStart,
   HABIT_STREAK_WINDOW_DAYS,
+  openHabitsFirst,
 } from '@/lib/dashboard-habits'
 
 const habits = [
@@ -68,7 +69,7 @@ describe('buildDashboardHabits', () => {
   })
 
   it('falls back to a default emoji', () => {
-    expect(buildDashboardHabits(habits, [], '2026-08-31')[1].emoji).toBe('✅')
+    expect(buildDashboardHabits(habits, [], '2026-08-31')[1].emoji).toBe('🌱')
   })
 
   it('carries the skill category through for XP attribution', () => {
@@ -100,5 +101,18 @@ describe('habitStreakWindowStart', () => {
   it('reaches back the full streak window', () => {
     expect(habitStreakWindowStart('2026-08-31')).toBe('2025-07-27')
     expect(HABIT_STREAK_WINDOW_DAYS).toBe(400)
+  })
+})
+
+describe('openHabitsFirst', () => {
+  const list = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]
+
+  it('moves done habits below the open ones, keeping both groups in order', () => {
+    expect(openHabitsFirst(list, new Set(['a', 'c'])).map((h) => h.id)).toEqual(['b', 'd', 'a', 'c'])
+  })
+
+  it('returns an unticked habit to its own place among the open ones', () => {
+    expect(openHabitsFirst(list, new Set(['c'])).map((h) => h.id)).toEqual(['a', 'b', 'd', 'c'])
+    expect(openHabitsFirst(list, new Set()).map((h) => h.id)).toEqual(['a', 'b', 'c', 'd'])
   })
 })

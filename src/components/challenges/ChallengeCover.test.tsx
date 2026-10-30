@@ -17,8 +17,20 @@ describe('ChallengeCover', () => {
     expect(screen.queryByRole('img')).toBeNull()
   })
 
-  it('never hands next/image a host it cannot load', () => {
-    render(<ChallengeCover src="https://evil.example/x.png" alt="Cover" />)
+  it('loads other hosts directly, unoptimized and without a referrer', () => {
+    render(<ChallengeCover src="https://cdn.example.org/cover.png" alt="Cover" />)
+    const img = screen.getByRole('img', { name: 'Cover' })
+    expect(img.getAttribute('src')).toBe('https://cdn.example.org/cover.png')
+    expect(img.getAttribute('referrerpolicy')).toBe('no-referrer')
+  })
+
+  it('sends allowed hosts through the image optimizer', () => {
+    render(<ChallengeCover src="https://images.unsplash.com/photo-1" alt="Sunrise" />)
+    expect(screen.getByRole('img', { name: 'Sunrise' }).getAttribute('src')).toContain('/_next/image')
+  })
+
+  it('draws the placeholder for a link that cannot be shown', () => {
+    render(<ChallengeCover src="http://cdn.example.org/x.png" alt="Cover" />)
     expect(screen.getByRole('img', { name: 'Cover' }).tagName).toBe('DIV')
   })
 

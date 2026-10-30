@@ -2,6 +2,7 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
+import { DecimalInput } from '@/components/ui/decimal-input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
@@ -18,6 +19,16 @@ import { LearningInput } from './LearningInput'
 import type { LearningFieldValue } from '@/lib/learnings'
 import { InsightMarker } from './insight-marker'
 import { cn } from '@/lib/utils'
+import { numberFieldRange } from './journal-wizard'
+
+/** "1 – 100", "60 or more", "at most 200", or nothing when the field has no limits. */
+function numberRangePlaceholder(field: TemplateField): string | undefined {
+  const { min, max } = numberFieldRange(field)
+  if (min !== null && max !== null) return `${min} – ${max}`
+  if (min !== null) return `${min} or more`
+  if (max !== null) return `At most ${max}`
+  return undefined
+}
 
 interface FieldRendererProps {
   field: TemplateField
@@ -121,19 +132,15 @@ export function FieldRenderer({
       )}
 
       {/* Number */}
+      {/* Decimals always ("72,5" or "72.5"): a stored `step` is ignored for
+          number fields. Min/max, when the template sets them, are checked
+          by the journal's validation with a message (numberRangeError),
+          not by the browser. */}
       {field.field_type === 'number' && (
-        <Input
-          type="number"
-          min={(config?.min as number) ?? undefined}
-          max={(config?.max as number) ?? undefined}
-          step={(config?.step as number) ?? 1}
-          value={value.value_number ?? ''}
-          onChange={(e) =>
-            onChange({
-              ...value,
-              value_number: e.target.value ? Number(e.target.value) : null,
-            })
-          }
+        <DecimalInput
+          value={value.value_number ?? null}
+          onValueChange={(number) => onChange({ ...value, value_number: number })}
+          placeholder={numberRangePlaceholder(field)}
           disabled={disabled}
           className="h-11 rounded-xl bg-background/80"
         />

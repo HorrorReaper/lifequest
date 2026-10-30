@@ -1,9 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import type { FocusSessionRow } from '@/lib/supabase/database.types'
 import { FullscreenFocusTimer } from './FullscreenFocusTimer'
 
-const mocks = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), addXp: vi.fn(), update: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+  addXp: vi.fn(),
+  rpc: vi.fn(),
+}))
 
 const activeSession: FocusSessionRow = {
   id: 'session-1',
@@ -23,7 +35,8 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/lib/stores/user-store', () => ({
-  useUserStore: (selector: (state: { addXp: unknown }) => unknown) => selector({ addXp: mocks.addXp }),
+  useUserStore: (selector: (state: { addXp: unknown }) => unknown) =>
+    selector({ addXp: mocks.addXp }),
 }))
 
 vi.mock('@/lib/focus-quotes', () => ({ pickFocusQuote: () => 'Keep going.' }))
@@ -34,15 +47,15 @@ vi.mock('@/lib/supabase/client', () => ({
       select: () => builder,
       eq: () => builder,
       maybeSingle: async () => ({ data: activeSession, error: null }),
-      update: mocks.update,
     }
-    return { from: () => builder }
+    return { from: () => builder, rpc: mocks.rpc }
   },
 }))
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
-  mocks.update.mockReturnValue({ eq: async () => ({ error: null }) })
+  vi.clearAllMocks()
+  mocks.rpc.mockResolvedValue({ data: { awarded: false }, error: null })
 })
 
 afterEach(() => {
@@ -51,12 +64,15 @@ afterEach(() => {
 })
 
 function controls() {
-  return screen.getByRole('button', { name: /complete/i }).parentElement as HTMLElement
+  return screen.getByRole('button', { name: /complete/i })
+    .parentElement as HTMLElement
 }
 
 async function renderTimer() {
   render(<FullscreenFocusTimer userId="user" />)
-  await waitFor(() => expect(screen.getByRole('button', { name: /complete/i })).toBeTruthy())
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: /complete/i })).toBeTruthy(),
+  )
 }
 
 describe('FullscreenFocusTimer controls', () => {
@@ -77,9 +93,13 @@ describe('FullscreenFocusTimer controls', () => {
     await renderTimer()
     fireEvent.click(screen.getByText('Keep going.'))
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000)
+    })
     fireEvent.click(screen.getByText('Keep going.'))
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
 
     expect(controls().className).not.toContain('pointer-events-none')
   })
@@ -93,7 +113,51 @@ describe('FullscreenFocusTimer ending', () => {
     const complete = screen.getByRole('button', { name: /complete/i })
     fireEvent.click(complete)
     fireEvent.click(complete)
-    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
-    expect(mocks.update).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    expect(mocks.rpc).toHaveBeenCalledWith('finish_focus_session', {
+      p_session_id: 'session-1',
+      p_status: 'completed',
+    })
+  })
+
+  it('returns Library users to the toolbox timer and updates their XP', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: { awarded: true, xpAwarded: 25, previousTotal: 100, newTotal: 125 },
+      error: null,
+    })
+    render(
+      <FullscreenFocusTimer
+        userId="user"
+        returnHref="/learn/tools/focus-timer"
+      />,
+    )
+    await waitFor(() => expect(screen.getByText('Keep going.')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: /complete/i }))
+    await waitFor(() =>
+      expect(mocks.push).toHaveBeenCalledWith('/learn/tools/focus-timer'),
+    )
+    expect(mocks.addXp).toHaveBeenCalledWith(25, 100)
+  })
+
+  it('keeps a failed completion open for retry', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Offline' },
+    })
+    await renderTimer()
+    fireEvent.click(screen.getByRole('button', { name: /complete/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'could not be closed',
+      ),
+    )
+    expect(mocks.push).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /complete/i }))
+    await waitFor(() =>
+      expect(mocks.push).toHaveBeenCalledWith('/admin/productivity'),
+    )
   })
 })

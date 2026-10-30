@@ -115,7 +115,18 @@ Local foods remain the resilience path.
 These are intentional current boundaries:
 
 - Workouts and nutrition are admin-only.
-- Habits are daily and binary.
+- Habits are daily and binary. Flexible weekdays and weekly targets ("3× a week"), with streaks and stats counting only due days, are the planned extension after the first beta; they are not promised in the app or in acquisition copy.
+- The onboarding focus choice only steers first-task suggestions and is not stored.
+- Onboarding duplicate protection for the first task lives in `sessionStorage`: within one tab it survives back navigation and reloads; starting onboarding again in a second tab or browser before finishing can create a second task.
+- A habit or reflection kept flexible reserves no time, so a long one can make the capacity line look roomier than the day is; "Reserve a time block" in "Add to your day" is the way to count it.
+- The dashboard's plan section shows time blocks only. Habits and reflections kept flexible for today are listed on the planner ("Also today") and on the review step; on the dashboard only the next-up card picks up the reflections, once habits are done. They stay on their normal habit and journal pages either way.
+- The dashboard hero moves for as long as the page is open (paused when scrolled out of view, or for good with its pause button). It is cheap CSS, but it is continuous motion on the main page; reduced motion turns it off.
+- The next-up card shows no journal streak and only counts reflections chosen in today's plan; a reflection the user writes without planning it does not appear there.
+- Changing the day hours never moves or deletes blocks. Blocks left outside are marked and counted apart ("outside your day hours"); they do not block saving, so a plan can be saved with them.
+- "Add to your day" offers the training block only to admins with workouts, like the anchor step did before it.
+- Timeline blocks and free-time gaps are drawn at true scale (1.2px per minute), so anything shorter than about 37 minutes is less than 44px tall. Such a block is still a full-width target, reachable by Tab with Enter opening its exact times, and listed on the review step; a short gap can also be filled through "Add to your day".
+- The timeline's folded free time (two hours or more) is laid out from the blocks on every change; while a block is being dragged the layout is held still, so dragging a block into a folded stretch moves it through that stretch quickly and the stretch only opens around it when the drag ends.
+
 - Journal and Today Plan drafts do not sync between devices.
 - Admin work does not award XP/coins.
 - Workout social features and licensed media are excluded.
@@ -124,6 +135,9 @@ These are intentional current boundaries:
 
 ## Challenge images are links, not uploads
 
-Challenge and day images (`challenge_templates.cover_image_url`, `challenge_days.image_url`) are image links, like the article covers on `/learn`, and only `images.unsplash.com` is accepted. The app has no image upload, and `next.config.ts` lets `next/image` load that one host; a link to any other host would make the page fail to render, so `src/lib/challenge-images.ts` and the check constraints in `supabase/migrations/20261004120000_challenge_images.sql` refuse it.
+Challenge and day images (`challenge_templates.cover_image_url`, `challenge_days.image_url`) are image links, like the article covers on `/learn`. Any https host is accepted, but only hosts in `next.config.ts` (`OPTIMIZED_IMAGE_HOSTS` in `src/lib/challenge-images.ts`, today `images.unsplash.com`) are resized by the image optimizer. Images from other hosts are loaded by the viewer's browser as they are, rendered `unoptimized` and without a referrer.
 
-Impact: an admin cannot use their own photos or illustrations. Allowing another host means adding it to `next.config.ts`, to `CHALLENGE_IMAGE_HOSTS`, and to both check constraints in a new migration. Uploads would need a Supabase Storage bucket with its own policies.
+Impact:
+- A large image on another host is downloaded at full size, and if that host removes or changes the file, the challenge shows a broken image. Adding a host to both `next.config.ts` and `OPTIMIZED_IMAGE_HOSTS` gets it resized.
+- The viewer's browser contacts the image host directly, which sees the viewer's IP address (not which page, since no referrer is sent).
+- There is no upload. Using own photos means hosting them somewhere, for example a public Supabase Storage bucket.

@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -21,8 +22,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   Archive,
-  ArrowDown,
-  ArrowUp,
   CalendarDays,
   Check,
   ChevronLeft,
@@ -31,8 +30,6 @@ import {
   GripVertical,
   History,
   Loader2,
-  MoreHorizontal,
-  Pencil,
   Plus,
   RotateCcw,
 } from "lucide-react";
@@ -54,7 +51,6 @@ import {
   habitLogKey,
   indexHabitLogs,
   moveHabit,
-  moveHabitByOffset,
   patchHabitOptimistically,
 } from "@/lib/habit-manager";
 import type { Habit, HabitLog } from "@/lib/types";
@@ -69,6 +65,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   HabitEditorDialog,
   habitTintClass,
@@ -86,6 +83,16 @@ interface HabitManagerProps {
   userId: string;
   timezone: string;
   today: string;
+  /** Opens the create form on mount; set by `/habits?new=1` (the + menu). */
+  initiallyOpen?: boolean;
+}
+
+/** Drops `?new=1` once its form closes, so a reload does not reopen it. */
+function clearNewHabitParam() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("new")) return;
+  url.searchParams.delete("new");
+  window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
 }
 
 function messageFromError(error: unknown, fallback: string) {
@@ -94,7 +101,12 @@ function messageFromError(error: unknown, fallback: string) {
   return fallback;
 }
 
-export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
+export function HabitManager({
+  userId,
+  timezone,
+  today,
+  initiallyOpen = false,
+}: HabitManagerProps) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -105,16 +117,24 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [failure, setFailure] = useState<MutationFailure | null>(null);
   const [busyKeys, setBusyKeys] = useState<Set<string>>(new Set());
-  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(initiallyOpen);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Habit | null>(null);
   const addXp = useUserStore((state) => state.addXp);
   const setCoins = useUserStore((state) => state.setCoins);
 
+  // A tap on a card opens it, so dragging has to be told apart from tapping:
+  // the mouse needs a few pixels of travel, a finger a long press (which
+  // also leaves a normal swipe free to scroll the page). The keyboard drags
+  // from the grip handle only; see SortableHabitCard.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+  // Set for the length of a drag and one tick after it: the mouseup that
+  // drops a card is followed by a click on it, which must not open it.
+  const draggingRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -330,15 +350,21 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
     }
   }
 
+  function handleDragStart() {
+    draggingRef.current = true;
+  }
+
+  function releaseDrag() {
+    setTimeout(() => {
+      draggingRef.current = false;
+    }, 0);
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    releaseDrag();
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : activeId;
     const next = moveHabit(activeHabits, activeId, overId);
-    if (next !== activeHabits) void persistOrder(next, habits);
-  }
-
-  function moveWithButton(habitId: string, offset: -1 | 1) {
-    const next = moveHabitByOffset(activeHabits, habitId, offset);
     if (next !== activeHabits) void persistOrder(next, habits);
   }
 
@@ -375,6 +401,7 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
   }
 
   function startEdit(habit: Habit) {
+    if (draggingRef.current) return;
     setFailure(null);
     setEditingHabit(habit);
     setEditorOpen(true);
@@ -384,12 +411,38 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
     (habit) => logIndex.get(habitLogKey(habit.id, today))?.completed
   ).length;
 
+  // The create button lives in the page header so it is reachable at the
+  // top of the page on every width. It used to float at the bottom of the
+  // list, where on a phone the fixed navigation covered it and took its taps.
+  const header = (
+    <PageHeader
+      eyebrow={formatDateOnly(today, { weekday: "long", month: "long", day: "numeric" })}
+      title="Habits"
+      description={
+        loading || loadError
+          ? "Small daily actions, checked off once a day."
+          : activeHabits.length === 0
+            ? "Small daily actions, checked off once a day. Start with one."
+            : `${doneToday} of ${activeHabits.length} done today`
+      }
+      actions={
+        <Button size="lg" onClick={startCreate} disabled={loading} className="h-12 px-5">
+          <Plus className="size-4" />
+          Add habit
+        </Button>
+      }
+    />
+  );
+
   if (loading) {
     return (
-      <div className="grid min-h-72 place-items-center rounded-3xl border bg-card">
-        <div className="text-center">
-          <Loader2 className="mx-auto size-6 animate-spin text-primary" />
-          <p className="mt-3 text-sm text-muted-foreground">Loading habits…</p>
+      <div className="space-y-4">
+        {header}
+        <div className="grid min-h-72 place-items-center rounded-2xl border bg-card">
+          <div className="text-center" role="status">
+            <Loader2 className="mx-auto size-6 animate-spin text-primary" />
+            <p className="mt-3 text-sm text-muted-foreground">Loading habits…</p>
+          </div>
         </div>
       </div>
     );
@@ -397,45 +450,37 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
 
   if (loadError) {
     return (
-      <div className="rounded-3xl border border-destructive/25 bg-destructive/5 p-6 text-center">
-        <p className="font-medium">Your habits could not be loaded.</p>
-        <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
-        <Button className="mt-4" onClick={() => void load()}>
-          Try again
-        </Button>
+      <div className="space-y-4">
+        {header}
+        <div role="alert" className="rounded-2xl border border-destructive/25 bg-destructive/5 p-6 text-center">
+          <p className="font-medium">Your habits could not be loaded.</p>
+          <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
+          <Button className="mt-4" onClick={() => void load()}>
+            Try again
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-3xl border bg-card">
-        <div className="bg-gradient-to-br from-primary/12 via-background to-orange-500/10 p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                {formatDateOnly(today, { weekday: "long", month: "long", day: "numeric" })}
-              </p>
-              <p className="mt-1 font-heading text-3xl font-semibold tracking-tight">
-                {activeHabits.length === 0
-                  ? "Start small"
-                  : `${doneToday} of ${activeHabits.length} done`}
-              </p>
-            </div>
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-background/80 shadow-sm">
-              <Flame className="size-5 text-orange-500" />
-            </span>
-          </div>
-          {activeHabits.length > 0 && (
-            <div className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-[width]"
-                style={{ width: `${Math.round((doneToday / activeHabits.length) * 100)}%` }}
-              />
-            </div>
-          )}
+      {header}
+      {activeHabits.length > 0 && (
+        <div
+          role="progressbar"
+          aria-label="Habits done today"
+          aria-valuemin={0}
+          aria-valuemax={activeHabits.length}
+          aria-valuenow={doneToday}
+          className="h-2 overflow-hidden rounded-full bg-muted"
+        >
+          <div
+            className="h-full rounded-full bg-primary transition-[width]"
+            style={{ width: `${Math.round((doneToday / activeHabits.length) * 100)}%` }}
+          />
         </div>
-      </section>
+      )}
 
       <div
         className="grid grid-cols-3 rounded-2xl border bg-muted/35 p-1"
@@ -468,7 +513,7 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         ))}
       </div>
 
-      {failure && (
+      {failure && !editorOpen && (
         <div
           role="alert"
           className="flex flex-col gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -531,14 +576,16 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
+            onDragCancel={releaseDrag}
           >
             <SortableContext
               items={activeHabits.map((habit) => habit.id)}
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-3">
-                {activeHabits.map((habit, index) => {
+                {activeHabits.map((habit) => {
                   const existingLog = logIndex.get(
                     habitLogKey(habit.id, visibleDate)
                   );
@@ -561,8 +608,6 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
                       completed={existingLog?.completed ?? false}
                       isDisabled={isDisabled}
                       reorderDisabled={view !== "today" || busyKeys.has("reorder")}
-                      canMoveUp={index > 0}
-                      canMoveDown={index < activeHabits.length - 1}
                       onToggle={(completed) =>
                         void saveCompletion(
                           habit,
@@ -572,8 +617,6 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
                         )
                       }
                       onEdit={() => startEdit(habit)}
-                      onArchive={() => setArchiveTarget(habit)}
-                      onMove={(offset) => moveWithButton(habit.id, offset)}
                     />
                   );
                 })}
@@ -583,18 +626,6 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         </HabitListEmptyState>
       )}
 
-      {view !== "archived" && activeHabits.length > 0 && (
-        <div className="sticky bottom-[calc(0.75rem+var(--safe-area-bottom))] z-10 flex justify-end">
-          <Button
-            size="lg"
-            onClick={startCreate}
-            className="min-h-12 rounded-full px-5 shadow-lg"
-          >
-            <Plus className="size-4" />
-            Add habit
-          </Button>
-        </div>
-      )}
 
       <HabitEditorDialog
         open={editorOpen}
@@ -603,9 +634,21 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         error={failure?.message}
         onOpenChange={(open) => {
           setEditorOpen(open);
-          if (!open) setEditingHabit(null);
+          if (!open) {
+            setEditingHabit(null);
+            clearNewHabitParam();
+          }
         }}
         onSubmit={handleEditorSubmit}
+        detailsHref={editingHabit ? `/habits/${editingHabit.id}` : undefined}
+        // Hands over to the confirmation below rather than archiving from
+        // here, so archiving stays a two-step action wherever it starts.
+        onArchive={() => {
+          const habit = editingHabit;
+          setEditorOpen(false);
+          setEditingHabit(null);
+          setArchiveTarget(habit);
+        }}
       />
 
       <Dialog
@@ -615,8 +658,11 @@ export function HabitManager({ userId, timezone, today }: HabitManagerProps) {
         }}
       >
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Archive {archiveTarget?.name}?</DialogTitle>
+          <DialogHeader className="pr-8">
+            <DialogTitle className="leading-snug break-words">
+              Archive {archiveTarget?.name}?
+            </DialogTitle>
+
             <DialogDescription>
               Its check-in history stays available, and you can restore it later.
             </DialogDescription>
@@ -753,14 +799,19 @@ interface SortableHabitCardProps {
   completed: boolean;
   isDisabled: (date: string) => boolean;
   reorderDisabled: boolean;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
   onToggle: (completed: boolean) => void;
+  /** Opens the habit's editor, which also archives and links to its stats. */
   onEdit: () => void;
-  onArchive: () => void;
-  onMove: (offset: -1 | 1) => void;
 }
 
+/**
+ * One habit: the check-in circle, and the rest of the card as one button that
+ * opens the habit. The whole card is also the drag source -- a long press on
+ * touch, a short drag with the mouse -- while the grip is the keyboard's way
+ * in. Only the pointer listeners go on the card: with the keyboard ones there
+ * too, Enter or Space on the check-in circle would bubble up and pick the
+ * card up instead of checking the habit off.
+ */
 function SortableHabitCard({
   habit,
   logs,
@@ -770,147 +821,141 @@ function SortableHabitCard({
   completed,
   isDisabled,
   reorderDisabled,
-  canMoveUp,
-  canMoveDown,
   onToggle,
   onEdit,
-  onArchive,
-  onMove,
 }: SortableHabitCardProps) {
   const {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
   } = useSortable({ id: habit.id, disabled: reorderDisabled });
   const summary = buildHabitSummary({ habit, logs, today, timezone });
   const isToday = date === today;
+  // Never checked in: the card asks for the first check-in instead of
+  // showing a "0 day streak", which reads like a habit already missed.
+  const isNew = !logs.some((log) => log.habit_id === habit.id && log.completed);
+  // dnd-kit types its listeners as bare Functions; they are the sensors'
+  // React event handlers (see the sensors in HabitManager).
+  const pointerListeners = reorderDisabled
+    ? undefined
+    : {
+        onMouseDown: listeners?.onMouseDown as React.MouseEventHandler | undefined,
+        onTouchStart: listeners?.onTouchStart as React.TouchEventHandler | undefined,
+      };
 
   return (
     <article
       ref={setNodeRef}
+      {...pointerListeners}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.65 : 1,
       }}
       className={cn(
-        "rounded-3xl border bg-card p-4 transition-shadow",
+        // select-none and no touch callout: a long press picks the card up
+        // rather than selecting its text or opening the browser's menu.
+        "rounded-3xl border bg-card p-4 transition-shadow select-none [-webkit-touch-callout:none]",
         isDragging && "z-20 shadow-xl ring-2 ring-primary/20"
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <button
           type="button"
+          ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
           disabled={reorderDisabled}
           aria-label={`Drag ${habit.name} to reorder`}
-          className="mt-1 hidden min-h-10 touch-none items-center text-muted-foreground hover:text-foreground disabled:opacity-25 sm:flex"
+          className="-ml-1 flex min-h-10 touch-none items-center text-muted-foreground hover:text-foreground disabled:opacity-25"
         >
           <GripVertical className="size-4" />
         </button>
         <button
           type="button"
+          role="checkbox"
           onClick={() => onToggle(!completed)}
           disabled={isDisabled(date)}
-          aria-pressed={completed}
-          aria-label={`Mark ${habit.name} ${completed ? "incomplete" : "complete"} for ${date}`}
-          className={cn(
-            "mt-2 grid size-8 shrink-0 place-items-center rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45",
-            completed
-              // The tint carries the fill and the hue; border-current picks
-              // that same hue up at full strength, so the circle keeps an
-              // edge without a third class per colour. A white tick would
-              // have been invisible on the lighter ground.
-              ? cn("border-current", habitTintClass(habit.color))
-              : "border-border bg-transparent"
-          )}
+          aria-checked={completed}
+          aria-label={
+            isToday
+              ? `${completed ? "Undo check-in for" : "Check in"} ${habit.name} today`
+              : `${completed ? "Undo check-in for" : "Check in"} ${habit.name} on ${formatDateOnly(date, { month: "long", day: "numeric" })}`
+          }
+          className="group/check -m-1.5 grid size-11 shrink-0 place-items-center rounded-full outline-none disabled:cursor-not-allowed"
         >
-          {completed && <Check className="size-4" />}
+          {/* Done is the filled primary circle with a tick, in every habit
+              colour alike, so the state never depends on reading a hue. */}
+          <span
+            aria-hidden="true"
+            className={cn(
+              "grid size-8 place-items-center rounded-full border-2 transition-colors group-focus-visible/check:ring-3 group-focus-visible/check:ring-ring/50 group-disabled/check:opacity-45",
+              completed
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-muted-foreground/45 bg-transparent group-hover/check:border-primary"
+            )}
+          >
+            {completed && <Check className="size-4" strokeWidth={3} />}
+          </span>
         </button>
-        <span
-          aria-hidden
-          className={cn(
-            "grid size-12 shrink-0 place-items-center rounded-2xl text-xl",
-            habitTintClass(habit.color)
-          )}
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`Edit ${habit.name}`}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          {habit.emoji}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <Link
-                href={`/habits/${habit.id}`}
-                title={habit.name}
-                className={cn(
-                  "block truncate font-medium hover:text-primary",
-                  completed && isToday && "text-muted-foreground"
-                )}
-              >
-                {habit.name}
-              </Link>
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Flame className="size-3 text-orange-500" />
-                {summary.currentStreak} day streak
-                {!isToday && (
-                  <>
-                    <span aria-hidden>·</span>
-                    {formatDateOnly(date, { month: "short", day: "numeric" })}
-                  </>
-                )}
-              </p>
-            </div>
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onEdit}
-                aria-label={`Edit ${habit.name}`}
-              >
-                <Pencil className="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onArchive}
-                aria-label={`Archive ${habit.name}`}
-              >
-                <Archive className="size-3.5" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between border-t pt-3 sm:hidden">
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MoreHorizontal className="size-3.5" />
-              Reorder
+          <span
+            aria-hidden
+            className={cn(
+              "grid size-12 shrink-0 place-items-center rounded-2xl text-xl",
+              habitTintClass(habit.color)
+            )}
+          >
+            {habit.emoji}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span
+              title={habit.name}
+              className={cn(
+                "line-clamp-2 text-base leading-snug font-medium break-words",
+                completed && isToday && "text-muted-foreground"
+              )}
+            >
+              {habit.name}
             </span>
-            <div className="flex gap-1">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={reorderDisabled || !canMoveUp}
-                onClick={() => onMove(-1)}
-                aria-label={`Move ${habit.name} up`}
-              >
-                <ArrowUp className="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={reorderDisabled || !canMoveDown}
-                onClick={() => onMove(1)}
-                aria-label={`Move ${habit.name} down`}
-              >
-                <ArrowDown className="size-3.5" />
-              </Button>
-            </div>
-          </div>
-        </div>
+            <span className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+              <span>Daily</span>
+              <span aria-hidden>·</span>
+              {isNew ? (
+                <span className="font-medium text-primary">
+                  {isToday ? "Ready for its first check-in" : "No check-ins yet"}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1">
+                  <Flame className="size-3.5 text-orange-500" aria-hidden="true" />
+                  {summary.currentStreak} day streak
+                </span>
+              )}
+              {!isToday && (
+                <>
+                  <span aria-hidden>·</span>
+                  {formatDateOnly(date, { month: "short", day: "numeric" })}
+                </>
+              )}
+              {isToday && completed && (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>Done today</span>
+                </>
+              )}
+            </span>
+
+          </span>
+        </button>
       </div>
     </article>
   );
@@ -936,10 +981,15 @@ function ArchivedHabitCard({
         {habit.emoji}
       </span>
       <div className="min-w-0 flex-1">
-        <Link href={`/habits/${habit.id}`} className="truncate font-medium hover:text-primary">
+        {/* line-clamp (it sets its own display): on the inline link `truncate` did nothing and
+            a long name ran underneath the Restore button. */}
+        <Link
+          href={`/habits/${habit.id}`}
+          className="line-clamp-2 text-base leading-snug font-medium break-words hover:text-primary"
+        >
           {habit.name}
         </Link>
-        <p className="text-xs text-muted-foreground">History preserved</p>
+        <p className="text-sm text-muted-foreground">History preserved</p>
       </div>
       <Button variant="outline" size="sm" disabled={busy} onClick={onRestore}>
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}

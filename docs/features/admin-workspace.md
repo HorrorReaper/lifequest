@@ -85,7 +85,7 @@ The public `/tasks`, `/habits`, and `/plan` pages remain the user-facing focused
 - Define ordered days, each with a completion rule: manual, a reflection day (the user answers the day's question in the journal), or detected automatically from app activity (habits active or newly created, habit check-ins, journal entries of any or one template, day plans, tasks created/completed, goals active or newly created, learnings, tool use), with a target N.
 - Give each day a button (app path + label); rules have sensible defaults.
 - Give a challenge a slug, which makes a public landing page at `/challenge/<slug>` once published.
-- Add a cover image to the challenge and an image to each day (`ChallengeImageField`): an `images.unsplash.com` link, previewed as you type and flagged at once if it cannot be shown. Without one, the app draws a placeholder. The draft of "14 Days to Unfuck Your Life" ships without images.
+- Add a cover image to the challenge and an image to each day (`ChallengeImageField`): any direct https link to an image, previewed as you type and flagged at once if it cannot be shown. Links from `images.unsplash.com` are resized by the image optimizer; others are loaded as they are, which the field says. Without an image, the app draws a placeholder. The draft of "14 Days to Unfuck Your Life" ships without images.
 - Publish or unpublish. Published challenges are available to every user at `/challenges`.
 - See how many people are in a challenge. Once someone joined, texts, rules and links can still be edited (changes apply immediately) but the number of days is frozen.
 - Load the first draft of "14 Days to Unfuck Your Life" (button in the sidebar): all 14 days written, with rules and buttons, unpublished. The text is in `docs/notes/challenge-14-days-to-unfuck-your-life.md`. Days carrying the placeholder "To be written." can be saved as a draft but never published.
@@ -97,14 +97,12 @@ Saving uses `admin_save_challenge_template`. User execution happens on `/challen
 ## Focus sessions
 
 Focus sessions are started from the Productivity Hub and run either inline or
-on the chromeless `/admin/productivity/focus` screen. Both paths write to
-`focus_sessions`: a row on start, then `status`, `ended_at` and
-`actual_seconds` on end.
+on the chromeless `/admin/productivity/focus` screen. The same timer is also available to all signed-in users from Library → Toolbox → Focus Timer. Both entries share the user's active `focus_sessions` row, through `start_focus_session` and `finish_focus_session`. The admin timer returns to Productivity; the Library timer returns to its Toolbox setup.
 
 ### XP
 
 A **completed** session awards **one XP per whole minute actually focused**,
-via `awardFocusSessionXp`. This is the single exception to the rule that admin
+via the server-timed `finish_focus_session` RPC. This is the single exception to the rule that admin
 work earns nothing.
 
 The rule defends itself against farming without needing a separate guard:
@@ -113,13 +111,11 @@ time was served, so a session ended immediately is worth zero minutes and
 writes nothing at all. Cancelled sessions never pay.
 
 The award is idempotent on `(source_type, source_id) = ('focus_session', session.id)`
-in `xp_events`, so a retry or a double-tapped Complete cannot pay twice. It is
-also best-effort: a failed XP write is logged and swallowed, because it must
-never cost the user the session it was paying for.
+in `xp_events`, with a session lock, so a retry or a double-tapped Complete cannot pay twice. Closure, ledger insertion and profile increment are atomic: a failed write leaves the session active for retry.
 
 ### Ending a session
 
-Both end paths check the update error before navigating. This matters more
+Both end paths check the RPC error before navigating. This matters more
 than it looks: `focus_sessions_one_active_per_user` is a partial unique index
 on `status = 'active'`, so a silently failed end strands an active row that
 then blocks every future session.
