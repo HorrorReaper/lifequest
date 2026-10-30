@@ -235,4 +235,29 @@ describe('saveReflectionEntry', () => {
 
     expect(result.streak).toBe(2)
   })
+
+  it('does not pay the milestone bonus again for a second reflection on the milestone day', async () => {
+    const { client, inserts, updates } = fakeClient({
+      profile: {
+        total_xp: 560,
+        current_streak: 7,
+        best_streak: 7,
+        last_journal_date: '2026-01-06',
+        streak_freezes: 0,
+      },
+    })
+
+    const result = await saveReflectionEntry(client, {
+      userId: 'user-1',
+      timezone: 'UTC',
+      text: 'hi',
+      now: new Date('2026-01-06T12:00:00Z'),
+    })
+
+    expect(inserts.xp_events).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ source_type: 'streak_bonus' })])
+    )
+    expect(updates.profiles[0]).toMatchObject({ total_xp: 560 + 10, current_streak: 7 })
+    expect(result).toMatchObject({ xpEarned: 10, streak: 7 })
+  })
 })

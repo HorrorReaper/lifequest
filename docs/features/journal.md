@@ -110,7 +110,7 @@ The existing final submission pipeline performs the following work as applicable
 8. Record entry XP and update profile progression.
 9. Update streak, streak-freeze, milestone, and streak-history state.
 
-Morning and evening completion can award an additional daily bonus. Streak milestones award larger bonuses at configured thresholds.
+Morning and evening completion can award an additional daily bonus. Streak milestones award larger bonuses at configured thresholds, once on the day the milestone is reached; a further entry that day earns no second bonus (see [Gamification](./gamification.md#streaks)).
 
 Every date key the pipeline writes — `entry_date`, the same-day bonus lookup, `last_journal_date` — is resolved once from the profile timezone at the start of the submission, so a submission that straddles midnight cannot file its side effects under two different days. The streak decision itself is not in the pipeline: `resolveStreak` in `src/lib/streak.ts` is a pure function over date keys, unit-tested, and the pipeline only applies its result. It previously compared a wall-clock "yesterday" against a UTC-formatted date, which drifted apart at daylight-saving transitions and reset live streaks.
 

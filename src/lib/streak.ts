@@ -86,7 +86,14 @@ export function resolveStreak({
   }
 }
 
-/** The one-off XP bonus for reaching `streak`, or 0 on a non-milestone day. */
-export function streakMilestoneBonus(streak: number): number {
-  return MILESTONE_BONUSES.find((milestone) => milestone.days === streak)?.bonus ?? 0
+/**
+ * The one-off XP bonus a transition earns by reaching a milestone, or 0.
+ *
+ * Takes the transition rather than the bare streak value: a further entry on
+ * the same day keeps the streak at the milestone, and paying on the value
+ * alone granted the bonus again for every such entry.
+ */
+export function streakMilestoneBonus(transition: StreakTransition): number {
+  if (transition.reason === 'same_day') return 0
+  return MILESTONE_BONUSES.find((milestone) => milestone.days === transition.streak)?.bonus ?? 0
 }

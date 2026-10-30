@@ -62,7 +62,7 @@ The journal pipeline handles:
 - Same-day completion without incrementing twice.
 - Consecutive-day increment.
 - Streak reset or freeze behavior after a missed day.
-- Configured milestone rewards.
+- Configured milestone rewards: 50, 100, 200 and 500 XP on reaching a 7-, 14-, 30- and 100-day streak, recorded as a `streak_bonus` XP event. `streakMilestoneBonus` in `src/lib/streak.ts` takes the whole transition and pays nothing for a `same_day` entry, so further entries on the day a milestone was reached do not grant it again.
 
 Because the journal side effects are sequential, streak and XP changes should be tested together whenever the submission pipeline changes.
 

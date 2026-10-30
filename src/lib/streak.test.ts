@@ -120,16 +120,44 @@ describe('resolveStreak', () => {
 })
 
 describe('streakMilestoneBonus', () => {
+  const reaching = (streak: number) =>
+    resolveStreak({ ...base, currentStreak: streak - 1 })
+
   it('awards a bonus only on the exact milestone day', () => {
-    expect(streakMilestoneBonus(7)).toBe(50)
-    expect(streakMilestoneBonus(14)).toBe(100)
-    expect(streakMilestoneBonus(30)).toBe(200)
-    expect(streakMilestoneBonus(100)).toBe(500)
+    expect(streakMilestoneBonus(reaching(7))).toBe(50)
+    expect(streakMilestoneBonus(reaching(14))).toBe(100)
+    expect(streakMilestoneBonus(reaching(30))).toBe(200)
+    expect(streakMilestoneBonus(reaching(100))).toBe(500)
   })
 
   it('awards nothing between milestones', () => {
-    expect(streakMilestoneBonus(6)).toBe(0)
-    expect(streakMilestoneBonus(8)).toBe(0)
-    expect(streakMilestoneBonus(101)).toBe(0)
+    expect(streakMilestoneBonus(reaching(6))).toBe(0)
+    expect(streakMilestoneBonus(reaching(8))).toBe(0)
+    expect(streakMilestoneBonus(reaching(101))).toBe(0)
+  })
+
+  it('awards the bonus when a freeze carries the streak onto a milestone', () => {
+    const transition = resolveStreak({
+      ...base,
+      lastJournalDate: '2026-07-23',
+      currentStreak: 6,
+      streakFreezes: 1,
+    })
+
+    expect(transition.reason).toBe('frozen')
+    expect(streakMilestoneBonus(transition)).toBe(50)
+  })
+
+  it('awards nothing for a further entry on a day that already reached the milestone', () => {
+    // The streak stays at 7 for every later entry that day; paying the bonus
+    // on the value alone granted it once per entry.
+    const transition = resolveStreak({
+      ...base,
+      lastJournalDate: '2026-07-25',
+      currentStreak: 7,
+    })
+
+    expect(transition.reason).toBe('same_day')
+    expect(streakMilestoneBonus(transition)).toBe(0)
   })
 })

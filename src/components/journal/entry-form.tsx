@@ -615,7 +615,7 @@ export function EntryForm({
           })
         }
 
-        const streakBonus = streakMilestoneBonus(newStreak)
+        const streakBonus = streakMilestoneBonus(transition)
         if (streakBonus > 0) {
           await supabaseInsert(supabase, 'xp_events', {
             user_id: user.id,
