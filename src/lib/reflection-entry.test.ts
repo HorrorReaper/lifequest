@@ -158,7 +158,7 @@ describe('saveReflectionEntry', () => {
         best_streak: 3,
       }),
     ])
-    expect(result).toMatchObject({ entryId: 'entry-1', xpEarned: 10, totalXp: 110, streak: 1 })
+    expect(result).toMatchObject({ entryId: 'entry-1', xpEarned: 10, totalXp: 110, streak: 1, celebration: null })
   })
 
   it('pays the streak milestone bonus and records it as its own XP event', async () => {
@@ -189,7 +189,11 @@ describe('saveReflectionEntry', () => {
       current_streak: 7,
       best_streak: 7,
     })
-    expect(result).toMatchObject({ xpEarned: 60, streak: 7 })
+    expect(result).toMatchObject({
+      xpEarned: 60,
+      streak: 7,
+      celebration: { from: 6, to: 7, usedFreeze: false, bonusXp: 50 },
+    })
   })
 
   it('spends a freeze to bridge one missed day', async () => {
@@ -234,6 +238,7 @@ describe('saveReflectionEntry', () => {
     })
 
     expect(result.streak).toBe(2)
+    expect(result.celebration).toBeNull()
   })
 
   it('does not pay the milestone bonus again for a second reflection on the milestone day', async () => {

@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { LevelUpOverlay } from '@/components/ui/level-up-overlay'
+import { StreakOverlay } from '@/components/ui/streak-overlay'
 import { ChallengeDayOverlay } from '@/components/challenges/ChallengeDayOverlay'
 import { AppShell } from '@/components/layout/app-shell'
 import { isPreviewingAsUser, showAdminUi } from '@/lib/admin'
@@ -42,6 +43,7 @@ export default async function AppLayout({
       <AppShell isAdmin={showAdmin} initialStats={stats}>
         {children}
         <ChallengeDayOverlay />
+        <StreakOverlay />
         <LevelUpOverlay />
       </AppShell>
     </div>

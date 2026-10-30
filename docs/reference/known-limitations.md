@@ -141,3 +141,13 @@ Impact:
 - A large image on another host is downloaded at full size, and if that host removes or changes the file, the challenge shows a broken image. Adding a host to both `next.config.ts` and `OPTIMIZED_IMAGE_HOSTS` gets it resized.
 - The viewer's browser contacts the image host directly, which sees the viewer's IP address (not which page, since no referrer is sent).
 - There is no upload. Using own photos means hosting them somewhere, for example a public Supabase Storage bucket.
+
+## Editing an entry re-runs its rewards
+
+Saving an edited journal entry (`existingEntryId` in `src/components/journal/entry-form.tsx`) runs the same XP and streak steps as a new one: it records the entry XP again and sets `last_journal_date` to today, whatever day the entry belongs to.
+
+Impact:
+- Editing an older entry earns its XP a second time.
+- Editing an older entry on a day with no new entry counts as journaling today: it extends the streak and raises the streak celebration.
+
+Recommended direction: skip the XP and streak steps for an edit, or apply them only when the edit completes an entry that was not complete before.

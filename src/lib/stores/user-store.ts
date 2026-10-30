@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { getLevel, getCityTier, xpToNextLevel } from '@/lib/gamification'
 import { getDefaultAvatarState, type AvatarSlot } from '@/lib/avatar'
 import type { ShellStats } from '@/lib/shell-stats'
+import type { StreakCelebration } from '@/lib/streak'
 
 /** A finished challenge day, waiting to be celebrated (ChallengeDayOverlay). */
 export interface ChallengeDayCelebration {
@@ -52,6 +53,9 @@ interface UserState {
   // Challenge-day celebration; shown before a pending level-up
   pendingChallengeDay: ChallengeDayCelebration | null
 
+  // Streak-extended celebration; after a challenge day, before a level-up
+  pendingStreak: StreakCelebration | null
+
   // Actions
   setProfile: (profile: Partial<UserState>) => void
   addXp: (amount: number, previousTotalXp?: number) => void
@@ -63,6 +67,8 @@ interface UserState {
   clearLevelUp: () => void
   notifyChallengeDay: (celebration: ChallengeDayCelebration) => void
   clearChallengeDay: () => void
+  notifyStreakExtended: (celebration: StreakCelebration) => void
+  clearStreakExtended: () => void
 }
 
 export const useUserStore = create<UserState>((set) => ({
@@ -85,6 +91,7 @@ export const useUserStore = create<UserState>((set) => ({
   shellSynced: false,
   pendingLevelUp: null,
   pendingChallengeDay: null,
+  pendingStreak: null,
 
   setProfile: (profile) =>
     set((state) => {
@@ -139,4 +146,6 @@ export const useUserStore = create<UserState>((set) => ({
   clearLevelUp: () => set({ pendingLevelUp: null }),
   notifyChallengeDay: (celebration) => set({ pendingChallengeDay: celebration }),
   clearChallengeDay: () => set({ pendingChallengeDay: null }),
+  notifyStreakExtended: (celebration) => set({ pendingStreak: celebration }),
+  clearStreakExtended: () => set({ pendingStreak: null }),
 }))

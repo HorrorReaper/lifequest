@@ -51,7 +51,7 @@ export function ReflectionSection({
   userId,
 }: ReflectionSectionProps) {
   const router = useRouter()
-  const { addXp, updateStreak } = useUserStore()
+  const { addXp, updateStreak, notifyStreakExtended } = useUserStore()
   const today = useMemo(() => dateInTimezone(new Date(), timezone), [timezone])
   const promptStorageKey = useMemo(
     () => reflectionPromptStorageKey(userId, today),
@@ -111,6 +111,7 @@ export function ReflectionSection({
       const result = await saveReflectionEntry(supabase, { userId: user.id, timezone, text: answer })
       addXp(result.xpEarned, result.totalXp - result.xpEarned)
       updateStreak(result.streak)
+      if (result.celebration) notifyStreakExtended(result.celebration)
       setJustSaved({ entryId: result.entryId })
       setExpanded(false)
       router.refresh()

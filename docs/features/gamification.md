@@ -66,6 +66,12 @@ The journal pipeline handles:
 
 Because the journal side effects are sequential, streak and XP changes should be tested together whenever the submission pipeline changes.
 
+### Streak celebration
+
+A save that grows the streak raises a full-screen celebration (`StreakOverlay` in `src/components/ui/streak-overlay.tsx`, built on the shared `CelebrationOverlay` with its orange `streak` tone, the colour of the top bar's flame). The ring holds a flame that grows and the streak flipping from its old value to its new one; the title is the new length ("2 days"). The subtitle names the way to the next milestone ("5 days to your 7-day bonus"), the bonus on a milestone day ("+50 XP streak bonus"), or "Keep the flame alive." past the last milestone, prefixed with "Streak freeze used" when a freeze bridged the day. It closes on a tap or after 4 seconds; under reduced motion it leaves out the burst and the pulse and shows the new value straight away.
+
+Only a `continued` or `frozen` transition is celebrated: a first entry, a reset and a further entry the same day are not. `streakCelebration` in `src/lib/streak.ts` makes that decision from the transition; the entry form (`src/components/journal/entry-form.tsx`) and the dashboard's reflection (`saveReflectionEntry` in `src/lib/reflection-entry.ts`, used by `ReflectionSection`) pass its result to `notifyStreakExtended` in the user store. The overlay waits while a challenge-day celebration is open, and a level-up raised by the same save waits until the streak celebration is closed.
+
 ## Quests
 
 `/quests` combines several quest types:

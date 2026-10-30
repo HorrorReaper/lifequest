@@ -97,3 +97,35 @@ export function streakMilestoneBonus(transition: StreakTransition): number {
   if (transition.reason === 'same_day') return 0
   return MILESTONE_BONUSES.find((milestone) => milestone.days === transition.streak)?.bonus ?? 0
 }
+
+/** The first milestone above `streak`, or null once the last one is passed. */
+export function nextStreakMilestone(streak: number): { days: number; bonus: number } | null {
+  return MILESTONE_BONUSES.find((milestone) => milestone.days > streak) ?? null
+}
+
+/** A streak that just grew, waiting to be celebrated (StreakOverlay). */
+export interface StreakCelebration {
+  from: number
+  to: number
+  usedFreeze: boolean
+  /** Milestone XP the extension earned; 0 on a non-milestone day. */
+  bonusXp: number
+}
+
+/**
+ * What a transition gives the streak celebration, or null when the streak
+ * did not grow. A first entry, a reset and a further entry the same day all
+ * leave the streak where a celebration would have nothing to count up.
+ */
+export function streakCelebration(
+  transition: StreakTransition,
+  previousStreak: number
+): StreakCelebration | null {
+  if (transition.reason !== 'continued' && transition.reason !== 'frozen') return null
+  return {
+    from: previousStreak,
+    to: transition.streak,
+    usedFreeze: transition.usedFreeze,
+    bonusXp: streakMilestoneBonus(transition),
+  }
+}

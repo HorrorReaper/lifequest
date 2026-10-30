@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { dateInTimezone } from '@/lib/dates'
-import { resolveStreak, streakMilestoneBonus } from '@/lib/streak'
+import {
+  resolveStreak,
+  streakCelebration,
+  streakMilestoneBonus,
+  type StreakCelebration,
+} from '@/lib/streak'
 import { supabaseInsert, supabaseFrom, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { DAILY_REFLECTION_FIELD_ID, DAILY_REFLECTION_TEMPLATE_ID } from '@/lib/daily-reflection'
 
@@ -26,6 +31,8 @@ export interface SaveReflectionResult {
   xpEarned: number
   totalXp: number
   streak: number
+  /** Set when this save grew the streak; null otherwise. */
+  celebration: StreakCelebration | null
 }
 
 /**
@@ -157,5 +164,11 @@ export async function saveReflectionEntry(
     userId
   )
 
-  return { entryId, xpEarned, totalXp, streak: newStreak }
+  return {
+    entryId,
+    xpEarned,
+    totalXp,
+    streak: newStreak,
+    celebration: streakCelebration(transition, profile.current_streak),
+  }
 }

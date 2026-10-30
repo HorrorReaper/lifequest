@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { resolveStreak, streakMilestoneBonus } from '@/lib/streak'
+import {
+  nextStreakMilestone,
+  resolveStreak,
+  streakCelebration,
+  streakMilestoneBonus,
+} from '@/lib/streak'
 
 const base = {
   today: '2026-07-25',
@@ -159,5 +164,54 @@ describe('streakMilestoneBonus', () => {
 
     expect(transition.reason).toBe('same_day')
     expect(streakMilestoneBonus(transition)).toBe(0)
+  })
+})
+
+describe('nextStreakMilestone', () => {
+  it('names the next milestone above the current streak', () => {
+    expect(nextStreakMilestone(1)).toEqual({ days: 7, bonus: 50 })
+    expect(nextStreakMilestone(7)).toEqual({ days: 14, bonus: 100 })
+    expect(nextStreakMilestone(99)).toEqual({ days: 100, bonus: 500 })
+  })
+
+  it('has none left past the last milestone', () => {
+    expect(nextStreakMilestone(100)).toBeNull()
+  })
+})
+
+describe('streakCelebration', () => {
+  it('celebrates a consecutive day, from the old streak to the new one', () => {
+    expect(streakCelebration(resolveStreak(base), 4)).toEqual({
+      from: 4,
+      to: 5,
+      usedFreeze: false,
+      bonusXp: 0,
+    })
+  })
+
+  it('celebrates a day a freeze bridged, and says so', () => {
+    const transition = resolveStreak({
+      ...base,
+      lastJournalDate: '2026-07-23',
+      streakFreezes: 1,
+    })
+
+    expect(streakCelebration(transition, 4)).toMatchObject({ to: 5, usedFreeze: true })
+  })
+
+  it('carries the milestone bonus the extension earned', () => {
+    const transition = resolveStreak({ ...base, currentStreak: 6 })
+
+    expect(streakCelebration(transition, 6)).toMatchObject({ to: 7, bonusXp: 50 })
+  })
+
+  it('celebrates nothing when the streak did not grow', () => {
+    const sameDay = resolveStreak({ ...base, lastJournalDate: '2026-07-25' })
+    const first = resolveStreak({ ...base, lastJournalDate: null, currentStreak: 0 })
+    const reset = resolveStreak({ ...base, lastJournalDate: '2026-07-20' })
+
+    expect(streakCelebration(sameDay, 4)).toBeNull()
+    expect(streakCelebration(first, 0)).toBeNull()
+    expect(streakCelebration(reset, 4)).toBeNull()
   })
 })

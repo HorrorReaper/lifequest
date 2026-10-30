@@ -145,6 +145,8 @@ It can answer using task, habit, and journal context and can request supported a
 
 `/admin/tools` opens with a Signups card: new waitlist entries and new accounts per UTC day over 30 days, 90 days or a year (`?range=`), shown per day or cumulative, with a table view. The counts come from `admin_signup_series(p_since)`; gap-filling and the cumulative baseline are in `src/lib/signup-analytics.ts`. Both functions are `security definer` and return counts only, so admins never need a select policy on the waitlist's email addresses.
 
+The "Animation and store tests" card (`src/components/dev/AdminTestingTools.tsx`) raises the celebration overlays from the client store without saving anything: the level-up overlay, and the streak overlay for a 1 → 2 day extension and for reaching the 7-day milestone. "Clear overlay state" closes both.
+
 ## Feature isolation rules
 
 The Contacts workspace under `/admin/contacts` manages owned profiles, explicit relationships, important dates and existing Task/Knowledge links. See [Contacts](contacts.md) for implemented behavior and the [original concept](../notes/contacts-management-concept.md) for design rationale.

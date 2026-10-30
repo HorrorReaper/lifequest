@@ -5,6 +5,27 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useTheme } from '@/components/providers/theme-provider'
 import { cn } from '@/lib/utils'
 
+// Full class names, so Tailwind finds them. `streak` matches the flame in the
+// top bar.
+const TONES = {
+  primary: {
+    text: 'text-primary',
+    fill: 'bg-primary',
+    tint: 'bg-primary/10',
+    border: 'border-primary',
+    softBorder: 'border-primary/30',
+  },
+  streak: {
+    text: 'text-orange-600 dark:text-orange-400',
+    fill: 'bg-orange-500',
+    tint: 'bg-orange-500/10',
+    border: 'border-orange-500',
+    softBorder: 'border-orange-500/30',
+  },
+} as const
+
+export type CelebrationTone = keyof typeof TONES
+
 interface CelebrationOverlayProps {
   open: boolean
   onClose: () => void
@@ -16,6 +37,8 @@ interface CelebrationOverlayProps {
   subtitle?: ReactNode
   /** Closes on its own after this long; a tap anywhere closes it sooner. */
   autoCloseMs?: number
+  /** Colour of the ring, glow, burst and eyebrow. */
+  tone?: CelebrationTone
 }
 
 /**
@@ -34,7 +57,9 @@ export function CelebrationOverlay({
   title,
   subtitle,
   autoCloseMs = 4000,
+  tone = 'primary',
 }: CelebrationOverlayProps) {
+  const colors = TONES[tone]
   const { theme } = useTheme()
   const reduceMotion = useReducedMotion()
   const isWhiteMode = theme === 'white'
@@ -71,12 +96,12 @@ export function CelebrationOverlay({
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 2.5, opacity: 0.15 }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
-                className="size-96 rounded-full bg-primary"
+                className={cn('size-96 rounded-full', colors.fill)}
               />
             </div>
           )}
 
-          {lively && <Particles />}
+          {lively && <Particles className={colors.fill} />}
 
           {/* Card */}
           <motion.div
@@ -88,7 +113,7 @@ export function CelebrationOverlay({
               'relative mx-4 flex max-w-sm flex-col items-center gap-4 rounded-2xl border px-12 py-10 text-center',
               isWhiteMode
                 ? 'border-stone-200 bg-white/95 shadow-[0_24px_80px_rgba(68,64,60,0.12)]'
-                : 'border-primary/30 bg-background/95 shadow-2xl'
+                : cn(colors.softBorder, 'bg-background/95 shadow-2xl')
             )}
             onClick={(e) => e.stopPropagation()}
           >
@@ -96,7 +121,7 @@ export function CelebrationOverlay({
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-xs font-semibold uppercase tracking-[0.2em] text-primary"
+              className={cn('text-xs font-semibold uppercase tracking-[0.2em]', colors.text)}
             >
               {eyebrow}
             </motion.p>
@@ -106,15 +131,16 @@ export function CelebrationOverlay({
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.25 }}
               className={cn(
-                'relative flex size-28 items-center justify-center rounded-full border bg-primary/10',
-                isWhiteMode ? 'border-2 border-primary/30' : 'border-4 border-primary'
+                'relative flex size-28 items-center justify-center rounded-full border',
+                colors.tint,
+                isWhiteMode ? cn('border-2', colors.softBorder) : cn('border-4', colors.border)
               )}
             >
               <motion.span
                 initial={{ scale: 1.4 }}
                 animate={{ scale: 1 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.3 }}
-                className="flex items-center justify-center text-5xl font-black text-primary tabular-nums"
+                className={cn('flex items-center justify-center text-5xl font-black tabular-nums', colors.text)}
               >
                 {badge}
               </motion.span>
@@ -122,7 +148,7 @@ export function CelebrationOverlay({
               {/* Ring pulse */}
               {!reduceMotion && (
                 <motion.div
-                  className={cn('absolute inset-0 rounded-full border-primary', isWhiteMode ? 'border-2' : 'border-4')}
+                  className={cn('absolute inset-0 rounded-full', colors.border, isWhiteMode ? 'border-2' : 'border-4')}
                   initial={{ scale: 1, opacity: 0.8 }}
                   animate={{ scale: isWhiteMode ? 1.18 : 1.6, opacity: 0 }}
                   transition={
@@ -159,7 +185,7 @@ export function CelebrationOverlay({
   )
 }
 
-function Particles() {
+function Particles({ className }: { className: string }) {
   const count = 16
   return (
     <>
@@ -175,7 +201,7 @@ function Particles() {
         return (
           <motion.div
             key={i}
-            className="pointer-events-none absolute rounded-full bg-primary"
+            className={cn('pointer-events-none absolute rounded-full', className)}
             style={{ width: size, height: size }}
             initial={{ opacity: 1, x: 0, y: 0, scale: 1 }}
             animate={{ opacity: 0, x: tx, y: ty, scale: 0 }}

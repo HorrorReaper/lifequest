@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { dateInTimezone } from '@/lib/dates'
-import { resolveStreak, streakMilestoneBonus } from '@/lib/streak'
+import { resolveStreak, streakCelebration, streakMilestoneBonus } from '@/lib/streak'
 import { supabaseInsert, supabaseFrom, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import { useUserStore } from '@/lib/stores/user-store'
@@ -200,7 +200,7 @@ export function EntryForm({
 }: EntryFormProps) {
   const router = useRouter()
   const supabase = createClient()
-  const { addXp, updateStreak } = useUserStore()
+  const { addXp, updateStreak, notifyStreakExtended } = useUserStore()
 
   const initialValues = useMemo(
     () => createInitialValues(fields, existingResponses),
@@ -639,6 +639,8 @@ export function EntryForm({
         // Update Zustand store
         addXp(totalXpEarned + streakBonus, profile.total_xp)
         updateStreak(newStreak)
+        const celebration = streakCelebration(transition, profile.current_streak)
+        if (celebration) notifyStreakExtended(celebration)
         setXpEarned(totalXpEarned + streakBonus)
       }
 

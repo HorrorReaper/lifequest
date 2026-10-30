@@ -7,6 +7,7 @@ const saveReflectionEntry = vi.fn()
 const refresh = vi.fn()
 const addXp = vi.fn()
 const updateStreak = vi.fn()
+const notifyStreakExtended = vi.fn()
 const randomReflectionPrompt = vi.fn()
 
 vi.mock('@/lib/reflection-entry', () => ({
@@ -19,7 +20,7 @@ vi.mock('@/lib/supabase/client', () => ({
 }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }))
 vi.mock('@/lib/stores/user-store', () => ({
-  useUserStore: () => ({ addXp, updateStreak }),
+  useUserStore: () => ({ addXp, updateStreak, notifyStreakExtended }),
 }))
 vi.mock('@/lib/daily-reflection', async () => {
   const actual = await vi.importActual<typeof import('@/lib/daily-reflection')>(
@@ -68,10 +69,12 @@ beforeEach(() => {
     xpEarned: 10,
     totalXp: 210,
     streak: 3,
+    celebration: null,
   })
   refresh.mockReset()
   addXp.mockReset()
   updateStreak.mockReset()
+  notifyStreakExtended.mockReset()
   randomReflectionPrompt.mockReset().mockReturnValue(otherPrompt)
   installLocalStorageStub()
 })
@@ -143,6 +146,18 @@ describe('ReflectionSection', () => {
     await waitFor(() => expect(addXp).toHaveBeenCalledWith(10, expect.any(Number)))
     expect(updateStreak).toHaveBeenCalledWith(3)
     expect(refresh).toHaveBeenCalled()
+    expect(notifyStreakExtended).not.toHaveBeenCalled()
+  })
+
+  it('celebrates the streak when the reflection extended it', async () => {
+    const celebration = { from: 2, to: 3, usedFreeze: false, bonusXp: 0 }
+    saveReflectionEntry.mockResolvedValue({ entryId: 'entry-1', xpEarned: 10, totalXp: 210, streak: 3, celebration })
+    render(<ReflectionSection prompt={prompt} writtenToday={false} entryId={null} timezone="UTC" userId="user-1" />)
+    fireEvent.click(screen.getByRole('button', { name: /write about it/i }))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Grateful for coffee.' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(notifyStreakExtended).toHaveBeenCalledWith(celebration))
   })
 
   it('shows what went wrong and keeps the draft if saving fails', async () => {
