@@ -84,6 +84,7 @@ beforeEach(() => {
   setHabitLogCompletion.mockReset();
   rpc.mockReset();
   rpc.mockImplementation(defaultRpcImplementation);
+  window.sessionStorage.clear();
 });
 
 afterEach(() => {
@@ -313,6 +314,67 @@ describe("HabitManager", () => {
         screen.getByTitle("Enjoy five minutes of quiet before the day starts")
       ).toBeTruthy()
     );
+  });
+});
+
+describe("HabitManager when the day's habits are all done", () => {
+  function todayLog(habitId: string, completed = true): HabitLog {
+    return {
+      id: `log-${habitId}`,
+      user_id: "user-1",
+      habit_id: habitId,
+      entry_id: null,
+      log_date: TODAY,
+      completed,
+      created_at: "2026-08-09T12:00:00.000Z",
+    };
+  }
+
+  it("swaps the count for \"All done today\" and announces it when the last habit is ticked off", async () => {
+    fetchHabits.mockResolvedValue([
+      habit({ id: "habit-a", name: "Meditation" }),
+      habit({ id: "habit-b", name: "Journaling" }),
+    ]);
+    habitLogRows = [todayLog("habit-a")];
+    setHabitLogCompletion.mockResolvedValue(todayLog("habit-b"));
+
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("1 of 2 done today")).toBeTruthy());
+    expect(screen.queryByText("All done today")).toBeNull();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Check in Journaling today" }));
+
+    expect(screen.getByText("All done today")).toBeTruthy();
+    expect(screen.queryByText("2 of 2 done today")).toBeNull();
+    expect(screen.getByText("All habits done today")).toBeTruthy();
+    await waitFor(() => expect(setHabitLogCompletion).toHaveBeenCalled());
+  });
+
+  it("shows a finished day without celebrating it again on load", async () => {
+    fetchHabits.mockResolvedValue([habit({ id: "habit-a", name: "Meditation" })]);
+    habitLogRows = [todayLog("habit-a")];
+
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("All done today")).toBeTruthy());
+
+    expect(screen.queryByText("All habits done today")).toBeNull();
+  });
+
+  it("gives the celebration back when the check-in fails to save", async () => {
+    fetchHabits.mockResolvedValue([habit({ id: "habit-a", name: "Meditation" })]);
+    setHabitLogCompletion.mockRejectedValueOnce(new Error("offline"));
+    setHabitLogCompletion.mockResolvedValue(todayLog("habit-a"));
+
+    render(<HabitManager userId="user-1" timezone="UTC" today={TODAY} />);
+    await waitFor(() => expect(screen.getByText("Meditation")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Check in Meditation today" }));
+    await waitFor(() => expect(screen.getByText("0 of 1 done today")).toBeTruthy());
+    expect(screen.queryByText("All habits done today")).toBeNull();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Check in Meditation today" }));
+    expect(screen.getByText("All habits done today")).toBeTruthy();
+    await waitFor(() => expect(setHabitLogCompletion).toHaveBeenCalledTimes(2));
   });
 });
 

@@ -163,7 +163,7 @@ The public task manager deliberately exposes only durable basic fields. Project 
 - **History** — active habits with historical context.
 - **Archived** — archived habits that can be restored.
 
-Each habit card shows its icon, its name on up to two lines, "Daily", and either the current streak or, before its first check-in, "Ready for its first check-in". The check-in control is a single `role="checkbox"` button ("Check in <name> today" / "Undo check-in for <name> today"); done is always the filled primary circle with a tick, whatever the habit's colour.
+Each habit card shows its icon, its name on up to two lines, "Daily", and either the current streak or, before its first check-in, "Ready for its first check-in". The check-in control is a single `role="checkbox"` button ("Check in <name> today" / "Undo check-in for <name> today"); done is always the filled primary circle with a tick, whatever the habit's colour, and turns green only while the whole day is done (see [All habits done](#all-habits-done)).
 
 "Add habit" is a button in the page header (`PageHeader` in `src/components/ui/page-header.tsx`). It used to float at the bottom of the list, where on a phone the fixed navigation covered it and took its taps. `/habits?new=1` opens the create dialog directly.
 
@@ -188,6 +188,18 @@ Unchecking updates the matching log to `completed=false`; it does not delete the
 Checking a habit true for the day grants XP and coins; unchecking claws them back. See [Gamification](./gamification.md#habit-check-in-xp) for the streak-multiplier formula and dedup guarantee. Reward failures are caught separately from the log save — a failed reward grant is logged to the console but does not roll back the check-in itself, since the log write is the source of truth for completion state.
 
 The optional skill category set on a habit is copied onto its XP events, feeding the per-category totals on `/analytics`.
+
+### All habits done
+
+Ticking off the last open habit of today, on `/habits` or in the dashboard's Habits section, plays a short wave: the check marks pop one after another from the top, each turning green as it is reached, the progress bar turns green, and the day's count ("2 of 3 done today" / "2 of 3 today") gives way to an "All done today" badge that pops in. Screen readers hear "All habits done today" once, from a live region. There is no overlay and no extra reward.
+
+- "All" means every active (not archived) habit. A past day filled in from the History view does not count, and neither does a habit checked off anywhere else (routines, the journal's habit-tracker field, the chat).
+- The wave starts with the optimistic tick. If that check-in fails to save, the celebration is given back, so the retry plays it.
+- It plays once per user and day: the first completion claims the day in `sessionStorage`, shared by both surfaces, so unticking and reticking the last habit does not replay it. Without usable storage it plays on every completion rather than never.
+- The green end state (green check marks, on the dashboard also green-outlined rows, a green bar, "All done today") shows whenever every habit is done today, also after a reload, without the wave. Unticking a habit returns everything to normal.
+- Under reduced motion there is no pop; the colours change directly.
+
+The decision and the once-a-day claim are in `src/lib/habit-day-complete.ts` (`completesHabitDay`, `claimDayCompleteCelebration`, `releaseDayCompleteCelebration`); the hook, the wave's motion props, the badge and the announcer that both surfaces use are in `src/components/habits/day-complete.tsx`.
 
 ### Timezone
 

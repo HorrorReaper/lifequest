@@ -124,7 +124,7 @@ The other dashboard sections keep the older header: an icon in a round chip, the
 
 ### Habits
 
-`HabitsSection` (`src/components/dashboard/HabitsSection.tsx`) lists today's habits, each checkable in place with the same XP and coin rewards as `/habits`. Habits still open come first and done ones after (`openHabitsFirst` in `src/lib/dashboard-habits.ts`); within each group the order is the user's own from `/habits`. The order follows the optimistic check-in state, so a habit slides below the open ones on the tap itself (a framer-motion layout animation, skipped when the system asks for reduced motion) and back up when unticked. The five-row preview therefore always starts with what is left to do.
+`HabitsSection` (`src/components/dashboard/HabitsSection.tsx`) lists today's habits, each checkable in place with the same XP and coin rewards as `/habits`. Habits still open come first and done ones after (`openHabitsFirst` in `src/lib/dashboard-habits.ts`); within each group the order is the user's own from `/habits`. The order follows the optimistic check-in state, so a habit slides below the open ones on the tap itself (a framer-motion layout animation, skipped when the system asks for reduced motion) and back up when unticked. The five-row preview therefore always starts with what is left to do. Ticking off the last open habit plays the "all habits done" wave over the visible rows and swaps the count for "All done today"; see [All habits done](./planning-tasks-habits.md#all-habits-done).
 
 ### Daily briefing
 

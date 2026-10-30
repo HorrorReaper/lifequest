@@ -9,6 +9,7 @@ import { createHabit, setHabitLogCompletion } from '@/lib/habits'
 import { applyHabitCheckInReward } from '@/lib/habit-check-in'
 import { useUserStore } from '@/lib/stores/user-store'
 import { openHabitsFirst, type DashboardHabit } from '@/lib/dashboard-habits'
+import { completesHabitDay } from '@/lib/habit-day-complete'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ClickableSection } from '@/components/dashboard/ClickableSection'
@@ -18,6 +19,15 @@ import {
   HabitEditorDialog,
   type HabitEditorValue,
 } from '@/components/habits/HabitEditorDialog'
+import {
+  DAY_COMPLETE_BAR_CLASS,
+  DAY_COMPLETE_CHECK_CLASS,
+  DAY_COMPLETE_ROW_CLASS,
+  DayCompleteAnnouncer,
+  DayCompleteBadge,
+  dayCompleteWave,
+  useDayCompleteCelebration,
+} from '@/components/habits/day-complete'
 
 interface HabitsSectionProps {
   userId: string
@@ -49,6 +59,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
   const [editorError, setEditorError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
   const reduceMotion = useReducedMotion()
+  const dayComplete = useDayCompleteCelebration(userId, today)
 
   async function handleCreate(value: HabitEditorValue) {
     setEditorSaving(true)
@@ -73,6 +84,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
   }
 
   const doneCount = habits.filter((habit) => completedIds.has(habit.id)).length
+  const allDone = habits.length > 0 && doneCount === habits.length
   // From the optimistic set, so a ticked habit drops to the bottom on the tap
   // itself rather than after the save; the preview's first rows are then
   // always the habits still left to do.
@@ -83,9 +95,16 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
 
     const wasCompleted = completedIds.has(habit.id)
     const completed = !wasCompleted
+    const completesDay = completesHabitDay({
+      doneBefore: doneCount,
+      doneAfter: completed ? doneCount + 1 : doneCount - 1,
+      total: habits.length,
+    })
 
     setBusyId(habit.id)
     setError(null)
+    // With the optimistic tick, so the wave starts on the tap itself.
+    if (completesDay) dayComplete.celebrate()
     setCompletedIds((current) => {
       const next = new Set(current)
       if (completed) next.add(habit.id)
@@ -123,6 +142,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
       window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
       router.refresh()
     } catch (saveError) {
+      if (completesDay) dayComplete.cancel()
       setCompletedIds((current) => {
         const next = new Set(current)
         if (wasCompleted) next.add(habit.id)
@@ -147,8 +167,14 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
         icon={Flame}
         title="Habits"
         href="/habits"
-        value={habits.length > 0 ? doneCount : undefined}
-        unit={`of ${habits.length} today`}
+        value={
+          habits.length === 0 ? undefined : allDone ? (
+            <DayCompleteBadge celebrating={dayComplete.celebrating} />
+          ) : (
+            doneCount
+          )
+        }
+        unit={allDone ? undefined : `of ${habits.length} today`}
         action={
           habits.length > 0 && (
             <SectionAddButton label="Add habit" onClick={() => setEditorOpen(true)} />
@@ -173,15 +199,19 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
               than the card with every habit added. */}
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
             <div
-              className="h-full rounded-full bg-orange-500 transition-[width] duration-300"
+              className={cn(
+                'h-full rounded-full transition-[width,background-color] duration-300',
+                allDone ? DAY_COMPLETE_BAR_CLASS : 'bg-orange-500'
+              )}
               style={{ width: `${(doneCount / habits.length) * 100}%` }}
             />
           </div>
 
           <ul className="mt-4 space-y-2">
-            {(expanded ? orderedHabits : orderedHabits.slice(0, HABITS_PREVIEW_COUNT)).map((habit) => {
+            {(expanded ? orderedHabits : orderedHabits.slice(0, HABITS_PREVIEW_COUNT)).map((habit, index) => {
               const checked = completedIds.has(habit.id)
               const busy = busyId === habit.id
+              const wave = dayCompleteWave(index, dayComplete.celebrating, reduceMotion)
 
               return (
                 // layout slides a habit to its new place instead of jumping;
@@ -199,18 +229,24 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
                     onClick={() => void toggleHabit(habit)}
                     disabled={busy}
                     aria-pressed={checked}
+                    style={wave.style}
                     className={cn(
                       'flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border px-3 text-left transition-colors disabled:cursor-default disabled:opacity-60 sm:min-h-12',
                       checked
-                        ? 'border-orange-500/40 bg-orange-500/5'
+                        ? allDone
+                          ? DAY_COMPLETE_ROW_CLASS
+                          : 'border-orange-500/40 bg-orange-500/5'
                         : 'border-border bg-background hover:border-foreground/25 hover:bg-muted/50'
                     )}
                   >
-                    <span
+                    <motion.span
+                      {...wave}
                       className={cn(
                         'flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors sm:size-6',
                         checked
-                          ? 'border-orange-500 bg-orange-500 text-white'
+                          ? allDone
+                            ? DAY_COMPLETE_CHECK_CLASS
+                            : 'border-orange-500 bg-orange-500 text-white'
                           : 'border-border'
                       )}
                     >
@@ -219,7 +255,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
                       ) : (
                         checked && <Check className="size-4 sm:size-3.5" />
                       )}
-                    </span>
+                    </motion.span>
                     <span aria-hidden="true" className="text-xl sm:text-base">
                       {habit.emoji}
                     </span>
@@ -253,6 +289,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
         </>
       )}
 
+      <DayCompleteAnnouncer celebrating={dayComplete.celebrating} />
       {error && <p className="mt-3 text-sm text-destructive sm:text-xs">{error}</p>}
 
       <HabitEditorDialog

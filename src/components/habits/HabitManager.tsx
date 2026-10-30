@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   DndContext,
   KeyboardSensor,
@@ -44,6 +45,7 @@ import {
 } from "@/lib/habits";
 import { addDays, dateInTimezone, formatDateOnly } from "@/lib/dates";
 import { applyHabitCheckInReward } from "@/lib/habit-check-in";
+import { completesHabitDay } from "@/lib/habit-day-complete";
 import { useUserStore } from "@/lib/stores/user-store";
 import {
   buildDateWindow,
@@ -71,6 +73,14 @@ import {
   habitTintClass,
   type HabitEditorValue,
 } from "@/components/habits/HabitEditorDialog";
+import {
+  DAY_COMPLETE_BAR_CLASS,
+  DAY_COMPLETE_CHECK_CLASS,
+  DayCompleteAnnouncer,
+  DayCompleteBadge,
+  dayCompleteWave,
+  useDayCompleteCelebration,
+} from "@/components/habits/day-complete";
 
 type HabitView = "today" | "history" | "archived";
 
@@ -122,6 +132,7 @@ export function HabitManager({
   const [archiveTarget, setArchiveTarget] = useState<Habit | null>(null);
   const addXp = useUserStore((state) => state.addXp);
   const setCoins = useUserStore((state) => state.setCoins);
+  const dayComplete = useDayCompleteCelebration(userId, today);
 
   // A tap on a card opens it, so dragging has to be told apart from tapping:
   // the mouse needs a few pixels of travel, a finger a long press (which
@@ -172,6 +183,10 @@ export function HabitManager({
     [habits]
   );
   const logIndex = useMemo(() => indexHabitLogs(logs), [logs]);
+  const doneToday = activeHabits.filter(
+    (habit) => logIndex.get(habitLogKey(habit.id, today))?.completed
+  ).length;
+  const allDoneToday = activeHabits.length > 0 && doneToday === activeHabits.length;
   const visibleDate = view === "today" ? today : historyDate;
   const recentDates = useMemo(() => buildDateWindow(today, 14).reverse(), [today]);
 
@@ -209,8 +224,21 @@ export function HabitManager({
           completed,
           created_at: new Date().toISOString(),
         };
+    // Only ticking off today's last open habit completes the day; a past
+    // day filled in from the history view does not.
+    const wasCompleted = previousLog?.completed ?? false;
+    const completesDay =
+      date === today &&
+      completesHabitDay({
+        doneBefore: doneToday,
+        doneAfter: doneToday + (completed && !wasCompleted ? 1 : 0) - (!completed && wasCompleted ? 1 : 0),
+        total: activeHabits.length,
+      });
+
     setFailure(null);
     setBusy(key, true);
+    // With the optimistic log, so the wave starts on the tap itself.
+    if (completesDay) dayComplete.celebrate();
     setLogs((current) => [
       ...current.filter(
         (log) => !(log.habit_id === habit.id && log.log_date === date)
@@ -259,6 +287,7 @@ export function HabitManager({
       }
       notifyUpdated();
     } catch (error) {
+      if (completesDay) dayComplete.cancel();
       setLogs((current) => {
         const withoutOptimistic = current.filter(
           (log) => !(log.habit_id === habit.id && log.log_date === date)
@@ -407,10 +436,6 @@ export function HabitManager({
     setEditorOpen(true);
   }
 
-  const doneToday = activeHabits.filter(
-    (habit) => logIndex.get(habitLogKey(habit.id, today))?.completed
-  ).length;
-
   // The create button lives in the page header so it is reachable at the
   // top of the page on every width. It used to float at the bottom of the
   // list, where on a phone the fixed navigation covered it and took its taps.
@@ -423,7 +448,9 @@ export function HabitManager({
           ? "Small daily actions, checked off once a day."
           : activeHabits.length === 0
             ? "Small daily actions, checked off once a day. Start with one."
-            : `${doneToday} of ${activeHabits.length} done today`
+            : allDoneToday
+              ? <DayCompleteBadge celebrating={dayComplete.celebrating} />
+              : `${doneToday} of ${activeHabits.length} done today`
       }
       actions={
         <Button size="lg" onClick={startCreate} disabled={loading} className="h-12 px-5">
@@ -466,6 +493,7 @@ export function HabitManager({
   return (
     <div className="space-y-4">
       {header}
+      <DayCompleteAnnouncer celebrating={dayComplete.celebrating} />
       {activeHabits.length > 0 && (
         <div
           role="progressbar"
@@ -476,7 +504,10 @@ export function HabitManager({
           className="h-2 overflow-hidden rounded-full bg-muted"
         >
           <div
-            className="h-full rounded-full bg-primary transition-[width]"
+            className={cn(
+              "h-full rounded-full transition-[width,background-color] duration-300",
+              allDoneToday ? DAY_COMPLETE_BAR_CLASS : "bg-primary"
+            )}
             style={{ width: `${Math.round((doneToday / activeHabits.length) * 100)}%` }}
           />
         </div>
@@ -585,7 +616,7 @@ export function HabitManager({
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-3">
-                {activeHabits.map((habit) => {
+                {activeHabits.map((habit, index) => {
                   const existingLog = logIndex.get(
                     habitLogKey(habit.id, visibleDate)
                   );
@@ -606,6 +637,9 @@ export function HabitManager({
                       today={today}
                       date={visibleDate}
                       completed={existingLog?.completed ?? false}
+                      dayComplete={visibleDate === today && allDoneToday}
+                      waveIndex={index}
+                      celebrating={dayComplete.celebrating}
                       isDisabled={isDisabled}
                       reorderDisabled={view !== "today" || busyKeys.has("reorder")}
                       onToggle={(completed) =>
@@ -797,6 +831,11 @@ interface SortableHabitCardProps {
   today: string;
   date: string;
   completed: boolean;
+  /** Every active habit is done today and the card shows today. */
+  dayComplete: boolean;
+  /** The card's place in the list, for the day-complete wave. */
+  waveIndex: number;
+  celebrating: boolean;
   isDisabled: (date: string) => boolean;
   reorderDisabled: boolean;
   onToggle: (completed: boolean) => void;
@@ -819,11 +858,15 @@ function SortableHabitCard({
   today,
   date,
   completed,
+  dayComplete,
+  waveIndex,
+  celebrating,
   isDisabled,
   reorderDisabled,
   onToggle,
   onEdit,
 }: SortableHabitCardProps) {
+  const reduceMotion = useReducedMotion();
   const {
     attributes,
     listeners,
@@ -889,18 +932,22 @@ function SortableHabitCard({
           className="group/check -m-1.5 grid size-11 shrink-0 place-items-center rounded-full outline-none disabled:cursor-not-allowed"
         >
           {/* Done is the filled primary circle with a tick, in every habit
-              colour alike, so the state never depends on reading a hue. */}
-          <span
+              colour alike, so the state never depends on reading a hue. It
+              turns green only once every habit is done today. */}
+          <motion.span
+            {...dayCompleteWave(waveIndex, celebrating, reduceMotion)}
             aria-hidden="true"
             className={cn(
               "grid size-8 place-items-center rounded-full border-2 transition-colors group-focus-visible/check:ring-3 group-focus-visible/check:ring-ring/50 group-disabled/check:opacity-45",
               completed
-                ? "border-primary bg-primary text-primary-foreground"
+                ? dayComplete
+                  ? DAY_COMPLETE_CHECK_CLASS
+                  : "border-primary bg-primary text-primary-foreground"
                 : "border-muted-foreground/45 bg-transparent group-hover/check:border-primary"
             )}
           >
             {completed && <Check className="size-4" strokeWidth={3} />}
-          </span>
+          </motion.span>
         </button>
         <button
           type="button"
