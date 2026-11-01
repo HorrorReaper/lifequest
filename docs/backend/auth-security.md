@@ -215,6 +215,10 @@ With `20261029191235_learning_academy.sql` applied, the three course learner RPC
 
 Unpublished local progress/reflections are keyed by authenticated user ID and never replace synchronized published progress. This isolates account display, not same-origin scripts. Studio preview snapshots contain curriculum only, use session storage and never write learner results. See `../features/learning-paths.md`.
 
+## Metrics access
+
+After `20261101120000_create_standalone_metrics.sql`, `metrics` and `metric_values` have four policies each (select, insert, update, delete) `to authenticated` with `(select auth.uid()) = user_id`, and authenticated CRUD grants; anonymous roles have none. The insert and update checks on `metric_values` also require that the metric belongs to the same user, so a value cannot be attached to someone else's metric even with the caller's own `user_id`. `metric_legacy_fields` has RLS enabled, no policies and all privileges revoked. `public.backfill_metric_values()` is `security definer` with `search_path = public` and executable only by the migration role (execute revoked from `public`, `anon` and `authenticated`). Checked by `scripts/verify-standalone-metrics.mjs`.
+
 ## Focus timer access
 
 `start_committed_focus_session` is an authenticated invoker wrapper for the implementation in the non-exposed `focus_internal` schema. The implementation uses an empty search path, checks `auth.uid()`, and accepts only one to three distinct open tasks owned by the caller. Commitment IDs inherit the session's owner-only read policy.

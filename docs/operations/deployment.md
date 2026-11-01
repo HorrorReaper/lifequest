@@ -154,6 +154,10 @@ Apply `20261029191235_learning_academy.sql` to the intended Supabase environment
 
 After deployment, `/learn` offers the authored personal course as a labelled device-only preview if it has no published version. In Learning Studio, use Add personal course, inspect Preview draft, Save draft and explicitly Publish. Existing enrollments stay pinned to their prior versions. Verify normal users and normal-user preview retain the original Library and cannot call course RPCs. A code deployment without the database migration does not establish that backend role boundary.
 
+## Standalone metrics rollout
+
+Apply `20261101120000_create_standalone_metrics.sql` and `20261101120100_migrate_tracked_metrics.sql` in that order, then deploy. The second migration creates the metrics from tracked journal fields (once) and runs `public.backfill_metric_values()` at its end. Staging and Production share one database, so until the new code is live the old code keeps writing tracked values only to `journal_responses`. Right after the new code reaches Production, run `select public.backfill_metric_values();` once more (as the migration role, for example in the Supabase SQL editor) to copy the values written in that window; it is safe to repeat and never replaces a directly entered value. Do not re-run the second migration file: its metric creation is not repeatable and would bring back metrics a user has deleted. Dropping `metric_targets`, `metric_legacy_fields` and the function happens in a later migration, which is not part of this release.
+
 ## Library focus timer
 
 Apply `20261029203006_library_focus_timer.sql` before deploying the Toolbox timer or updated admin timer. It adds owner SELECT and authenticated server-timed RPCs, preserving existing admin policies for compatibility. It has no dependency on the optional Academy migration and changes no existing sessions or roles. Verify normal-user start/resume/complete/cancel and admin return navigation. Rolling the frontend back is compatible with the additive migration; do not remove the RPCs while the new clients are deployed.
