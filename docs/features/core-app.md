@@ -102,12 +102,17 @@ The sections with a page of their own have no "Manage …" / "Open …" / "All �
 | Today's Plan | `/plan` (or the Work planner when embedded there) |
 | Habits | `/habits` |
 | Tasks | `/tasks` |
-| Scorecard, metric chart | `/journal/metrics` |
+| Metric chart | `/journal/metrics/[metricId]?from=home` (the metric it charts) |
+| Scorecard | Not a clickable section: its heading links to `/journal/metrics`, and each row links to its own metric page (see below) |
 | Quests | `/quests` |
 
 Adding happens from a small round "+" at the right of the section's header (`SectionAddButton` in `src/components/dashboard/SectionAddButton.tsx`), the same in every section: Habits and Tasks open their create dialog, Today's Plan goes straight to the plan editor (`/plan?step=timeline`; `/plan` itself opens the editor too once a plan exists), and Goals opens `GoalEditorDialog` (title, why, category, target date), which replaced the form that used to unfold inside the section. `?goal=new` (`GOAL_FORM_HREF`) opens that dialog directly. While a section is empty the "+" is hidden: its own empty-state button ("Add habit", "Add task", "Plan my day", "Add Goal") is the one way in. The footers that held "Add …" buttons, and the Tasks "N open" count, are gone.
 
 A click on one of the section's own controls does not navigate: check-offs, the "+" buttons, "Show more", claim buttons, any link, and anything inside a dialog the section opened (React bubbles portal events through the component tree, so the section checks the click landed in its own DOM). `data-section-ignore` opts any other element out. Ctrl/Cmd-click opens the page in a new tab, and selecting text does not navigate. Goals, Daily Reflection and Routines have no page to open and are unchanged.
+
+The Scorecard (`src/components/dashboard/ScorecardSection.tsx`) lists every metric, with or without a target ("Your metrics: log a number, see where you stand."). A row's name and value are one link to `/journal/metrics/[metricId]?from=home`; the round "+" (`aria-label="Log {name}"`) opens `MetricLogDialog` for that metric, which writes today's value (`today` from the profile time zone, passed down by `src/app/(app)/dashboard/page.tsx`) and refreshes the page. A row with a target shows `value of target unit` (`1 of at most 2 cups` for limits), a progress bar and a green/red colour; a row without one shows only the value and its date, and a metric with no value yet reads "No value yet" in neutral colours, never as a miss. The header count "N of M met" counts only rows with a target and is hidden when none has one. With no metrics at all the section shows the "Track a number over time" empty state (`MetricCreateLauncher`, `empty` variant) instead of disappearing; hiding it stays possible through the section switches. The dashboard no longer reads `metric_targets` or the old field-based metrics.
+
+The single "Metric" chart section (`MetricDashboardWidget`) charts the last 180 days of the first metric that has a value in that window (otherwise the first metric) and links to that metric's page. The log dialog's "Open {name} ›" link also closes the dialog, because the dashboard keeps it mounted during client navigation.
 
 ### Section headers with a figure
 

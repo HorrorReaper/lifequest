@@ -139,4 +139,12 @@ describe('MetricLogDialog', () => {
     const link = screen.getByRole('link', { name: 'Open Weight ›' })
     expect(link.getAttribute('href')).toBe('/journal/metrics/metric-1?from=home')
   })
+
+  it('closes itself when the metric page link is followed', () => {
+    const onOpenChange = renderDialog({ value: 81.6, date: '2026-10-30' })
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open Weight ›' }))
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
 })

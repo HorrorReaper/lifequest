@@ -2,13 +2,14 @@
 
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { LineChart as LineChartIcon } from 'lucide-react'
-import type { MetricPoint } from '@/lib/legacy-metrics'
+import type { MetricValue } from '@/lib/metrics'
 import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
 
 interface MetricDashboardWidgetProps {
-  label: string
+  metricId: string
+  name: string
   unit: string | null
-  data: MetricPoint[]
+  data: Pick<MetricValue, 'date' | 'value'>[]
 }
 
 function formatValue(value: number, unit: string | null) {
@@ -24,15 +25,17 @@ function formatDate(date: string) {
 }
 
 export function MetricDashboardWidget({
-  label,
+  metricId,
+  name,
   unit,
   data,
 }: MetricDashboardWidgetProps) {
   const chartData = data.map((point) => ({ ...point, dateLabel: formatDate(point.date) }))
   const latest = data.at(-1)
+  const href = `/journal/metrics/${metricId}?from=home`
 
   return (
-    <ClickableSection href="/journal/metrics" className="rounded-2xl border bg-card p-4 shadow-sm">
+    <ClickableSection href={href} className="rounded-2xl border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -40,7 +43,7 @@ export function MetricDashboardWidget({
           </span>
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold">
-              <SectionHeadingLink href="/journal/metrics">{label}</SectionHeadingLink>
+              <SectionHeadingLink href={href}>{name}</SectionHeadingLink>
             </h2>
             <p className="text-xs text-muted-foreground">Tracked metric</p>
           </div>

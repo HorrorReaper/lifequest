@@ -119,6 +119,9 @@ export function MetricLogDialog({
 
         <Link
           href={`/journal/metrics/${metric.id}?from=home`}
+          // Client navigation keeps this component mounted (on the dashboard
+          // it lives in the page), so close it or it would linger open.
+          onClick={() => onOpenChange(false)}
           className="justify-self-center rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           Open {metric.name} ›

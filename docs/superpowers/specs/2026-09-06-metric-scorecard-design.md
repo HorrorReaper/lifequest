@@ -1,7 +1,7 @@
 # Metric scorecard
 
 **Date:** 2026-09-06
-**Status:** Approved, not implemented
+**Status:** Superseded by 2026-11-01-standalone-metrics-design.md
 
 Give each tracked metric an optional target, and show how the latest value
 stands against it as a dashboard section.

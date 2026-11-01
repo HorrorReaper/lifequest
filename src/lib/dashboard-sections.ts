@@ -45,7 +45,7 @@ export const DASHBOARD_SECTIONS: DashboardSectionDef[] = [
   {
     id: 'scorecard',
     label: 'Scorecard',
-    description: 'How your latest numbers stand against the targets you set.',
+    description: 'Your metrics: log a number, see where you stand.',
   },
   {
     id: 'metric',
