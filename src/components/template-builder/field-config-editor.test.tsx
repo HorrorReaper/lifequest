@@ -46,11 +46,13 @@ describe('FieldConfigEditor, metric link', () => {
     renderEditor({ 'field-1': 'Weight' })
 
     expect(screen.getByText('Feeds metric: Weight')).toBeTruthy()
+    expect(screen.getByText('Renaming this field unlinks it from the metric.')).toBeTruthy()
   })
 
   it('says nothing about metrics for a field that feeds none', () => {
     renderEditor({ 'other-field': 'Sleep' })
 
     expect(screen.queryByText(/Feeds metric/)).toBeNull()
+    expect(screen.queryByText(/Renaming this field/)).toBeNull()
   })
 })

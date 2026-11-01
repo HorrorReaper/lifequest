@@ -278,9 +278,10 @@ export function FieldConfigEditor({
 
           {/* A metric reads this field when a standalone metric points at it (set up from the metric's page). */}
           {feedsMetric && (
-            <p className="rounded-lg border p-3 text-sm text-muted-foreground">
-              Feeds metric: {feedsMetric}
-            </p>
+            <div className="rounded-lg border p-3 text-sm text-muted-foreground">
+              <p>Feeds metric: {feedsMetric}</p>
+              <p className="mt-1 text-xs">Renaming this field unlinks it from the metric.</p>
+            </div>
           )}
 
           {/* Slider labels */}

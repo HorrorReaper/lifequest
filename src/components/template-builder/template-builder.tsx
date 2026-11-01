@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { Fragment, useState, useCallback, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   DndContext,
@@ -125,7 +126,7 @@ export function TemplateBuilder({
 
   const alsoAsksFor = metricLinks
     .filter((link) => link.templateId === templateId)
-    .map((link) => link.name)
+    .map((link) => ({ id: link.id, name: link.name }))
 
   const sensors = useSensors( // DnD Kit Sensoren für Maus und Tastatur
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -218,6 +219,9 @@ export function TemplateBuilder({
           .from('template_fields')
           .select('id, label')
           .eq('template_id', savedTemplateId)
+          // Pairing by label hands duplicates out in order, so both lists
+          // have to be in field order.
+          .order('sort_order', { ascending: true })
 
         oldFields = (existingFields ?? []) as { id: string; label: string }[]
         const fieldIds = oldFields.map((f) => f.id)
@@ -303,7 +307,7 @@ export function TemplateBuilder({
         'template_fields'
       )
         .insert(fieldInserts)
-        .select('id, label')
+        .select('id, label, sort_order')
 
       if (fieldsError) throw fieldsError
 
@@ -313,7 +317,9 @@ export function TemplateBuilder({
       if (linkedToOldFields.length > 0) {
         const newIdByOldId = matchFieldsByLabel(
           oldFields,
-          (insertedFields ?? []) as { id: string; label: string }[]
+          [...((insertedFields ?? []) as { id: string; label: string; sort_order?: number }[])].sort(
+            (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+          )
         )
         const unrestored: string[] = []
 
@@ -327,6 +333,18 @@ export function TemplateBuilder({
             unrestored.push(metric.name)
           }
         }
+
+        // The builder keeps its field ids after a save, so a restored link
+        // still points at the right field here. A lost one does not.
+        const lost = new Set(linkedToOldFields.filter((m) => unrestored.includes(m.name)).map((m) => m.id))
+        const gone = new Set(
+          linkedToOldFields.filter((m) => !newIdByOldId.get(m.sourceFieldId!)).map((m) => m.id)
+        )
+        setMetricLinks((links) =>
+          links.map((link) =>
+            lost.has(link.id) || gone.has(link.id) ? { ...link, sourceFieldId: null } : link
+          )
+        )
 
         if (unrestored.length > 0) {
           setError(
@@ -488,7 +506,15 @@ export function TemplateBuilder({
 
       {alsoAsksFor.length > 0 && (
         <p className="text-sm text-muted-foreground">
-          Also asks for: {alsoAsksFor.join(', ')}
+          Also asks for:{' '}
+          {alsoAsksFor.map((metric, index) => (
+            <Fragment key={metric.id}>
+              {index > 0 && ', '}
+              <Link href={`/journal/metrics/${metric.id}`} className="underline underline-offset-2">
+                {metric.name}
+              </Link>
+            </Fragment>
+          ))}
         </p>
       )}
 

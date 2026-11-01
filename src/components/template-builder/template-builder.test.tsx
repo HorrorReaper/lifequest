@@ -192,7 +192,16 @@ describe('TemplateBuilder, metric links', () => {
     }
     renderEditor()
 
-    expect(await screen.findByText('Also asks for: Weight, Sleep')).toBeTruthy()
+    const line = await screen.findByText(
+      (_content, node) => node?.tagName === 'P' && node.textContent === 'Also asks for: Weight, Sleep'
+    )
+    expect(line).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Weight' }).getAttribute('href')).toBe(
+      '/journal/metrics/m-1'
+    )
+    expect(screen.getByRole('link', { name: 'Sleep' }).getAttribute('href')).toBe(
+      '/journal/metrics/m-2'
+    )
   })
 
   it('shows no "Also asks for" line without linked metrics', async () => {
@@ -245,6 +254,83 @@ describe('TemplateBuilder, metric links', () => {
     expect(await screen.findByText(/template was saved, but/i)).toBeTruthy()
     expect(screen.getByText(/Weight/, { selector: 'p.text-destructive' })).toBeTruthy()
     expect(push).not.toHaveBeenCalled()
+    error.mockRestore()
+  })
+
+  it('reads the old fields in sort order, so duplicate labels pair in field order', async () => {
+    db.results['template_fields.select'] = {
+      data: [
+        { id: 'old-a', label: 'Weight' },
+        { id: 'old-b', label: 'Weight' },
+      ],
+      error: null,
+    }
+    db.results['template_fields.insert'] = {
+      data: [
+        { id: 'new-a', label: 'Weight', sort_order: 0 },
+        { id: 'new-b', label: 'Weight', sort_order: 1 },
+      ],
+      error: null,
+    }
+    db.results['metrics.select'] = {
+      data: [{ id: 'm-1', name: 'Weight', template_id: 'template-1', source_field_id: 'old-b' }],
+      error: null,
+    }
+    weightFieldEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/journal/templates'))
+
+    expect(db.args).toContainEqual({
+      call: 'template_fields.order',
+      args: ['sort_order', { ascending: true }],
+    })
+    expect(updatesOf('metrics')).toEqual([expect.objectContaining({ source_field_id: 'new-b' })])
+  })
+
+  it('does not update a metric that is only linked to the template', async () => {
+    db.results['metrics.select'] = {
+      data: [{ id: 'm-2', name: 'Sleep', template_id: 'template-1', source_field_id: null }],
+      error: null,
+    }
+    weightFieldEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/journal/templates'))
+
+    expect(db.calls).not.toContain('metrics.update')
+  })
+
+  it('writes nothing when the metric links cannot be read before the delete', async () => {
+    db.results['metrics.select'] = { data: null, error: { message: 'boom' } }
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    weightFieldEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(await screen.findByText(/failed to save template/i)).toBeTruthy()
+    expect(db.calls).not.toContain('journal_templates.update')
+    expect(db.calls).not.toContain('template_fields.delete')
+    expect(db.calls).not.toContain('template_fields.insert')
+    expect(push).not.toHaveBeenCalled()
+    error.mockRestore()
+  })
+
+  it('drops "Feeds metric" for a link that was lost in a failed save', async () => {
+    db.results['metrics.update'] = { data: null, error: { message: 'boom' } }
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    weightFieldEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: /edit weight/i }))
+    expect(await screen.findByText('Feeds metric: Weight')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+    await screen.findByText(/template was saved, but/i)
+
+    fireEvent.click(screen.getByRole('button', { name: /edit weight/i }))
+    await screen.findByRole('button', { name: /cancel/i })
+    expect(screen.queryByText(/Feeds metric/)).toBeNull()
     error.mockRestore()
   })
 
