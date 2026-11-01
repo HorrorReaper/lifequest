@@ -203,6 +203,19 @@ Contacts tests cover task identity/assignment preservation, failed-save retry, c
 
 Contacts verification on the combined feature/current-Staging revision: 135 test files / 1064 tests passed with `npm run test -- --maxWorkers=2`. The initial concurrent test/build run hit two five-second test timeouts; the complete repeat with limited workers passed without changing test timeouts. Typecheck, production build and changed-file ESLint passed with zero changed-file warnings. Full ESLint still reports the same 30 pre-existing errors in eight untouched files. Disposable Postgres integration and deployed-schema rollback checks passed. Documentation links and whitespace checks passed. Authenticated browser/device acceptance remains pending: the available in-app browser twice failed to attach a webview, so no manual desktop/mobile acceptance is claimed.
 
+## Standalone metrics tests
+
+Vitest files for the feature:
+
+- `src/lib/metrics.test.ts`: validation, `metTarget`, `stepFor` boundaries, scorecard rows, label matching for the template builder, `entryMetricWrites`, `buildMetricAssistantContext` and the Supabase calls (fetch, log, update and delete with mocked clients).
+- `src/components/metrics/`: `MetricCreateDialog`, `MetricCreateLauncher`, `MetricCreatedHint`, `MetricEmptyState`, `MetricHistoryList`, `MetricList`, `MetricLogBox`, `MetricLogDialog`, `MetricPageHeader`, `MetricSettingsDialog`, `MetricStepper` and `MetricValueDialog`, each with a `*.test.tsx`.
+- `src/components/journal/MetricChart.test.tsx`, `JournalMetricsBlock.test.tsx`, `entry-form.test.tsx` (metric writes on submit, entry date, changed inputs only, retry after a failed write) and `journal-wizard.test.tsx` (the metrics block on the last step).
+- `src/components/dashboard/ScorecardSection.test.tsx`, `src/components/layout/quick-action-button.test.tsx` (the `Metric` entry), `src/components/template-builder/template-builder.test.tsx` (link re-pointing, `Also asks for`) and `field-config-editor.test.tsx` (`Feeds metric`).
+
+The tests of the earlier field-based code (`src/lib/legacy-metrics.test.ts`, `src/lib/metric-targets.test.ts`, `MetricTargetControl.test.tsx`) were removed together with that code.
+
+The authenticated browser walk-through (create a metric, set a target, log from the dashboard and the metric page, journal link, edit and delete a value) needs the standalone-metrics migrations on the database the app points at; see `docs/operations/deployment.md`.
+
 ## Standalone metrics database checks
 
 `scripts/verify-standalone-metrics.mjs` applies the `metric_targets`, `create_standalone_metrics` and `migrate_tracked_metrics` migrations to minimal journal fixtures in PGlite. It checks the merge of an archived and an active "Weight" field into one metric, the link to the active template's field, the target choice, the combined value history with latest-entry-wins, that a second `backfill_metric_values()` changes nothing, that a directly entered value survives it, that a new journal value or a newer entry is picked up and an older one is not, values written again after an edited response, entries of another user on a mapped field ignored, a tracked field on a system template and a group on archived templates only, a second run of the migration file creating no duplicate metrics, owner-only RLS (including the metric ownership check on `metric_values` inserts), the one-value-per-day key, check constraints, values surviving a deleted entry, and, with Supabase-style default grants emulated, that `anon` cannot read the tables and neither `anon` nor `authenticated` can read `metric_legacy_fields` or execute the backfill. Install `@electric-sql/pglite@0.5.13` in a separate tooling directory and run `LIFEQUEST_PGLITE_MODULE=<file URL of its dist/index.js> node scripts/verify-standalone-metrics.mjs`; it prints `ok: N checks`. It reads no environment files and never connects to Supabase.

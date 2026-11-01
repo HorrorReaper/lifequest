@@ -47,8 +47,7 @@ export default async function MetricPage({
   const [values, latestByMetric, templateRows] = await Promise.all([
     fetchMetricValues(supabase, metric.id, addDays(today, -HISTORY_DAYS)),
     fetchLatestValues(supabase, [metric.id]),
-    // Same set the legacy metrics page reads: the user's own active
-    // templates and the active system ones.
+    // The user's own active templates and the active system ones.
     supabase
       .from('journal_templates')
       .select('id, name')

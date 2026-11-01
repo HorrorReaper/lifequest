@@ -152,3 +152,13 @@ Impact:
 - A large image on another host is downloaded at full size, and if that host removes or changes the file, the challenge shows a broken image. Adding a host to both `next.config.ts` and `OPTIMIZED_IMAGE_HOSTS` gets it resized.
 - The viewer's browser contacts the image host directly, which sees the viewer's IP address (not which page, since no referrer is sent).
 - There is no upload. Using own photos means hosting them somewhere, for example a public Supabase Storage bucket.
+
+## Standalone metrics
+
+Metrics (`metrics`, `metric_values`; behaviour in `docs/features/journal.md`) accept these compromises.
+
+- No daily sums. A day holds one value and the latest write wins, so glasses of water cannot be added up through repeated logging; the user enters the running total. Sums and averages are not planned yet.
+- No logging for past dates. A value is logged for today, or by a journal entry for the entry's day. Past values can be edited or deleted but a missing day cannot be added and a value cannot be moved to another day.
+- The legacy tables and function are still in the database. `metric_targets`, `metric_legacy_fields` and `public.backfill_metric_values()` are no longer read by the application (`metric_legacy_fields` and the function only matter for the post-deploy re-run in `docs/operations/deployment.md`) and are to be dropped in a later migration. `config.track_as_metric` stays in `template_fields.config` unread, which keeps a rollback possible.
+- Tracked fields on system templates are not migrated. The data migration converts only fields of user-owned templates (`journal_templates.user_id is not null`). The deployment pre-flight count in `docs/operations/deployment.md` must return 0 before the migration is applied; otherwise such fields would be skipped silently and the rollout is blocked.
+- `metrics.template_id` ownership is enforced only by the UI. RLS on `metrics` checks `user_id`, not that the linked template belongs to the same user (a system template is legitimately linked by everyone), so a hand-written request could link a metric to another user's template id. The settings dialog only offers the user's own templates and the system templates. Such a link changes nothing for the template's owner: the metric is only asked for in entries of a template the owner of the metric can open.

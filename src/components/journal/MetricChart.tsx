@@ -14,8 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { addDays } from '@/lib/dates'
 import { cn } from '@/lib/utils'
-import { formatMetricDay } from '@/lib/metrics'
-import type { MetricPoint } from '@/lib/legacy-metrics'
+import { formatMetricDay, type MetricValue } from '@/lib/metrics'
 
 interface MetricChartProps {
   label: string
@@ -25,7 +24,7 @@ interface MetricChartProps {
   targetValue?: number | null
   /** The user's local day; the ranges count back from it. */
   today: string
-  data: MetricPoint[]
+  data: Pick<MetricValue, 'date' | 'value'>[]
 }
 
 const RANGES = [30, 90, 180] as const

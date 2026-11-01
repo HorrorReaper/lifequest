@@ -5,8 +5,7 @@ import type { MetricRow } from '@/lib/supabase/database.types'
 // A metric is a number the user tracks over time (public.metrics), with one
 // value per local day (public.metric_values). It optionally links to a
 // journal template, or to one of that template's fields, which then feeds it
-// on entry submit. The field-based predecessor lives in legacy-metrics.ts
-// until the pages that still use it are rebuilt.
+// on entry submit.
 
 export type MetricTargetDirection = 'at_least' | 'at_most'
 

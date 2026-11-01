@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import { Check, Clock, Compass, RefreshCw, Target, Unlock } from "lucide-react";
 import { INSIGHT_TYPES } from "@/lib/insights";
-import { metTarget } from "@/lib/metric-targets";
+import { metTarget } from "@/lib/metrics";
 import {
   REFLECTION_PROMPTS,
   randomReflectionPrompt,
@@ -641,7 +641,7 @@ export function ToolsPanel() {
 
 // -- Metrics and learnings ------------------------------------------------
 //
-// A number field with "Track as metric" turned on becomes one of these. Which
+// A metric is a number tracked over time against a target. Which
 // bars count as met is metTarget()'s decision rather than this file's, so the
 // green here is the green a visitor would get for the same week.
 const SLEEP_TARGET = 7.5;
