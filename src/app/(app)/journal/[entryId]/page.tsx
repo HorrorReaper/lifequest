@@ -8,7 +8,7 @@ import { EntryForm } from '@/components/journal/entry-form'
 import { JournalTemplate, TemplateField, FieldValue } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { fetchInsightTagSuggestions, isInsightType } from '@/lib/insights'
-import { formatDateOnly } from '@/lib/dates'
+import { dateInTimezone, formatDateOnly } from '@/lib/dates'
 import { fetchJournalMetrics } from '@/lib/metrics'
 import {
   DAILY_REFLECTION_TEMPLATE_ID,
@@ -142,6 +142,7 @@ export default async function ViewEntryPage({ params }: PageProps) {
           timezone={timezone}
           prompt={prompt}
           entryDate={entry.entry_date}
+          today={dateInTimezone(new Date(), timezone)}
           linkedMetrics={linkedMetrics}
         />
       </div>

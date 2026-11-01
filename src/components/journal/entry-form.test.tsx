@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EntryForm } from '@/components/journal/entry-form'
 import type { Metric } from '@/lib/metrics'
 import type { JournalTemplate, TemplateField } from '@/lib/types'
+import { journalDraftKey, serializeJournalDraft } from '@/components/journal/journal-wizard'
 
 // Only the metric writes of the submit are under test here; everything else
 // the form saves goes through a fake client that accepts any call.
@@ -107,6 +108,7 @@ function renderForm(props: Partial<React.ComponentProps<typeof EntryForm>> = {})
       template={template}
       fields={[numberField]}
       timezone="UTC"
+      today="2026-11-01"
       {...props}
     />
   )
@@ -191,9 +193,9 @@ describe('EntryForm metric writes', () => {
   })
 
   it.each([
-    // 23:30 in Berlin is 22:30 UTC the same day; 00:30 there is still the previous UTC day.
+    // Ahead of UTC: 00:30 on Nov 2 in Berlin is still Nov 1 in UTC.
     ['Europe/Berlin', '2026-11-01T23:30:00Z', '2026-11-02'],
-    // 22:30 in New York is already the next day in UTC.
+    // Behind UTC: 22:30 on Nov 1 in New York is already Nov 2 in UTC.
     ['America/New_York', '2026-11-02T03:30:00Z', '2026-11-01'],
   ])('files a late-evening entry in %s under the user day, not the UTC one', async (timezone, now, day) => {
     vi.setSystemTime(new Date(now))
@@ -237,7 +239,7 @@ describe('EntryForm metric writes', () => {
 
   it('keeps the entry and asks for a retry when a metric write fails', async () => {
     logMetricValue.mockRejectedValueOnce(new Error('boom'))
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     renderForm({ linkedMetrics: [weight] })
 
     fireEvent.change(weightInput(), { target: { value: '81,6' } })
@@ -257,5 +259,101 @@ describe('EntryForm metric writes', () => {
     expect(logMetricValue).toHaveBeenCalledTimes(2)
     expect(logMetricValue.mock.calls[1][2]).toMatchObject({ sourceEntryId: 'entry-new' })
     expect(insertedTables.filter((table) => table === 'journal_entries')).toHaveLength(entryInserts)
+    consoleError.mockRestore()
+  })
+
+  it('keeps the saved entry day on a retry after midnight', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    logMetricValue.mockRejectedValueOnce(new Error('boom'))
+    renderForm({ linkedMetrics: [weight] })
+
+    fireEvent.change(weightInput(), { target: { value: '81' } })
+    await save()
+    await screen.findByRole('alert')
+
+    vi.setSystemTime(new Date('2026-11-02T00:10:00Z'))
+    await save()
+
+    await waitFor(() => expect(logMetricValue).toHaveBeenCalledTimes(2))
+    expect(logMetricValue.mock.calls[0][2]).toMatchObject({ date: '2026-11-01' })
+    expect(logMetricValue.mock.calls[1][2]).toMatchObject({ date: '2026-11-01' })
+    consoleError.mockRestore()
+  })
+})
+
+describe('EntryForm prefilled metric values', () => {
+  const logged = { metric: metric(), value: 81.6 }
+
+  it('writes nothing for a prefilled value that was not touched', async () => {
+    renderForm({ linkedMetrics: [logged] })
+
+    await save()
+
+    expect(await screen.findByText('Reflection saved')).toBeTruthy()
+    expect(logMetricValue).not.toHaveBeenCalled()
+  })
+
+  it('treats the same number typed with a comma as untouched', async () => {
+    renderForm({ linkedMetrics: [logged] })
+
+    fireEvent.change(weightInput(), { target: { value: '81,6' } })
+    await save()
+
+    expect(await screen.findByText('Reflection saved')).toBeTruthy()
+    expect(logMetricValue).not.toHaveBeenCalled()
+  })
+
+  it('writes a prefilled value that was edited', async () => {
+    renderForm({ linkedMetrics: [logged] })
+
+    fireEvent.change(weightInput(), { target: { value: '80,9' } })
+    await save()
+
+    await waitFor(() => expect(logMetricValue).toHaveBeenCalledTimes(1))
+    expect(logMetricValue.mock.calls[0][2]).toMatchObject({ metricId: 'metric-weight', value: 80.9 })
+  })
+
+  it('writes nothing for a cleared prefilled input and leaves the value of the day', async () => {
+    renderForm({ linkedMetrics: [logged] })
+
+    fireEvent.change(weightInput(), { target: { value: '' } })
+    await save()
+
+    expect(await screen.findByText('Reflection saved')).toBeTruthy()
+    expect(logMetricValue).not.toHaveBeenCalled()
+  })
+})
+
+describe('EntryForm draft', () => {
+  const draftKey = journalDraftKey({ userId: 'user-1', templateId: 'tpl-1' })
+
+  it('restores what was typed in the Metrics block', () => {
+    window.sessionStorage.setItem(
+      draftKey,
+      serializeJournalDraft({ activeStep: 0, values: {}, metricInputs: { 'metric-weight': '79,5' } })
+    )
+
+    renderForm({ linkedMetrics: [weight] })
+
+    expect(weightInput().value).toBe('79,5')
+  })
+
+  it('keeps the prefill when the draft predates the block', () => {
+    window.sessionStorage.setItem(draftKey, serializeJournalDraft({ activeStep: 0, values: {} }))
+
+    renderForm({ linkedMetrics: [{ metric: metric(), value: 81.6 }] })
+
+    expect(weightInput().value).toBe('81.6')
+  })
+
+  it('stores the block input in the draft', async () => {
+    renderForm({ linkedMetrics: [weight] })
+
+    fireEvent.change(weightInput(), { target: { value: '78' } })
+
+    await waitFor(() => {
+      const stored = JSON.parse(window.sessionStorage.getItem(draftKey) ?? '{}')
+      expect(stored.metricInputs).toEqual({ 'metric-weight': '78' })
+    })
   })
 })

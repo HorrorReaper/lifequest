@@ -219,6 +219,39 @@ describe('journal drafts', () => {
     expect(restoreJournalDraft(malformed, [known], 1)).toBeNull()
   })
 
+  it('round-trips the Metrics block inputs and accepts a draft without them', () => {
+    const known = field('known', 'textarea')
+    const values = { known: { field_id: 'known', value_text: 'Answer' } }
+
+    expect(
+      restoreJournalDraft(
+        serializeJournalDraft({ activeStep: 0, values, metricInputs: { 'metric-1': '81,6' } }),
+        [known],
+        1
+      )
+    ).toEqual({ activeStep: 0, values, metricInputs: { 'metric-1': '81,6' } })
+
+    const withoutInputs = restoreJournalDraft(
+      serializeJournalDraft({ activeStep: 0, values }),
+      [known],
+      1
+    )
+    expect(withoutInputs).toEqual({ activeStep: 0, values })
+    expect(withoutInputs?.metricInputs).toBeUndefined()
+  })
+
+  it('drops a Metrics block input that is not text instead of discarding the draft', () => {
+    const known = field('known', 'textarea')
+    const rawDraft = JSON.stringify({
+      version: 1,
+      activeStep: 0,
+      values: {},
+      metricInputs: { 'metric-1': 81.6, 'metric-2': '5' },
+    })
+
+    expect(restoreJournalDraft(rawDraft, [known], 1)?.metricInputs).toEqual({ 'metric-2': '5' })
+  })
+
   it('serializes and explicitly clears a stored draft', () => {
     const storageKey = 'journal-draft-test'
     window.sessionStorage.setItem(

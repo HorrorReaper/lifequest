@@ -13,6 +13,7 @@ import { useUserStore } from '@/lib/stores/user-store'
 import { FieldRenderer } from '@/components/journal/field-renderer'
 import { JournalMetricsBlock } from '@/components/journal/JournalMetricsBlock'
 import { entryMetricWrites, logMetricValue, type Metric } from '@/lib/metrics'
+import { parseDecimal } from '@/lib/decimal'
 import { upsertDayPlan } from '@/lib/day-plans'
 import { Button } from '@/components/ui/button'
 import { logHabits } from "@/lib/habits";
@@ -87,6 +88,11 @@ interface EntryFormProps {
    * its numbers where it was written. A new entry has none and uses today.
    */
   entryDate?: string
+  /**
+   * The user's local day, computed on the server from the profile time zone.
+   * Only labels the Metrics block; the submit resolves its own day.
+   */
+  today: string
   /**
    * The user's metrics this template feeds, each with the value it already
    * has on the entry's day. Metrics fed by one of the template's own fields
@@ -212,6 +218,7 @@ export function EntryForm({
   prompt = null,
   returnTo = null,
   entryDate,
+  today: serverToday,
   linkedMetrics = [],
 }: EntryFormProps) {
   const router = useRouter()
@@ -233,8 +240,9 @@ export function EntryForm({
   const [draftReady, setDraftReady] = useState(false)
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
   // Set once the entry row exists, so a retry after a later step failed
-  // updates that entry rather than creating a second one.
-  const savedEntryId = useRef<string | null>(null)
+  // updates that entry rather than creating a second one, and files its
+  // metrics under the day the entry was saved on even if midnight has passed.
+  const savedEntry = useRef<{ id: string; date: string } | null>(null)
 
   const fieldIds = useMemo(() => new Set(fields.map((field) => field.id)), [fields])
   // A metric whose source field is one of this template's fields is fed by
@@ -255,8 +263,6 @@ export function EntryForm({
   )
   const initialMetricInputsSnapshot = useRef(JSON.stringify(initialMetricInputs))
   const [metricInputs, setMetricInputs] = useState<Record<string, string>>(initialMetricInputs)
-  // For the block's "Saved for" line only; the submit resolves its own day.
-  const [shownToday] = useState(() => dateInTimezone(new Date(), timezone))
 
   const previewBonusXp = useMemo(() => {
     try {
@@ -303,6 +309,16 @@ export function EntryForm({
 
       if (draft) {
         setValues((currentValues) => ({ ...currentValues, ...draft.values }))
+        if (draft.metricInputs) {
+          const restored = draft.metricInputs
+          setMetricInputs((current) => {
+            const next = { ...current }
+            for (const metricId of Object.keys(current)) {
+              if (metricId in restored) next[metricId] = restored[metricId]
+            }
+            return next
+          })
+        }
         setActiveStep(draft.activeStep)
       } else if (rawDraft) {
         window.sessionStorage.removeItem(draftStorageKey)
@@ -321,7 +337,7 @@ export function EntryForm({
       if (dirty) {
         window.sessionStorage.setItem(
           draftStorageKey,
-          serializeJournalDraft({ activeStep, values })
+          serializeJournalDraft({ activeStep, values, metricInputs })
         )
       } else {
         window.sessionStorage.removeItem(draftStorageKey)
@@ -329,7 +345,7 @@ export function EntryForm({
     } catch {
       // Draft persistence is best-effort; the reflection remains in React state.
     }
-  }, [activeStep, draftReady, draftStorageKey, dirty, values])
+  }, [activeStep, draftReady, draftStorageKey, dirty, values, metricInputs])
 
   function clearDraft() {
     try {
@@ -427,7 +443,7 @@ export function EntryForm({
       const today = dateInTimezone(new Date(), timezone)
 
       // 1. Create or update journal entry
-      let entryId = existingEntryId ?? savedEntryId.current ?? undefined
+      let entryId = existingEntryId ?? savedEntry.current?.id
       const updatingEntry = entryId !== undefined
 
       if (entryId) {
@@ -451,7 +467,7 @@ export function EntryForm({
 
         if (entryError) throw entryError
         entryId = (entry as { id: string }).id
-        savedEntryId.current = entryId
+        savedEntry.current = { id: entryId, date: today }
       }
 
       // 2. Upsert responses
@@ -533,6 +549,17 @@ export function EntryForm({
       const metricFieldValues: Record<string, number | null> = {}
       for (const field of fields) metricFieldValues[field.id] = values[field.id]?.value_number ?? null
 
+      // A block input that still holds what it was prefilled with is not a
+      // new answer: writing it back would relabel a value logged elsewhere
+      // and could overwrite a newer one with the stale prefill. Only inputs
+      // whose number changed are written (so 81.6 and 81,6 are equal).
+      const changedInputs: Record<string, string> = {}
+      for (const [metricId, text] of Object.entries(metricInputs)) {
+        if (parseDecimal(text) !== parseDecimal(initialMetricInputs[metricId] ?? '')) {
+          changedInputs[metricId] = text
+        }
+      }
+
       const metricWrites = entryMetricWrites({
         // A stale source field (not in this template) must not shadow the input.
         linked: linkedMetrics.map(({ metric }) =>
@@ -541,7 +568,7 @@ export function EntryForm({
             : metric
         ),
         fieldValues: metricFieldValues,
-        blockValues: metricInputs,
+        blockValues: changedInputs,
       })
 
       try {
@@ -549,7 +576,7 @@ export function EntryForm({
           metricWrites.map((write) =>
             logMetricValue(supabase, user.id, {
               ...write,
-              date: entryDate ?? today,
+              date: entryDate ?? savedEntry.current?.date ?? today,
               sourceEntryId: entryId!,
             })
           )
@@ -996,8 +1023,8 @@ export function EntryForm({
                 metrics={blockMetrics}
                 values={metricInputs}
                 onChange={updateMetricInput}
-                entryDate={entryDate ?? shownToday}
-                today={shownToday}
+                entryDate={entryDate ?? serverToday}
+                today={serverToday}
               />
             </JournalStepPanel>
           )}

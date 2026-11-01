@@ -62,6 +62,7 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
       : null
   const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
   const templateFields = (fields as TemplateField[]) ?? []
+  const today = dateInTimezone(new Date(), timezone)
 
   // The metrics this template asks for, with today's value in the user's time
   // zone. Journaling must work without them, so a failed read shows none.
@@ -70,7 +71,7 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
     user.id,
     templateId,
     templateFields.map((field) => field.id),
-    dateInTimezone(new Date(), timezone)
+    today
   ).catch((error) => {
     console.error('Failed to load linked metrics:', error)
     return []
@@ -85,6 +86,7 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
           fields={templateFields}
           suggestedInsightTags={suggestedInsightTags}
           timezone={timezone}
+          today={today}
           linkedMetrics={linkedMetrics}
           firstEntry={firstEntry === '1'}
           prompt={challengePrompt ?? findReflectionPrompt(prompt)?.text ?? null}
