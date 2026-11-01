@@ -2,8 +2,13 @@ import { format, subDays } from 'date-fns'
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
-import type { Json } from '@/lib/supabase/database.types'
+import type { Json, MetricValueRow } from '@/lib/supabase/database.types'
 import { isAdminUser } from '@/lib/admin'
+import {
+  buildMetricAssistantContext,
+  fetchMetrics,
+  type MetricValue,
+} from '@/lib/metrics'
 
 type ChatRole = 'user' | 'assistant'
 type Priority = 'low' | 'medium' | 'high'
@@ -140,6 +145,7 @@ interface AssistantContext {
     template: string
     responses: { label: string; value: string }[]
   }[]
+  metrics: ReturnType<typeof buildMetricAssistantContext>
 }
 
 interface ActionResult {
@@ -312,6 +318,7 @@ async function fetchAssistantContext(
     habitsResult,
     habitLogsResult,
     journalsResult,
+    metrics,
   ] = await Promise.all([
     db
       .from('tasks')
@@ -342,6 +349,7 @@ async function fetchAssistantContext(
       .gte('entry_date', thirtyDaysAgo)
       .order('entry_date', { ascending: false })
       .limit(10),
+    fetchMetrics(db, userId),
   ])
 
   if (tasksResult.error) throw tasksResult.error
@@ -383,6 +391,34 @@ async function fetchAssistantContext(
 
   const fieldById = new Map(fields.map((field) => [field.id, field]))
 
+  // One query for every metric's last 30 days, grouped per metric below.
+  const metricValues: Record<string, MetricValue[]> = {}
+
+  if (metrics.length > 0) {
+    const { data: valueData, error: valueError } = await db
+      .from('metric_values')
+      .select('metric_id, value_date, value, source_entry_id')
+      .in('metric_id', metrics.map((metric) => metric.id))
+      .gte('value_date', thirtyDaysAgo)
+      .order('value_date', { ascending: true })
+
+    if (valueError) throw valueError
+
+    const valueRows = (valueData ?? []) as Pick<
+      MetricValueRow,
+      'metric_id' | 'value_date' | 'value' | 'source_entry_id'
+    >[]
+
+    for (const row of valueRows) {
+      ;(metricValues[row.metric_id] ??= []).push({
+        date: row.value_date,
+        value: row.value,
+        sourceEntryId: row.source_entry_id,
+        sourceLabel: null,
+      })
+    }
+  }
+
   return {
     today,
     tasks: tasks.map((task) => ({
@@ -412,6 +448,7 @@ async function fetchAssistantContext(
         .filter((response) => response.value.length > 0)
         .slice(0, 8),
     })),
+    metrics: buildMetricAssistantContext(metrics, metricValues),
   }
 }
 

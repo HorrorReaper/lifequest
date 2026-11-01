@@ -367,6 +367,17 @@ describe('buildMetricAssistantContext', () => {
     expect(context.recent).toEqual([])
   })
 
+  it('gives an empty recent list for a metric with no values', () => {
+    const [context] = buildMetricAssistantContext(
+      [metric({ id: 'm-1' }), metric({ id: 'm-2', name: 'Sleep' })],
+      {
+        'm-2': [{ date: '2026-10-20', value: 7, sourceEntryId: null, sourceLabel: null }],
+      }
+    )
+
+    expect(context.recent).toEqual([])
+  })
+
   it('has a null target when none is set', () => {
     const [context] = buildMetricAssistantContext([metric()], {})
 
