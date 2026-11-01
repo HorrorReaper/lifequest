@@ -151,7 +151,7 @@ An allowlisted-but-not-trusted user can navigate the `/admin` UI but gets DB per
 
 **`src/app/api/`:** `waitlist`, `chat`, `goals/[goalId]`, `account`, `admin/preview`, `admin/nutrition` (foods search/barcode/import).
 
-**`src/lib/` top-level files (selected):** `admin.ts` (allowlist + preview cookie), `avatar.ts`, `dates.ts`, `dashboard-sections.ts`, `dashboard-habits.ts` / `dashboard-tasks.ts`, `daily-reflection.ts`, `day-plans.ts`, `field-registry.ts`, `gamification.ts`, `goals.ts`, `habit-*.ts`, `insights.ts`, `learning-*.ts` / `lessons.ts`, `metrics.ts` / `metric-targets.ts`, `mood.ts` / `mood-reasons.ts`, `quests.ts`, `rituals.ts` / `weekly-rituals.ts`, `routines.ts`, `skill-categories.ts`, `streak.ts`, `task-manager.ts` / `tasks.ts`, `today-plan.ts`, `types.ts` — most with a co-located `*.test.ts`.
+**`src/lib/` top-level files (selected):** `admin.ts` (allowlist + preview cookie), `avatar.ts`, `dates.ts`, `dashboard-sections.ts`, `dashboard-habits.ts` / `dashboard-tasks.ts`, `daily-reflection.ts`, `day-plans.ts`, `field-registry.ts`, `gamification.ts`, `goals.ts`, `habit-*.ts`, `insights.ts`, `learning-*.ts` / `lessons.ts`, `metrics.ts` / `legacy-metrics.ts` / `metric-targets.ts`, `mood.ts` / `mood-reasons.ts`, `quests.ts`, `rituals.ts` / `weekly-rituals.ts`, `routines.ts`, `skill-categories.ts`, `streak.ts`, `task-manager.ts` / `tasks.ts`, `today-plan.ts`, `types.ts` — most with a co-located `*.test.ts`.
 
 **`src/lib/` subfolders:** `stores/` (Zustand), `supabase/` (`client`, `server`, `middleware`, `helpers`, `database.types`), `city/`, `knowledge/`, `nutrition/`, `projects/`, `tools/`.
 

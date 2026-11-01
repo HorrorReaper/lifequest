@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { TrackedMetric } from '@/lib/metrics'
+import type { TrackedMetric } from '@/lib/legacy-metrics'
 import {
   buildScorecardRows,
   latestByFieldId,

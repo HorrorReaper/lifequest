@@ -149,7 +149,9 @@ The structured learning library provides a longer-lived view of captured lessons
 
 Any `number` field can be flagged as a tracked metric from the template builder (`config.track_as_metric = true`, optional `config.metric_unit`). No dedicated table: the flag lives on the existing `template_fields.config` JSON column, and the values are the same `journal_responses.value_number` rows already written by ordinary entry submission.
 
-`/journal/metrics` (`src/lib/metrics.ts`) lists every tracked field the user can see (their own templates plus active system templates) and charts its value history — one point per journal entry, not aggregated per day, since the right aggregation for something like daily revenue vs. a single weigh-in is a per-metric modeling choice this feature doesn't make yet. Slider and rating fields are intentionally out of scope: their bounded scales don't need the same free-range charting `number` fields do.
+`/journal/metrics` (`src/lib/legacy-metrics.ts`) lists every tracked field the user can see (their own templates plus active system templates) and charts its value history — one point per journal entry, not aggregated per day, since the right aggregation for something like daily revenue vs. a single weigh-in is a per-metric modeling choice this feature doesn't make yet. Slider and rating fields are intentionally out of scope: their bounded scales don't need the same free-range charting `number` fields do.
+
+The Metrics section is being rebuilt around standalone metrics (design: `docs/superpowers/specs/2026-11-01-standalone-metrics-design.md`). The new data layer is `src/lib/metrics.ts`, over the `metrics` and `metric_values` tables (one value per metric and day, latest wins). It is not wired into any page yet; the pages above still read the field-based module, which was moved to `src/lib/legacy-metrics.ts`. This section is rewritten once the pages switch over.
 
 ## Archive and editing
 

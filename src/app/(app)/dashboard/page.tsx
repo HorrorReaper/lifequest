@@ -59,7 +59,7 @@ import {
   ritualDismissKey,
   type RitualSetting,
 } from '@/lib/rituals'
-import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
+import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/legacy-metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 import { ScorecardSection } from '@/components/dashboard/ScorecardSection'
 import { ReflectionSection } from '@/components/dashboard/ReflectionSection'

@@ -10,7 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { MetricPoint } from '@/lib/metrics'
+import type { MetricPoint } from '@/lib/legacy-metrics'
 
 interface MetricChartProps {
   label: string

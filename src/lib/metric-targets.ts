@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { TrackedMetric } from '@/lib/metrics'
+import type { TrackedMetric } from '@/lib/legacy-metrics'
 
 export type MetricTargetDirection = 'at_least' | 'at_most'
 

@@ -2,7 +2,7 @@
 
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { LineChart as LineChartIcon } from 'lucide-react'
-import type { MetricPoint } from '@/lib/metrics'
+import type { MetricPoint } from '@/lib/legacy-metrics'
 import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
 
 interface MetricDashboardWidgetProps {
