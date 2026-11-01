@@ -117,8 +117,9 @@ for delete
 to authenticated
 using ((select auth.uid()) = user_id);
 
+-- Supabase grants new public tables to anon and authenticated by default.
+revoke all on public.metrics, public.metric_values from public, anon;
 grant select, insert, update, delete on public.metrics to authenticated;
 grant select, insert, update, delete on public.metric_values to authenticated;
 
--- Supabase grants new public tables to anon and authenticated by default.
 revoke all on public.metric_legacy_fields from public, anon, authenticated;

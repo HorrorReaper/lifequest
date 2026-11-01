@@ -156,7 +156,17 @@ After deployment, `/learn` offers the authored personal course as a labelled dev
 
 ## Standalone metrics rollout
 
-Apply `20261101120000_create_standalone_metrics.sql` and `20261101120100_migrate_tracked_metrics.sql` in that order, then deploy. The second migration creates the metrics from tracked journal fields (once) and runs `public.backfill_metric_values()` at its end. Staging and Production share one database, so until the new code is live the old code keeps writing tracked values only to `journal_responses`. Right after the new code reaches Production, run `select public.backfill_metric_values();` once more (as the migration role, for example in the Supabase SQL editor) to copy the values written in that window; it is safe to repeat and never replaces a directly entered value. Do not re-run the second migration file: its metric creation is not repeatable and would bring back metrics a user has deleted. Dropping `metric_targets`, `metric_legacy_fields` and the function happens in a later migration, which is not part of this release.
+Pre-flight, before applying anything: run this read-only query and confirm it returns 0.
+
+```sql
+select count(*) from public.template_fields f
+join public.journal_templates t on t.id = f.template_id
+where f.config->>'track_as_metric' = 'true' and t.user_id is null;
+```
+
+The migration only converts fields on user-owned templates. A non-zero count means tracked fields on system templates would be silently skipped, so the rollout is blocked until a per-entry-user variant of Part A exists.
+
+Apply `20261101120000_create_standalone_metrics.sql` and `20261101120100_migrate_tracked_metrics.sql` in that order, then deploy. The second migration creates the metrics from tracked journal fields (once) and runs `public.backfill_metric_values()` at its end. Staging and Production share one database, so until the new code is live the old code keeps writing tracked values only to `journal_responses`. Right after the new code reaches Production, run `select public.backfill_metric_values();` once more (as the migration role, for example in the Supabase SQL editor) to copy the values written in that window; it is safe to repeat and never replaces a directly entered value. It also copies values for entries edited in that window. A day value that came from a journal entry and that the user deleted during the window comes back, because the entry still holds the number. Applying the second migration file again does not recreate metrics (Part A skips itself once `metric_legacy_fields` has rows), but prefer the single function call. Dropping `metric_targets`, `metric_legacy_fields` and the function happens in a later migration, which is not part of this release.
 
 ## Library focus timer
 

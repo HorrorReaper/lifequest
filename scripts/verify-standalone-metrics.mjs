@@ -11,8 +11,15 @@ const load = (path) => readFile(new URL(path, root), 'utf8')
 const alice = '00000000-0000-4000-8000-000000000001'
 const bob = '00000000-0000-4000-8000-000000000002'
 const id = (n) => `00000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`
-const [t1, t2, tb] = [id(1), id(2), id(3)]
-const [f1, f2, fSteps, fb] = [id(11), id(12), id(13), id(14)]
+const [t1, t2, tb, t3, tSys] = [id(1), id(2), id(3), id(4), id(5)]
+const [f1, f2, fSteps, fb, fMood, fSys] = [
+  id(11),
+  id(12),
+  id(13),
+  id(14),
+  id(17),
+  id(18),
+]
 let checks = 0
 function check(value, message) {
   assert.ok(value, message)
@@ -63,6 +70,8 @@ try {
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth to authenticated, anon;
     grant usage on schema public to authenticated, anon;
+    -- Supabase grants new public tables to anon and authenticated by default.
+    alter default privileges in schema public grant all on tables to anon, authenticated;
     insert into auth.users values ('${alice}'), ('${bob}');
 
     create table public.journal_templates(
@@ -93,12 +102,16 @@ try {
     insert into public.journal_templates(id, user_id, name, is_active, created_at) values
       ('${t1}', '${alice}', 'Old check-in', false, '2026-01-01'),
       ('${t2}', '${alice}', 'Morning check-in', true, '2026-06-01'),
-      ('${tb}', '${bob}', 'Bob check-in', true, '2026-06-01');
+      ('${tb}', '${bob}', 'Bob check-in', true, '2026-06-01'),
+      ('${t3}', '${alice}', 'Archived only', false, '2026-02-01'),
+      ('${tSys}', null, 'System template', true, '2026-01-01');
     insert into public.template_fields(id, template_id, field_type, label, config) values
-      ('${f1}', '${t1}', 'number', 'Weight', '{"track_as_metric": "true", "metric_unit": "kg"}'),
-      ('${f2}', '${t2}', 'number', 'weight ', '{"track_as_metric": "true", "metric_unit": "kg "}'),
+      ('${f1}', '${t1}', 'number', 'Weight', '{"track_as_metric": true, "metric_unit": "kg"}'),
+      ('${f2}', '${t2}', 'number', 'weight ', '{"track_as_metric": true, "metric_unit": "kg "}'),
       ('${fSteps}', '${t2}', 'number', 'Steps', '{"track_as_metric": "true"}'),
-      ('${fb}', '${tb}', 'number', 'Weight', '{"track_as_metric": "true", "metric_unit": "kg"}'),
+      ('${fb}', '${tb}', 'number', 'Weight', '{"track_as_metric": true, "metric_unit": "kg"}'),
+      ('${fMood}', '${t3}', 'number', 'Mood', '{"track_as_metric": true}'),
+      ('${fSys}', '${tSys}', 'number', 'System weight', '{"track_as_metric": true}'),
       ('${id(15)}', '${t2}', 'number', 'Not tracked', '{}'),
       ('${id(16)}', '${t2}', 'text', 'Note', '{"track_as_metric": "true"}');
     insert into public.journal_entries(id, user_id, template_id, entry_date, created_at) values
@@ -106,13 +119,17 @@ try {
       ('${id(22)}', '${alice}', '${t1}', '2026-10-02', '2026-10-02 08:00'),
       ('${id(23)}', '${alice}', '${t2}', '2026-10-02', '2026-10-02 20:00'),
       ('${id(24)}', '${alice}', '${t2}', '2026-10-03', '2026-10-03 08:00'),
-      ('${id(25)}', '${bob}', '${tb}', '2026-10-01', '2026-10-01 08:00');
+      ('${id(25)}', '${bob}', '${tb}', '2026-10-01', '2026-10-01 08:00'),
+      ('${id(29)}', '${alice}', '${t3}', '2026-10-01', '2026-10-01 09:00'),
+      ('${id(30)}', '${alice}', '${tSys}', '2026-10-01', '2026-10-01 09:00');
     insert into public.journal_responses(entry_id, field_id, value_number) values
       ('${id(21)}', '${f1}', 85),
       ('${id(22)}', '${f1}', 84),
       ('${id(23)}', '${f2}', 83),
       ('${id(24)}', '${f2}', 82),
-      ('${id(25)}', '${fb}', 70);
+      ('${id(25)}', '${fb}', 70),
+      ('${id(29)}', '${fMood}', 6),
+      ('${id(30)}', '${fSys}', 79);
   `)
   await db.exec(await load(migrations[0]))
   await db.exec(`
@@ -125,12 +142,29 @@ try {
   // Part A: metrics, links, targets.
   await db.exec('reset role')
   const aliceMetrics = await rows(
-    `select id, lower(name) as name, unit, template_id, source_field_id, target_value::float as tv, target_direction as td from public.metrics where user_id = '${alice}' order by name`,
+    `select id, name, unit, template_id, source_field_id, target_value::float as tv, target_direction as td from public.metrics where user_id = '${alice}' order by name`,
   )
-  check(aliceMetrics.length === 2, 'Alice has exactly two metrics')
-  const weight = aliceMetrics.find((m) => m.name === 'weight')
-  const steps = aliceMetrics.find((m) => m.name === 'steps')
-  check(weight && steps, 'Weight and Steps exist, Weight merged by name')
+  check(
+    aliceMetrics.length === 3,
+    'Alice has exactly three metrics: system-template field skipped',
+  )
+  const weight = aliceMetrics.find((m) => m.name.toLowerCase() === 'weight')
+  const steps = aliceMetrics.find((m) => m.name === 'Steps')
+  const mood = aliceMetrics.find((m) => m.name === 'Mood')
+  check(weight && steps && mood, 'Weight, Steps and Mood exist')
+  check(
+    weight.name === 'weight',
+    "The active template's trimmed label names the merged metric",
+  )
+  check(
+    !aliceMetrics.some((m) => m.source_field_id === fSys) &&
+      (await count('select count(*)::int as n from public.metrics')) === 4,
+    'A tracked field on a system template produces no metric',
+  )
+  check(
+    mood.template_id === null && mood.source_field_id === null,
+    'A group only on archived templates has no link',
+  )
   check(weight.unit === 'kg', 'Unit is trimmed')
   check(
     weight.template_id === t2 && weight.source_field_id === f2,
@@ -158,8 +192,8 @@ try {
     'Both Weight fields are recorded in the legacy mapping',
   )
   check(
-    (await count('select count(*)::int as n from public.metric_legacy_fields')) === 4,
-    'Only tracked number fields are mapped',
+    (await count('select count(*)::int as n from public.metric_legacy_fields')) === 5,
+    'Only tracked number fields on user templates are mapped',
   )
   check(
     (await count(`select count(*)::int as n from public.metrics where user_id = '${bob}'`)) === 1,
@@ -177,8 +211,13 @@ try {
     'Weight history merges both fields; latest entry wins on a shared day',
   )
   same(await dayValues(steps.id), [], 'Steps has no values')
+  same(
+    await dayValues(mood.id),
+    [['2026-10-01', 6, id(29)]],
+    'The archived-only metric keeps its values',
+  )
   check(
-    (await count(`select count(*)::int as n from public.metric_values where user_id = '${alice}'`)) === 3,
+    (await count(`select count(*)::int as n from public.metric_values where user_id = '${alice}'`)) === 4,
     'Values are owned by the metric owner',
   )
 
@@ -186,6 +225,15 @@ try {
   const before = await dayValues(weight.id)
   check((await backfill()) === 0, 'A second backfill writes nothing')
   same(await dayValues(weight.id), before, 'Values are unchanged after re-run')
+
+  // Part A does nothing the second time.
+  await db.exec(await load(migrations[2]))
+  check(
+    (await count(`select count(*)::int as n from public.metrics where user_id = '${alice}'`)) === 3 &&
+      (await count('select count(*)::int as n from public.metric_legacy_fields')) === 5,
+    'Running the migration file again creates no duplicate metrics',
+  )
+  same(await dayValues(weight.id), before, 'Values survive the repeated file')
 
   // A manual value is never overwritten.
   await actor(alice)
@@ -200,6 +248,17 @@ try {
       ([d, v, s]) => d === '2026-10-03' && v === 81.5 && s === null,
     ),
     'The manual value stays',
+  )
+
+  // Another user's entry on Alice's mapped field is never copied.
+  await db.exec(`
+    insert into public.journal_entries(id, user_id, template_id, entry_date, created_at)
+      values ('${id(31)}', '${bob}', '${t2}', '2026-10-05', '2026-10-05 08:00');
+    insert into public.journal_responses values ('${id(31)}', '${f2}', 12);`)
+  check((await backfill()) === 0, "Bob's entry is not copied into Alice's metric")
+  check(
+    !(await dayValues(weight.id)).some(([d]) => d === '2026-10-05'),
+    "Alice's metric has no value from Bob's entry",
   )
 
   // A new journal value is picked up.
@@ -237,6 +296,19 @@ try {
     ),
     'The newer value stays',
   )
+
+  // An imported response edited since is taken again; an unchanged re-run is not.
+  await db.exec(
+    `update public.journal_responses set value_number = 83.5 where entry_id = '${id(23)}'`,
+  )
+  check((await backfill()) === 1, 'An edited response is written once')
+  check(
+    (await dayValues(weight.id)).some(
+      ([d, v, s]) => d === '2026-10-02' && v === 83.5 && s === id(23),
+    ),
+    'The edited value replaces the imported one',
+  )
+  check((await backfill()) === 0, 'The re-run after an edit writes nothing')
 
   // RLS.
   await actor(bob)
