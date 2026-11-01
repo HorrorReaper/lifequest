@@ -13,6 +13,7 @@ import {
   fetchMetric,
   fetchMetricValues,
   fetchMetrics,
+  fetchPreviousValues,
   formatMetricValue,
   logMetricValue,
   matchFieldsByLabel,
@@ -71,6 +72,7 @@ function fakeClient(results: Record<string, unknown> = {}) {
         'gte',
         'order',
         'limit',
+        'range',
         'single',
         'maybeSingle',
       ]) {
@@ -710,5 +712,45 @@ describe('writes', () => {
     const { client } = fakeClient({ metrics: failure, metric_values: failure })
 
     await expect(run(client)).rejects.toThrow('rls')
+  })
+})
+
+describe('fetchPreviousValues', () => {
+  it('reads the second-newest value of each metric with its own range(1, 1) query', async () => {
+    const { client, calls } = fakeClient({
+      metric_values: [
+        { data: [{ metric_id: 'm-1', value: 82.1 }], error: null },
+        { data: [], error: null },
+      ],
+    })
+
+    const result = await fetchPreviousValues(client, ['m-1', 'm-2'])
+
+    expect(result).toEqual({ 'm-1': 82.1, 'm-2': null })
+    expect(calls.filter((call) => call.method === 'eq')).toEqual([
+      { table: 'metric_values', method: 'eq', args: ['metric_id', 'm-1'] },
+      { table: 'metric_values', method: 'eq', args: ['metric_id', 'm-2'] },
+    ])
+    expect(calls.filter((call) => call.method === 'order').map((call) => call.args)).toEqual([
+      ['value_date', { ascending: false }],
+      ['value_date', { ascending: false }],
+    ])
+    expect(calls.filter((call) => call.method === 'range').map((call) => call.args)).toEqual([
+      [1, 1],
+      [1, 1],
+    ])
+  })
+
+  it('makes no query for no metrics', async () => {
+    const { client, calls } = fakeClient()
+
+    expect(await fetchPreviousValues(client, [])).toEqual({})
+    expect(calls).toHaveLength(0)
+  })
+
+  it('throws when a query fails', async () => {
+    const { client } = fakeClient({ metric_values: { data: null, error: new Error('boom') } })
+
+    await expect(fetchPreviousValues(client, ['m-1'])).rejects.toThrow('boom')
   })
 })

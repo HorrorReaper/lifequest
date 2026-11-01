@@ -179,6 +179,8 @@ The center navigation action opens shortcuts to common creation flows. The dashb
 
 `plan` redirects to the immersive planner. `task` and `habit` redirect to `/tasks?new=1` and `/habits?new=1`, which open the create form straight away, as the sheet's "Task" and "Habit" entries do. The form's `?new=1` is removed from the address once it closes (`history.replaceState`), so a reload does not reopen it. Goal and routine actions are admin-only in the current product.
 
+The sheet's "Metric" entry (after "Habit", `LineChart` icon, "Track a number over time — weight, steps, sleep…") goes to `/journal/metrics?new=1`, which opens the create-metric dialog straight away (`MetricCreateLauncher`); like `?new=1` on tasks and habits, it is removed from the address once the dialog closes.
+
 Trusted/route-allowlisted admins additionally see a "LifeQuest Labs" entry at the top of the quick action sheet linking to `/admin`. The standard bottom navigation has no persistent admin entry point, so this is currently the only in-app way to reach the admin workspace on mobile without typing the URL.
 
 ## Feedback

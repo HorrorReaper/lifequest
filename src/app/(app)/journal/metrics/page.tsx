@@ -2,13 +2,17 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowLeft, LineChart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/legacy-metrics'
-import { fetchMetricTargets } from '@/lib/metric-targets'
-import { dateInTimezone } from '@/lib/dates'
-import { MetricChart } from '@/components/journal/MetricChart'
-import { MetricTargetControl } from '@/components/journal/MetricTargetControl'
+import { fetchLatestValues, fetchMetrics, fetchPreviousValues } from '@/lib/metrics'
+import { MetricCreateLauncher } from '@/components/metrics/MetricCreateLauncher'
+import { MetricList } from '@/components/metrics/MetricList'
 
-export default async function JournalMetricsPage() {
+export default async function JournalMetricsPage({
+  searchParams,
+}: {
+  /** `new=1` opens the create dialog straight away (the + menu's "Metric"). */
+  searchParams?: Promise<{ new?: string }>
+}) {
+  const params = searchParams ? await searchParams : {}
   const supabase = await createClient()
   const {
     data: { user },
@@ -16,20 +20,16 @@ export default async function JournalMetricsPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .maybeSingle()
-  const timezone = (profile as { timezone?: string } | null)?.timezone ?? 'UTC'
-  const today = dateInTimezone(new Date(), timezone)
-
-  const metrics = await fetchTrackedMetrics(supabase, user.id)
-  const series = await Promise.all(
-    metrics.map((metric) => fetchMetricSeries(supabase, user.id, metric.fieldId))
-  )
-  const targets = await fetchMetricTargets(supabase, user.id)
-  const targetByFieldId = new Map(targets.map((target) => [target.fieldId, target]))
+  const metrics = await fetchMetrics(supabase, user.id)
+  const metricIds = metrics.map((metric) => metric.id)
+  const [latest, previous] = await Promise.all([
+    fetchLatestValues(supabase, metricIds),
+    fetchPreviousValues(supabase, metricIds),
+  ])
+  const initiallyOpen = params.new === '1'
+  // Remounts when ?new=1 arrives again, so the + menu opens the dialog even
+  // when you are already on this page.
+  const launcherKey = initiallyOpen ? 'new' : 'list'
 
   return (
     <main className="min-h-svh bg-background p-4 pb-24 sm:p-8">
@@ -46,51 +46,32 @@ export default async function JournalMetricsPage() {
             <span className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <LineChart className="size-5" />
             </span>
-            <div>
+            <div className="min-w-0 flex-1">
               <h1 className="text-2xl font-semibold tracking-tight">Metrics</h1>
               <p className="text-sm text-muted-foreground">
-                Numbers you&apos;ve chosen to track over time, sourced from your journal entries.
+                Numbers you track over time, one value a day.
               </p>
             </div>
+            {metrics.length > 0 && (
+              <MetricCreateLauncher
+                key={launcherKey}
+                userId={user.id}
+                initiallyOpen={initiallyOpen}
+                variant="button"
+              />
+            )}
           </div>
         </header>
 
         {metrics.length === 0 ? (
-          <div className="rounded-2xl border border-dashed px-5 py-9 text-center">
-            <LineChart className="mx-auto size-8 text-muted-foreground/60" />
-            <p className="mt-3 text-sm font-medium">No metrics yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Open a journal template, add a Number field, and turn on &quot;Track as
-              metric&quot; to see it here.
-            </p>
-            <Link
-              href="/journal/templates"
-              className="mt-4 inline-flex min-h-11 items-center rounded-full border bg-background px-4 text-sm font-medium transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
-              Open templates
-            </Link>
-          </div>
+          <MetricCreateLauncher
+            key={launcherKey}
+            userId={user.id}
+            initiallyOpen={initiallyOpen}
+            variant="empty"
+          />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {metrics.map((metric, index) => (
-              <div key={metric.fieldId} className="space-y-2">
-                <MetricChart
-                  label={metric.label}
-                  unit={metric.unit}
-                  subtitle={metric.templateName}
-                  today={today}
-                  data={series[index]}
-                />
-                <MetricTargetControl
-                  userId={user.id}
-                  fieldId={metric.fieldId}
-                  label={metric.label}
-                  unit={metric.unit}
-                  initial={targetByFieldId.get(metric.fieldId) ?? null}
-                />
-              </div>
-            ))}
-          </div>
+          <MetricList metrics={metrics} latest={latest} previous={previous} />
         )}
       </div>
     </main>

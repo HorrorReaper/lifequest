@@ -398,6 +398,34 @@ export async function fetchLatestValues(
 }
 
 /**
+ * The second-newest value of every given metric (null when there is none),
+ * for the trend arrow beside the latest one. Per-metric `range(1, 1)` queries
+ * for the same reason as `fetchLatestValues`: never read the whole history.
+ */
+export async function fetchPreviousValues(
+  supabase: SupabaseClient,
+  metricIds: string[]
+): Promise<Record<string, number | null>> {
+  const results = await Promise.all(
+    metricIds.map(async (metricId) => {
+      const { data, error } = await supabase
+        .from('metric_values')
+        .select('value')
+        .eq('metric_id', metricId)
+        .order('value_date', { ascending: false })
+        .range(1, 1)
+
+      if (error) throw error
+
+      const row = ((data ?? []) as { value: number }[])[0]
+      return [metricId, row ? Number(row.value) : null] as const
+    })
+  )
+
+  return Object.fromEntries(results)
+}
+
+/**
  * The user's metrics an entry of this template feeds: linked to the template
  * itself, or sourced from one of its fields (which can outlive a link change).
  */

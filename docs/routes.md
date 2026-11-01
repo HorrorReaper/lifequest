@@ -60,7 +60,7 @@
 | `/journal/templates` | System and custom template list |
 | `/journal/templates/new` | Create a custom template |
 | `/journal/templates/[id]/edit` | Edit an owned template; system templates remain protected |
-| `/journal/metrics` | Charts for `number` fields flagged `track_as_metric` in their template config |
+| `/journal/metrics` | The user's standalone metrics as a compact list (latest value, date, trend arrow, linked journal template), each row opening `/journal/metrics/[metricId]`. `+ New` creates a metric; `?new=1` (the + menu's "Metric") opens the create dialog straight away |
 | `/journal/metrics/[metricId]` | One standalone metric: header with target, log box for today, chart with 30/90/180 day range, and history list. `?from=home` makes the back link `‹ Home` (to `/dashboard`) instead of `‹ Metrics`. Unknown or foreign ids (and ids that are not UUIDs) give a 404 |
 
 ## Routine pages
