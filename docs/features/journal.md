@@ -153,6 +153,8 @@ Any `number` field can be flagged as a tracked metric from the template builder 
 
 The Metrics section is being rebuilt around standalone metrics (design: `docs/superpowers/specs/2026-11-01-standalone-metrics-design.md`). The new data layer is `src/lib/metrics.ts`, over the `metrics` and `metric_values` tables (one value per metric and day, latest wins). It is not wired into any page yet; the pages above still read the field-based module, which was moved to `src/lib/legacy-metrics.ts`. This section is rewritten once the pages switch over.
 
+The UI building blocks for the new metrics live in `src/components/metrics/` and are not placed on any page yet. `MetricLogDialog` logs today's value of one metric: it opens on the latest value, steps it with `MetricStepper` (the step size comes from `stepFor` in `src/lib/metrics.ts`; a comma decimal such as `81,2` is accepted), and saves it with `logMetricValue` for the `today` it is given by the server. Because a day holds one value and the latest write wins, the dialog shows `You already logged 81.6 kg today. Saving replaces it.` when today already has a value, and `Last: 81.6 kg · Oct 30` otherwise. Save is disabled while the field is empty or a write is pending, a failed write shows an error and keeps the dialog open, and an `Open {name} ›` link goes to `/journal/metrics/{id}?from=home`. `MetricCreateDialog` creates a metric from a name (1-60 characters) and an optional unit (at most 12), then navigates to `/journal/metrics/{id}?created=1`. `MetricEmptyState` is the placeholder shown while the user has no metrics, with a `Create your first metric` button.
+
 ## Archive and editing
 
 - `/journal/entries` provides the full chronological archive.
