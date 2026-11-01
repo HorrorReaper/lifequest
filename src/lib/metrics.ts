@@ -104,6 +104,14 @@ export function applyStep(value: number, step: number, sign: 1 | -1): number {
   return Number((value + sign * step).toFixed(decimalPlaces(step)))
 }
 
+/** A local day as `Oct 29`. Read at noon so no time zone moves it to a neighbouring day. */
+export function formatMetricDay(date: string): string {
+  return new Date(`${date}T12:00:00`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 export function formatMetricValue(value: number, unit: string | null): string {
   const rounded = Math.round(value * 100) / 100
   return unit ? `${rounded} ${unit}` : `${rounded}`

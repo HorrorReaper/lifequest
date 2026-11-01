@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { addDays } from '@/lib/dates'
 import { cn } from '@/lib/utils'
+import { formatMetricDay } from '@/lib/metrics'
 import type { MetricPoint } from '@/lib/legacy-metrics'
 
 interface MetricChartProps {
@@ -29,13 +30,6 @@ interface MetricChartProps {
 
 const RANGES = [30, 90, 180] as const
 type Range = (typeof RANGES)[number]
-
-function formatDate(date: string) {
-  return new Date(`${date}T12:00:00`).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 function formatValue(value: number, unit: string | null) {
   const rounded = Math.round(value * 100) / 100
@@ -55,7 +49,7 @@ export function MetricChart({
   const since = addDays(today, -range)
   const chartData = data
     .filter((point) => point.date >= since)
-    .map((point) => ({ ...point, dateLabel: formatDate(point.date) }))
+    .map((point) => ({ ...point, dateLabel: formatMetricDay(point.date) }))
   // The newest value overall, not only within the range.
   const latest = data.at(-1)
 

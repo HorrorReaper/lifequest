@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MetricHistoryList } from '@/components/metrics/MetricHistoryList'
 import type { MetricValue } from '@/lib/metrics'
 
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ client: true }) }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
+
 const metric = { id: 'metric-1', name: 'Weight', unit: 'kg' }
 
 const values: MetricValue[] = [
@@ -48,6 +51,24 @@ describe('MetricHistoryList', () => {
 
     expect(onSelect).toHaveBeenCalledTimes(1)
     expect(onSelect).toHaveBeenCalledWith(values[2])
+  })
+
+  it('opens the value dialog for the pressed row when no onSelect is passed', () => {
+    render(<MetricHistoryList metric={metric} values={values} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Oct 29/ }))
+
+    const input = screen.getByRole('textbox', { name: 'Weight' }) as HTMLInputElement
+    expect(input.value).toBe('81.8')
+    expect(screen.getByRole('heading', { name: 'Oct 29' })).toBeTruthy()
+  })
+
+  it('leaves the dialog to the caller when onSelect is passed', () => {
+    render(<MetricHistoryList metric={metric} values={values} onSelect={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Oct 29/ }))
+
+    expect(screen.queryByRole('textbox', { name: 'Weight' })).toBeNull()
   })
 
   it('says so when nothing was logged yet', () => {

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import {
+  formatMetricDay,
   formatMetricValue,
   stepFor,
   type LatestValue,
@@ -29,13 +30,6 @@ interface MetricLogDialogProps {
   latest: LatestValue | null
   /** The user's local day, computed on the server from their time zone. */
   today: string
-}
-
-function formatDay(date: string) {
-  return new Date(`${date}T12:00:00`).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })
 }
 
 function startingValue(latest: LatestValue | null) {
@@ -96,7 +90,7 @@ export function MetricLogDialog({
             {latest
               ? loggedToday
                 ? `You already logged ${formatMetricValue(latest.value, metric.unit)} today. Saving replaces it.`
-                : `Last: ${formatMetricValue(latest.value, metric.unit)} · ${formatDay(latest.date)}`
+                : `Last: ${formatMetricValue(latest.value, metric.unit)} · ${formatMetricDay(latest.date)}`
               : 'Last: nothing yet'}
           </DialogDescription>
         </DialogHeader>
