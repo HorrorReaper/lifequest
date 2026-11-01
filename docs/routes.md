@@ -61,6 +61,7 @@
 | `/journal/templates/new` | Create a custom template |
 | `/journal/templates/[id]/edit` | Edit an owned template; system templates remain protected |
 | `/journal/metrics` | Charts for `number` fields flagged `track_as_metric` in their template config |
+| `/journal/metrics/[metricId]` | One standalone metric: header with target, log box for today, chart with 30/90/180 day range, and history list. `?from=home` makes the back link `‹ Home` (to `/dashboard`) instead of `‹ Metrics`. Unknown or foreign ids (and ids that are not UUIDs) give a 404 |
 
 ## Routine pages
 

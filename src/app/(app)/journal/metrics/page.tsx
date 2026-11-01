@@ -4,6 +4,7 @@ import { ArrowLeft, LineChart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/legacy-metrics'
 import { fetchMetricTargets } from '@/lib/metric-targets'
+import { dateInTimezone } from '@/lib/dates'
 import { MetricChart } from '@/components/journal/MetricChart'
 import { MetricTargetControl } from '@/components/journal/MetricTargetControl'
 
@@ -14,6 +15,14 @@ export default async function JournalMetricsPage() {
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', user.id)
+    .maybeSingle()
+  const timezone = (profile as { timezone?: string } | null)?.timezone ?? 'UTC'
+  const today = dateInTimezone(new Date(), timezone)
 
   const metrics = await fetchTrackedMetrics(supabase, user.id)
   const series = await Promise.all(
@@ -68,7 +77,8 @@ export default async function JournalMetricsPage() {
                 <MetricChart
                   label={metric.label}
                   unit={metric.unit}
-                  templateName={metric.templateName}
+                  subtitle={metric.templateName}
+                  today={today}
                   data={series[index]}
                 />
                 <MetricTargetControl

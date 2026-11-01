@@ -1,13 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import {
   formatMetricValue,
-  logMetricValue,
   stepFor,
   type LatestValue,
   type Metric,
@@ -22,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { MetricStepper } from '@/components/metrics/MetricStepper'
+import { useLogMetricValue } from '@/components/metrics/use-log-metric-value'
 
 interface MetricLogDialogProps {
   open: boolean
@@ -59,15 +57,10 @@ export function MetricLogDialog({
   latest,
   today,
 }: MetricLogDialogProps) {
-  const [supabase] = useState(() => createClient())
-  const router = useRouter()
+  const { log, busy, error, clearError } = useLogMetricValue(userId)
 
   const [value, setValue] = useState(() => startingValue(latest))
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [wasOpen, setWasOpen] = useState(open)
-  // Blocks a second submit in the same frame, before `busy` re-renders.
-  const submittingRef = useRef(false)
 
   // Every opening starts from the latest value again, dropping what an
   // earlier, dismissed opening left behind.
@@ -75,7 +68,7 @@ export function MetricLogDialog({
     setWasOpen(open)
     if (open) {
       setValue(startingValue(latest))
-      setError(null)
+      clearError()
     }
   }
 
@@ -84,24 +77,9 @@ export function MetricLogDialog({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (parsed === null || busy || submittingRef.current) return
-    submittingRef.current = true
-    setBusy(true)
-    setError(null)
-    try {
-      await logMetricValue(supabase, userId, {
-        metricId: metric.id,
-        date: today,
-        value: parsed,
-      })
-      onOpenChange(false)
-      router.refresh()
-    } catch {
-      setError('Could not save this value. Please try again.')
-    } finally {
-      submittingRef.current = false
-      setBusy(false)
-    }
+    if (parsed === null || busy) return
+    const saved = await log({ metricId: metric.id, date: today, value: parsed })
+    if (saved) onOpenChange(false)
   }
 
   return (
