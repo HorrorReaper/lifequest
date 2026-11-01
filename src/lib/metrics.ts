@@ -524,6 +524,7 @@ export async function updateMetric(
     targetValue?: number | null
     targetDirection?: MetricTargetDirection | null
     templateId?: string | null
+    sourceFieldId?: string | null
   }
 ): Promise<void> {
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -531,10 +532,47 @@ export async function updateMetric(
   if (patch.targetValue !== undefined) update.target_value = patch.targetValue
   if (patch.targetDirection !== undefined) update.target_direction = patch.targetDirection
   if (patch.templateId !== undefined) update.template_id = patch.templateId
+  if (patch.sourceFieldId !== undefined) update.source_field_id = patch.sourceFieldId
 
   const { error } = await supabase.from('metrics').update(update).eq('id', metricId)
 
   if (error) throw error
+}
+
+export interface TemplateMetricLink {
+  id: string
+  name: string
+  templateId: string | null
+  sourceFieldId: string | null
+}
+
+/**
+ * The metrics tied to a template: those whose `template_id` is the template
+ * and those fed by one of `fieldIds` (normally the template's own fields).
+ * The template builder reads this to list them and, before it replaces the
+ * fields, to know which links must be re-pointed.
+ */
+export async function fetchTemplateMetricLinks(
+  supabase: SupabaseClient,
+  templateId: string,
+  fieldIds: string[]
+): Promise<TemplateMetricLink[]> {
+  const query = supabase.from('metrics').select('id, name, template_id, source_field_id')
+  const { data, error } = await (fieldIds.length > 0
+    ? query.or(`template_id.eq.${templateId},source_field_id.in.(${fieldIds.join(',')})`)
+    : query.eq('template_id', templateId)
+  ).order('created_at', { ascending: true })
+
+  if (error) throw error
+
+  return ((data ?? []) as Pick<MetricRow, 'id' | 'name' | 'template_id' | 'source_field_id'>[]).map(
+    (row) => ({
+      id: row.id,
+      name: row.name,
+      templateId: row.template_id,
+      sourceFieldId: row.source_field_id,
+    })
+  )
 }
 
 export async function deleteMetric(supabase: SupabaseClient, metricId: string): Promise<void> {

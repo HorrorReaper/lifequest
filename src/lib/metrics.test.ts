@@ -22,6 +22,7 @@ import {
   metTarget,
   stepFor,
   updateMetric,
+  fetchTemplateMetricLinks,
   updateMetricValue,
   validateMetricInput,
   type LatestValue,
@@ -696,6 +697,60 @@ describe('writes', () => {
 
     const update = calls.find((call) => call.method === 'update')
     expect(update?.args[0]).toMatchObject({ target_value: null, target_direction: null })
+  })
+
+  it('updateMetric can point a metric at another source field, or at none', async () => {
+    const { client, calls } = fakeClient()
+
+    await updateMetric(client, 'm-1', { sourceFieldId: 'field-2' })
+    await updateMetric(client, 'm-1', { sourceFieldId: null })
+
+    const updates = calls.filter((call) => call.method === 'update')
+    expect(updates[0].args[0]).toMatchObject({ source_field_id: 'field-2' })
+    expect(updates[1].args[0]).toMatchObject({ source_field_id: null })
+    expect(updates[0].args[0]).not.toHaveProperty('unit')
+  })
+
+  it('updateMetric leaves source_field_id alone when the patch has none', async () => {
+    const { client, calls } = fakeClient()
+
+    await updateMetric(client, 'm-1', { unit: 'kg' })
+
+    const update = calls.find((call) => call.method === 'update')
+    expect(update?.args[0]).not.toHaveProperty('source_field_id')
+  })
+
+  it('fetchTemplateMetricLinks reads the metrics of a template or of its fields', async () => {
+    const { client, calls } = fakeClient({
+      metrics: {
+        data: [
+          { id: 'm-1', name: 'Weight', template_id: 'tpl-1', source_field_id: 'field-1' },
+          { id: 'm-2', name: 'Sleep', template_id: 'tpl-1', source_field_id: null },
+        ],
+        error: null,
+      },
+    })
+
+    const result = await fetchTemplateMetricLinks(client, 'tpl-1', ['field-1', 'field-2'])
+
+    expect(result).toEqual([
+      { id: 'm-1', name: 'Weight', templateId: 'tpl-1', sourceFieldId: 'field-1' },
+      { id: 'm-2', name: 'Sleep', templateId: 'tpl-1', sourceFieldId: null },
+    ])
+    expect(calls).toContainEqual({
+      table: 'metrics',
+      method: 'or',
+      args: ['template_id.eq.tpl-1,source_field_id.in.(field-1,field-2)'],
+    })
+  })
+
+  it('fetchTemplateMetricLinks asks only by template when there are no fields', async () => {
+    const { client, calls } = fakeClient({ metrics: { data: [], error: null } })
+
+    await fetchTemplateMetricLinks(client, 'tpl-1', [])
+
+    expect(calls).toContainEqual({ table: 'metrics', method: 'eq', args: ['template_id', 'tpl-1'] })
+    expect(calls.some((call) => call.method === 'or')).toBe(false)
   })
 
   it('deleteMetric deletes by id', async () => {

@@ -56,7 +56,7 @@ export const FIELD_REGISTRY: FieldTypeDefinition[] = [ //welche verschiedenen Ar
     hasConfig: true,
     // No min, max or step: a number is open-ended and takes decimals unless
     // the template author sets limits (field-config-editor.tsx).
-    defaultConfig: { track_as_metric: false, metric_unit: '' },
+    defaultConfig: {},
     isDisplayOnly: false,
   },
   {

@@ -62,6 +62,8 @@ interface FieldConfigEditorProps {
   open: boolean
   onClose: () => void
   onSave: (field: BuilderField) => void
+  /** Name of the metric each saved field feeds, by field id. */
+  feedsMetricByFieldId: Record<string, string>
 }
 
 export function FieldConfigEditor({
@@ -69,6 +71,7 @@ export function FieldConfigEditor({
   open,
   onClose,
   onSave,
+  feedsMetricByFieldId,
 }: FieldConfigEditorProps) {
   const [editedField, setEditedField] = useState<BuilderField | null>(null)
   const [availableHabits, setAvailableHabits] = useState<Habit[]>([]);
@@ -96,6 +99,7 @@ export function FieldConfigEditor({
 
   const definition = getFieldDefinition(editedField.field_type)
   const config = editedField.config as Record<string, unknown>
+  const feedsMetric = feedsMetricByFieldId[editedField.id]
 
   function updateConfig(key: string, value: unknown) {
     setEditedField((prev) =>
@@ -272,33 +276,11 @@ export function FieldConfigEditor({
             </div>
           )}
 
-          {/* Metric tracking for free-range numbers, e.g. tracking revenue or weight over time */}
-          {editedField.field_type === 'number' && (
-            <div className="space-y-3 rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Track as metric</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Show this field&apos;s history as a chart on the Metrics page.
-                  </p>
-                </div>
-                <Switch
-                  checked={Boolean(config.track_as_metric)}
-                  onCheckedChange={(checked) => updateConfig('track_as_metric', checked)}
-                />
-              </div>
-              {Boolean(config.track_as_metric) && (
-                <div className="space-y-2">
-                  <Label>Unit (optional)</Label>
-                  <Input
-                    value={(config.metric_unit as string) ?? ''}
-                    onChange={(e) => updateConfig('metric_unit', e.target.value)}
-                    placeholder="e.g. $, kg, pages"
-                    maxLength={12}
-                  />
-                </div>
-              )}
-            </div>
+          {/* A metric reads this field when a standalone metric points at it (set up from the metric's page). */}
+          {feedsMetric && (
+            <p className="rounded-lg border p-3 text-sm text-muted-foreground">
+              Feeds metric: {feedsMetric}
+            </p>
           )}
 
           {/* Slider labels */}
