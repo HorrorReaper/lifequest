@@ -8,6 +8,8 @@ import type { Database } from '@/lib/supabase/database.types'
 import { fetchInsightTagSuggestions } from '@/lib/insights'
 import { findReflectionPrompt } from '@/lib/daily-reflection'
 import { fetchChallengeContext } from '@/lib/challenge-context'
+import { dateInTimezone } from '@/lib/dates'
+import { fetchJournalMetrics } from '@/lib/metrics'
 import { CHALLENGE_REFLECTION_TEMPLATE_ID } from '@/lib/challenge-rules'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -59,6 +61,20 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
       ? challenge.day.reflection_prompt
       : null
   const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
+  const templateFields = (fields as TemplateField[]) ?? []
+
+  // The metrics this template asks for, with today's value in the user's time
+  // zone. Journaling must work without them, so a failed read shows none.
+  const linkedMetrics = await fetchJournalMetrics(
+    supabase,
+    user.id,
+    templateId,
+    templateFields.map((field) => field.id),
+    dateInTimezone(new Date(), timezone)
+  ).catch((error) => {
+    console.error('Failed to load linked metrics:', error)
+    return []
+  })
 
   return (
     <div className="min-h-svh bg-background px-4 pb-24 pt-5 max-md:p-0 sm:px-8 sm:pt-8">
@@ -66,9 +82,10 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
         <EntryForm
           userId={user.id}
           template={template as JournalTemplate}
-          fields={(fields as TemplateField[]) ?? []}
+          fields={templateFields}
           suggestedInsightTags={suggestedInsightTags}
           timezone={timezone}
+          linkedMetrics={linkedMetrics}
           firstEntry={firstEntry === '1'}
           prompt={challengePrompt ?? findReflectionPrompt(prompt)?.text ?? null}
           returnTo={challenge ? { href: `/challenges/${challenge.templateId}`, label: 'Back to the challenge' } : null}

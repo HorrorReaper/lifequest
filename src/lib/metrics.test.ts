@@ -9,11 +9,13 @@ import {
   deleteMetricValue,
   entryMetricWrites,
   fetchLatestValues,
+  fetchJournalMetrics,
   fetchLinkedMetrics,
   fetchMetric,
   fetchMetricValues,
   fetchMetrics,
   fetchPreviousValues,
+  fetchValuesForDate,
   formatMetricValue,
   logMetricValue,
   matchFieldsByLabel,
@@ -548,6 +550,48 @@ describe('fetchLatestValues', () => {
   })
 })
 
+describe('fetchValuesForDate', () => {
+  it('reads one day of every given metric with a single query', async () => {
+    const { client, calls } = fakeClient({
+      metric_values: {
+        data: [
+          { metric_id: 'm-1', value: 81.6 },
+          { metric_id: 'm-2', value: '5' },
+        ],
+        error: null,
+      },
+    })
+
+    const result = await fetchValuesForDate(client, ['m-1', 'm-2', 'm-3'], '2026-10-20')
+
+    expect(result).toEqual({ 'm-1': 81.6, 'm-2': 5 })
+    expect(calls.filter((call) => call.method === 'select')).toHaveLength(1)
+    expect(calls).toContainEqual({
+      table: 'metric_values',
+      method: 'in',
+      args: ['metric_id', ['m-1', 'm-2', 'm-3']],
+    })
+    expect(calls).toContainEqual({
+      table: 'metric_values',
+      method: 'eq',
+      args: ['value_date', '2026-10-20'],
+    })
+  })
+
+  it('throws when the query fails', async () => {
+    const { client } = fakeClient({ metric_values: { data: null, error: new Error('boom') } })
+
+    await expect(fetchValuesForDate(client, ['m-1'], '2026-10-20')).rejects.toThrow('boom')
+  })
+
+  it('does not query without ids', async () => {
+    const { client, calls } = fakeClient()
+
+    expect(await fetchValuesForDate(client, [], '2026-10-20')).toEqual({})
+    expect(calls).toHaveLength(0)
+  })
+})
+
 describe('fetchLinkedMetrics', () => {
   it('matches the template or any of its fields', async () => {
     const { client, calls } = fakeClient({
@@ -576,6 +620,36 @@ describe('fetchLinkedMetrics', () => {
       method: 'or',
       args: ['template_id.eq.tpl-1'],
     })
+  })
+})
+
+describe('fetchJournalMetrics', () => {
+  it('pairs each linked metric with its value on the entry date', async () => {
+    const { client } = fakeClient({
+      metrics: {
+        data: [
+          { ...metricRow, id: 'm-1' },
+          { ...metricRow, id: 'm-2' },
+        ],
+        error: null,
+      },
+      journal_templates: { data: [{ id: 'tpl-1', name: 'Morning', is_active: true }], error: null },
+      metric_values: { data: [{ metric_id: 'm-2', value: 5 }], error: null },
+    })
+
+    const result = await fetchJournalMetrics(client, 'u-1', 'tpl-1', ['f-1'], '2026-10-20')
+
+    expect(result.map((row) => [row.metric.id, row.value])).toEqual([
+      ['m-1', null],
+      ['m-2', 5],
+    ])
+  })
+
+  it('reads no values when nothing is linked', async () => {
+    const { client, calls } = fakeClient({ metrics: { data: [], error: null } })
+
+    expect(await fetchJournalMetrics(client, 'u-1', 'tpl-1', [], '2026-10-20')).toEqual([])
+    expect(calls.some((call) => call.table === 'metric_values')).toBe(false)
   })
 })
 

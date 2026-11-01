@@ -426,6 +426,34 @@ export async function fetchPreviousValues(
 }
 
 /**
+ * The value each given metric has on one day (metrics with none are absent),
+ * in a single query: one day holds at most one value per metric, so the
+ * 1000-row cap cannot be reached.
+ */
+export async function fetchValuesForDate(
+  supabase: SupabaseClient,
+  metricIds: string[],
+  date: string
+): Promise<Record<string, number>> {
+  if (metricIds.length === 0) return {}
+
+  const { data, error } = await supabase
+    .from('metric_values')
+    .select('metric_id, value')
+    .in('metric_id', metricIds)
+    .eq('value_date', date)
+
+  if (error) throw error
+
+  const values: Record<string, number> = {}
+  for (const row of (data ?? []) as { metric_id: string; value: number }[]) {
+    values[row.metric_id] = Number(row.value)
+  }
+
+  return values
+}
+
+/**
  * The user's metrics an entry of this template feeds: linked to the template
  * itself, or sourced from one of its fields (which can outlive a link change).
  */
@@ -448,6 +476,24 @@ export async function fetchLinkedMetrics(
   if (error) throw error
 
   return withTemplates(supabase, (data ?? []) as MetricRow[])
+}
+
+/** The metrics an entry of this template asks for, each with the value it already has on `date`. */
+export async function fetchJournalMetrics(
+  supabase: SupabaseClient,
+  userId: string,
+  templateId: string,
+  fieldIds: string[],
+  date: string
+): Promise<{ metric: Metric; value: number | null }[]> {
+  const linked = await fetchLinkedMetrics(supabase, userId, templateId, fieldIds)
+  const values = await fetchValuesForDate(
+    supabase,
+    linked.map((metric) => metric.id),
+    date
+  )
+
+  return linked.map((metric) => ({ metric, value: values[metric.id] ?? null }))
 }
 
 export async function createMetric(
