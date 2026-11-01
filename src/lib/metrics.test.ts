@@ -70,6 +70,7 @@ function fakeClient(results: Record<string, unknown> = {}) {
         'or',
         'gte',
         'order',
+        'limit',
         'single',
         'maybeSingle',
       ]) {
@@ -496,17 +497,13 @@ describe('fetchMetricValues', () => {
 })
 
 describe('fetchLatestValues', () => {
-  it('keeps the newest value per metric in one query', async () => {
+  it('reads the newest value of each metric with its own limit-1 query', async () => {
     const { client, calls } = fakeClient({
-      metric_values: {
-        data: [
-          { metric_id: 'm-1', value_date: '2026-10-28', value: 82 },
-          { metric_id: 'm-1', value_date: '2026-10-30', value: 81.6 },
-          { metric_id: 'm-1', value_date: '2026-10-29', value: 81.9 },
-          { metric_id: 'm-2', value_date: '2026-10-01', value: 5 },
-        ],
-        error: null,
-      },
+      metric_values: [
+        { data: [{ metric_id: 'm-1', value_date: '2026-10-30', value: 81.6 }], error: null },
+        { data: [{ metric_id: 'm-2', value_date: '2026-10-01', value: 5 }], error: null },
+        { data: [], error: null },
+      ],
     })
 
     const result = await fetchLatestValues(client, ['m-1', 'm-2', 'm-3'])
@@ -515,7 +512,30 @@ describe('fetchLatestValues', () => {
       'm-1': { value: 81.6, date: '2026-10-30' },
       'm-2': { value: 5, date: '2026-10-01' },
     })
-    expect(calls.filter((call) => call.method === 'select')).toHaveLength(1)
+    expect(calls.filter((call) => call.method === 'select')).toHaveLength(3)
+    expect(calls.filter((call) => call.method === 'eq')).toEqual([
+      { table: 'metric_values', method: 'eq', args: ['metric_id', 'm-1'] },
+      { table: 'metric_values', method: 'eq', args: ['metric_id', 'm-2'] },
+      { table: 'metric_values', method: 'eq', args: ['metric_id', 'm-3'] },
+    ])
+    expect(calls.filter((call) => call.method === 'order')).toEqual(
+      ['m-1', 'm-2', 'm-3'].map(() => ({
+        table: 'metric_values',
+        method: 'order',
+        args: ['value_date', { ascending: false }],
+      }))
+    )
+    expect(calls.filter((call) => call.method === 'limit').map((call) => call.args)).toEqual([
+      [1],
+      [1],
+      [1],
+    ])
+  })
+
+  it('throws when a query fails', async () => {
+    const { client } = fakeClient({ metric_values: { data: null, error: new Error('boom') } })
+
+    await expect(fetchLatestValues(client, ['m-1'])).rejects.toThrow('boom')
   })
 
   it('does not query without ids', async () => {

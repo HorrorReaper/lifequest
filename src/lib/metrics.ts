@@ -355,26 +355,35 @@ export async function fetchMetricValues(
   }))
 }
 
-/** The newest value of every given metric, from a single query over all of them. */
+/**
+ * The newest value of every given metric. One limit-1 query per metric rather
+ * than one query over all of them: PostgREST caps a response at 1000 rows, so
+ * a single query would silently drop values once the history outgrows that.
+ */
 export async function fetchLatestValues(
   supabase: SupabaseClient,
   metricIds: string[]
 ): Promise<Record<string, LatestValue>> {
   if (metricIds.length === 0) return {}
 
-  const { data, error } = await supabase
-    .from('metric_values')
-    .select('metric_id, value_date, value')
-    .in('metric_id', metricIds)
+  const results = await Promise.all(
+    metricIds.map(async (metricId) => {
+      const { data, error } = await supabase
+        .from('metric_values')
+        .select('metric_id, value_date, value')
+        .eq('metric_id', metricId)
+        .order('value_date', { ascending: false })
+        .limit(1)
 
-  if (error) throw error
+      if (error) throw error
+
+      return ((data ?? []) as { metric_id: string; value_date: string; value: number }[])[0]
+    })
+  )
 
   const latest: Record<string, LatestValue> = {}
-  for (const row of (data ?? []) as { metric_id: string; value_date: string; value: number }[]) {
-    const current = latest[row.metric_id]
-    if (!current || row.value_date > current.date) {
-      latest[row.metric_id] = { value: Number(row.value), date: row.value_date }
-    }
+  for (const row of results) {
+    if (row) latest[row.metric_id] = { value: Number(row.value), date: row.value_date }
   }
 
   return latest
