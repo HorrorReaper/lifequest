@@ -779,27 +779,88 @@
   to   { transform: translateX(-480px); }
 }
 
-@keyframes hero-stride {
-  0%, 50%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-4px) rotate(-3deg); }
-  75% { transform: translateY(-4px) rotate(3deg); }
+/* The walk cycle of the avatar inside `.hero-stride`, on the limb groups
+   `AvatarFigure` marks with data-avatar-part. One stride is
+   --hero-stride long (set from STRIDE_SECONDS in DashboardGreeting.tsx), and
+   its start is the passing pose: this leg straight under the hip with its
+   foot on the ground, the other straight and lifted mid-swing. A planted foot
+   swings back at a steady pace (linear), the speed the path drifts past, so
+   it stays put on the ground; the swing forward eases in and out. The right
+   limbs run half a stride behind the left ones, and each arm swings with
+   the opposite leg. */
+
+/* While walking, both legs hang straight from one hip in the middle (the
+   hips are hidden behind the torso, so they can move): --hero-leg-shift
+   brings each leg in by 6 units, --hero-leg-tilt stands it upright. Swinging
+   from their own hips 12 units apart, a figure facing us would straddle wide
+   on one step and cross its legs on the next; from one shared hip they
+   scissor evenly, as legs seen from the side do. */
+@keyframes hero-leg-swing {
+  0%   { rotate: var(--hero-leg-tilt); animation-timing-function: linear; }
+  25%  { rotate: calc(var(--hero-leg-tilt) + var(--hero-stride-angle)); animation-timing-function: ease-in-out; }
+  75%  { rotate: calc(var(--hero-leg-tilt) - var(--hero-stride-angle)); animation-timing-function: linear; }
+  100% { rotate: var(--hero-leg-tilt); }
 }
 
-.hero-scroll-far  { animation: hero-scroll 90s linear infinite; }
-.hero-scroll-near { animation: hero-scroll 45s linear infinite; }
+/* The foot clears the ground while it swings forward. */
+@keyframes hero-leg-lift {
+  0%, 25%, 75%, 100% { translate: var(--hero-leg-shift) 0; }
+  50% { translate: var(--hero-leg-shift) -4px; }
+}
+
+@keyframes hero-arm-swing {
+  0%   { rotate: 0deg; animation-timing-function: ease-out; }
+  25%  { rotate: calc(var(--hero-arm-angle) * -1); animation-timing-function: ease-in-out; }
+  75%  { rotate: var(--hero-arm-angle); animation-timing-function: ease-in; }
+  100% { rotate: 0deg; }
+}
+
+/* Twice per stride: highest as the legs pass, lowest as a foot lands. */
+@keyframes hero-body-bob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 2px; }
+}
+
+.hero-scroll-far  { animation: hero-scroll var(--hero-scroll-far, 72s) linear infinite; }
+.hero-scroll-near { animation: hero-scroll var(--hero-scroll-near, 36s) linear infinite; }
+
 .hero-stride {
-  transform-origin: 50% 100%;
-  animation: hero-stride 1.4s ease-in-out infinite;
+  --hero-stride: 1.47s;
+  --hero-stride-angle: 13deg;
+  --hero-arm-angle: 12deg;
+}
+.hero-stride [data-avatar-part] {
+  transform-box: view-box;
+}
+.hero-stride [data-avatar-part="leg"] {
+  animation:
+    hero-leg-swing var(--hero-stride) infinite,
+    hero-leg-lift var(--hero-stride) ease-in-out infinite;
+}
+.hero-stride [data-avatar-part="arm"] {
+  animation: hero-arm-swing var(--hero-stride) infinite;
+}
+.hero-stride [data-avatar-part="body"] {
+  animation: hero-body-bob calc(var(--hero-stride) / 2) ease-in-out infinite;
+}
+.hero-stride [data-side="left"] {
+  --hero-leg-shift: 6px;
+  --hero-leg-tilt: -4deg;
+}
+.hero-stride [data-side="right"] {
+  --hero-leg-shift: -6px;
+  --hero-leg-tilt: 4deg;
+  animation-delay: calc(var(--hero-stride) * -0.5);
 }
 
-[data-hero-paused="true"] :is(.hero-scroll-far, .hero-scroll-near, .hero-stride) {
+[data-hero-paused="true"] :is(.hero-scroll-far, .hero-scroll-near, .hero-stride [data-avatar-part]) {
   animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-scroll-far,
   .hero-scroll-near,
-  .hero-stride {
+  .hero-stride [data-avatar-part] {
     animation: none;
   }
 }

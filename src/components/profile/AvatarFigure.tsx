@@ -22,11 +22,44 @@ const PREVIEW_BOXES: Record<AvatarSlot, string> = {
   boots: '38 108 44 38',
 }
 
+type Side = 'left' | 'right'
+const SIDES: readonly Side[] = ['left', 'right']
+
 interface ItemArt {
   /** Drawn behind the body -- only packs, which peek out at the sides. */
   behind?: ReactNode
   /** Drawn over the body. */
   front?: ReactNode
+  /**
+   * Drawn over each leg, inside that leg's group, so it moves with the leg
+   * when the figure walks -- only boots.
+   */
+  legs?: Record<Side, ReactNode>
+}
+
+/** One boot per leg, both in the same colors. */
+function bootPair(
+  colors: { fill: string; stroke: string },
+  left: ReactNode,
+  right: ReactNode
+): Record<Side, ReactNode> {
+  const wrap = (node: ReactNode) => (
+    <g fill={colors.fill} stroke={colors.stroke} strokeWidth="2" strokeLinejoin="round">
+      {node}
+    </g>
+  )
+  return { left: wrap(left), right: wrap(right) }
+}
+
+/** The laces drawn across a boot, one line per y. */
+function laces(x1: number, x2: number, ys: number[]) {
+  return (
+    <g stroke="hsl(38 40% 72%)" strokeWidth="1.5">
+      {ys.map((y) => (
+        <path key={y} d={`M ${x1} ${y} L ${x2} ${y}`} />
+      ))}
+    </g>
+  )
 }
 
 const ITEM_ART: Record<string, ItemArt> = {
@@ -135,37 +168,36 @@ const ITEM_ART: Record<string, ItemArt> = {
 
   // --- Boots --------------------------------------------------------------
   'trail-shoes': {
-    front: (
-      <g fill="hsl(30 20% 45%)" stroke="hsl(30 22% 28%)" strokeWidth="2" strokeLinejoin="round">
-        <rect x="45" y="132" width="15" height="9" rx="3" />
-        <rect x="61" y="132" width="15" height="9" rx="3" />
-      </g>
+    legs: bootPair(
+      { fill: 'hsl(30 20% 45%)', stroke: 'hsl(30 22% 28%)' },
+      <rect x="45" y="132" width="15" height="9" rx="3" />,
+      <rect x="61" y="132" width="15" height="9" rx="3" />
     ),
   },
   'hiking-boots': {
-    front: (
-      <g fill="hsl(24 40% 34%)" stroke="hsl(24 44% 20%)" strokeWidth="2" strokeLinejoin="round">
+    legs: bootPair(
+      { fill: 'hsl(24 40% 34%)', stroke: 'hsl(24 44% 20%)' },
+      <>
         <rect x="45" y="123" width="15" height="18" rx="3" />
+        {laces(47, 58, [129])}
+      </>,
+      <>
         <rect x="61" y="123" width="15" height="18" rx="3" />
-        <g stroke="hsl(38 40% 72%)" strokeWidth="1.5">
-          <path d="M 47 129 L 58 129" />
-          <path d="M 63 129 L 74 129" />
-        </g>
-      </g>
+        {laces(63, 74, [129])}
+      </>
     ),
   },
   'expedition-boots': {
-    front: (
-      <g fill="hsl(215 18% 35%)" stroke="hsl(215 22% 20%)" strokeWidth="2" strokeLinejoin="round">
+    legs: bootPair(
+      { fill: 'hsl(215 18% 35%)', stroke: 'hsl(215 22% 20%)' },
+      <>
         <rect x="44" y="113" width="16" height="28" rx="4" />
+        {laces(46, 58, [120, 128])}
+      </>,
+      <>
         <rect x="60" y="113" width="16" height="28" rx="4" />
-        <g stroke="hsl(38 40% 72%)" strokeWidth="1.5">
-          <path d="M 46 120 L 58 120" />
-          <path d="M 46 128 L 58 128" />
-          <path d="M 62 120 L 74 120" />
-          <path d="M 62 128 L 74 128" />
-        </g>
-      </g>
+        {laces(62, 74, [120, 128])}
+      </>
     ),
   },
 }
@@ -178,16 +210,8 @@ const PACK_STRAPS = (
   </g>
 )
 
-/**
- * The bare hiker. Shared so a thumbnail's silhouette can never drift from the
- * figure.
- *
- * `headOnly` genuinely omits the body rather than relying on a tighter
- * viewBox to hide it: an SVG's viewport does not reliably clip what falls
- * outside it here, which left the torso's top curve floating under an
- * otherwise bodiless head.
- */
-function BaseBody({ showFeet, headOnly = false }: { showFeet: boolean; headOnly?: boolean }) {
+/** The bare body's look: drawn from theme tokens so it fits every theme. */
+function BodyStyle({ children }: { children: ReactNode }) {
   return (
     <g
       fill="var(--muted)"
@@ -197,28 +221,101 @@ function BaseBody({ showFeet, headOnly = false }: { showFeet: boolean; headOnly?
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      {children}
+    </g>
+  )
+}
+
+/**
+ * Hips from y=100 to the soles at y=141, which is the length that sets how
+ * far a foot travels per step when the figure walks (see the hero's stride in
+ * src/components/dashboard/DashboardGreeting.tsx).
+ */
+export const AVATAR_LEG_UNITS = 41
+
+/**
+ * Each limb and the point it turns around when the figure walks: the
+ * shoulders and the hips. The legs start at y=94, inside the torso and drawn
+ * behind it, so a swinging or lifted leg never shows its top end.
+ */
+const LIMBS: Record<
+  Side,
+  { arm: string; shoulder: string; leg: string; hip: string; footX: number }
+> = {
+  left: { arm: 'M 46 63 L 35 89', shoulder: '46px 63px', leg: 'M 54.4 94 L 52 134', hip: '54px 100px', footX: 50 },
+  right: { arm: 'M 74 63 L 85 89', shoulder: '74px 63px', leg: 'M 65.6 94 L 68 134', hip: '66px 100px', footX: 70 },
+}
+
+function Head() {
+  return (
+    <>
       <circle cx="60" cy="36" r="15" />
       <g strokeWidth="1.8">
         <circle cx="55" cy="33" r="0.6" fill="currentColor" fillOpacity="0.85" />
         <circle cx="65" cy="33" r="0.6" fill="currentColor" fillOpacity="0.85" />
         <path d="M 54.5 40 Q 60 45 65.5 40" fill="none" />
       </g>
-      {!headOnly && (
-        <>
-          <path d="M 45 58 Q 60 53 75 58 L 73 99 Q 60 103 47 99 Z" />
-          <path d="M 46 63 L 35 89" fill="none" />
-          <path d="M 74 63 L 85 89" fill="none" />
-          <path d="M 54 101 L 52 134" fill="none" />
-          <path d="M 66 101 L 68 134" fill="none" />
-          {showFeet && (
-            <>
-              <ellipse cx="50" cy="137" rx="7" ry="4" />
-              <ellipse cx="70" cy="137" rx="7" ry="4" />
-            </>
-          )}
-        </>
-      )}
+    </>
+  )
+}
+
+const TORSO = <path d="M 45 58 Q 60 53 75 58 L 73 99 Q 60 103 47 99 Z" />
+
+// The `data-avatar-part` groups are what the dashboard hero animates (see
+// `.hero-stride` in src/app/globals.css); everywhere else they stand still.
+
+function Arm({ side }: { side: Side }) {
+  return (
+    <g data-avatar-part="arm" data-side={side} style={{ transformOrigin: LIMBS[side].shoulder }}>
+      <BodyStyle>
+        <path d={LIMBS[side].arm} fill="none" />
+      </BodyStyle>
     </g>
+  )
+}
+
+function Leg({ side, showFoot, children }: { side: Side; showFoot: boolean; children?: ReactNode }) {
+  return (
+    <g data-avatar-part="leg" data-side={side} style={{ transformOrigin: LIMBS[side].hip }}>
+      <BodyStyle>
+        <path d={LIMBS[side].leg} fill="none" />
+        {showFoot && <ellipse cx={LIMBS[side].footX} cy="137" rx="7" ry="4" />}
+      </BodyStyle>
+      {children}
+    </g>
+  )
+}
+
+/**
+ * The bare hiker, standing. Shared so a thumbnail's silhouette can never
+ * drift from the figure.
+ *
+ * `headOnly` genuinely omits the body rather than relying on a tighter
+ * viewBox to hide it: an SVG's viewport does not reliably clip what falls
+ * outside it here, which left the torso's top curve floating under an
+ * otherwise bodiless head.
+ */
+function BaseBody({ showFeet, headOnly = false }: { showFeet: boolean; headOnly?: boolean }) {
+  if (headOnly) {
+    return (
+      <BodyStyle>
+        <Head />
+      </BodyStyle>
+    )
+  }
+  return (
+    <>
+      {SIDES.map((side) => (
+        <Leg key={side} side={side} showFoot={showFeet} />
+      ))}
+      <BodyStyle>
+        {TORSO}
+        <Head />
+      </BodyStyle>
+      {SIDES.map((side) => (
+        <Arm key={side} side={side} />
+      ))}
+    </>
   )
 }
 
@@ -231,14 +328,24 @@ export function AvatarFigure({ equippedItems, className }: AvatarFigureProps) {
   const backpackId = equippedItems.backpack
   const hasBoots = Boolean(equippedItems.boots && ITEM_ART[equippedItems.boots])
 
-  function artFor(slot: AvatarSlot, layer: keyof ItemArt) {
+  function artFor(slot: AvatarSlot, layer: 'behind' | 'front') {
+    return wrapItem(slot, ITEM_ART[equippedItems[slot] ?? '']?.[layer])
+  }
+
+  function bootFor(side: Side) {
+    return wrapItem('boots', ITEM_ART[equippedItems.boots ?? '']?.legs?.[side])
+  }
+
+  function wrapItem(slot: AvatarSlot, node: ReactNode) {
     const itemId = equippedItems[slot]
-    if (!itemId) return null
-    const node = ITEM_ART[itemId]?.[layer]
-    if (!node) return null
+    if (!itemId || !node) return null
     return <g data-avatar-item={itemId}>{node}</g>
   }
 
+  // Drawn in layers so the figure can walk: the legs (boots on them) sit
+  // behind the torso, and everything above the hips -- packs, torso, head,
+  // arms and gear -- is one `body` group that can bob as a whole. Standing
+  // still, it looks the same as one flat drawing.
   return (
     <svg
       viewBox="0 0 120 160"
@@ -247,16 +354,30 @@ export function AvatarFigure({ equippedItems, className }: AvatarFigureProps) {
       aria-label="Your avatar"
       data-testid="avatar-figure"
     >
-      {AVATAR_SLOTS.map((slot) => (
-        <g key={`behind-${slot}`}>{artFor(slot, 'behind')}</g>
+      <g data-avatar-part="body">
+        {AVATAR_SLOTS.map((slot) => (
+          <g key={`behind-${slot}`}>{artFor(slot, 'behind')}</g>
+        ))}
+      </g>
+
+      {SIDES.map((side) => (
+        <Leg key={side} side={side} showFoot={!hasBoots}>
+          {bootFor(side)}
+        </Leg>
       ))}
 
-      <BaseBody showFeet={!hasBoots} />
-
-      {artFor('jacket', 'front')}
-      {backpackId && ITEM_ART[backpackId]?.behind && PACK_STRAPS}
-      {artFor('boots', 'front')}
-      {artFor('hat', 'front')}
+      <g data-avatar-part="body">
+        <BodyStyle>
+          {TORSO}
+          <Head />
+        </BodyStyle>
+        {SIDES.map((side) => (
+          <Arm key={side} side={side} />
+        ))}
+        {artFor('jacket', 'front')}
+        {backpackId && ITEM_ART[backpackId]?.behind && PACK_STRAPS}
+        {artFor('hat', 'front')}
+      </g>
     </svg>
   )
 }
@@ -342,6 +463,8 @@ export function AvatarItemArt({ item, className }: { item: AvatarItem; className
         <BaseBody showFeet={item.slot !== 'boots'} />
       </g>
       {art.front}
+      {art.legs?.left}
+      {art.legs?.right}
     </svg>
   )
 }

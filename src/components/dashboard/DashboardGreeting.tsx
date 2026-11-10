@@ -1,7 +1,7 @@
 'use client'
 
 import { Fraunces } from 'next/font/google'
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { Pause, Play } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useTheme } from '@/components/providers/theme-provider'
@@ -47,6 +47,22 @@ export function greetingFor(nowMinutes: number | undefined): string {
 
 /** How long the avatar takes to walk onto the path, in seconds. */
 export const WALK_SECONDS = 1.6
+
+/** How far each leg swings to either side of straight down, in degrees. */
+export const STRIDE_DEGREES = 13
+
+/**
+ * How long one stride (a step with each leg) takes, in seconds. Timed so a
+ * planted foot swings back exactly as fast as the path drifts past, which is
+ * what keeps it from sliding: in half a stride a foot covers
+ * 2 x AVATAR_LEG_UNITS x sin(STRIDE_DEGREES) of the figure's own units, and
+ * on a phone (158px of scene inside the 160px hero's border, showing the
+ * scene's 140 units; a 96px avatar drawn in 160) the path drifts
+ * TILE / NEAR_SCROLL_SECONDS scene units a second. Other widths scale the
+ * scene by up to about 6% more or less than the avatar, too little to see.
+ * Change it together with NEAR_SCROLL_SECONDS.
+ */
+export const STRIDE_SECONDS = 1.47
 
 /** How far apart the scene's stages arrive while it walks, in milliseconds. */
 export const STAGE_STEP_MS = 600
@@ -187,8 +203,9 @@ export function DashboardGreeting({
       </div>
 
       {/* Ends on the path, right of the words so it never sits on them. The
-          outer layer walks it in once; the inner one is the stride, a CSS
-          loop that keeps going (`.hero-stride` in globals.css). */}
+          outer layer walks it in once; the inner one carries the walk cycle,
+          CSS loops on the avatar's legs, arms and body that keep going
+          (`.hero-stride` in globals.css). */}
       <motion.div
         data-slot="hero-walker"
         className="absolute bottom-1 z-10"
@@ -196,7 +213,15 @@ export function DashboardGreeting({
         animate={{ left: '58%' }}
         transition={{ duration: WALK_SECONDS, ease: 'easeOut' }}
       >
-        <div className="hero-stride">
+        <div
+          className="hero-stride"
+          style={
+            {
+              '--hero-stride': `${STRIDE_SECONDS}s`,
+              '--hero-stride-angle': `${STRIDE_DEGREES}deg`,
+            } as CSSProperties
+          }
+        >
           <AvatarFigure equippedItems={equippedItems} className="h-24 w-auto sm:h-28" />
         </div>
       </motion.div>

@@ -30,7 +30,23 @@ describe('AvatarFigure', () => {
     expect(container.querySelector('[data-avatar-item="sun-hat"]')).toBeTruthy()
     expect(container.querySelector('[data-avatar-item="rain-jacket"]')).toBeTruthy()
     expect(container.querySelector('[data-avatar-item="hiking-boots"]')).toBeTruthy()
-    expect(container.querySelectorAll('[data-avatar-item]')).toHaveLength(3)
+    const drawn = [...container.querySelectorAll('[data-avatar-item]')].map((node) =>
+      node.getAttribute('data-avatar-item')
+    )
+    expect(new Set(drawn)).toEqual(new Set(['sun-hat', 'rain-jacket', 'hiking-boots']))
+  })
+
+  it('draws one boot on each leg, so the boots move with the legs', () => {
+    const { container } = render(
+      <AvatarFigure
+        equippedItems={{ hat: null, jacket: null, backpack: null, boots: 'hiking-boots' }}
+      />
+    )
+
+    for (const side of ['left', 'right']) {
+      const leg = container.querySelector(`[data-avatar-part="leg"][data-side="${side}"]`)
+      expect(leg?.querySelectorAll('[data-avatar-item="hiking-boots"] rect')).toHaveLength(1)
+    }
   })
 
   it('replaces the bare feet with boots rather than drawing both', () => {
