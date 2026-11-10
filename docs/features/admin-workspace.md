@@ -101,7 +101,7 @@ on the chromeless `/admin/productivity/focus` screen. The same timer is also ava
 
 ### XP
 
-A **completed** session awards **one XP per whole minute actually focused**,
+A **completed** session awards **one XP per whole minute up to the planned duration**,
 via the server-timed `finish_focus_session` RPC. This is the single exception to the rule that admin
 work earns nothing.
 

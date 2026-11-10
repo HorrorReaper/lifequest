@@ -56,7 +56,7 @@ npx vitest run -t "flushes dirty sets"
 
 ## Current automated coverage
 
-Focus Timer checks cover the required selection of one to three existing tasks, duplicate submission, duration, full-screen setup, saved task titles on resume, return navigation, and retry behavior. `scripts/verify-focus-timer.mjs` runs isolated PostgreSQL checks for ownership, validation of open tasks, commitment order, direct-write denial, server time, idempotent starts and rewards, cancellation, transactional rollback, and anonymous denial. Run with a separately installed PGlite module URL in `LIFEQUEST_PGLITE_MODULE`. The script reads no environment files and never connects to Supabase.
+Focus Timer checks cover the required selection of one to three existing tasks, duplicate submission, full-screen setup, saved task titles on resume, the closing controls at zero, return to setup, and retry behavior. `scripts/verify-focus-timer.mjs` runs isolated PostgreSQL checks for ownership, commitment order, server time, closing expired blocks, the XP cap, duplicate rewards, cancellation, transactional rollback, and anonymous denial. Its XP event source ID uses the same text type as the hosted database. Run with a separately installed PGlite module URL in `LIFEQUEST_PGLITE_MODULE`. The script reads no environment files and never connects to Supabase.
 
 The repository currently contains 32 test files.
 

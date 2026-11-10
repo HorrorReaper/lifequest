@@ -19,10 +19,12 @@ const CONTROLS_VISIBLE_MS = 4000
 export function FullscreenFocusTimer({
   userId,
   returnHref = '/admin/productivity',
+  refreshOnFinish = false,
   initial,
 }: {
   userId: string
   returnHref?: string
+  refreshOnFinish?: boolean
   initial?: {
     session: FocusSessionRow
     now: number
@@ -157,7 +159,8 @@ export function FullscreenFocusTimer({
     try {
       const result = await finishFocusSession(supabase, session.id, status)
       if (result.awarded) addXp(result.xpAwarded, result.previousTotal)
-      router.push(returnHref)
+      if (refreshOnFinish) router.refresh()
+      else router.push(returnHref)
     } catch {
       setEndError(
         'That session could not be closed. Check your connection and try again.',
@@ -184,6 +187,8 @@ export function FullscreenFocusTimer({
     (now - new Date(session.started_at).getTime()) / 1000,
   )
   const remaining = session.planned_minutes * 60 - elapsed
+  const expired = remaining <= 0
+  const showControls = expired || Boolean(endError) || interactions > 0
 
   return (
     <div
@@ -197,9 +202,18 @@ export function FullscreenFocusTimer({
         <p className="select-none font-mono text-[min(20vw,32vh,9rem)] font-semibold tracking-[-0.08em] tabular-nums drop-shadow-lg">
           {secondsLabel(remaining)}
         </p>
-        <p className="mt-4 max-w-sm text-sm text-white/75 drop-shadow">
-          {quote}
-        </p>
+        {expired ? (
+          <p
+            role="status"
+            className="mt-4 max-w-sm text-sm text-white/90 drop-shadow"
+          >
+            Time is up. Complete or discard this block.
+          </p>
+        ) : (
+          <p className="mt-4 max-w-sm text-sm text-white/75 drop-shadow">
+            {quote}
+          </p>
+        )}
         {committedTasks.length > 0 && (
           <ol
             aria-label="Tasks for this focus block"
@@ -229,7 +243,7 @@ export function FullscreenFocusTimer({
       <div
         className={cn(
           'absolute bottom-[max(3rem,env(safe-area-inset-bottom))] flex gap-3 transition-opacity duration-300 focus-within:opacity-100 focus-within:pointer-events-auto',
-          interactions > 0 ? 'opacity-100' : 'pointer-events-none opacity-0',
+          showControls ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       >
         <Button
@@ -245,7 +259,7 @@ export function FullscreenFocusTimer({
           disabled={ending}
           onClick={() => void end('cancelled')}
         >
-          <Pause /> Cancel
+          <Pause /> {expired ? 'Discard' : 'Cancel'}
         </Button>
       </div>
     </div>

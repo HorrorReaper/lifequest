@@ -13,6 +13,7 @@ import { FullscreenFocusTimer } from './FullscreenFocusTimer'
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
+  refresh: vi.fn(),
   addXp: vi.fn(),
   rpc: vi.fn(),
 }))
@@ -32,7 +33,11 @@ const activeSession: FocusSessionRow = {
 }
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
+  useRouter: () => ({
+    push: mocks.push,
+    replace: mocks.replace,
+    refresh: mocks.refresh,
+  }),
 }))
 
 vi.mock('@/lib/stores/user-store', () => ({
@@ -124,7 +129,7 @@ describe('FullscreenFocusTimer ending', () => {
     })
   })
 
-  it('shows the committed tasks on resume and returns Library users to the Toolbox after completion', async () => {
+  it('shows committed tasks on resume and reloads the Library setup after completion', async () => {
     mocks.rpc.mockResolvedValue({
       data: { awarded: true, xpAwarded: 25, previousTotal: 100, newTotal: 125 },
       error: null,
@@ -133,6 +138,7 @@ describe('FullscreenFocusTimer ending', () => {
       <FullscreenFocusTimer
         userId="user"
         returnHref="/learn/tools"
+        refreshOnFinish
         initial={{
           session: activeSession,
           now: Date.now(),
@@ -147,8 +153,34 @@ describe('FullscreenFocusTimer ending', () => {
     ).toContain('Write proposal')
     await waitFor(() => expect(screen.getByText('Keep going.')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: /complete/i }))
-    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/learn/tools'))
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledOnce())
     expect(mocks.addXp).toHaveBeenCalledWith(25, 100)
+  })
+
+  it('offers Complete and Discard at zero without a tap and reopens the setup after discarding', async () => {
+    const now = Date.parse(activeSession.started_at) + 25 * 60 * 1000
+    vi.setSystemTime(now)
+    render(
+      <FullscreenFocusTimer
+        userId="user"
+        refreshOnFinish
+        initial={{
+          session: activeSession,
+          now,
+          quote: 'Keep going.',
+          committedTasks: [],
+        }}
+      />,
+    )
+    expect(screen.getByText('00:00')).toBeDefined()
+    expect(controls().className).not.toContain('pointer-events-none')
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledOnce())
+    expect(mocks.rpc).toHaveBeenCalledWith('finish_focus_session', {
+      p_session_id: activeSession.id,
+      p_status: 'cancelled',
+    })
+    expect(mocks.addXp).not.toHaveBeenCalled()
   })
 
   it('keeps a failed completion open for retry', async () => {
