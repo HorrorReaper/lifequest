@@ -22,6 +22,9 @@ import {
   STAGE_STEP_MS,
   STRIDE_DEGREES,
   STRIDE_SECONDS,
+  WALK_IN_DEGREES,
+  WALK_IN_STRIDES,
+  WALK_SECONDS,
 } from './DashboardGreeting'
 import { NEAR_SCROLL_SECONDS, SCENE_HEIGHT, TILE } from './DashboardHeroScene'
 import { AVATAR_LEG_UNITS } from '@/components/profile/AvatarFigure'
@@ -131,12 +134,22 @@ describe('DashboardGreeting', () => {
     const footPxPerSecond = step / (STRIDE_SECONDS / 2)
 
     expect(Math.abs(footPxPerSecond / pathPxPerSecond - 1)).toBeLessThan(0.02)
+
+    // The walk-in: the avatar covers its own width (120 units) on top of the
+    // drifting path, in WALK_IN_STRIDES quicker, longer strides.
+    const walkInPxPerSecond = (120 * avatarPx) / WALK_SECONDS + pathPxPerSecond
+    const stepIn = 2 * AVATAR_LEG_UNITS * Math.sin((WALK_IN_DEGREES * Math.PI) / 180) * avatarPx
+    const footInPxPerSecond = stepIn / (WALK_SECONDS / WALK_IN_STRIDES / 2)
+
+    expect(Math.abs(footInPxPerSecond / walkInPxPerSecond - 1)).toBeLessThan(0.02)
   })
 
   it('swings the legs and arms of the avatar inside the stride', () => {
     render(<DashboardGreeting username="Patrick" equippedItems={bare} />)
-    const stride = document.querySelector('.hero-stride') as HTMLElement
-    expect(stride.style.getPropertyValue('--hero-stride')).toBe(`${STRIDE_SECONDS}s`)
+    const walker = document.querySelector('.hero-walker') as HTMLElement
+    expect(walker.style.getPropertyValue('--hero-stride')).toBe(`${STRIDE_SECONDS}s`)
+    expect(walker.style.getPropertyValue('--hero-walk-in')).toBe(`${WALK_SECONDS}s`)
+    const stride = walker.querySelector('.hero-stride') as HTMLElement
     expect(stride.querySelectorAll('[data-avatar-part="leg"]')).toHaveLength(2)
     expect(stride.querySelectorAll('[data-avatar-part="arm"]')).toHaveLength(2)
   })

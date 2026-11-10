@@ -787,7 +787,20 @@
    swings back at a steady pace (linear), the speed the path drifts past, so
    it stays put on the ground; the swing forward eases in and out. The right
    limbs run half a stride behind the left ones, and each arm swings with
-   the opposite leg. */
+   the opposite leg.
+
+   The walk-in (`.hero-walker`, --hero-walk-in long) fades the avatar in one
+   body width left of its place and moves it there at an even pace, while
+   the limbs take --hero-strides-in brisk strides (the `-in` keyframes, with
+   wider swings). Each part's animation list is a pair: the brisk run, then
+   the stroll, which starts as the brisk one ends, at the same pose, so the
+   walk-in hands over without a jump. */
+
+@keyframes hero-walk-in {
+  from { translate: -100% 0; opacity: 0; }
+  30%  { opacity: 1; }
+  to   { translate: 0 0; opacity: 1; }
+}
 
 /* While walking, both legs hang straight from one hip in the middle (the
    hips are hidden behind the torso, so they can move): --hero-leg-shift
@@ -799,6 +812,12 @@
   0%   { rotate: var(--hero-leg-tilt); animation-timing-function: linear; }
   25%  { rotate: calc(var(--hero-leg-tilt) + var(--hero-stride-angle)); animation-timing-function: ease-in-out; }
   75%  { rotate: calc(var(--hero-leg-tilt) - var(--hero-stride-angle)); animation-timing-function: linear; }
+  100% { rotate: var(--hero-leg-tilt); }
+}
+@keyframes hero-leg-swing-in {
+  0%   { rotate: var(--hero-leg-tilt); animation-timing-function: linear; }
+  25%  { rotate: calc(var(--hero-leg-tilt) + var(--hero-stride-angle-in)); animation-timing-function: ease-in-out; }
+  75%  { rotate: calc(var(--hero-leg-tilt) - var(--hero-stride-angle-in)); animation-timing-function: linear; }
   100% { rotate: var(--hero-leg-tilt); }
 }
 
@@ -814,6 +833,12 @@
   75%  { rotate: var(--hero-arm-angle); animation-timing-function: ease-in; }
   100% { rotate: 0deg; }
 }
+@keyframes hero-arm-swing-in {
+  0%   { rotate: 0deg; animation-timing-function: ease-out; }
+  25%  { rotate: calc(var(--hero-arm-angle-in) * -1); animation-timing-function: ease-in-out; }
+  75%  { rotate: var(--hero-arm-angle-in); animation-timing-function: ease-in; }
+  100% { rotate: 0deg; }
+}
 
 /* Twice per stride: highest as the legs pass, lowest as a foot lands. */
 @keyframes hero-body-bob {
@@ -824,42 +849,74 @@
 .hero-scroll-far  { animation: hero-scroll var(--hero-scroll-far, 72s) linear infinite; }
 .hero-scroll-near { animation: hero-scroll var(--hero-scroll-near, 36s) linear infinite; }
 
-.hero-stride {
+.hero-walker {
+  /* Set from DashboardGreeting.tsx; these are its values. */
+  --hero-walk-in: 1.6s;
+  --hero-stride-in: 0.5333s;
+  --hero-stride-angle-in: 19deg;
+  --hero-strides-in: 3;
+  --hero-bobs-in: 6;
   --hero-stride: 1.47s;
   --hero-stride-angle: 13deg;
+  --hero-arm-angle-in: 18deg;
   --hero-arm-angle: 12deg;
+  animation: hero-walk-in var(--hero-walk-in) linear both;
 }
 .hero-stride [data-avatar-part] {
   transform-box: view-box;
 }
 .hero-stride [data-avatar-part="leg"] {
-  animation:
-    hero-leg-swing var(--hero-stride) infinite,
-    hero-leg-lift var(--hero-stride) ease-in-out infinite;
+  animation-name: hero-leg-swing-in, hero-leg-swing, hero-leg-lift, hero-leg-lift;
+  animation-duration: var(--hero-stride-in), var(--hero-stride);
+  animation-timing-function: linear, linear, ease-in-out, ease-in-out;
+  animation-iteration-count: var(--hero-in-count), infinite;
+  animation-delay: var(--hero-in-delay), var(--hero-on-delay);
 }
 .hero-stride [data-avatar-part="arm"] {
-  animation: hero-arm-swing var(--hero-stride) infinite;
+  animation-name: hero-arm-swing-in, hero-arm-swing;
+  animation-duration: var(--hero-stride-in), var(--hero-stride);
+  animation-iteration-count: var(--hero-in-count), infinite;
+  animation-delay: var(--hero-in-delay), var(--hero-on-delay);
 }
 .hero-stride [data-avatar-part="body"] {
-  animation: hero-body-bob calc(var(--hero-stride) / 2) ease-in-out infinite;
+  animation-name: hero-body-bob, hero-body-bob;
+  animation-duration: calc(var(--hero-stride-in) / 2), calc(var(--hero-stride) / 2);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: var(--hero-bobs-in), infinite;
+  animation-delay: 0s, var(--hero-walk-in);
 }
+/* The left limbs start the brisk run on the passing pose and end it there
+   after whole strides, where the stroll picks up. */
 .hero-stride [data-side="left"] {
   --hero-leg-shift: 6px;
   --hero-leg-tilt: -4deg;
+  --hero-in-count: var(--hero-strides-in);
+  --hero-in-delay: 0s;
+  --hero-on-delay: var(--hero-walk-in);
 }
+/* The right ones run half a stride behind, in both. */
 .hero-stride [data-side="right"] {
   --hero-leg-shift: -6px;
   --hero-leg-tilt: 4deg;
-  animation-delay: calc(var(--hero-stride) * -0.5);
+  --hero-in-count: calc(var(--hero-strides-in) + 0.5);
+  --hero-in-delay: calc(var(--hero-stride-in) * -0.5);
+  --hero-on-delay: calc(var(--hero-walk-in) - var(--hero-stride) * 0.5);
 }
 
-[data-hero-paused="true"] :is(.hero-scroll-far, .hero-scroll-near, .hero-stride [data-avatar-part]) {
+/* Pausing stops the stroll and the drifting world. The walk-in is short and
+   always finishes, so the avatar never stays stuck half faded in; each
+   part's list is (walk-in, stroll), hence "running, paused". */
+:is([data-hero-paused="true"] .hero-scroll-far, [data-hero-paused="true"] .hero-scroll-near) {
   animation-play-state: paused;
+}
+[data-hero-paused="true"] .hero-stride [data-avatar-part] {
+  animation-play-state: running, paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-scroll-far,
   .hero-scroll-near,
+  .hero-walker,
   .hero-stride [data-avatar-part] {
     animation: none;
   }
