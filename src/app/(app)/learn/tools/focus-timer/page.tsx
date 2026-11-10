@@ -56,6 +56,7 @@ export default async function FocusTimerPage() {
           committedTasks,
         }}
         returnHref="/learn/tools"
+        refreshOnFinish
       />
     )
   }

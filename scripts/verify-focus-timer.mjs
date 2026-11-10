@@ -43,7 +43,7 @@ try {
     grant usage on schema auth to authenticated, anon;
     create table public.tasks(id uuid primary key, user_id uuid, is_completed boolean default false, status text default 'open');
     create table public.profiles(id uuid primary key, total_xp integer default 100);
-    create table public.xp_events(id uuid default gen_random_uuid(), user_id uuid, source_type text, source_id uuid, xp_amount integer, description text);
+    create table public.xp_events(id uuid default gen_random_uuid(), user_id uuid, source_type text, source_id text, xp_amount integer, description text);
     insert into auth.users values ('${alice}'), ('${bob}');
     insert into public.profiles(id) select id from auth.users;
     insert into public.tasks(id, user_id) values ('${task}', '${bob}'), ('${firstOpenTask}', '${alice}'), ('${secondOpenTask}', '${alice}');
@@ -70,6 +70,10 @@ try {
     await readdir(new URL('supabase/migrations/', root))
   ).find((name) => name.endsWith('_focus_task_commitments.sql'))
   await db.exec(await load(`supabase/migrations/${commitmentMigration}`))
+  const finishFix = (await readdir(new URL('supabase/migrations/', root))).find(
+    (name) => name.endsWith('_fix_focus_session_finish.sql'),
+  )
+  await db.exec(await load(`supabase/migrations/${finishFix}`))
   await actor(alice)
   await fails('select public.start_focus_session(0)', '22023')
   await fails('select public.start_focus_session(241)', '22023')
@@ -178,8 +182,42 @@ try {
     'Profile increments exactly once',
   )
   check(
-    (await one('select count(*)::int as n from public.xp_events')).n === 1,
-    'Exactly one XP event',
+    (
+      await one(
+        `select count(*)::int as n from public.xp_events where source_id = '${session.id}'`,
+      )
+    ).n === 1,
+    'Exactly one XP event with the session ID stored as text',
+  )
+  await actor(alice)
+  const expired = (await one('select public.start_focus_session(15) as s')).s
+  await db.exec(
+    `reset role; update public.focus_sessions set started_at = now() - interval '2 days' where id = '${expired.id}'`,
+  )
+  await actor(alice)
+  const expiredReward = (
+    await one(
+      `select public.finish_focus_session('${expired.id}', 'completed') as r`,
+    )
+  ).r
+  check(
+    expiredReward.xpAwarded === 15,
+    'An abandoned timer earns at most the planned minutes',
+  )
+  const expiredRow = await one(
+    `select status, actual_seconds from public.focus_sessions where id = '${expired.id}'`,
+  )
+  check(
+    expiredRow.status === 'completed' && expiredRow.actual_seconds === 900,
+    'An expired block closes with its planned focus time',
+  )
+  const nextBlock = (await one('select public.start_focus_session(25) as s')).s
+  check(
+    nextBlock.id !== expired.id,
+    'A new block can start after finishing an expired one',
+  )
+  await one(
+    `select public.finish_focus_session('${nextBlock.id}', 'cancelled')`,
   )
   await actor(alice)
   const retry = (await one('select public.start_focus_session(25) as s')).s

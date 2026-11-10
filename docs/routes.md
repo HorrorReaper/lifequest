@@ -41,7 +41,7 @@
 | `/learn/courses/[pathId]` | Admin-only course overview with units, progress and next lesson; direct normal-user links redirect to `/learn` |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
-| `/learn/tools/focus-timer` | Full-screen setup with one to three open tasks, or direct resume of the active countdown. Complete and Cancel return to Toolbox |
+| `/learn/tools/focus-timer` | Full-screen setup with one to three open tasks, or direct resume of the active countdown. Closing the block opens the setup again |
 | `/learn/tools/focus-timer/run` | Redirects old links to `/learn/tools/focus-timer` |
 | `/city` | Virtual city view/build mode |
 | `/settings` | Appearance, profile, timezone, AI consent, sign-out, account deletion |

@@ -156,6 +156,8 @@ After deployment, `/learn` offers the authored personal course as a labelled dev
 
 ## Library focus timer
 
-Apply `20261110170036_focus_task_commitments.sql` after `20261029203006_library_focus_timer.sql` and before deploying the full-screen Toolbox flow. It adds the ordered task IDs and a dedicated start RPC. Verify choosing one to three existing tasks, direct resume and closing a session from the Toolbox.
-
 Apply `20261029203006_library_focus_timer.sql` before deploying the Toolbox timer or updated admin timer. It adds owner SELECT and authenticated server-timed RPCs, preserving existing admin policies for compatibility. It has no dependency on the optional Academy migration and changes no existing sessions or roles. Verify normal-user start/resume/complete/cancel and admin return navigation. Rolling the frontend back is compatible with the additive migration; do not remove the RPCs while the new clients are deployed.
+
+Apply `20261110170036_focus_task_commitments.sql` before deploying the full-screen Toolbox flow. It adds the ordered task IDs and a dedicated start RPC. Verify choosing one to three existing tasks and direct resume.
+
+Apply `20261110184928_fix_focus_session_finish.sql` before deploying the expired-block controls. It replaces the finish RPC in place so existing clients can also close sessions against the text XP reference. Verify both closing actions and the ability to start a new block afterward.

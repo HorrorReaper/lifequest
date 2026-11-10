@@ -64,6 +64,8 @@ Insight metadata is stored on journal responses so a saved answer can be marked 
 
 `focus_sessions.committed_task_ids` holds up to three ordered task IDs. Older sessions have an empty list. `start_committed_focus_session(p_planned_minutes integer, p_task_ids uuid[])` requires one to three distinct open tasks owned by the caller, sets the first as the existing primary `task_id`, and uses the same lock as `start_focus_session`. The timer resolves titles through the current owned tasks, so deleted tasks are omitted from the countdown display.
 
+The finish RPC compares the session UUID as text against `xp_events.source_id`. Stored focus seconds and XP are capped at the planned block duration, even when the session was left open after the countdown.
+
 ## Workout domain
 
 | Table | Purpose |
