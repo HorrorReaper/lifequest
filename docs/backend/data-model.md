@@ -62,6 +62,8 @@ Insight metadata is stored on journal responses so a saved answer can be marked 
 
 `20261029203006_library_focus_timer.sql` adds owner-only authenticated SELECT access and `start_focus_session(p_planned_minutes integer, p_task_id uuid default null)` / `finish_focus_session(p_session_id uuid, p_status text)` RPCs. Start validates 1–240 minutes and task ownership, serializes starts per user, and returns the active row as JSON. Finish accepts `completed` or `cancelled`, locks the owned session and profile, and returns `{ awarded, xpAwarded, previousTotal, newTotal }`. Server timestamps determine `actual_seconds`. Completed whole minutes yield one XP each, with the `focus_session` ledger entry and profile increment in the same transaction as closure. Retries of a closed session award nothing. Existing admin direct-write policy remains for older clients; normal users write only through RPCs.
 
+`focus_sessions.committed_task_ids` holds up to three ordered task IDs. Older sessions have an empty list. `start_committed_focus_session(p_planned_minutes integer, p_task_ids uuid[])` requires one to three distinct open tasks owned by the caller, sets the first as the existing primary `task_id`, and uses the same lock as `start_focus_session`. The timer resolves titles through the current owned tasks, so deleted tasks are omitted from the countdown display.
+
 ## Workout domain
 
 | Table | Purpose |

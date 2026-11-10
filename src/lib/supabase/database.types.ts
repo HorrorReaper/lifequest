@@ -2,7 +2,7 @@ import { CityBuilding, UserBuilding } from "../types"
 import type { Contact, ContactChannel, ContactEvent, ContactGroup, ContactInteraction, ContactRelationship, RelationshipType } from '@/lib/contacts/types'
 
 export type ProductivityPriorityRow = { id: string; user_id: string; priority_date: string; task_id: string; sort_order: number; created_at: string }
-export type FocusSessionRow = { id: string; user_id: string; task_id: string | null; planned_minutes: number; status: 'active' | 'completed' | 'cancelled'; started_at: string; ended_at: string | null; actual_seconds: number | null; created_at: string; updated_at: string }
+export type FocusSessionRow = { id: string; user_id: string; task_id: string | null; committed_task_ids: string[]; planned_minutes: number; status: 'active' | 'completed' | 'cancelled'; started_at: string; ended_at: string | null; actual_seconds: number | null; created_at: string; updated_at: string }
 export type ExerciseTrackingType = 'weight_reps' | 'bodyweight_reps' | 'assisted_reps' | 'duration' | 'distance_duration' | 'weight_duration'
 export type ExerciseRow = { id: string; user_id: string | null; name: string; slug: string; muscle_group: string; target_muscle: string | null; secondary_muscles: string[]; equipment: string; tracking_type: ExerciseTrackingType; instructions: string[]; aliases: string[]; notes: string | null; is_archived: boolean; is_system: boolean; source: 'system' | 'custom'; catalog_source: string | null; catalog_external_id: string | null; source_version: string | null; source_url: string | null; attribution: string | null; created_at: string; updated_at: string }
 export type WorkoutTemplateRow = { id: string; user_id: string; name: string; notes: string | null; sort_order: number; created_at: string; updated_at: string }
@@ -898,6 +898,7 @@ export interface Database {
     }
     Functions: {
       start_focus_session: { Args: { p_planned_minutes: number; p_task_id?: string | null }; Returns: Json }
+      start_committed_focus_session: { Args: { p_planned_minutes: number; p_task_ids: string[] }; Returns: Json }
       finish_focus_session: { Args: { p_session_id: string; p_status: string }; Returns: Json }
       ensure_contact_defaults: { Args: Record<string, never>; Returns: undefined }
       list_contacts: { Args: { p_today: string; p_search?: string; p_group?: string | null; p_archived?: boolean; p_favorites?: boolean; p_sort?: string; p_page?: number }; Returns: Json }

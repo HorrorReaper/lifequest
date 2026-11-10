@@ -19,9 +19,16 @@ const CONTROLS_VISIBLE_MS = 4000
 export function FullscreenFocusTimer({
   userId,
   returnHref = '/admin/productivity',
+  initial,
 }: {
   userId: string
   returnHref?: string
+  initial?: {
+    session: FocusSessionRow
+    now: number
+    quote: string
+    committedTasks: { id: string; title: string }[]
+  }
 }) {
   const supabase = useMemo(
     () => createClient() as unknown as SupabaseClient,
@@ -29,18 +36,21 @@ export function FullscreenFocusTimer({
   )
   const router = useRouter()
   const addXp = useUserStore((state) => state.addXp)
-  const [session, setSession] = useState<FocusSessionRow | null>(null)
+  const [session, setSession] = useState<FocusSessionRow | null>(
+    initial?.session ?? null,
+  )
   const [endError, setEndError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [now, setNow] = useState(() => Date.now())
+  const [loading, setLoading] = useState(!initial)
+  const [now, setNow] = useState(() => initial?.now ?? Date.now())
   // A counter, not a boolean: re-setting a boolean to the value it already
   // holds does not change the effect's dependency, so the auto-hide timeout
   // was never rescheduled and the controls vanished four seconds after the
   // FIRST tap no matter how many times you tapped afterwards.
   const [interactions, setInteractions] = useState(0)
   const [ending, setEnding] = useState(false)
-  const [quote] = useState(() => pickFocusQuote())
+  const [quote] = useState(() => initial?.quote ?? pickFocusQuote())
+  const committedTasks = initial?.committedTasks ?? []
 
   const load = useCallback(async () => {
     setLoadError(false)
@@ -56,8 +66,8 @@ export function FullscreenFocusTimer({
   }, [supabase, userId])
 
   useEffect(() => {
-    queueMicrotask(() => void load())
-  }, [load])
+    if (!initial) queueMicrotask(() => void load())
+  }, [initial, load])
 
   useEffect(() => {
     if (!session) return
@@ -183,13 +193,30 @@ export function FullscreenFocusTimer({
     >
       <NatureBackdrop />
       <div className="absolute inset-0 bg-black/35" />
-      <div className="relative flex flex-col items-center px-6 text-center">
+      <div className="relative flex w-full max-w-2xl flex-col items-center px-6 text-center">
         <p className="select-none font-mono text-[min(20vw,32vh,9rem)] font-semibold tracking-[-0.08em] tabular-nums drop-shadow-lg">
           {secondsLabel(remaining)}
         </p>
         <p className="mt-4 max-w-sm text-sm text-white/75 drop-shadow">
           {quote}
         </p>
+        {committedTasks.length > 0 && (
+          <ol
+            aria-label="Tasks for this focus block"
+            className="mt-4 max-w-full space-y-1 text-left text-sm text-white/90 drop-shadow"
+          >
+            {committedTasks.map(({ id, title }, index) => (
+              <li key={id} className="flex items-baseline gap-2">
+                <span className="shrink-0 tabular-nums text-white/60">
+                  {index + 1}.
+                </span>
+                <span className="truncate" title={title}>
+                  {title}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
       {endError && (
         <p

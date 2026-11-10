@@ -205,4 +205,6 @@ Unpublished local progress/reflections are keyed by authenticated user ID and ne
 
 ## Focus timer access
 
+`start_committed_focus_session` is an authenticated invoker wrapper for the implementation in the non-exposed `focus_internal` schema. The implementation uses an empty search path, checks `auth.uid()`, and accepts only one to three distinct open tasks owned by the caller. Commitment IDs inherit the session's owner-only read policy.
+
 After `20261029203006_library_focus_timer.sql`, signed-in users may SELECT only their own `focus_sessions`. Normal users have no direct INSERT/UPDATE/DELETE policy. `start_focus_session` and `finish_focus_session` intentionally use `SECURITY DEFINER` with an empty search path, fully qualified tables, `auth.uid()` ownership checks, validated inputs, and EXECUTE limited to authenticated callers (revoked from PUBLIC and anon). A task from another user cannot be linked; another user's timer cannot be closed. Client-supplied elapsed time, XP and owner IDs are never accepted. Locks make starts/resumes and completed rewards idempotent across tabs; XP failure rolls back closure so the user can retry. The existing trusted-admin own-row write policy remains for compatibility. Toolbox access does not grant access to admin routes.

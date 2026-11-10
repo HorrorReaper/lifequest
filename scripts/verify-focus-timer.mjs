@@ -10,6 +10,11 @@ const load = (path) => readFile(new URL(path, root), 'utf8')
 const alice = '00000000-0000-4000-8000-000000000001'
 const bob = '00000000-0000-4000-8000-000000000002'
 const task = '00000000-0000-4000-8000-000000000003'
+const firstOpenTask = '00000000-0000-4000-8000-000000000004'
+const secondOpenTask = '00000000-0000-4000-8000-000000000005'
+const closedTask = '00000000-0000-4000-8000-000000000006'
+const cancelledTask = '00000000-0000-4000-8000-000000000007'
+const selectedTasks = `array['${secondOpenTask}', '${firstOpenTask}']::uuid[]`
 let checks = 0
 function check(value, message) {
   assert.ok(value, message)
@@ -36,12 +41,13 @@ try {
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     create function auth.jwt() returns jsonb language sql stable as $$ select '{"app_metadata":{"role":"user"},"user_metadata":{"role":"admin"}}'::jsonb $$;
     grant usage on schema auth to authenticated, anon;
-    create table public.tasks(id uuid primary key, user_id uuid);
+    create table public.tasks(id uuid primary key, user_id uuid, is_completed boolean default false, status text default 'open');
     create table public.profiles(id uuid primary key, total_xp integer default 100);
     create table public.xp_events(id uuid default gen_random_uuid(), user_id uuid, source_type text, source_id uuid, xp_amount integer, description text);
     insert into auth.users values ('${alice}'), ('${bob}');
     insert into public.profiles(id) select id from auth.users;
-    insert into public.tasks values ('${task}', '${bob}');
+    insert into public.tasks(id, user_id) values ('${task}', '${bob}'), ('${firstOpenTask}', '${alice}'), ('${secondOpenTask}', '${alice}');
+    insert into public.tasks values ('${closedTask}', '${alice}', true, 'done'), ('${cancelledTask}', '${alice}', false, 'cancelled');
   `)
   const original = await load(
     'supabase/migrations/20260710195847_create_admin_hubs.sql',
@@ -60,6 +66,10 @@ try {
     (name) => name.endsWith('_library_focus_timer.sql'),
   )
   await db.exec(await load(`supabase/migrations/${file}`))
+  const commitmentMigration = (
+    await readdir(new URL('supabase/migrations/', root))
+  ).find((name) => name.endsWith('_focus_task_commitments.sql'))
+  await db.exec(await load(`supabase/migrations/${commitmentMigration}`))
   await actor(alice)
   await fails('select public.start_focus_session(0)', '22023')
   await fails('select public.start_focus_session(241)', '22023')
@@ -190,9 +200,70 @@ try {
     'Failed XP write rolls back completion for retry',
   )
   await db.exec(
-    'reset role; alter table public.xp_events drop constraint simulate_write_failure; set role anon',
+    'reset role; alter table public.xp_events drop constraint simulate_write_failure',
   )
+  await actor(alice)
+  await one(`select public.finish_focus_session('${retry.id}', 'cancelled')`)
+  await fails(
+    'select public.start_committed_focus_session(25, array[]::uuid[])',
+    '22023',
+  )
+  await fails(
+    `select public.start_committed_focus_session(25, array['${firstOpenTask}', '${firstOpenTask}']::uuid[])`,
+    '22023',
+  )
+  await fails(
+    `select public.start_committed_focus_session(25, array['${firstOpenTask}', '${secondOpenTask}', '${closedTask}', '${cancelledTask}']::uuid[])`,
+    '22023',
+  )
+  for (const unavailable of [task, closedTask, cancelledTask]) {
+    await fails(
+      `select public.start_committed_focus_session(25, array['${unavailable}']::uuid[])`,
+      '42501',
+    )
+  }
+  const committed = (
+    await one(
+      `select public.start_committed_focus_session(25, ${selectedTasks}) as s`,
+    )
+  ).s
+  check(
+    committed.task_id === secondOpenTask,
+    'The original timer keeps the first commitment as the primary task',
+  )
+  assert.deepEqual(committed.committed_task_ids, [
+    secondOpenTask,
+    firstOpenTask,
+  ])
+  check(
+    (
+      await one(
+        `select public.start_committed_focus_session(50, array['${firstOpenTask}']::uuid[]) as s`,
+      )
+    ).s.id === committed.id,
+    'A second start resumes the committed session',
+  )
+  check(
+    (
+      await one(
+        `select committed_task_ids[1] as id from public.focus_sessions where id = '${committed.id}'`,
+      )
+    ).id === secondOpenTask,
+    'The first start preserves the commitment order',
+  )
+  await actor(bob)
+  check(
+    !(await one(
+      `select id from public.focus_sessions where id = '${committed.id}'`,
+    )),
+    'Another user cannot read a commitment',
+  )
+  await db.exec('reset role; set role anon')
   await fails('select public.start_focus_session(25)', '42501')
+  await fails(
+    `select public.start_committed_focus_session(25, ${selectedTasks})`,
+    '42501',
+  )
   await fails(
     `select public.finish_focus_session('${retry.id}', 'completed')`,
     '42501',

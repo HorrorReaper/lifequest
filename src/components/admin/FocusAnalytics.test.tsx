@@ -10,6 +10,7 @@ function session(overrides: Partial<FocusSessionRow> = {}): FocusSessionRow {
     id: 'session-1',
     user_id: 'user',
     task_id: null,
+    committed_task_ids: [],
     planned_minutes: 25,
     status: 'completed',
     started_at: '2026-08-27T09:00:00.000Z',

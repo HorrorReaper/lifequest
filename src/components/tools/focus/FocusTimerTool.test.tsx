@@ -7,15 +7,14 @@ import {
   waitFor,
 } from '@testing-library/react'
 import { FocusTimerTool } from './FocusTimerTool'
-import type { FocusSessionRow } from '@/lib/supabase/database.types'
+import type { TodayPlannerTask } from '@/components/planning/TodayPlanner'
 
 const mocks = vi.hoisted(() => ({
-  push: vi.fn(),
   refresh: vi.fn(),
   rpc: vi.fn(),
 }))
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }),
+  useRouter: () => ({ refresh: mocks.refresh }),
 }))
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({ rpc: mocks.rpc }),
@@ -26,42 +25,78 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-it('starts the selected duration through the server and prevents duplicate submission', async () => {
-  render(<FocusTimerTool initialSession={null} />)
-  fireEvent.click(screen.getByRole('button', { name: '50 min' }))
-  const start = screen.getByRole('button', { name: 'Start focus session' })
-  fireEvent.click(start)
-  fireEvent.click(start)
-  await waitFor(() =>
-    expect(mocks.push).toHaveBeenCalledWith('/learn/tools/focus-timer/run'),
+const tasks: TodayPlannerTask[] = [
+  'Write proposal',
+  'Review notes',
+  'Plan next sprint',
+  'Reply to Alex',
+].map((title, index) => ({
+  id: `task-${index + 1}`,
+  title,
+  dueDate: null,
+  priority: 'medium',
+  isOverdue: false,
+  estimateMinutes: null,
+}))
+
+function selectTask(title: string) {
+  fireEvent.change(
+    screen.getByRole('combobox', { name: 'Search open tasks' }),
+    {
+      target: { value: title },
+    },
   )
-  expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('start_focus_session', {
-    p_planned_minutes: 50,
-    p_task_id: null,
+  fireEvent.click(screen.getByRole('option', { name: title }))
+}
+
+it('requires a commitment and starts with the chosen task IDs and duration only once', async () => {
+  render(<FocusTimerTool tasks={tasks} />)
+  const start = screen.getByRole<HTMLButtonElement>('button', {
+    name: 'Commit and start',
   })
+  expect(start.disabled).toBe(true)
+  selectTask('Review notes')
+  selectTask('Write proposal')
+  fireEvent.click(screen.getByRole('button', { name: '50 min' }))
+  fireEvent.click(start)
+  fireEvent.click(start)
+  await waitFor(() => expect(mocks.refresh).toHaveBeenCalledOnce())
+  expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith(
+    'start_committed_focus_session',
+    {
+      p_planned_minutes: 50,
+      p_task_ids: ['task-2', 'task-1'],
+    },
+  )
 })
 
-it('resumes an existing session without starting another', () => {
-  render(
-    <FocusTimerTool
-      initialSession={{ planned_minutes: 25 } as FocusSessionRow}
-    />,
-  )
-  fireEvent.click(screen.getByRole('button', { name: 'Resume session' }))
-  expect(mocks.push).toHaveBeenCalledWith('/learn/tools/focus-timer/run')
-  expect(mocks.rpc).not.toHaveBeenCalled()
-  expect(screen.queryByLabelText('Custom duration')).toBeNull()
+it('allows up to three distinct existing tasks and makes room when one is removed', () => {
+  render(<FocusTimerTool tasks={tasks} />)
+  selectTask('Write proposal')
+  fireEvent.change(screen.getByRole('combobox'), {
+    target: { value: 'Write proposal' },
+  })
+  expect(screen.queryByRole('option')).toBeNull()
+  selectTask('Review notes')
+  selectTask('Plan next sprint')
+  expect(screen.queryByRole('combobox')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Review notes' }))
+  selectTask('Reply to Alex')
+  expect(
+    screen.getByRole('button', { name: 'Remove Reply to Alex' }),
+  ).toBeDefined()
 })
 
 it('validates custom minutes and lets a failed start be retried', async () => {
-  render(<FocusTimerTool initialSession={null} />)
+  render(<FocusTimerTool tasks={tasks} />)
+  selectTask('Write proposal')
   fireEvent.change(screen.getByLabelText('Custom duration'), {
     target: { value: '241' },
   })
   expect(
     (
       screen.getByRole('button', {
-        name: 'Start focus session',
+        name: 'Commit and start',
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true)
@@ -72,22 +107,20 @@ it('validates custom minutes and lets a failed start be retried', async () => {
     data: null,
     error: { message: 'Offline' },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Start focus session' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Commit and start' }))
   await waitFor(() =>
     expect(screen.getByRole('alert').textContent).toContain(
       'could not be started',
     ),
   )
-  expect(mocks.push).not.toHaveBeenCalled()
-  fireEvent.click(screen.getByRole('button', { name: 'Start focus session' }))
-  await waitFor(() => expect(mocks.push).toHaveBeenCalled())
+  expect(mocks.refresh).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: 'Commit and start' }))
+  await waitFor(() => expect(mocks.refresh).toHaveBeenCalled())
 })
 
 it('does not offer a new session after a failed load', () => {
-  render(<FocusTimerTool initialSession={null} loadFailed />)
-  expect(
-    screen.queryByRole('button', { name: 'Start focus session' }),
-  ).toBeNull()
+  render(<FocusTimerTool tasks={[]} loadFailed />)
+  expect(screen.queryByRole('button', { name: 'Commit and start' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
   expect(mocks.refresh).toHaveBeenCalled()
 })
