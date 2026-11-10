@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { trackLandingCta } from "@/lib/landing-tracker";
 
 // The landing page's own nav. Literal colours, like the page it belongs to —
 // it must not follow the in-app theme.
@@ -34,12 +35,19 @@ export default function Navbar({
             >
               Log in
             </Link>
-            <Link href="/login" className={cta}>
+            <Link href="/login" onClick={() => trackLandingCta("nav")} className={cta}>
               Get started
             </Link>
           </div>
         ) : (
-          <button type="button" onClick={() => setWaitlistOpen(true)} className={`${cta} cursor-pointer`}>
+          <button
+            type="button"
+            onClick={() => {
+              trackLandingCta("nav");
+              setWaitlistOpen(true);
+            }}
+            className={`${cta} cursor-pointer`}
+          >
             Join the waitlist
           </button>
         )}

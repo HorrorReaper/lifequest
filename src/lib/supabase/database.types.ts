@@ -951,6 +951,35 @@ export interface Database {
         Args: { p_since: string }
         Returns: { day: string; waitlist: number; users: number }[]
       }
+      admin_landing_daily: {
+        Args: { p_since: string }
+        Returns: {
+          day: string
+          pageviews: number
+          visitors: number
+          cta_clicks: number
+          cta_visitors: number
+          signups: number
+        }[]
+      }
+      admin_landing_breakdown: {
+        Args: { p_since: string }
+        Returns: { dimension: string; label: string | null; visitors: number; events: number }[]
+      }
+      record_landing_event: {
+        Args: {
+          p_event: string
+          p_fingerprint: string
+          p_device: string
+          p_path?: string
+          p_referrer_host?: string | null
+          p_utm_source?: string | null
+          p_utm_medium?: string | null
+          p_utm_campaign?: string | null
+          p_cta?: string | null
+        }
+        Returns: undefined
+      }
       start_workout: {
         Args: { p_template_id?: string | null; p_name?: string }
         Returns: string

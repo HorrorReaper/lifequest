@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
 import {
   CartesianGrid,
@@ -12,8 +11,8 @@ import {
   YAxis,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AdminRangeNav } from '@/components/admin/AdminRangeNav'
 import {
-  SIGNUP_RANGES,
   cumulativeSignupSeries,
   sumSignups,
   type SignupPoint,
@@ -33,12 +32,6 @@ interface SignupAnalyticsProps {
 }
 
 type Mode = 'daily' | 'cumulative'
-
-const RANGE_LABELS: Record<SignupRange, string> = {
-  30: '30 days',
-  90: '90 days',
-  365: '1 year',
-}
 
 /**
  * The two series, in the order and colours of the dataviz reference palette
@@ -96,25 +89,7 @@ export function SignupAnalytics({ range, daily, baseline, unavailable }: SignupA
             New waitlist entries and registered accounts per day (UTC).
           </p>
         </div>
-        <nav aria-label="Signup range" className="flex shrink-0 rounded-full bg-muted p-1 text-xs font-medium">
-          {SIGNUP_RANGES.map((days) => {
-            const active = days === range
-            return (
-              <Link
-                key={days}
-                href={`/admin/tools?range=${days}`}
-                aria-current={active ? 'page' : undefined}
-                scroll={false}
-                className={cn(
-                  'rounded-full px-3 py-1.5 transition-colors',
-                  active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {RANGE_LABELS[days]}
-              </Link>
-            )
-          })}
-        </nav>
+        <AdminRangeNav range={range} label="Signup range" />
       </CardHeader>
 
       <CardContent className="space-y-5">

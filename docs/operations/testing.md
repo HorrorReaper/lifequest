@@ -75,6 +75,7 @@ The repository currently contains 32 test files.
 - Habit mutations, analytics, manager behavior, and editor (single named check-in control, details folded away on create).
 - Onboarding: three steps, no age question, a real task and a linked block, and no duplicates on back, reload or double tap (`onboarding-flow.test.tsx`, `src/lib/onboarding.test.ts`).
 - Feedback and activation helpers (`src/lib/activation.test.ts`).
+- Landing-page traffic: event validation, referrer reduction, bot pattern and device buckets (`src/lib/landing-events.test.ts`); `/api/landing-events` status codes, the hashed payload without IP or user agent, bot/prefetch drops and the rate limit (`src/app/api/landing-events/route.test.ts`); the `waitlist_signup` event in `/api/waitlist` (`src/app/api/waitlist/route.test.ts`); series, funnel and breakdown aggregation (`src/lib/landing-analytics.test.ts`); tracker opt-out (`src/lib/landing-tracker.test.ts`); the admin card (`src/components/admin/LandingTraffic.test.tsx`).
 
 
 ### Journal

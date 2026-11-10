@@ -165,6 +165,8 @@ Project tasks reuse `tasks` rather than having a separate task table.
 | Table | Purpose |
 | --- | --- |
 | `waitlist_signups` | Waitlist signups, written by `/api/waitlist`; counted for admins by `admin_app_stats` and `admin_signup_series` |
+| `landing_events` | Anonymous landing-page events (`pageview`, `cta_click`, `waitlist_signup`) with path, referrer host, UTM labels, device bucket, CTA name and a daily-salted visitor hash. RLS on, no policies; written only by `record_landing_event`, read only through the admin aggregates |
+| `landing_visitor_salts` | Today's random salt for the visitor hash (UTC day → salt). Older days are deleted by the first event of a new day. RLS on, no policies, no client privileges |
 
 ## Database functions
 
@@ -200,6 +202,9 @@ Project tasks reuse `tasks` rather than having a separate task table.
 
 - `admin_app_stats` — registered users and waitlist size
 - `admin_signup_series` — waitlist entries and new accounts per UTC day since a date
+- `admin_landing_daily(p_since)` — landing-page page views, unique visitors, CTA clicks, visitors who clicked, and waitlist signups per UTC day since a date (days with events only)
+- `admin_landing_breakdown(p_since)` — visitors and events per referrer host, UTM source, UTM campaign and device (page views), and per CTA (clicks); at most 25 labels per dimension, null label for none
+- `record_landing_event(p_event, p_fingerprint, p_device, p_path, p_referrer_host, p_utm_source, p_utm_medium, p_utm_campaign, p_cta)` — security definer insert into `landing_events`; rotates the daily salt and stores `sha256(salt:fingerprint)` as the visitor hash. Executable by `anon` and `service_role` only
 - `admin_activation_funnel(p_since)` — for accounts created since a date: signed up, onboarding completed, first task, first day plan, first completed habit log, and activity on a later calendar day (profile timezone). Counts derived from existing rows; no event table
 - `admin_beta_feedback(p_limit)` — the latest `beta_feedback` rows (at most 500)
 - `get_level`
@@ -254,3 +259,7 @@ The contacts_management migration adds owner-scoped profiles/channels, groups, e
 ## Personal Academy course
 
 The optional `entrepreneurial-information-systems` path uses the existing version/unit/lesson/exercise/enrollment tables. No new table or column is introduced. Optional visual blocks, product/company perspectives and reflection practice duration live in exercise `content` JSONB. `20261029191235_learning_academy.sql` accepts the fourth path, rejects unknown/duplicate IDs and protects learner RPCs with trusted-admin wrappers. Existing version pinning and transactional rewards are retained. The migration contains no seed or publication.
+
+## Landing-page traffic
+
+Migration `20261110120000_landing_page_traffic.sql` adds `landing_events`, `landing_visitor_salts`, `record_landing_event`, `admin_landing_daily` and `admin_landing_breakdown`. It is additive and touches no existing table. Check constraints hold the event list (`pageview`, `cta_click`, `waitlist_signup`), the device list (`mobile`, `tablet`, `desktop`, `other`), the CTA name format, a 64-character hex `visitor_hash`, and lengths (path 200, referrer host 120, UTM labels 100). Days are UTC. Because the salt changes every UTC day, a distinct count of `visitor_hash` over a range equals the sum of daily unique visitors. Mapped function contracts are in `src/lib/supabase/database.types.ts`; aggregation in `src/lib/landing-analytics.ts`. See [Landing-page traffic](../features/landing-traffic.md).

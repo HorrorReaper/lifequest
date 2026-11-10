@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { trackLandingCta } from "@/lib/landing-tracker";
 
 /**
  * The call to action, again, once the hero's own has scrolled away.
@@ -60,13 +61,16 @@ export function StickyCta({
       />
 
       {isMvp ? (
-        <Link href="/login" tabIndex={show ? 0 : -1} className={classes}>
+        <Link href="/login" onClick={() => trackLandingCta("sticky")} tabIndex={show ? 0 : -1} className={classes}>
           {label}
         </Link>
       ) : (
         <button
           type="button"
-          onClick={onWaitlist}
+          onClick={() => {
+            trackLandingCta("sticky");
+            onWaitlist();
+          }}
           tabIndex={show ? 0 : -1}
           className={`${classes} cursor-pointer`}
         >

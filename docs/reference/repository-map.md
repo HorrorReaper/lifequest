@@ -93,6 +93,7 @@ src/app/
 | `task-manager.ts`, `tasks.ts` | Task grouping/mutations/helpers |
 | `habit-manager.ts`, `habits.ts` | Habit manager/mutations/helpers |
 | `habit-analytics.ts` | Streak and analytics calculations |
+| `landing-events.ts`, `landing-events-server.ts`, `landing-tracker.ts`, `landing-analytics.ts` | Landing-page traffic: event validation, server hashing and recording, browser tracker, admin aggregation |
 | `habit-xp.ts` | Habit check-in streak-multiplier formula and reward-RPC wrappers |
 | `routines.ts` | Routine queries/mutations |
 | `gamification.ts` | XP/level helpers |
@@ -125,6 +126,7 @@ src/app/
 | Dashboard greeting and hero scene | `components/dashboard/DashboardGreeting.tsx`, `components/dashboard/DashboardHeroScene.tsx`, `lib/day-progress.ts` |
 | Dashboard next step and plan status | `components/dashboard/NextUpCard.tsx`, `lib/dashboard-plan.ts`, `components/ui/progress-ring.tsx` |
 | Onboarding | `components/onboarding/onboarding-flow.tsx`, `lib/onboarding.ts` |
+| Landing-page traffic | `app/api/landing-events/route.ts`, `lib/landing-*.ts`, `components/admin/LandingTraffic.tsx` |
 | Feedback and beta activation | `components/feedback/FeedbackDialog.tsx`, `lib/feedback.ts`, `components/admin/BetaActivation.tsx`, `lib/activation.ts` |
 | Shared page header, completion control | `components/ui/page-header.tsx`, `components/ui/completion-toggle.tsx` |
 
