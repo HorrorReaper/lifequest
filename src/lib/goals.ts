@@ -1,6 +1,13 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { Goal, GoalCategory, GoalStatus } from "./types";
 
+/**
+ * Where "set a goal" leads. Goals have no page of their own; they are created
+ * in the dashboard's goals section, so this opens that section's form
+ * (`?goal=new`, read by the dashboard page) and scrolls to it (`#goals`).
+ */
+export const GOAL_FORM_HREF = '/dashboard?goal=new#goals'
+
 export const GOAL_CATEGORIES: Record<GoalCategory, string> = {
   personal: "Personal",
   health: "Health",

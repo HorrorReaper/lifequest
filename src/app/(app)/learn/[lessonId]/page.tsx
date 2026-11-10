@@ -6,9 +6,10 @@ import { LessonDetailClient } from '@/components/learn/LessonDetailClient'
 
 interface LessonDetailPageProps {
   params: Promise<{ lessonId: string }>
+  searchParams: Promise<{ preview?: string }>
 }
 
-export default async function LessonDetailPage({ params }: LessonDetailPageProps) {
+export default async function LessonDetailPage({ params, searchParams }: LessonDetailPageProps) {
   const { lessonId } = await params
   const supabase = await createClient()
 
@@ -23,5 +24,6 @@ export default async function LessonDetailPage({ params }: LessonDetailPageProps
   const coursesEnabled = await showAdminUi(user)
   if (!coursesEnabled && !isArticleLessonId(lessonId)) redirect('/learn')
 
-  return <LessonDetailClient lessonId={lessonId} coursesEnabled={coursesEnabled} />
+  const { preview } = await searchParams
+  return <LessonDetailClient key={`${lessonId}:${preview ?? ''}`} lessonId={lessonId} coursesEnabled={coursesEnabled} userId={user.id} draftPreview={coursesEnabled && preview === 'draft'} />
 }

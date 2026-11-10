@@ -21,10 +21,10 @@
   --secondary: hsl(210 40% 96.1%);
   --secondary-foreground: hsl(222.2 47.4% 11.2%);
   --muted: hsl(210 40% 96.1%);
-  --muted-foreground: hsl(215.4 16.3% 46.9%);
+  --muted-foreground: hsl(215.4 16.3% 42%);
   --accent: hsl(210 40% 96.1%);
   --accent-foreground: hsl(222.2 47.4% 11.2%);
-  --destructive: hsl(0 84.2% 60.2%);
+  --destructive: hsl(0 72% 42%);
   --destructive-foreground: hsl(210 40% 98%);
   --border: hsl(214.3 31.8% 91.4%);
   --input: hsl(214.3 31.8% 91.4%);
@@ -53,8 +53,8 @@
   --muted-foreground: hsl(215 20.2% 65.1%);
   --accent: hsl(217.2 32.6% 17.5%);
   --accent-foreground: hsl(210 40% 98%);
-  --destructive: hsl(0 62.8% 30.6%);
-  --destructive-foreground: hsl(210 40% 98%);
+  --destructive: hsl(0 84% 71%);
+  --destructive-foreground: hsl(0 0% 9%);
   --border: hsl(217.2 32.6% 17.5%);
   --input: hsl(217.2 32.6% 17.5%);
   --ring: hsl(212.7 26.8% 83.9%);
@@ -79,7 +79,7 @@
   --secondary: hsl(42 30% 94%);
   --secondary-foreground: hsl(30 12% 22%);
   --muted: hsl(42 28% 94%);
-  --muted-foreground: hsl(30 8% 43%);
+  --muted-foreground: hsl(30 8% 40%);
   --accent: hsl(156 22% 92%);
   --accent-foreground: hsl(168 18% 26%);
   --destructive: hsl(4 62% 48%);
@@ -114,7 +114,7 @@
   --secondary: hsl(38 32% 87%);
   --secondary-foreground: hsl(28 20% 20%);
   --muted: hsl(40 30% 88%);
-  --muted-foreground: hsl(30 14% 40%);
+  --muted-foreground: hsl(30 14% 37%);
   --accent: hsl(142 24% 88%);
   --accent-foreground: hsl(152 34% 20%);
   --destructive: hsl(8 55% 42%);
@@ -214,14 +214,14 @@
 }
 
 .white-mode [class*="from-primary"] {
-  --tw-gradient-from: hsl(168 18% 72%) var(--tw-gradient-from-position) !important;
+  --tw-gradient-from: hsl(168 18% 72%) !important;
 }
 
 .white-mode [class*="to-purple"],
 .white-mode [class*="to-chart"],
 .white-mode [class*="to-amber"],
 .white-mode [class*="to-yellow"] {
-  --tw-gradient-to: hsl(42 36% 92%) var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: hsl(42 36% 92%) !important;
 }
 
 .trail-mode body {
@@ -244,14 +244,14 @@
 }
 
 .trail-mode [class*="from-primary"] {
-  --tw-gradient-from: hsl(152 30% 68%) var(--tw-gradient-from-position) !important;
+  --tw-gradient-from: hsl(152 30% 68%) !important;
 }
 
 .trail-mode [class*="to-purple"],
 .trail-mode [class*="to-chart"],
 .trail-mode [class*="to-amber"],
 .trail-mode [class*="to-yellow"] {
-  --tw-gradient-to: hsl(40 36% 88%) var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: hsl(40 36% 88%) !important;
 }
 
 /* Custom scrollbar for dark mode */
@@ -762,6 +762,44 @@
 @media (prefers-reduced-motion: reduce) {
   .lq-typed > span {
     visibility: visible;
+    animation: none;
+  }
+}
+
+/* ── Dashboard hero scene (src/components/dashboard/DashboardHeroScene.tsx) ──
+   The landscape drifts past the walking avatar for as long as the dashboard
+   is open. Each scrolling layer holds two copies of a 480-unit tile and moves
+   by exactly one tile, so the loop has no seam. On an SVG element a px value
+   is a user unit. Everything here stops when the scene is paused (the pause
+   button, or the hero scrolled out of view) and is dropped entirely under
+   prefers-reduced-motion. */
+
+@keyframes hero-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-480px); }
+}
+
+@keyframes hero-stride {
+  0%, 50%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-4px) rotate(-3deg); }
+  75% { transform: translateY(-4px) rotate(3deg); }
+}
+
+.hero-scroll-far  { animation: hero-scroll 90s linear infinite; }
+.hero-scroll-near { animation: hero-scroll 45s linear infinite; }
+.hero-stride {
+  transform-origin: 50% 100%;
+  animation: hero-stride 1.4s ease-in-out infinite;
+}
+
+[data-hero-paused="true"] :is(.hero-scroll-far, .hero-scroll-near, .hero-stride) {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-scroll-far,
+  .hero-scroll-near,
+  .hero-stride {
     animation: none;
   }
 }

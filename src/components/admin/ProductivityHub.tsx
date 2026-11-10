@@ -8,7 +8,8 @@ import { ArrowDown, ArrowUp, Check, Clock3, Flame, ListTodo, Pause, Play, Plus, 
 import { createClient } from '@/lib/supabase/client'
 import type { FocusSessionRow, ProductivityPriorityRow } from '@/lib/supabase/database.types'
 import type { DayPlanBlock, Goal, Task } from '@/lib/types'
-import { awardFocusSessionXp, secondsLabel } from '@/lib/focus-session'
+import { secondsLabel } from '@/lib/focus-session'
+import { startFocusSession, finishFocusSession } from '@/lib/focus-session-actions'
 import { useUserStore } from '@/lib/stores/user-store'
 import { FocusAnalytics } from './FocusAnalytics'
 import { Button } from '@/components/ui/button'
@@ -99,14 +100,14 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
   async function addPriority(taskId: string) { if (priorities.length >= 3 || priorities.some((item) => item.task_id === taskId)) return; await supabase.from('productivity_daily_priorities').insert({ user_id: userId, priority_date: today, task_id: taskId, sort_order: priorities.length }); await load() }
   async function removePriority(id: string) { await supabase.from('productivity_daily_priorities').delete().eq('id', id); await Promise.all(priorities.filter((p) => p.id !== id).map((p, index) => supabase.from('productivity_daily_priorities').update({ sort_order: index }).eq('id', p.id))); await load() }
   async function movePriority(index: number, direction: -1 | 1) { const next = index + direction; if (next < 0 || next >= priorities.length) return; const current = priorities[index]; const target = priorities[next]; await supabase.from('productivity_daily_priorities').update({ sort_order: 99 }).eq('id', current.id); await supabase.from('productivity_daily_priorities').update({ sort_order: index }).eq('id', target.id); await supabase.from('productivity_daily_priorities').update({ sort_order: next }).eq('id', current.id); await load() }
-  async function startFocus(taskId?: string) { const { data, error: startError } = await supabase.from('focus_sessions').insert({ user_id: userId, task_id: taskId ?? null, planned_minutes: duration }).select('*').single(); if (startError) setError(startError.message); else { setActiveFocus(data as FocusSessionRow); setNow(Date.now()); router.push('/admin/productivity/focus') } }
-  async function grantFocusXp(session: FocusSessionRow) {
+  async function startFocus(taskId?: string) {
     try {
-      const result = await awardFocusSessionXp(supabase, userId, session)
-      if (result.awarded) addXp(result.xpAwarded, result.previousTotal)
-    } catch (xpError) {
-      // A failed XP write must never cost the session it was paying for.
-      console.error('Failed to award focus XP', xpError)
+      const session = await startFocusSession(supabase, duration, taskId)
+      setActiveFocus(session)
+      setNow(Date.now())
+      router.push('/admin/productivity/focus')
+    } catch {
+      setError('Your focus session could not be started. Try again.')
     }
   }
 
@@ -115,15 +116,16 @@ export function ProductivityHub({ userId, today }: { userId: string; today: stri
     // the fullscreen timer; these are the same two controls.
     if (!activeFocus || ending) return
     setEnding(true)
-    const actual = Math.max(0, Math.floor((Date.now() - new Date(activeFocus.started_at).getTime()) / 1000))
-    const { error: endError } = await supabase.from('focus_sessions').update({ status, ended_at: new Date().toISOString(), actual_seconds: actual, updated_at: new Date().toISOString() }).eq('id', activeFocus.id)
-    // Navigating on unchecked failure would strand an active row, and the
-    // partial unique index then blocks every future session on it.
-    if (endError) { setError(endError.message); setEnding(false); return }
-    if (status === 'completed') await grantFocusXp({ ...activeFocus, status, actual_seconds: actual })
-    setActiveFocus(null)
-    await load()
-    setEnding(false)
+    try {
+      const result = await finishFocusSession(supabase, activeFocus.id, status)
+      if (result.awarded) addXp(result.xpAwarded, result.previousTotal)
+      setActiveFocus(null)
+      await load()
+    } catch {
+      setError('Your focus session could not be closed. Try again.')
+    } finally {
+      setEnding(false)
+    }
   }
 
   return <div className="mx-auto max-w-[92rem] space-y-7">

@@ -57,3 +57,20 @@ export async function upsertDayPlan(
   if (error) throw error;
   return data as DayPlan;
 }
+
+/**
+ * The tasks a plan has a block for, in block order and without repeats.
+ *
+ * A block points at a task through `source_type: "task"` and `source_id`.
+ * Read by the task list and the dashboard to show "In today's plan" next to
+ * a task, and to tell a past block from a finished one.
+ */
+export function plannedTaskIds(blocks: readonly DayPlanBlock[] | null | undefined): string[] {
+  const ids: string[] = [];
+  for (const block of blocks ?? []) {
+    if (block.source_type === "task" && block.source_id && !ids.includes(block.source_id)) {
+      ids.push(block.source_id);
+    }
+  }
+  return ids;
+}

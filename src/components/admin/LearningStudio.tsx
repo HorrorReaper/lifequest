@@ -38,6 +38,9 @@ import {
   writeLocalLearningCatalog,
 } from '@/lib/learning-local'
 import { createClient } from '@/lib/supabase/client'
+import { PERSONAL_PATH_ID, withPersonalLearningPath } from '@/lib/personal-learning'
+import { writeLearningDraftPreview } from '@/lib/learning-local'
+import { LearningConceptDialog } from './LearningConceptDialog'
 import { TOOL_REGISTRY } from '@/lib/tools/registry'
 import {
   fetchAdminLearningCatalog,
@@ -330,6 +333,13 @@ export function LearningStudio() {
         description="Edit a protected database draft, preview the learner journey, and publish an immutable curriculum version."
         actions={
           <div className="flex flex-wrap gap-2">
+            {!catalog.paths.some((path) => path.id === PERSONAL_PATH_ID) && <Button variant="outline" disabled={loading || saving || publishing} onClick={() => {
+              const next = withPersonalLearningPath(catalog)
+              setCatalog(next)
+              choosePath(next.paths.find((path) => path.id === PERSONAL_PATH_ID)!)
+              setDirty(true)
+              setNotice({ tone: 'success', message: 'Personal Business, Tech & AI course added to this unsaved draft. Save and publish when ready.' })
+            }}><Plus />Add personal course</Button>}
             <Button variant="outline" onClick={copyJson}><Clipboard />Copy JSON</Button>
             <Button variant="outline" onClick={openImport}><FileJson />Import</Button>
             <Button variant="outline" onClick={reset} disabled={saving || publishing}><RotateCcw />Defaults</Button>
@@ -469,7 +479,7 @@ export function LearningStudio() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><p className="text-sm text-muted-foreground">Lesson</p><h2 className="text-2xl font-semibold tracking-tight">{selectedLesson.icon} {selectedLesson.title}</h2><p className="mt-1 font-mono text-xs text-muted-foreground">{selectedLesson.id}</p></div>
               <div className="flex gap-2">
-                <Button variant="outline" asChild><Link href={`/learn/${selectedLesson.id}`}><Eye />Preview</Link></Button>
+                <Button variant="outline" asChild><Link href={`/learn/${selectedLesson.id}?preview=draft`} target="_blank" rel="noopener noreferrer" onClick={(event) => { try { writeLearningDraftPreview(catalog) } catch { event.preventDefault(); setNotice({ tone: 'error', message: 'The draft is invalid or browser preview storage is unavailable.' }) } }}><Eye />Preview draft</Link></Button>
                 <Button variant="destructive" size="icon" onClick={removeLesson} aria-label="Delete lesson"><Trash2 /></Button>
               </div>
             </div>
@@ -531,6 +541,7 @@ function ExerciseEditor({ exercise, index, onChange, onDelete }: { exercise: Lea
           <Field label="Title"><Input value={exercise.title} onChange={(event) => onChange({ ...exercise, title: event.target.value })} /></Field>
           <Field label="Explanation"><Textarea className="min-h-28" value={exercise.body} onChange={(event) => onChange({ ...exercise, body: event.target.value })} /></Field>
           <Field label="Key takeaway"><Input value={exercise.takeaway} onChange={(event) => onChange({ ...exercise, takeaway: event.target.value })} /></Field>
+          <LearningConceptDialog exercise={exercise} onChange={onChange} />
         </div>
       )}
 
@@ -579,6 +590,7 @@ function ExerciseEditor({ exercise, index, onChange, onDelete }: { exercise: Lea
         <div className="grid gap-3">
           <Field label="Reflection prompt"><Textarea value={exercise.prompt} onChange={(event) => onChange({ ...exercise, prompt: event.target.value })} /></Field>
           <Field label="Answer placeholder"><Input value={exercise.placeholder} onChange={(event) => onChange({ ...exercise, placeholder: event.target.value })} /></Field>
+          <Field label="Separate practice time in minutes · leave 0 for a short reflection"><Input type="number" min={0} step={1} value={exercise.practiceMinutes ?? 0} onChange={(event) => onChange({ ...exercise, practiceMinutes: Number(event.target.value) || undefined })} /></Field>
         </div>
       )}
 

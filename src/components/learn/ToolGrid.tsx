@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Wrench } from 'lucide-react'
-import { TOOL_REGISTRY, type ToolManifest } from '@/lib/tools/registry'
+import { TOOLBOX_ITEMS, type ToolboxItem } from '@/lib/tools/navigation'
 import { CardRail } from './CardRail'
 
 interface ToolGridProps {
@@ -9,26 +9,25 @@ interface ToolGridProps {
 }
 
 /**
- * The toolbox, rendered from the registry. Shared by the Toolbox page and the
- * Academy hub so a new tool shows up in both from its registry entry alone.
+ * Shared navigation for the Toolbox page and the Library rail.
  */
 export function ToolGrid({ variant = 'grid' }: ToolGridProps) {
-  if (variant === 'rail' && TOOL_REGISTRY.length > 0) {
+  if (variant === 'rail' && TOOLBOX_ITEMS.length > 0) {
     return (
       <CardRail
         title="Tools"
-        count={TOOL_REGISTRY.length}
+        count={TOOLBOX_ITEMS.length}
         description="Come back to these whenever you need them."
         itemClassName="w-[17rem] shrink-0 snap-start"
       >
-        {TOOL_REGISTRY.map((tool) => (
+        {TOOLBOX_ITEMS.map((tool) => (
           <ToolCard key={tool.id} tool={tool} />
         ))}
       </CardRail>
     )
   }
 
-  if (TOOL_REGISTRY.length === 0) {
+  if (TOOLBOX_ITEMS.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed px-5 py-9 text-center">
         <Wrench className="mx-auto size-8 text-muted-foreground/60" />
@@ -39,14 +38,14 @@ export function ToolGrid({ variant = 'grid' }: ToolGridProps) {
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      {TOOL_REGISTRY.map((tool) => (
+      {TOOLBOX_ITEMS.map((tool) => (
         <ToolCard key={tool.id} tool={tool} />
       ))}
     </div>
   )
 }
 
-function ToolCard({ tool }: { tool: ToolManifest }) {
+function ToolCard({ tool }: { tool: ToolboxItem }) {
   const Icon = tool.icon
 
   return (

@@ -127,6 +127,40 @@ export function isJournalFieldComplete(
   }
 }
 
+function configNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+/** A number field's optional limits from its template config. */
+export function numberFieldRange(field: TemplateField): { min: number | null; max: number | null } {
+  const config = (field.config ?? {}) as Record<string, unknown>
+  return { min: configNumber(config.min), max: configNumber(config.max) }
+}
+
+/**
+ * What is wrong with a number field's value against its limits, or null.
+ * An empty field is not a range problem; whether it may be empty is the
+ * required check's business.
+ */
+export function numberRangeError(field: TemplateField, value: FieldValue | undefined): string | null {
+  if (field.field_type !== 'number') return null
+  const number = value?.value_number
+  if (number === null || number === undefined) return null
+  const { min, max } = numberFieldRange(field)
+  if (min !== null && number < min) return `Enter ${min} or more.`
+  if (max !== null && number > max) return `Enter ${max} or less.`
+  return null
+}
+
+/** Why a field cannot be left yet: a missing required answer or a number out of range. */
+export function journalFieldProblem(field: TemplateField, value: FieldValue | undefined): string | null {
+  if (isDisplayOnlyJournalField(field)) return null
+  if (field.is_required && !isJournalFieldComplete(field, value)) {
+    return 'This prompt is required before you continue.'
+  }
+  return numberRangeError(field, value)
+}
+
 export function advanceJournalStep({
   activeStep,
   steps,
@@ -139,10 +173,7 @@ export function advanceJournalStep({
   const currentStep = steps[activeStep]
   const answerField = currentStep?.answerField
 
-  if (
-    answerField?.is_required &&
-    !isJournalFieldComplete(answerField, values[answerField.id])
-  ) {
+  if (answerField && journalFieldProblem(answerField, values[answerField.id])) {
     return {
       nextStep: activeStep,
       blockedFieldId: answerField.id,

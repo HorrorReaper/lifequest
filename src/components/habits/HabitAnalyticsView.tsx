@@ -17,6 +17,8 @@ import {
 } from '@/lib/habit-analytics'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { daysBetween } from '@/lib/dates'
+
 import { cn } from '@/lib/utils'
 
 interface HabitAnalyticsViewProps {
@@ -38,6 +40,9 @@ const PERIODS: Array<{ value: HabitAnalyticsPeriod; label: string }> = [
 ]
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+/** How old a habit has to be, in days, before rates and patterns show. */
+const MIN_DAYS_FOR_PATTERNS = 14
 
 function formatDate(date: string, options?: Intl.DateTimeFormatOptions) {
   return new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', {
@@ -64,6 +69,12 @@ export function HabitAnalyticsView({
     period,
   })
   const hasHistory = analytics.totalCompletions > 0
+  // Rates and patterns over a habit a few days old are mostly zeros, which
+  // read as failure. Until two weeks of days have passed since it was
+  // created, the page shows the streak and the count and says the rest is
+  // still forming -- days before creation never count either way.
+  const daysTracked = daysBetween(habit.createdDate, today) + 1
+  const enoughData = daysTracked >= MIN_DAYS_FOR_PATTERNS
 
   return (
     <main className="min-h-svh bg-background px-4 pb-24 pt-4 sm:px-8 sm:pt-8">
@@ -83,7 +94,7 @@ export function HabitAnalyticsView({
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="truncate font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
+                  <h1 className="line-clamp-2 font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words sm:text-[2rem]">
                     {habit.name}
                   </h1>
                   {habit.isArchived && (
@@ -111,6 +122,9 @@ export function HabitAnalyticsView({
           </div>
         </header>
 
+        {/* The period only changes the rate and weekday pattern, which a
+            young habit does not show yet. */}
+        {enoughData && (
         <div
           className="grid grid-cols-3 rounded-2xl border bg-card p-1"
           aria-label="Analytics period"
@@ -132,6 +146,22 @@ export function HabitAnalyticsView({
             </button>
           ))}
         </div>
+        )}
+
+
+        {!hasHistory && !habit.isArchived && (
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 text-center">
+            <CalendarDays className="mx-auto size-7 text-primary" />
+            <p className="mt-3 text-base font-semibold">Ready for the first check-in</p>
+            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-muted-foreground">
+              Check this habit off on the Habits page today. Your streak and
+              patterns start from there.
+            </p>
+            <Button asChild className="mt-4 h-12 px-5">
+              <Link href="/habits">Check in on today&apos;s habits</Link>
+            </Button>
+          </div>
+        )}
 
         <section className="grid grid-cols-2 gap-3" aria-label="Habit summary">
           <MetricCard
@@ -142,39 +172,38 @@ export function HabitAnalyticsView({
             accent="text-orange-600 dark:text-orange-400"
           />
           <MetricCard
-            icon={CircleGauge}
-            label="Completion rate"
-            value={`${analytics.completionRate}%`}
-            suffix={`${analytics.periodCompletions}/${analytics.eligibleDays} days`}
-            accent="text-primary"
-          />
-          <MetricCard
-            icon={Trophy}
-            label="Longest streak"
-            value={`${analytics.longestStreak}`}
-            suffix={analytics.longestStreak === 1 ? 'day' : 'days'}
-            accent="text-amber-600 dark:text-amber-400"
-          />
-          <MetricCard
             icon={CheckCheck}
             label="Total completed"
             value={`${analytics.totalCompletions}`}
             suffix="check-ins"
             accent="text-emerald-600 dark:text-emerald-400"
           />
+          {enoughData && (
+            <>
+              <MetricCard
+                icon={CircleGauge}
+                label="Completion rate"
+                value={`${analytics.completionRate}%`}
+                suffix={`${analytics.periodCompletions}/${analytics.eligibleDays} days`}
+                accent="text-primary"
+              />
+              <MetricCard
+                icon={Trophy}
+                label="Longest streak"
+                value={`${analytics.longestStreak}`}
+                suffix={analytics.longestStreak === 1 ? 'day' : 'days'}
+                accent="text-amber-600 dark:text-amber-400"
+              />
+            </>
+          )}
         </section>
 
-        {!hasHistory && (
-          <div className="rounded-2xl border border-dashed bg-card/60 p-5 text-center">
-            <CalendarDays className="mx-auto size-7 text-muted-foreground" />
-            <p className="mt-3 text-sm font-semibold">No completions recorded yet</p>
-            <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-muted-foreground">
-              Complete this habit from the Habits page to start building your pattern.
-            </p>
-            <Button asChild size="sm" className="mt-4">
-              <Link href="/habits">Go to today&apos;s habits</Link>
-            </Button>
-          </div>
+        {!enoughData && (
+          <p className="rounded-2xl bg-muted/50 p-4 text-sm leading-6 text-muted-foreground">
+            Not enough data yet. Completion rate and weekly patterns appear
+            once this habit is {MIN_DAYS_FOR_PATTERNS} days old (day{' '}
+            {daysTracked} of {MIN_DAYS_FOR_PATTERNS}).
+          </p>
         )}
 
         <Card>
@@ -247,6 +276,7 @@ export function HabitAnalyticsView({
           </CardContent>
         </Card>
 
+        {enoughData && (
         <Card>
           <CardHeader>
             <CardTitle>
@@ -277,8 +307,10 @@ export function HabitAnalyticsView({
             </div>
           </CardContent>
         </Card>
+        )}
 
         <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+          {enoughData && (
           <Card>
             <CardHeader>
               <CardTitle>
@@ -310,6 +342,7 @@ export function HabitAnalyticsView({
               ))}
             </CardContent>
           </Card>
+          )}
 
           <Card>
             <CardHeader>

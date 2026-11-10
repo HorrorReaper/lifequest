@@ -6,6 +6,7 @@ import { ArrowRight, Check, Flame, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { syncChallengeProgress } from '@/lib/challenge-programs'
+import { useUserStore } from '@/lib/stores/user-store'
 import { getToolManifest } from '@/lib/tools/registry'
 import type { ToolEntry } from '@/lib/tools/storage'
 
@@ -38,6 +39,7 @@ export function ToolChallengeRunner({
   challenge: ToolChallengeContext
 }) {
   const [status, setStatus] = useState<Status>('idle')
+  const notifyChallengeDay = useUserStore((s) => s.notifyChallengeDay)
   const manifest = getToolManifest(toolId)
   if (!manifest) return null
   const Tool = manifest.Component
@@ -47,6 +49,17 @@ export function ToolChallengeRunner({
     setStatus('checking')
     const rows = await syncChallengeProgress(createClient())
     const row = rows.find((item) => item.enrollment_id === challenge.enrollmentId)
+    if (row?.completed_now) {
+      // Rewards are not in this page's context; the overlay then says
+      // "All N days done." on the last day instead of naming them.
+      notifyChallengeDay({
+        enrollmentId: challenge.enrollmentId,
+        challengeTitle: challenge.title,
+        dayNumber: row.day_number,
+        totalDays: challenge.totalDays,
+        challengeCompleted: row.challenge_completed,
+      })
+    }
     setStatus(row?.completed_now ? 'completed' : 'saved')
   }
 

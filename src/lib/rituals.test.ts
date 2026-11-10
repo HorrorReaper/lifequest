@@ -4,6 +4,7 @@ import {
   RITUAL_IDS,
   normalizeRitualSettings,
   fillName,
+  isDailyPlanWindow,
   isRitualWindow,
   ritualDismissKey,
 } from '@/lib/rituals'
@@ -111,6 +112,31 @@ describe('isRitualWindow', () => {
   it('treats weekday 0 as Monday, not as "no weekday"', () => {
     expect(isRitualWindow({ ...weekly, weekday: 0, fromMinutes: 0 }, MONDAY, 0)).toBe(true)
     expect(isRitualWindow({ ...weekly, weekday: 0, fromMinutes: 0 }, SUNDAY, 0)).toBe(false)
+  })
+})
+
+describe('isDailyPlanWindow', () => {
+  const MONDAY = '2026-09-21'
+  const settings = DEFAULT_RITUAL_SETTINGS // plan from 00:00, evening review from 20:00
+
+  it('offers the morning briefing until the evening review starts', () => {
+    expect(isDailyPlanWindow(settings, MONDAY, 7 * 60)).toBe(true)
+    expect(isDailyPlanWindow(settings, MONDAY, 19 * 60 + 59)).toBe(true)
+  })
+
+  it('leaves the evening to the evening review alone', () => {
+    expect(isDailyPlanWindow(settings, MONDAY, 20 * 60)).toBe(false)
+    expect(isDailyPlanWindow(settings, MONDAY, 23 * 60)).toBe(false)
+  })
+
+  it('keeps the briefing all day when the evening review is switched off', () => {
+    const noEvening = { ...settings, evening_review: { ...settings.evening_review, enabled: false } }
+    expect(isDailyPlanWindow(noEvening, MONDAY, 23 * 60)).toBe(true)
+  })
+
+  it('follows an evening start an admin moved', () => {
+    const earlyEvening = { ...settings, evening_review: { ...settings.evening_review, fromMinutes: 17 * 60 } }
+    expect(isDailyPlanWindow(earlyEvening, MONDAY, 17 * 60 + 30)).toBe(false)
   })
 })
 

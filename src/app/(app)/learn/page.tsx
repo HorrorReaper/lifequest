@@ -6,11 +6,14 @@ import { showAdminUi } from '@/lib/admin'
 import { fetchJournalInsights } from '@/lib/journal-insights'
 import { LearningPathLibrary } from '@/components/learn/LearningPathLibrary'
 import { AcademyLibrary } from '@/components/learn/AcademyLibrary'
+import { PageHeader } from '@/components/ui/page-header'
+
 import { BookOpenCheck, Wrench } from 'lucide-react'
 import { fetchLearningExperience } from '@/lib/learning-api'
 import {
   DEFAULT_LEARNING_CATALOG,
   EMPTY_LEARNING_PROGRESS,
+  type LearningPathId,
 } from '@/lib/learning-paths'
 
 interface LessonCompletion {
@@ -28,39 +31,38 @@ interface LessonCompletionClient {
 
 function LearnPageShell({
   title,
-  intro,
   children,
 }: {
   title: string
-  intro: string
   children: React.ReactNode
 }) {
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="mx-auto max-w-5xl space-y-7">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">LifeQuest Academy</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.045em]">{title}</h1>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{intro}</p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Link
-              href="/learn/tools"
-              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
-              <Wrench className="size-3.5" />
-              Toolbox
-            </Link>
-            <Link
-              href="/journal/insights"
-              className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
-              <BookOpenCheck className="size-3.5" />
-              Journal Insights
-            </Link>
-          </div>
-        </div>
+        {/* "Library" everywhere: the tab, the + menu and this title used to
+            say Library, Learn and Lifequest Academy for the same page. */}
+        <PageHeader
+          title={title}
+          description="Short lessons and tools, a few minutes each."
+          actions={
+            <>
+              <Link
+                href="/learn/tools"
+                className="flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                <Wrench className="size-4" />
+                Toolbox
+              </Link>
+              <Link
+                href="/journal/insights"
+                className="flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                <BookOpenCheck className="size-4" />
+                Journal Insights
+              </Link>
+            </>
+          }
+        />
         {children}
       </div>
     </div>
@@ -75,18 +77,22 @@ function LearnPageShell({
 async function AdminAcademy({
   supabase,
   lessons,
+  userId,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>
   lessons: LessonWithStatus[]
+  userId: string
 }) {
   let catalog = DEFAULT_LEARNING_CATALOG
   let progress = EMPTY_LEARNING_PROGRESS
   let backendEnabled = false
+  let publishedPathIds: LearningPathId[] = []
   try {
     const learning = await fetchLearningExperience(supabase)
     catalog = learning.catalog
     progress = learning.progress
     backendEnabled = true
+    publishedPathIds = catalog.paths.map((path) => path.id)
   } catch (error) {
     console.error('Could not load the learning backend; using the authored fallback.', error)
   }
@@ -97,6 +103,8 @@ async function AdminAcademy({
       progress={progress}
       backendEnabled={backendEnabled}
       legacyLessons={lessons}
+      publishedPathIds={publishedPathIds}
+      userId={userId}
     />
   )
 }
@@ -127,21 +135,11 @@ export default async function LearnPage() {
     const insights = await fetchJournalInsights(supabase, user.id)
 
     return (
-      <LearnPageShell
-        title="Learn by doing"
-        intro="Short reads that end in a quiz, tools to work through, and everything you marked while journaling."
-      >
+      <LearnPageShell title="Library">
         <AcademyLibrary lessons={lessons} insights={insights} />
       </LearnPageShell>
     )
   }
 
-  return (
-    <LearnPageShell
-      title="Learn by doing"
-      intro="Build social confidence, founder judgment, and fitness knowledge through short interactive paths."
-    >
-      <AdminAcademy supabase={supabase} lessons={lessons} />
-    </LearnPageShell>
-  )
+  return <AdminAcademy supabase={supabase} lessons={lessons} userId={user.id} />
 }

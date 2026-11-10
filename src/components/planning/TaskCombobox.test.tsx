@@ -164,4 +164,88 @@ describe("TaskCombobox", () => {
     const option = screen.getByRole("option", { name: /Write launch brief/ });
     expect(option.querySelector("svg")).toBeTruthy();
   });
+
+  describe("inline, inside a picker dialog", () => {
+    it("lists every task without waiting for focus, with when each is due", () => {
+      const tasks = Array.from({ length: 9 }, (_, index) =>
+        task({ id: String(index), title: `Task ${index}` })
+      );
+      tasks[0] = task({
+        id: "0",
+        title: "Task 0",
+        dueDate: "2026-07-24",
+        isOverdue: true,
+        estimateMinutes: 45,
+      });
+      render(
+        <TaskCombobox
+          inline
+          today="2026-07-25"
+          ariaLabel="Search your tasks"
+          tasks={tasks}
+          linkedTaskId={null}
+          value=""
+          onChangeText={vi.fn()}
+          onSelectTask={vi.fn()}
+          onCreateTask={vi.fn()}
+        />
+      );
+
+      // Past the popup's cap of six: the dialog scrolls instead.
+      expect(screen.getAllByRole("option")).toHaveLength(9);
+      expect(
+        screen.getByRole("option", { name: /Task 0.*Overdue since Jul 24 · 45m/ })
+      ).toBeTruthy();
+    });
+
+    it("offers a new title as a task or as plain text for today", () => {
+      const onCreateTask = vi.fn();
+      const onUseText = vi.fn();
+      render(
+        <TaskCombobox
+          inline
+          ariaLabel="Search your tasks"
+          tasks={[task()]}
+          linkedTaskId={null}
+          value="Go for a walk"
+          onChangeText={vi.fn()}
+          onSelectTask={vi.fn()}
+          onCreateTask={onCreateTask}
+          onUseText={onUseText}
+        />
+      );
+
+      const input = screen.getByRole("combobox");
+      // Arrowing down past the create row reaches the plain-text one.
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+      expect(input.getAttribute("aria-activedescendant")).toBe(
+        screen.getByRole("option", { name: /without a task/ }).id
+      );
+      fireEvent.keyDown(input, { key: "Enter" });
+
+      expect(onUseText).toHaveBeenCalledWith("Go for a walk");
+      expect(onCreateTask).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole("option", { name: /Create task “Go for a walk”/ }));
+      expect(onCreateTask).toHaveBeenCalledWith("Go for a walk");
+    });
+
+    it("leaves Escape to the dialog around it", () => {
+      render(
+        <TaskCombobox
+          inline
+          ariaLabel="Search your tasks"
+          tasks={[task()]}
+          linkedTaskId={null}
+          value=""
+          onChangeText={vi.fn()}
+          onSelectTask={vi.fn()}
+          onCreateTask={vi.fn()}
+        />
+      );
+
+      fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
+      expect(screen.getByRole("option", { name: /Write launch brief/ })).toBeTruthy();
+    });
+  });
 });

@@ -26,7 +26,7 @@ export function AcademyLibrary({ lessons, insights }: AcademyLibraryProps) {
 
   return (
     <div className="space-y-9">
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-4 rounded-2xl border bg-card p-4 sm:p-5">
+      {/*<div className="flex flex-wrap items-center gap-x-8 gap-y-4 rounded-2xl border bg-card p-4 sm:p-5">
         <div className="min-w-[9rem] flex-1">
           <div className="flex items-center gap-2 text-muted-foreground">
             <BookOpen className="size-3.5" />
@@ -49,7 +49,7 @@ export function AcademyLibrary({ lessons, insights }: AcademyLibraryProps) {
           </div>
           <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums">{stats.xpEarned}</p>
         </div>
-      </div>
+      </div>*/}
 
       <ToolGrid variant="rail" />
 

@@ -56,6 +56,8 @@ npx vitest run -t "flushes dirty sets"
 
 ## Current automated coverage
 
+Focus Timer: `FocusTimerTool.test.tsx` covers duration selection, duplicate submission, resume, validation, failed start retry and failed-load state. `FullscreenFocusTimer.test.tsx` covers control visibility, a single finish request, Library return navigation, XP synchronization and finish retry. Shell tests distinguish setup from immersive run. `scripts/verify-focus-timer.mjs` runs isolated PostgreSQL checks for owner SELECT, direct-write denial, task ownership, server time, bounds, idempotent starts/rewards, cancellation, sub-minute completion, transactional rollback and anonymous denial. Run with a separately installed PGlite module URL in `LIFEQUEST_PGLITE_MODULE`; the script reads no environment files and never connects to Supabase.
+
 The repository currently contains 32 test files.
 
 ### Auth
@@ -66,9 +68,14 @@ The repository currently contains 32 test files.
 ### Planning, tasks, and habits
 
 - Day-plan normalization.
-- Today Plan calculations and UI.
-- Task grouping, sorting, helpers, compact list, and editor.
-- Habit mutations, analytics, manager behavior, and editor.
+- Today Plan calculations and UI, including the plan editor (save state, save failure keeps edits, block problems in words) and which mode `/plan` opens in (`TodayPlanner.test.tsx`, `TodayPlanScreen.test.tsx`). The priorities step is covered there too: choosing, changing and removing through the picker dialog, a required main focus, one task per role, creating a task without a due date and linking it into the saved blocks, a failed create keeping the dialog open, focus back on the row, and restored drafts. The picker's inline list is in `TaskCombobox.test.tsx`, due labels in `today-plan.test.ts` (`describeTaskDue`). The timeline step is covered in `TodayPlanner.test.tsx`: five steps without the anchors step and the way back without losing or duplicating anything, a changed priority following its block, habits kept flexible versus given a time block (one anchor and one block however often confirmed, back to flexible, removed from today only), done habits hidden until "Show completed", a general block saved as a plain block linked to nothing, reflection templates told apart, the day hours dialog (errors at the field, Cancel, blocks left outside marked and kept), the reminder switched off, the capacity line (overlaps counted once, time outside the day apart), folded free time, the block editor (nothing before Apply, the later blocks it would move, keeping them in place), one save per double tap, a failed final save keeping the plan and draft, and drafts restored on their step, including old six-step drafts. Step resolution is in `planner-steps.test.ts`; segments, `firstFreeStart`, `describeRipple`, anchor helpers and priority-block sync in `today-plan.test.ts`.
+- Dashboard plan status: a block that is over is never reported as done while its linked task is open (`src/lib/dashboard-plan.test.ts`, `TodayPlanSection.test.tsx`). The next-up card's states are covered in `src/lib/dashboard-plan.test.ts` (tasks due without a plan, planned-task progress, habits before reflections, an unwritten reflection, a finished journal, the evening review once no block is running or ahead, with or without a plan, `durationFigure`) and `src/components/dashboard/NextUpCard.test.tsx` (time-first layout for a running task and an upcoming reflection, the habit ring and chips, tasks due, a planned task left open, reflection open and done, the evening review with what is still open).
+- Dashboard greeting: the time-of-day opening and its boundaries (05:00, 12:00, 18:00), the Trail heading style, the fallback without a name or time, the hero scene growing one stage per `STAGE_STEP_MS` during the walk-in and never past today's, the finished scene at once under reduced motion, the pause button stopping the walk and being remembered on the next visit, its spoken progress line (`src/components/dashboard/DashboardGreeting.test.tsx`), and the progress rule with its stage thresholds, the evening review counted only when switched on, and no more done than there is (`src/lib/day-progress.test.ts`).
+- Task grouping, sorting, helpers, compact list, and editor: Today/Tomorrow/Choose date/No date, one submit per double tap, and the calendar layer sitting on the popover's positioned wrapper (`TaskEditorDialog.test.tsx`).
+- Habit mutations, analytics, manager behavior, and editor (single named check-in control, details folded away on create).
+- Onboarding: three steps, no age question, a real task and a linked block, and no duplicates on back, reload or double tap (`onboarding-flow.test.tsx`, `src/lib/onboarding.test.ts`).
+- Feedback and activation helpers (`src/lib/activation.test.ts`).
+
 
 ### Journal
 
@@ -193,3 +200,11 @@ Verification on the combined Projects/current-Staging revision: 133 test files /
 Contacts tests cover task identity/assignment preservation, failed-save retry, calendar source retention and directed relationship labels. Run scripts/test-contacts-database.cjs with PGLITE_MODULE pointing at a temporary @electric-sql/pglite installation for role/constraint/recurrence/idempotence/pagination checks. On Windows, Vitest may need permission to rename its temporary transformation cache files.
 
 Contacts verification on the combined feature/current-Staging revision: 135 test files / 1064 tests passed with `npm run test -- --maxWorkers=2`. The initial concurrent test/build run hit two five-second test timeouts; the complete repeat with limited workers passed without changing test timeouts. Typecheck, production build and changed-file ESLint passed with zero changed-file warnings. Full ESLint still reports the same 30 pre-existing errors in eight untouched files. Disposable Postgres integration and deployed-schema rollback checks passed. Documentation links and whitespace checks passed. Authenticated browser/device acceptance remains pending: the available in-app browser twice failed to attach a webview, so no manual desktop/mobile acceptance is claimed.
+
+## Academy regression checks
+
+Course behavior and access boundaries are covered by `personal-learning.test.ts`, `InteractiveLessonPlayer.test.tsx`, `LearningPathLibrary.test.tsx` and `learning-access.test.tsx`. Existing public Library tests remain unchanged. Test-local storage uses `test/local-storage-stub.ts` because recent Node versions expose an experimental global that otherwise shadows jsdom storage.
+
+For an actual isolated PostgreSQL check, install `@electric-sql/pglite@0.5.13` in a separate tooling directory and set `LIFEQUEST_PGLITE_MODULE` to the file URL of its `dist/index.js`, then run `node scripts/verify-learning-academy.mjs` from the repository. Alternatively make that package available to the script's module resolver. The script does not read `.env` or use a network database. It checks roles/helper grants, user-metadata spoofing, a fourth-path draft, explicit publication, visual-content round trips, server grades, ordering, once-only rewards, reflection ownership and enrollment version pinning. Minimal fixture tables do not cover the whole application's schema or hosted Auth/session refresh behavior.
+
+Visual QA must distinguish actual component rendering on an isolated local harness from a signed-in deployed session. Remove any temporary QA route before building/integrating. Verify 390px and desktop layouts, course/lesson navigation, both cases, keyboard focus and wrong/correct feedback. Report migration deployment separately.

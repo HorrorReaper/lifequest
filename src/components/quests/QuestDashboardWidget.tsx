@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { Trophy, Zap, Coins, ChevronRight } from 'lucide-react'
+import { Trophy, Zap, Coins } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { DefaultQuestWithStatus, CustomQuest } from '@/lib/quests'
 import { cn } from '@/lib/utils'
+import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
 
 interface QuestDashboardWidgetProps {
   claimable: DefaultQuestWithStatus[]
@@ -32,25 +33,21 @@ export function QuestDashboardWidget({ claimable, activeCustom }: QuestDashboard
   ]
 
   return (
-    <div className="rounded-xl border p-4 space-y-3">
+    <ClickableSection href="/quests" className="rounded-xl border p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Trophy className="size-4" />
           </span>
-          <h2 className="text-lg font-semibold sm:text-base">Quests</h2>
+          <h2 className="text-lg font-semibold sm:text-base">
+            <SectionHeadingLink href="/quests">Quests</SectionHeadingLink>
+          </h2>
           {claimable.length > 0 && (
             <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-[11px] text-primary-foreground font-bold sm:size-4 sm:text-[10px]">
               {claimable.length}
             </span>
           )}
         </div>
-        <Link
-          href="/quests"
-          className="flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors sm:text-xs"
-        >
-          View all <ChevronRight className="size-3" />
-        </Link>
       </div>
 
       {items.length === 0 ? (
@@ -83,6 +80,6 @@ export function QuestDashboardWidget({ claimable, activeCustom }: QuestDashboard
           ))}
         </ul>
       )}
-    </div>
+    </ClickableSection>
   )
 }

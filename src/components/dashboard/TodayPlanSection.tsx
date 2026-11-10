@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { CalendarClock, ChevronDown, Plus } from 'lucide-react'
+import { CalendarClock, Check, ChevronDown, Pencil, Plus } from 'lucide-react'
 import type { DayPlanMissionType } from '@/lib/types'
+import { minutesFromTime, openTasksBehind, splitPlanByTime } from '@/lib/dashboard-plan'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
+import { SectionAddButton } from '@/components/dashboard/SectionAddButton'
 
 export interface DashboardPlanBlock {
   id: string
@@ -15,6 +18,10 @@ export interface DashboardPlanBlock {
   title: string
   category: string
   missionType: DayPlanMissionType | null
+  /** The task this block was planned from, if any. */
+  taskId?: string | null
+  /** Whether that task is done. Undefined for a block without a task. */
+  taskCompleted?: boolean
 }
 
 interface TodayPlanSectionProps {
@@ -57,17 +64,13 @@ function stripeFor(block: DashboardPlanBlock) {
   return CATEGORY_STRIPE[block.category] ?? CATEGORY_STRIPE.other
 }
 
-function minutesFromTime(time: string) {
-  const [hours, minutes] = time.split(':').map(Number)
-  return hours * 60 + minutes
-}
-
 /**
  * The shape of today, anchored on the block you are in.
  *
- * Plan blocks carry no completion flag -- the clock alone decides what is
- * done -- so this reads rather than checks off, unlike the habit and task
- * sections it sits above.
+ * The clock decides only where a block sits in time -- behind you, now, or
+ * ahead. Whether it is *done* comes from its linked task alone; a block
+ * without a task is never called done, and a past block with an open task
+ * says "Open". The section used to call every past block done.
  */
 export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: TodayPlanSectionProps) {
   const [expanded, setExpanded] = useState(false)
@@ -88,13 +91,8 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
 
   const now = nowMinutes + minutesElapsed
 
-  const ordered = [...blocks].sort((a, b) => a.startTime.localeCompare(b.startTime))
-  const past = ordered.filter((block) => minutesFromTime(block.endTime) <= now)
-  const current =
-    ordered.find(
-      (block) => minutesFromTime(block.startTime) <= now && minutesFromTime(block.endTime) > now
-    ) ?? null
-  const upcoming = ordered.filter((block) => minutesFromTime(block.startTime) > now)
+  const { ordered, past, current, upcoming } = splitPlanByTime(blocks, now)
+  const openBehind = openTasksBehind(past)
 
   const lead = current ?? upcoming[0] ?? null
   const rest = current ? upcoming : upcoming.slice(1)
@@ -103,19 +101,33 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
   const remaining = ordered.length - past.length
 
   return (
-    <section className="rounded-2xl border bg-card p-5">
+    <ClickableSection href={plannerHref} className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <CalendarClock className="size-4" />
           </span>
-          <h2 className="text-lg font-semibold sm:text-base">Today&apos;s Plan</h2>
+          <h2 className="text-lg font-semibold sm:text-base">
+            <SectionHeadingLink href={plannerHref}>Today&apos;s Plan</SectionHeadingLink>
+          </h2>
         </div>
-        {ordered.length > 0 && (
-          <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
-            {remaining > 0 ? `${remaining} left` : 'all done'}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Without a plan the section's own "Plan my day" is the way in.
+              With one, "+" goes straight to the timeline: re-answering mood
+              and outcomes to add one block is not what it offers. */}
+          {ordered.length > 0 && (
+            <>
+              <span className="text-sm tabular-nums text-muted-foreground">
+                {remaining > 0
+                  ? `${remaining} ${remaining === 1 ? 'block' : 'blocks'} left`
+                  : openBehind.length > 0
+                    ? `${openBehind.length} open`
+                    : 'No blocks left'}
+              </span>
+              <SectionAddButton label="Add block" href={`${plannerHref}?step=timeline`} />
+            </>
+          )}
+        </div>
       </div>
 
       {ordered.length === 0 ? (
@@ -133,8 +145,11 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
       ) : (
         <>
           {!lead && !expanded && (
-            <p className="mt-4 text-base leading-relaxed text-muted-foreground sm:text-sm">
-              Every block is behind you. That is the whole day done.
+            <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+              No more time blocks today.
+              {openBehind.length > 0
+                ? ` ${openBehind.length} planned ${openBehind.length === 1 ? 'task is' : 'tasks are'} still open.`
+                : ''}
             </p>
           )}
 
@@ -164,9 +179,10 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
                       className={cn('h-10 w-[3px] shrink-0 rounded-full sm:h-9', stripeFor(lead))}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-lg font-medium sm:text-base">{lead.title}</p>
-                      <p className="mt-0.5 font-mono text-sm text-muted-foreground sm:text-xs">
+                      <p className="truncate text-base font-medium">{lead.title}</p>
+                      <p className="mt-0.5 font-mono text-sm text-muted-foreground">
                         {lead.startTime} – {lead.endTime}
+                        {lead.taskCompleted && ' · task done'}
                       </p>
                     </div>
                     <span
@@ -209,6 +225,15 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
             ))}
           </ul>
 
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link href={plannerHref}>
+                <Pencil />
+                Edit plan
+              </Link>
+            </Button>
+          </div>
+
           {(hiddenCount > 0 || expanded) && (
             <button
               type="button"
@@ -226,36 +251,22 @@ export function TodayPlanSection({ blocks, nowMinutes, plannerHref = '/plan' }: 
               />
             </button>
           )}
-
-          <div className="mt-4 flex items-center justify-between border-t pt-3">
-            {/* Straight to the timeline: this button only exists once a
-                plan does, and re-answering mood and outcomes to move one
-                block is not what it offers. */}
-            <Button asChild size="sm" variant="outline">
-              <Link href={`${plannerHref}?step=timeline`}>
-                <Plus />
-                Add block
-              </Link>
-            </Button>
-            <Link
-              href={plannerHref}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
-            >
-              Open planner →
-            </Link>
-          </div>
         </>
       )}
-    </section>
+    </ClickableSection>
   )
 }
 
 function PlanRow({ block, spent = false }: { block: DashboardPlanBlock; spent?: boolean }) {
+  // Struck through only when the linked task is really done. A past block
+  // without a finished task keeps its title readable and says "Open".
+  const done = block.taskCompleted === true
   return (
     <div
       className={cn(
         'flex min-h-14 w-full items-center gap-3 rounded-xl border border-border bg-background px-3 sm:min-h-12',
-        spent && 'opacity-50'
+        spent && !done && block.taskCompleted !== false && 'opacity-60',
+        done && 'opacity-70'
       )}
     >
       <span
@@ -267,9 +278,22 @@ function PlanRow({ block, spent = false }: { block: DashboardPlanBlock; spent?: 
       <span className="w-24 shrink-0 whitespace-nowrap font-mono text-sm text-muted-foreground sm:w-[5.25rem] sm:text-xs">
         {block.startTime}–{block.endTime}
       </span>
-      <span className={cn('min-w-0 flex-1 truncate text-lg sm:text-base', spent && 'line-through')}>
+      <span className={cn('min-w-0 flex-1 truncate text-base', done && 'line-through')}>
         {block.title}
       </span>
+      {done ? (
+        <span className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+          <Check className="size-3.5" aria-hidden="true" />
+          Done
+        </span>
+      ) : (
+        spent &&
+        block.taskCompleted === false && (
+          <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-sm font-medium text-amber-800 dark:text-amber-200">
+            Open
+          </span>
+        )
+      )}
     </div>
   )
 }

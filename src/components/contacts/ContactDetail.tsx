@@ -28,6 +28,7 @@ import type {
 } from "@/lib/contacts/types";
 import { ContactFormDialog } from "./ContactFormDialog";
 import { ContactTaskDialog } from "./ContactTaskDialog";
+import { ConversationNudge } from "./ConversationNudge";
 
 const tabs = [
   ["overview", "Überblick"],
@@ -289,6 +290,7 @@ export function ContactDetail({
         >
           {person?.is_archived ? "Wiederherstellen" : "Archivieren"}
         </Button>
+        <ConversationNudge contactName={person?.display_name} />
       </header>
       {error && (
         <div role="alert" className="rounded-xl border p-3 text-destructive">

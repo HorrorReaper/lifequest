@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import type { TaskStatus } from "@/lib/types";
 import { TASK_COLUMNS } from "@/lib/projects/project-workspace";
 import { ProjectConfirmDialog } from "@/components/projects/WorkspaceFormDialog";
-import { CalendarDays, Flag, ListTodo } from "lucide-react";
+import { ChevronDown, Flag, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +15,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DueDateField } from "@/components/tasks/DueDateField";
+import { localDateKey } from "@/lib/dates";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,12 @@ interface TaskEditorDialogProps {
   defaults?: Partial<TaskEditorDraft>;
   contactFields?: React.ReactNode;
   contactDirty?: boolean;
+  /**
+   * The user's current day as a date key, for the Today and Tomorrow
+   * choices. Callers that know the profile timezone pass it; the device's
+   * own day is the fallback.
+   */
+  today?: string;
   projectContext?: {
     projectId: string | null;
     projectName: string;
@@ -110,7 +117,9 @@ export function TaskEditorDialog({
   defaults,
   contactFields,
   contactDirty,
+  today,
 }: TaskEditorDialogProps) {
+  const todayKey = today ?? localDateKey();
   const [draft, setDraft] = useState<TaskEditorDraft>(() => ({
     ...initialDraft(task),
     ...(!task ? defaults : {}),
@@ -125,6 +134,14 @@ export function TaskEditorDialog({
   }));
   const [titleError, setTitleError] = useState<string | null>(null);
   const [discard, setDiscard] = useState(false);
+  // Details start open only when there is something in them already, so a
+  // new task is a title and a date, and editing one still shows its notes.
+  const [detailsOpen, setDetailsOpen] = useState(
+    Boolean(task?.description?.trim()) || Boolean(defaults?.description)
+  );
+  // Set synchronously on submit, so a second tap in the same frame -- before
+  // the disabled button has re-rendered -- cannot send the task twice.
+  const submittingRef = useRef(false);
   const originalProject = useRef(projectContext?.projectId);
   function close() {
     if (saving) return;
@@ -155,15 +172,21 @@ export function TaskEditorDialog({
       setTitleError("Give this task a clear title.");
       return;
     }
+    if (saving || submittingRef.current) return;
 
     setTitleError(null);
-    await onSubmit({
-      ...draft,
-      title: draft.title.trim(),
-      description: draft.description.trim(),
-      due_date: draft.due_date || null,
-      ...(projectContext ? { project_id: projectContext.projectId } : {}),
-    });
+    submittingRef.current = true;
+    try {
+      await onSubmit({
+        ...draft,
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        due_date: draft.due_date || null,
+        ...(projectContext ? { project_id: projectContext.projectId } : {}),
+      });
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   return (
@@ -188,7 +211,7 @@ export function TaskEditorDialog({
                   {task ? "Edit task" : "Create a task"}
                 </DialogTitle>
                 <DialogDescription className="mt-1">
-                  Capture the outcome, urgency, and the day it belongs to.
+                  A clear title is enough. Everything else is optional.
                 </DialogDescription>
               </div>
             </div>
@@ -217,7 +240,7 @@ export function TaskEditorDialog({
                   disabled={saving}
                   aria-invalid={Boolean(titleError)}
                   aria-describedby={titleError ? "task-title-error" : undefined}
-                  className="h-12 text-base sm:h-10"
+                  className="h-12 text-base"
                 />
                 {titleError && (
                   <p id="task-title-error" className="text-sm text-destructive">
@@ -226,30 +249,24 @@ export function TaskEditorDialog({
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="task-description">Description</Label>
-                <Textarea
-                  id="task-description"
-                  value={draft.description}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                  placeholder="Add context, a next step, or a definition of done…"
-                  rows={5}
-                  disabled={saving}
-                  className="min-h-28 resize-y"
-                />
-              </div>
+              <DueDateField
+                value={draft.due_date || null}
+                today={todayKey}
+                onChange={(due_date) =>
+                  setDraft((current) => ({
+                    ...current,
+                    due_date: due_date ?? "",
+                  }))
+                }
+                disabled={saving}
+              />
 
               <fieldset className="space-y-3">
                 <legend className="flex items-center gap-2 text-sm font-medium">
                   <Flag className="size-4 text-muted-foreground" />
                   Priority
                 </legend>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-3 gap-2">
                   {priorities.map((priority) => (
                     <button
                       key={priority.value}
@@ -263,7 +280,7 @@ export function TaskEditorDialog({
                       disabled={saving}
                       aria-pressed={draft.priority === priority.value}
                       className={cn(
-                        "min-h-16 rounded-2xl border bg-background px-3 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+                        "min-h-14 rounded-xl border bg-background px-3 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
                         draft.priority === priority.value &&
                           priority.activeClass,
                       )}
@@ -271,7 +288,7 @@ export function TaskEditorDialog({
                       <span className="block text-sm font-semibold">
                         {priority.label}
                       </span>
-                      <span className="mt-0.5 block text-xs opacity-75">
+                      <span className="mt-0.5 hidden text-xs opacity-75 sm:block">
                         {priority.description}
                       </span>
                     </button>
@@ -279,28 +296,48 @@ export function TaskEditorDialog({
                 </div>
               </fieldset>
 
-              <div className="space-y-2">
-                <Label
-                  htmlFor="task-due-date"
-                  className="flex items-center gap-2"
+              <div className="rounded-2xl border">
+                <button
+                  type="button"
+                  aria-expanded={detailsOpen}
+                  aria-controls="task-details"
+                  onClick={() => setDetailsOpen((open) => !open)}
+                  className="flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-4 text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
-                  <CalendarDays className="size-4 text-muted-foreground" />
-                  Due date
-                </Label>
-                <DatePicker
-                  id="task-due-date"
-                  value={draft.due_date || null}
-                  onChange={(due_date) =>
-                    setDraft((current) => ({
-                      ...current,
-                      due_date: due_date ?? "",
-                    }))
-                  }
-                  disabled={saving}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Leave this empty to keep it in No Date.
-                </p>
+                  <span>
+                    Details{" "}
+                    <span className="font-normal text-muted-foreground">
+                      (optional)
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform",
+                      detailsOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+                {detailsOpen && (
+                  <div id="task-details" className="border-t px-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="task-description">Description</Label>
+                      <Textarea
+                        id="task-description"
+                        value={draft.description}
+                        onChange={(event) =>
+                          setDraft((current) => ({
+                            ...current,
+                            description: event.target.value,
+                          }))
+                        }
+                        placeholder="Add context, a next step, or a definition of done…"
+                        rows={4}
+                        disabled={saving}
+                        className="min-h-28 resize-y"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {contactFields}
@@ -511,8 +548,12 @@ export function TaskEditorDialog({
       </Dialog>
       <ProjectConfirmDialog
         open={discard}
-        title="Discard unsaved task changes?"
-        description="The saved task will remain intact."
+        title={task ? "Discard unsaved task changes?" : "Discard this new task?"}
+        description={
+          task
+            ? "The saved task will remain intact."
+            : "It has not been saved yet."
+        }
         onCancel={() => setDiscard(false)}
         onConfirm={async () => onOpenChange(false)}
       />

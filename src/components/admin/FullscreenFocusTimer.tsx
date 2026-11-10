@@ -6,7 +6,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { Check, Pause } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { FocusSessionRow } from '@/lib/supabase/database.types'
-import { awardFocusSessionXp, secondsLabel } from '@/lib/focus-session'
+import { secondsLabel } from '@/lib/focus-session'
+import { finishFocusSession } from '@/lib/focus-session-actions'
 import { useUserStore } from '@/lib/stores/user-store'
 import { pickFocusQuote } from '@/lib/focus-quotes'
 import { Button } from '@/components/ui/button'
@@ -15,14 +16,22 @@ import { NatureBackdrop } from './NatureBackdrop'
 
 const CONTROLS_VISIBLE_MS = 4000
 
-export function FullscreenFocusTimer({ userId }: { userId: string }) {
-  // Cast to the untyped client: `focus_sessions`' generated Update type
-  // rejects this shape (see ProductivityHub.tsx, which does the same).
-  const supabase = useMemo(() => createClient() as unknown as SupabaseClient, [])
+export function FullscreenFocusTimer({
+  userId,
+  returnHref = '/admin/productivity',
+}: {
+  userId: string
+  returnHref?: string
+}) {
+  const supabase = useMemo(
+    () => createClient() as unknown as SupabaseClient,
+    [],
+  )
   const router = useRouter()
   const addXp = useUserStore((state) => state.addXp)
   const [session, setSession] = useState<FocusSessionRow | null>(null)
   const [endError, setEndError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(() => Date.now())
   // A counter, not a boolean: re-setting a boolean to the value it already
@@ -34,17 +43,21 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
   const [quote] = useState(() => pickFocusQuote())
 
   const load = useCallback(async () => {
-    const { data } = await supabase
+    setLoadError(false)
+    const { data, error } = await supabase
       .from('focus_sessions')
       .select('*')
       .eq('user_id', userId)
       .eq('status', 'active')
       .maybeSingle()
-    setSession((data as FocusSessionRow | null) ?? null)
+    setLoadError(Boolean(error))
+    if (!error) setSession((data as FocusSessionRow | null) ?? null)
     setLoading(false)
   }, [supabase, userId])
 
-  useEffect(() => { queueMicrotask(() => void load()) }, [load])
+  useEffect(() => {
+    queueMicrotask(() => void load())
+  }, [load])
 
   useEffect(() => {
     if (!session) return
@@ -53,12 +66,15 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
   }, [session])
 
   useEffect(() => {
-    if (!loading && !session) router.replace('/admin/productivity')
-  }, [loading, session, router])
+    if (!loading && !loadError && !session) router.replace(returnHref)
+  }, [loading, loadError, session, router, returnHref])
 
   useEffect(() => {
     if (interactions === 0) return
-    const timeout = window.setTimeout(() => setInteractions(0), CONTROLS_VISIBLE_MS)
+    const timeout = window.setTimeout(
+      () => setInteractions(0),
+      CONTROLS_VISIBLE_MS,
+    )
     return () => window.clearTimeout(timeout)
   }, [interactions])
 
@@ -72,9 +88,9 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
     type LockableOrientation = ScreenOrientation & {
       lock?: (orientation: string) => Promise<void>
     }
-    const orientation = (typeof screen !== 'undefined' ? screen.orientation : undefined) as
-      | LockableOrientation
-      | undefined
+    const orientation = (
+      typeof screen !== 'undefined' ? screen.orientation : undefined
+    ) as LockableOrientation | undefined
     if (!orientation || typeof orientation.unlock !== 'function') return
     try {
       orientation.unlock()
@@ -127,43 +143,43 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
     // flight, which would close the session twice and navigate twice.
     if (!session || ending) return
     setEnding(true)
-    const actual = Math.max(0, Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000))
     setEndError(null)
-    const { error } = await supabase
-      .from('focus_sessions')
-      .update({ status, ended_at: new Date().toISOString(), actual_seconds: actual, updated_at: new Date().toISOString() })
-      .eq('id', session.id)
-
-    // Leaving for the hub on an unchecked failure would strand an active row,
-    // and the partial unique index then blocks every future session on it.
-    if (error) {
-      setEndError('That session could not be closed. Check your connection and try again.')
+    try {
+      const result = await finishFocusSession(supabase, session.id, status)
+      if (result.awarded) addXp(result.xpAwarded, result.previousTotal)
+      router.push(returnHref)
+    } catch {
+      setEndError(
+        'That session could not be closed. Check your connection and try again.',
+      )
       setEnding(false)
-      return
     }
-
-    if (status === 'completed') {
-      try {
-        const result = await awardFocusSessionXp(supabase, userId, { ...session, status, actual_seconds: actual })
-        if (result.awarded) addXp(result.xpAwarded, result.previousTotal)
-      } catch (xpError) {
-        // A failed XP write must never cost the session it was paying for.
-        console.error('Failed to award focus XP', xpError)
-      }
-    }
-
-    router.push('/admin/productivity')
   }
 
+  if (loadError)
+    return (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-background p-6">
+        <div className="space-y-4 text-center">
+          <p role="alert">Your focus session could not be loaded.</p>
+          <Button onClick={() => void load()}>Try again</Button>
+          <Button variant="ghost" onClick={() => router.push(returnHref)}>
+            Go back
+          </Button>
+        </div>
+      </div>
+    )
   if (!session) return null
 
-  const elapsed = Math.floor((now - new Date(session.started_at).getTime()) / 1000)
+  const elapsed = Math.floor(
+    (now - new Date(session.started_at).getTime()) / 1000,
+  )
   const remaining = session.planned_minutes * 60 - elapsed
 
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center overflow-hidden text-white"
       onClick={() => setInteractions((count) => count + 1)}
+      onKeyDown={() => setInteractions((count) => count + 1)}
     >
       <NatureBackdrop />
       <div className="absolute inset-0 bg-black/35" />
@@ -171,7 +187,9 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
         <p className="select-none font-mono text-[min(20vw,32vh,9rem)] font-semibold tracking-[-0.08em] tabular-nums drop-shadow-lg">
           {secondsLabel(remaining)}
         </p>
-        <p className="mt-4 max-w-sm text-sm text-white/75 drop-shadow">{quote}</p>
+        <p className="mt-4 max-w-sm text-sm text-white/75 drop-shadow">
+          {quote}
+        </p>
       </div>
       {endError && (
         <p
@@ -183,11 +201,15 @@ export function FullscreenFocusTimer({ userId }: { userId: string }) {
       )}
       <div
         className={cn(
-          'absolute bottom-[max(3rem,env(safe-area-inset-bottom))] flex gap-3 transition-opacity duration-300',
-          interactions > 0 ? 'opacity-100' : 'pointer-events-none opacity-0'
+          'absolute bottom-[max(3rem,env(safe-area-inset-bottom))] flex gap-3 transition-opacity duration-300 focus-within:opacity-100 focus-within:pointer-events-auto',
+          interactions > 0 ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       >
-        <Button variant="secondary" disabled={ending} onClick={() => void end('completed')}>
+        <Button
+          variant="secondary"
+          disabled={ending}
+          onClick={() => void end('completed')}
+        >
           <Check /> Complete
         </Button>
         <Button

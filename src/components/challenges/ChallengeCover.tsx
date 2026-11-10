@@ -11,7 +11,7 @@ import {
   Target,
   Wrench,
 } from 'lucide-react'
-import { challengeImageSrc } from '@/lib/challenge-images'
+import { challengeImageSrc, isOptimizedImageUrl } from '@/lib/challenge-images'
 import { cn } from '@/lib/utils'
 
 const RULE_ICONS: Record<string, LucideIcon> = {
@@ -37,9 +37,13 @@ export function challengeDayIcon(completionType: string | null | undefined): Luc
 
 /**
  * A challenge's or a day's cover, like the article covers on /learn: the
- * image when one is set (next/image, allowed hosts only), otherwise a drawn
- * placeholder with a symbol, so a challenge without pictures still looks
- * finished. The parent sets the size; this fills it.
+ * image when one is set, otherwise a drawn placeholder with a symbol, so a
+ * challenge without pictures still looks finished. The parent sets the size;
+ * this fills it.
+ *
+ * Images from a host in next.config.ts are optimized; any other https host
+ * is loaded by the browser as is (`unoptimized`) and without a referrer, so
+ * the image host does not learn which page of the app it was shown on.
  */
 export function ChallengeCover({
   src,
@@ -65,7 +69,15 @@ export function ChallengeCover({
   return (
     <div className={cn('relative overflow-hidden bg-muted', className)}>
       {image ? (
-        <Image src={image} alt={alt} fill className="object-cover" sizes={sizes} priority={priority} />
+        <Image
+          src={image}
+          alt={alt}
+          fill
+          className="object-cover"
+          sizes={sizes}
+          priority={priority}
+          {...(isOptimizedImageUrl(image) ? {} : { unoptimized: true, referrerPolicy: 'no-referrer' as const })}
+        />
       ) : (
         <div
           className="flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-primary/20 via-primary/5 to-muted text-primary/70"

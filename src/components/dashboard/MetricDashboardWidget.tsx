@@ -1,15 +1,14 @@
 'use client'
 
-import Link from 'next/link'
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { LineChart as LineChartIcon } from 'lucide-react'
 import type { MetricPoint } from '@/lib/metrics'
+import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
 
 interface MetricDashboardWidgetProps {
   label: string
   unit: string | null
   data: MetricPoint[]
-  hasMoreMetrics: boolean
 }
 
 function formatValue(value: number, unit: string | null) {
@@ -28,20 +27,21 @@ export function MetricDashboardWidget({
   label,
   unit,
   data,
-  hasMoreMetrics,
 }: MetricDashboardWidgetProps) {
   const chartData = data.map((point) => ({ ...point, dateLabel: formatDate(point.date) }))
   const latest = data.at(-1)
 
   return (
-    <section className="rounded-2xl border bg-card p-4 shadow-sm">
+    <ClickableSection href="/journal/metrics" className="rounded-2xl border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <LineChartIcon className="size-4" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{label}</p>
+            <h2 className="truncate text-sm font-semibold">
+              <SectionHeadingLink href="/journal/metrics">{label}</SectionHeadingLink>
+            </h2>
             <p className="text-xs text-muted-foreground">Tracked metric</p>
           </div>
         </div>
@@ -82,14 +82,6 @@ export function MetricDashboardWidget({
         </div>
       )}
 
-      {hasMoreMetrics && (
-        <Link
-          href="/journal/metrics"
-          className="mt-3 inline-block text-xs font-medium text-primary underline underline-offset-4"
-        >
-          View all metrics
-        </Link>
-      )}
-    </section>
+    </ClickableSection>
   )
 }

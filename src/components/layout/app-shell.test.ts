@@ -5,6 +5,11 @@ const ENTRY_ID = '3f1a9c2e-7b48-4d51-9a0c-2e8f6b1d4a37'
 const TEMPLATE_ID = 'a91b7d40-52c6-4e8b-8f13-6c0a5d2e9b74'
 
 describe('isImmersiveRoute', () => {
+  it('hides navigation only while the Library focus timer is running', () => {
+    expect(isImmersiveRoute('/learn/tools/focus-timer/run')).toBe(true)
+    expect(isImmersiveRoute('/learn/tools/focus-timer')).toBe(false)
+    expect(isImmersiveRoute('/learn/tools/vision')).toBe(false)
+  })
   it('hides the nav while an entry is being written', () => {
     expect(isImmersiveRoute(`/journal/${ENTRY_ID}`)).toBe(true)
     expect(isImmersiveRoute(`/journal/new/${TEMPLATE_ID}`)).toBe(true)

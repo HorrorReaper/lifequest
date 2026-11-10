@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/ui/page-header'
+import { FeedbackDialog } from '@/components/feedback/FeedbackDialog'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
@@ -41,7 +43,7 @@ export default async function ProfilePage() {
   ])
   const coins = (cityRowData as { coins: number } | null)?.coins ?? 0
 
-  const memberSince = new Date(profile.created_at).toLocaleDateString(undefined, {
+  const memberSince = new Date(profile.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
   })
@@ -49,15 +51,24 @@ export default async function ProfilePage() {
   return (
     <div className="min-h-svh bg-background p-4 pb-20 sm:p-8">
       <div className="max-w-2xl mx-auto space-y-5">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Profile</h1>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/settings">
-              <SettingsIcon className="size-4" />
-              Settings
-            </Link>
-          </Button>
-        </div>
+        {/* The tab that leads here is called Profile too; it used to say
+            Avatar while the page said Profile. */}
+        <PageHeader
+          title="Profile"
+          description="Your avatar, your progress and your account."
+          actions={
+            <>
+              <FeedbackDialog />
+              <Button asChild variant="outline" className="h-11">
+                <Link href="/settings">
+                  <SettingsIcon className="size-4" />
+                  Settings
+                </Link>
+              </Button>
+            </>
+          }
+        />
+
 
         <DashboardHero
           username={profile.username}

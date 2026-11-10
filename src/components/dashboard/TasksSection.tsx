@@ -1,20 +1,26 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronDown, ListTodo, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { awardTaskCompletionXp, createTask, toggleTask, type TaskPriority } from '@/lib/tasks'
+import { completeTaskWithReward, createTask, type TaskPriority } from '@/lib/tasks'
 import type { DashboardTask } from '@/lib/dashboard-tasks'
 import { useUserStore } from '@/lib/stores/user-store'
 import { formatTaskDate } from '@/lib/task-manager'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { ClickableSection } from '@/components/dashboard/ClickableSection'
+import { SectionAddButton } from '@/components/dashboard/SectionAddButton'
+import { SectionStatHeader } from '@/components/dashboard/SectionStatHeader'
 import { TaskEditorDialog, type TaskEditorDraft } from '@/components/tasks/TaskEditorDialog'
 
 interface TasksSectionProps {
   userId: string
+  /** The user's current day, from the profile timezone. */
+  today?: string
+  /** Tasks with a block in today's plan, marked "In plan". */
+  plannedTaskIds?: readonly string[]
   /** Due today or earlier. */
   dueTasks: DashboardTask[]
   /**
@@ -26,7 +32,6 @@ interface TasksSectionProps {
    */
   undatedTasks: DashboardTask[]
   /** Every open task, for the footer count. */
-  openTaskCount: number
 }
 
 const TASKS_PREVIEW_COUNT = 5
@@ -39,9 +44,10 @@ const priorityStripe: Record<TaskPriority, string> = {
 
 export function TasksSection({
   userId,
+  today,
+  plannedTaskIds = [],
   dueTasks,
   undatedTasks,
-  openTaskCount,
 }: TasksSectionProps) {
   const [supabase] = useState(() => createClient())
   const router = useRouter()
@@ -86,16 +92,9 @@ export function TasksSection({
     setCompletedIds((current) => new Set(current).add(task.id))
 
     try {
-      await toggleTask(supabase, task.id, true)
-
-      try {
-        // awardTaskCompletionXp checks for an existing xp_event first, so a
-        // repeat completion cannot double-award.
-        const result = await awardTaskCompletionXp(supabase, userId, task)
-        if (result.awarded) addXp(5, result.previousTotal)
-      } catch (xpError) {
-        console.error('Failed to award task XP', xpError)
-      }
+      // Pays XP once per task, however often it is reopened and completed.
+      const result = await completeTaskWithReward(supabase, userId, task)
+      if (result.awarded) addXp(5, result.previousTotal)
 
       window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
       router.refresh()
@@ -116,32 +115,42 @@ export function TasksSection({
   }
 
   return (
-    <section className="rounded-2xl border bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <ListTodo className="size-4" />
-          </span>
-          <h2 className="text-lg font-semibold sm:text-base">Tasks</h2>
+    <ClickableSection href="/tasks" className="rounded-2xl border bg-card p-5">
+      {/* Empty, the section's own "Add task" button is the way in. The
+          number counts what is due today itself; overdue and undated work
+          sits beside it as chips rather than inflating it. */}
+      <SectionStatHeader
+        icon={ListTodo}
+        title="Tasks"
+        href="/tasks"
+        value={tasks.length > 0 ? dueTasks.length - overdueCount : undefined}
+        unit="due today"
+        action={
+          tasks.length > 0 && (
+            <SectionAddButton label="Add task" onClick={() => setEditorOpen(true)} />
+          )
+        }
+      />
+
+      {(overdueCount > 0 || showingUndated) && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {overdueCount > 0 && (
+            <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-sm font-medium tabular-nums text-destructive sm:text-xs">
+              {overdueCount} overdue
+            </span>
+          )}
+          {showingUndated && (
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-sm tabular-nums text-muted-foreground sm:text-xs">
+              {undatedTasks.length} without a date
+            </span>
+          )}
         </div>
-        <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
-          {showingUndated ? (
-            <>Nothing due today &middot; {undatedTasks.length} unscheduled</>
-          ) : dueTasks.length > 0 ? (
-            <>
-              {overdueCount > 0 && (
-                <span className="text-destructive">{overdueCount} overdue &middot; </span>
-              )}
-              {dueTasks.length - overdueCount} today
-            </>
-          ) : null}
-        </span>
-      </div>
+      )}
 
       {tasks.length === 0 ? (
         <div className="mt-4 space-y-3">
-          <p className="text-base leading-relaxed text-muted-foreground sm:text-sm">
-            Nothing due today.
+          <p className="text-base leading-relaxed text-muted-foreground">
+            Nothing due today. Capture the next thing that needs doing.
           </p>
           <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
             <Plus />
@@ -161,6 +170,9 @@ export function TasksSection({
                       down at sm where a cursor needs less room than a thumb. */}
                   <button
                     type="button"
+                    role="checkbox"
+                    aria-checked={done}
+                    aria-label={done ? `${task.title}, completed` : `Complete ${task.title}`}
                     onClick={() => void completeTask(task)}
                     disabled={busy || done}
                     className={cn(
@@ -192,12 +204,17 @@ export function TasksSection({
                     </span>
                     <span
                       className={cn(
-                        'min-w-0 flex-1 truncate text-lg sm:text-base',
+                        'min-w-0 flex-1 truncate text-base',
                         done && 'text-muted-foreground line-through'
                       )}
                     >
                       {task.title}
                     </span>
+                    {!done && plannedTaskIds.includes(task.id) && (
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+                        In plan
+                      </span>
+                    )}
                     {task.dueDate && (
                       <span
                         className={cn(
@@ -205,7 +222,7 @@ export function TasksSection({
                           task.isOverdue ? 'text-destructive' : 'text-muted-foreground'
                         )}
                       >
-                        {task.isOverdue ? 'Overdue' : formatTaskDate(task.dueDate)}
+                        {task.isOverdue ? 'Overdue' : `Due ${formatTaskDate(task.dueDate)}`}
                       </span>
                     )}
                   </button>
@@ -227,28 +244,21 @@ export function TasksSection({
               />
             </button>
           )}
-
-          <div className="mt-4 flex items-center justify-between border-t pt-3">
-            <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
-              <Plus />
-              Add task
-            </Button>
-            <Link
-              href="/tasks"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
-            >
-              All tasks{openTaskCount > 0 && ` (${openTaskCount})`} →
-            </Link>
-          </div>
         </>
       )}
 
-      {error && <p className="mt-3 text-sm text-destructive sm:text-xs">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
 
       <TaskEditorDialog
         key={editorOpen ? 'open' : 'closed'}
         open={editorOpen}
         task={null}
+        today={today}
         saving={editorSaving}
         error={editorError}
         onOpenChange={(open) => {
@@ -257,6 +267,6 @@ export function TasksSection({
         }}
         onSubmit={handleCreate}
       />
-    </section>
+    </ClickableSection>
   )
 }

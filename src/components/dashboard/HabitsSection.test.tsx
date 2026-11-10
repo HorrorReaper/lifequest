@@ -42,6 +42,7 @@ beforeEach(() => {
   setHabitLogCompletion.mockReset().mockResolvedValue({})
   applyHabitCheckInReward.mockReset().mockResolvedValue(null)
   createHabit.mockReset().mockResolvedValue({ id: 'new-habit' })
+  window.sessionStorage.clear()
 })
 
 describe('HabitsSection', () => {
@@ -68,7 +69,14 @@ describe('HabitsSection', () => {
       />
     )
 
-    expect(screen.getByText('1 of 2 today')).toBeTruthy()
+    // The number and its unit are styled apart but read as one phrase.
+    expect(screen.getByText('of 2 today').parentElement?.textContent).toBe('1 of 2 today')
+  })
+
+  it('shows no count while there are no habits', () => {
+    render(<HabitsSection userId="user-1" today="2026-08-31" habits={[]} />)
+
+    expect(screen.queryByText(/of 0 today/)).toBeNull()
   })
 
   it('rewards a check-in with the streak through yesterday plus today', async () => {
@@ -191,5 +199,109 @@ describe('HabitsSection', () => {
     await waitFor(() =>
       expect(screen.getByText(/already exists/i)).toBeTruthy()
     )
+  })
+
+  it('lists the habits still open above the ones already done', () => {
+    render(
+      <HabitsSection
+        userId="user-1"
+        today="2026-08-31"
+        habits={[
+          habit({ completed: true }),
+          habit({ id: 'habit-2', name: 'Read' }),
+          habit({ id: 'habit-3', name: 'Walk' }),
+        ]}
+      />
+    )
+
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      expect.stringContaining('Read'),
+      expect.stringContaining('Walk'),
+      expect.stringContaining('Meditation'),
+    ])
+  })
+
+  it('drops a habit below the open ones as soon as it is ticked off', async () => {
+    render(
+      <HabitsSection
+        userId="user-1"
+        today="2026-08-31"
+        habits={[habit(), habit({ id: 'habit-2', name: 'Read' })]}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /meditation/i }))
+
+    await waitFor(() =>
+      expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+        expect.stringContaining('Read'),
+        expect.stringContaining('Meditation'),
+      ])
+    )
+  })
+
+  describe('when the last habit of the day is ticked off', () => {
+    const twoHabits = () => [
+      habit({ completed: true }),
+      habit({ id: 'habit-2', name: 'Read' }),
+    ]
+    const status = () => screen.getByRole('status')
+
+    it('swaps the count for "All done today" and announces it', async () => {
+      render(<HabitsSection userId="user-1" today="2026-08-31" habits={twoHabits()} />)
+      expect(screen.queryByText('All done today')).toBeNull()
+
+      fireEvent.click(screen.getByRole('button', { name: /read/i }))
+
+      expect(screen.getByText('All done today')).toBeTruthy()
+      expect(screen.queryByText('of 2 today')).toBeNull()
+      expect(status().textContent).toBe('All habits done today')
+      await waitFor(() => expect(setHabitLogCompletion).toHaveBeenCalled())
+    })
+
+    it('shows the finished day without celebrating it again on load', () => {
+      render(
+        <HabitsSection
+          userId="user-1"
+          today="2026-08-31"
+          habits={[habit({ completed: true }), habit({ id: 'habit-2', name: 'Read', completed: true })]}
+        />
+      )
+
+      expect(screen.getByText('All done today')).toBeTruthy()
+      expect(status().textContent).toBe('')
+    })
+
+    it('celebrates once a day, not again after unticking and reticking', async () => {
+      render(<HabitsSection userId="user-1" today="2026-08-31" habits={twoHabits()} />)
+      const read = screen.getByRole('button', { name: /read/i })
+
+      fireEvent.click(read)
+      await waitFor(() => expect(read.hasAttribute('disabled')).toBe(false))
+      fireEvent.click(read)
+      await waitFor(() => expect(screen.queryByText('All done today')).toBeNull())
+      await waitFor(() => expect(read.hasAttribute('disabled')).toBe(false))
+      // Let the first celebration's announcement run out.
+      await waitFor(() => expect(status().textContent).toBe(''), { timeout: 3000 })
+
+      fireEvent.click(read)
+      expect(screen.getByText('All done today')).toBeTruthy()
+      expect(status().textContent).toBe('')
+    })
+
+    it('gives the celebration back when the check-in fails to save', async () => {
+      setHabitLogCompletion.mockRejectedValueOnce(new Error('offline'))
+      render(<HabitsSection userId="user-1" today="2026-08-31" habits={twoHabits()} />)
+      const read = screen.getByRole('button', { name: /read/i })
+
+      fireEvent.click(read)
+      await waitFor(() => expect(screen.getByText('offline')).toBeTruthy())
+      expect(screen.queryByText('All done today')).toBeNull()
+      expect(status().textContent).toBe('')
+
+      fireEvent.click(read)
+      expect(status().textContent).toBe('All habits done today')
+      await waitFor(() => expect(setHabitLogCompletion).toHaveBeenCalledTimes(2))
+    })
   })
 })

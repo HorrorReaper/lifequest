@@ -1,5 +1,11 @@
-export type LearningPathId = 'social-skills' | 'entrepreneurship' | 'fitness'
+export type LearningPathId = 'social-skills' | 'entrepreneurship' | 'fitness' | 'entrepreneurial-information-systems'
 export type LearningDifficulty = 'foundation' | 'intermediate' | 'advanced'
+
+export type LearningPerspective = 'product' | 'company'
+export interface LearningContentBlock {
+  type: 'sequence' | 'comparison' | 'callout'
+  items: { title: string; body: string }[]
+}
 
 export interface ConceptExercise {
   id: string
@@ -7,6 +13,8 @@ export interface ConceptExercise {
   title: string
   body: string
   takeaway: string
+  blocks?: LearningContentBlock[]
+  perspectives?: Record<LearningPerspective, { body: string; blocks?: LearningContentBlock[] }>
 }
 
 export interface ChoiceExercise {
@@ -41,6 +49,7 @@ export interface ReflectionExercise {
   type: 'reflection'
   prompt: string
   placeholder: string
+  practiceMinutes?: number
 }
 
 /**
@@ -600,7 +609,7 @@ export function validateLearningCatalog(
   const catalog = value as Partial<LearningCatalog>
   if (catalog.version !== 1 || !Array.isArray(catalog.paths) || catalog.paths.length === 0) return false
 
-  const allowedPathIds = new Set<LearningPathId>(['social-skills', 'entrepreneurship', 'fitness'])
+  const allowedPathIds = new Set<LearningPathId>(['social-skills', 'entrepreneurship', 'fitness', 'entrepreneurial-information-systems'])
   const allowedAccents = new Set<LearningPath['accent']>(['violet', 'amber', 'emerald'])
   const allowedDifficulties = new Set<LearningDifficulty>(['foundation', 'intermediate', 'advanced'])
   const pathIds = new Set<string>()
@@ -657,10 +666,19 @@ export function validateLearningCatalog(
           switch (exercise.type) {
             case 'concept':
               if (!exercise.title || !exercise.body || !exercise.takeaway) return false
+              if (exercise.blocks !== undefined && !validateLearningBlocks(exercise.blocks)) return false
+              if (exercise.perspectives !== undefined) {
+                for (const key of ['product', 'company'] as const) {
+                  const perspective = exercise.perspectives[key]
+                  if (!perspective || typeof perspective.body !== 'string' || !perspective.body.trim()) return false
+                  if (perspective.blocks !== undefined && !validateLearningBlocks(perspective.blocks)) return false
+                }
+              }
               break
             case 'choice':
             case 'scenario':
               const correctIndexIsValid =
+                Array.isArray(exercise.options) &&
                 Number.isInteger(exercise.correctIndex) &&
                 exercise.correctIndex! >= 0 &&
                 exercise.correctIndex! < exercise.options.length
@@ -670,7 +688,7 @@ export function validateLearningCatalog(
                 !exercise.explanation ||
                 !Array.isArray(exercise.options) ||
                 exercise.options.length < 2 ||
-                exercise.options.some((option) => !option.trim()) ||
+                exercise.options.some((option) => typeof option !== 'string' || !option.trim()) ||
                 (options.answersRequired !== false && !correctIndexIsValid) ||
                 (exercise.correctIndex !== undefined && !correctIndexIsValid)
               ) {
@@ -683,7 +701,7 @@ export function validateLearningCatalog(
                 !exercise.explanation ||
                 !Array.isArray(exercise.items) ||
                 exercise.items.length < 2 ||
-                exercise.items.some((item) => !item.trim()) ||
+                exercise.items.some((item) => typeof item !== 'string' || !item.trim()) ||
                 new Set(exercise.items).size !== exercise.items.length
               ) {
                 return false
@@ -691,6 +709,7 @@ export function validateLearningCatalog(
               break
             case 'reflection':
               if (!exercise.prompt || !exercise.placeholder) return false
+              if (exercise.practiceMinutes !== undefined && (!Number.isInteger(exercise.practiceMinutes) || exercise.practiceMinutes < 1)) return false
               break
             case 'tool':
               // Only the shape is checked here. Whether toolId resolves is
@@ -706,4 +725,14 @@ export function validateLearningCatalog(
     }
   }
   return true
+}
+
+export function validateLearningBlocks(value: unknown): value is LearningContentBlock[] {
+  return Array.isArray(value) && value.length <= 8 && value.every((block) =>
+    block && ['sequence', 'comparison', 'callout'].includes(block.type) &&
+    Array.isArray(block.items) && block.items.length > 0 && block.items.length <= 6 &&
+    block.items.every((item: { title?: unknown; body?: unknown }) =>
+      item && typeof item.title === 'string' && !!item.title.trim() && typeof item.body === 'string' && !!item.body.trim()
+    )
+  )
 }

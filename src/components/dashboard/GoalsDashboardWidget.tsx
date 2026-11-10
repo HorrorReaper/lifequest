@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Archive, CheckCircle2, Loader2, Minus, Plus, Sparkles, Target } from 'lucide-react'
+import { Archive, CheckCircle2, Loader2, Plus, Sparkles, Target } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { createGoal, GOAL_CATEGORIES, updateGoalStatus } from '@/lib/goals'
 import { createCustomQuest } from '@/lib/quests'
 import type { Goal, GoalCategory } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { GoalEditorDialog, type GoalEditorValue } from '@/components/dashboard/GoalEditorDialog'
+import { SectionAddButton } from '@/components/dashboard/SectionAddButton'
 import { cn } from '@/lib/utils'
 
 interface GoalsDashboardWidgetProps {
@@ -58,43 +59,38 @@ export function GoalsDashboardWidget({
   const router = useRouter()
 
   const [goals, setGoals] = useState(initialGoals)
-  const [showAddForm, setShowAddForm] = useState(initiallyOpen)
-  const [title, setTitle] = useState('')
-  const [why, setWhy] = useState('')
-  const [category, setCategory] = useState<GoalCategory>('personal')
-  const [targetDate, setTargetDate] = useState('')
+  // initiallyOpen comes from GOAL_FORM_HREF (e.g. a challenge's goals day).
+  const [dialogOpen, setDialogOpen] = useState(initiallyOpen)
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [generatingGoalId, setGeneratingGoalId] = useState<string | null>(null)
   const [addingSuggestionKey, setAddingSuggestionKey] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<Record<string, QuestSuggestion[]>>({})
   const [error, setError] = useState<string | null>(null)
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const trimmedTitle = title.trim()
-    if (!trimmedTitle) return
+  function openDialog() {
+    setCreateError(null)
+    setDialogOpen(true)
+  }
 
+  async function handleCreate(value: GoalEditorValue) {
     setCreating(true)
-    setError(null)
+    setCreateError(null)
 
     try {
       const goal = await createGoal(supabase, userId, {
-        title: trimmedTitle,
-        why,
-        category,
-        target_date: targetDate || null,
+        title: value.title,
+        why: value.why,
+        category: value.category,
+        target_date: value.targetDate || null,
       })
       setGoals((current) => [goal, ...current])
-      setTitle('')
-      setWhy('')
-      setCategory('personal')
-      setTargetDate('')
-      setShowAddForm(false)
+      setDialogOpen(false)
       router.refresh()
     } catch (err) {
       console.error('Failed to create goal:', err)
-      setError('Could not create this goal. Please try again.')
+      setCreateError('Could not create this goal. Please try again.')
     } finally {
       setCreating(false)
     }
@@ -177,77 +173,17 @@ export function GoalsDashboardWidget({
           <h2 className="text-sm font-semibold">Your Goals</h2>
         </div>
         <div className="flex items-center gap-2">
+          {/* Empty, the "Add Goal" button below is the way in. */}
           {goals.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {goals.length} active
-            </span>
+            <>
+              <span className="text-xs text-muted-foreground">
+                {goals.length} active
+              </span>
+              <SectionAddButton label="Add goal" onClick={openDialog} />
+            </>
           )}
-          <Button
-            type="button"
-            size="sm"
-            variant={showAddForm ? 'outline' : 'default'}
-            onClick={() => setShowAddForm((open) => !open)}
-          >
-            {showAddForm ? (
-              <Minus className="mr-1 size-4" />
-            ) : (
-              <Plus className="mr-1 size-4" />
-            )}
-            {showAddForm ? 'Close' : 'Add'}
-          </Button>
         </div>
       </div>
-
-      {showAddForm && (
-        <form onSubmit={handleCreate} className="space-y-2 rounded-lg border bg-muted/30 p-3">
-          <Input
-            placeholder="What goal should motivate you?"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            disabled={creating}
-            maxLength={120}
-            autoFocus
-          />
-          <Input
-            placeholder="Why does this matter?"
-            value={why}
-            onChange={(event) => setWhy(event.target.value)}
-            disabled={creating}
-            maxLength={500}
-          />
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1.2fr_1fr_auto]">
-            <select
-              value={category}
-              onChange={(event) => setCategory(event.target.value as GoalCategory)}
-              disabled={creating}
-              className="flex h-10 rounded-lg border border-input bg-background px-3 text-sm sm:h-8 sm:px-2 sm:text-xs"
-              aria-label="Goal category"
-            >
-              {Object.entries(GOAL_CATEGORIES).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <Input
-              type="date"
-              value={targetDate}
-              onChange={(event) => setTargetDate(event.target.value)}
-              disabled={creating}
-              className="h-10 text-sm sm:h-8 sm:text-xs"
-              aria-label="Target date"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={creating || !title.trim()}
-              className="col-span-2 h-10 sm:col-span-1 sm:h-8"
-            >
-              {creating ? 'Adding...' : 'Save'}
-            </Button>
-          </div>
-        </form>
-      )}
 
       {error && <p className="text-xs text-destructive">{error}</p>}
 
@@ -257,12 +193,10 @@ export function GoalsDashboardWidget({
           <p className="mt-1 text-xs text-muted-foreground">
             Add one meaningful direction so your quests and habits have a reason behind them.
           </p>
-          {!showAddForm && (
-            <Button className="mt-3" size="sm" variant="outline" onClick={() => setShowAddForm(true)}>
-              <Plus className="mr-1.5 size-4" />
-              Add Goal
-            </Button>
-          )}
+          <Button className="mt-3" size="sm" variant="outline" onClick={openDialog}>
+            <Plus className="mr-1.5 size-4" />
+            Add Goal
+          </Button>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -379,6 +313,14 @@ export function GoalsDashboardWidget({
           })}
         </ul>
       )}
+
+      <GoalEditorDialog
+        open={dialogOpen}
+        busy={creating}
+        error={createError}
+        onOpenChange={setDialogOpen}
+        onSubmit={handleCreate}
+      />
     </div>
   )
 }

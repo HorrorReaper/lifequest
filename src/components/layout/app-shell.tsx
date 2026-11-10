@@ -2,12 +2,17 @@
 
 import { usePathname } from 'next/navigation'
 import { BottomNav } from '@/components/layout/bottom-nav'
+import { AppTopBar } from '@/components/layout/app-top-bar'
+import { useShellStats } from '@/components/layout/use-shell-stats'
 import { ChatbotWidget } from '@/components/ai/chatbot-widget'
+import type { ShellStats } from '@/lib/shell-stats'
 import { cn } from '@/lib/utils'
 
 interface AppShellProps {
   children: React.ReactNode
   isAdmin?: boolean
+  /** Loaded by the (app) layout; the live values come from `useShellStats`. */
+  initialStats: ShellStats
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -47,15 +52,17 @@ export function isImmersiveRoute(pathname: string) {
   return (
     pathname.startsWith('/admin') ||
     pathname === '/plan' ||
+    pathname === '/learn/tools/focus-timer/run' ||
     (segments[0] === 'learn' && segments.length === 2) ||
     (pathname.startsWith('/routines/') && pathname.endsWith('/run')) ||
     isJournalEntryRoute(pathname)
   )
 }
 
-export function AppShell({ children, isAdmin = false }: AppShellProps) {
+export function AppShell({ children, isAdmin = false, initialStats }: AppShellProps) {
   const pathname = usePathname()
   const immersive = isImmersiveRoute(pathname)
+  const stats = useShellStats(initialStats)
 
   return (
     <div
@@ -64,8 +71,9 @@ export function AppShell({ children, isAdmin = false }: AppShellProps) {
         immersive ? 'pb-0' : 'pb-[calc(var(--bottom-nav-height)+var(--safe-area-bottom))]'
       )}
     >
+      {!immersive && <AppTopBar stats={stats} />}
       {children}
-      {!immersive && <BottomNav isAdmin={isAdmin} />}
+      {!immersive && <BottomNav isAdmin={isAdmin} equippedItems={stats.equippedItems} />}
       {!immersive && isAdmin && <ChatbotWidget />}
     </div>
   )

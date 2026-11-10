@@ -897,6 +897,8 @@ export interface Database {
       }
     }
     Functions: {
+      start_focus_session: { Args: { p_planned_minutes: number; p_task_id?: string | null }; Returns: Json }
+      finish_focus_session: { Args: { p_session_id: string; p_status: string }; Returns: Json }
       ensure_contact_defaults: { Args: Record<string, never>; Returns: undefined }
       list_contacts: { Args: { p_today: string; p_search?: string; p_group?: string | null; p_archived?: boolean; p_favorites?: boolean; p_sort?: string; p_page?: number }; Returns: Json }
       get_contact_detail: { Args: { p_contact_id: string; p_today: string }; Returns: Json }

@@ -101,7 +101,9 @@ describe('AcademyLibrary', () => {
     expect(within(done).getByText('Article e')).toBeTruthy()
   })
 
-  it('reports reading progress and the XP it earned', () => {
+  // The stats block is commented out in AcademyLibrary for now; un-skip this
+  // when it comes back.
+  it.skip('reports reading progress and the XP it earned', () => {
     render(<AcademyLibrary lessons={LIBRARY} insights={[]} />)
 
     expect(screen.getByText('1 of 5')).toBeTruthy()

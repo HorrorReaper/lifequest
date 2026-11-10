@@ -17,7 +17,6 @@ import {
 import { formatRuleProgress, getChallengeRule, resolveDayAction, withChallengeReturn } from '@/lib/challenge-rules'
 import type { ChallengeView } from '@/lib/challenges'
 import { useUserStore } from '@/lib/stores/user-store'
-import { cn } from '@/lib/utils'
 import { ChallengeCover, challengeDayIcon } from '@/components/challenges/ChallengeCover'
 
 /**
@@ -27,19 +26,11 @@ import { ChallengeCover, challengeDayIcon } from '@/components/challenges/Challe
  * re-reads the program, so this component never has to mirror the RPCs'
  * bookkeeping in local state.
  */
-export function ChallengeTodayPanel({
-  program,
-  view,
-  compact = false,
-}: {
-  program: ChallengeProgram
-  view: ChallengeView
-  /** Dashboard variant: shorter copy, links to the detail page. */
-  compact?: boolean
-}) {
+export function ChallengeTodayPanel({ program, view }: { program: ChallengeProgram; view: ChallengeView }) {
   const router = useRouter()
   const addXp = useUserStore((s) => s.addXp)
   const setCoins = useUserStore((s) => s.setCoins)
+  const notifyChallengeDay = useUserStore((s) => s.notifyChallengeDay)
   const [note, setNote] = useState('')
   const [working, setWorking] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -48,6 +39,19 @@ export function ChallengeTodayPanel({
   const { template } = program
   const day = view.currentDay
   const busy = working !== null || refreshing
+
+  function celebrate(dayNumber: number, challengeCompleted: boolean) {
+    if (!program.enrollment) return
+    notifyChallengeDay({
+      enrollmentId: program.enrollment.id,
+      challengeTitle: template.title,
+      dayNumber,
+      totalDays: template.duration_days,
+      challengeCompleted,
+      xpReward: template.xp_reward,
+      coinReward: template.coin_reward,
+    })
+  }
 
   async function run(label: string, action: () => Promise<string | null>) {
     setWorking(label)
@@ -67,7 +71,6 @@ export function ChallengeTodayPanel({
   const start = () =>
     run('start', async () => {
       await startChallengeProgram(createClient(), template.id)
-      if (compact) router.push(`/challenges/${template.id}`)
       return 'Challenge started. Day 1 is waiting for you.'
     })
 
@@ -82,6 +85,7 @@ export function ChallengeTodayPanel({
       if (!program.enrollment) return null
       const result = await completeChallengeProgramDay(createClient(), program.enrollment.id, note)
       setNote('')
+      celebrate(result.completed_day, result.challenge_completed)
       if (result.challenge_completed) {
         addXp(template.xp_reward, result.total_xp - template.xp_reward)
         setCoins(result.coins)
@@ -95,6 +99,7 @@ export function ChallengeTodayPanel({
       const rows = await syncChallengeProgress(createClient())
       const row = rows.find((item) => item.enrollment_id === program.enrollment?.id)
       if (row?.completed_now) {
+        celebrate(row.day_number, row.challenge_completed)
         return row.challenge_completed
           ? `Challenge complete! +${template.xp_reward} XP, +${template.coin_reward} coins.`
           : `Day ${row.day_number} detected and completed.`
@@ -102,7 +107,6 @@ export function ChallengeTodayPanel({
       return row ? `Not yet: ${formatRuleProgress(row.completion_type, row.progress, row.target)}.` : null
     })
 
-  const detailHref = `/challenges/${template.id}`
   const feedback = (
     <>
       {message && <p className="mt-3 text-xs text-primary">{message}</p>}
@@ -142,12 +146,10 @@ export function ChallengeTodayPanel({
             <p className="text-xs opacity-80">All {template.duration_days} days done. That was the work, well done.</p>
           </div>
         </div>
-        {!compact && (
-          <Button variant="outline" size="sm" className="mt-4" onClick={restart} disabled={busy}>
-            <RotateCcw />
-            Do it again
-          </Button>
-        )}
+        <Button variant="outline" size="sm" className="mt-4" onClick={restart} disabled={busy}>
+          <RotateCcw />
+          Do it again
+        </Button>
         {feedback}
       </div>
     )
@@ -187,7 +189,6 @@ export function ChallengeTodayPanel({
             </p>
           </div>
         </div>
-        {compact && <DetailLink href={detailHref} />}
         {feedback}
       </div>
     )
@@ -203,7 +204,7 @@ export function ChallengeTodayPanel({
         alt=""
         icon={challengeDayIcon(day.completion_type)}
         label={`Day ${day.day_number}`}
-        className={compact ? 'h-24 w-full' : 'h-36 w-full sm:h-44'}
+        className="h-36 w-full sm:h-44"
       />
       <div className="p-4 sm:p-5">
         <div className="flex items-start gap-3">
@@ -215,12 +216,7 @@ export function ChallengeTodayPanel({
               Today · Day {day.day_number} of {template.duration_days}
             </p>
             <h3 className="mt-1 font-semibold">{day.title}</h3>
-            <p
-              className={cn(
-                'mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground',
-                compact && 'line-clamp-3'
-              )}
-            >
+            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
               {day.instructions}
             </p>
           </div>
@@ -250,7 +246,7 @@ export function ChallengeTodayPanel({
           </div>
         )}
 
-        {!view.automatic && !compact && day.reflection_prompt && (
+        {!view.automatic && day.reflection_prompt && (
           <div className="mt-4">
             <p className="mb-2 text-xs text-muted-foreground">{day.reflection_prompt}</p>
             <Textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional reflection note" />
@@ -277,24 +273,9 @@ export function ChallengeTodayPanel({
               Mark day as done
             </Button>
           )}
-          {compact && <DetailLink href={detailHref} inline />}
         </div>
         {feedback}
       </div>
     </div>
-  )
-}
-
-function DetailLink({ href, inline = false }: { href: string; inline?: boolean }) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        'inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground',
-        inline ? 'ml-auto self-center' : 'mt-3'
-      )}
-    >
-      All days <ArrowRight className="size-3" />
-    </Link>
   )
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { resolveStreak, streakMilestoneBonus } from '@/lib/streak'
+import {
+  nextStreakMilestone,
+  resolveStreak,
+  streakCelebration,
+  streakMilestoneBonus,
+} from '@/lib/streak'
 
 const base = {
   today: '2026-07-25',
@@ -120,16 +125,93 @@ describe('resolveStreak', () => {
 })
 
 describe('streakMilestoneBonus', () => {
+  const reaching = (streak: number) =>
+    resolveStreak({ ...base, currentStreak: streak - 1 })
+
   it('awards a bonus only on the exact milestone day', () => {
-    expect(streakMilestoneBonus(7)).toBe(50)
-    expect(streakMilestoneBonus(14)).toBe(100)
-    expect(streakMilestoneBonus(30)).toBe(200)
-    expect(streakMilestoneBonus(100)).toBe(500)
+    expect(streakMilestoneBonus(reaching(7))).toBe(50)
+    expect(streakMilestoneBonus(reaching(14))).toBe(100)
+    expect(streakMilestoneBonus(reaching(30))).toBe(200)
+    expect(streakMilestoneBonus(reaching(100))).toBe(500)
   })
 
   it('awards nothing between milestones', () => {
-    expect(streakMilestoneBonus(6)).toBe(0)
-    expect(streakMilestoneBonus(8)).toBe(0)
-    expect(streakMilestoneBonus(101)).toBe(0)
+    expect(streakMilestoneBonus(reaching(6))).toBe(0)
+    expect(streakMilestoneBonus(reaching(8))).toBe(0)
+    expect(streakMilestoneBonus(reaching(101))).toBe(0)
+  })
+
+  it('awards the bonus when a freeze carries the streak onto a milestone', () => {
+    const transition = resolveStreak({
+      ...base,
+      lastJournalDate: '2026-07-23',
+      currentStreak: 6,
+      streakFreezes: 1,
+    })
+
+    expect(transition.reason).toBe('frozen')
+    expect(streakMilestoneBonus(transition)).toBe(50)
+  })
+
+  it('awards nothing for a further entry on a day that already reached the milestone', () => {
+    // The streak stays at 7 for every later entry that day; paying the bonus
+    // on the value alone granted it once per entry.
+    const transition = resolveStreak({
+      ...base,
+      lastJournalDate: '2026-07-25',
+      currentStreak: 7,
+    })
+
+    expect(transition.reason).toBe('same_day')
+    expect(streakMilestoneBonus(transition)).toBe(0)
+  })
+})
+
+describe('nextStreakMilestone', () => {
+  it('names the next milestone above the current streak', () => {
+    expect(nextStreakMilestone(1)).toEqual({ days: 7, bonus: 50 })
+    expect(nextStreakMilestone(7)).toEqual({ days: 14, bonus: 100 })
+    expect(nextStreakMilestone(99)).toEqual({ days: 100, bonus: 500 })
+  })
+
+  it('has none left past the last milestone', () => {
+    expect(nextStreakMilestone(100)).toBeNull()
+  })
+})
+
+describe('streakCelebration', () => {
+  it('celebrates a consecutive day, from the old streak to the new one', () => {
+    expect(streakCelebration(resolveStreak(base), 4)).toEqual({
+      from: 4,
+      to: 5,
+      usedFreeze: false,
+      bonusXp: 0,
+    })
+  })
+
+  it('celebrates a day a freeze bridged, and says so', () => {
+    const transition = resolveStreak({
+      ...base,
+      lastJournalDate: '2026-07-23',
+      streakFreezes: 1,
+    })
+
+    expect(streakCelebration(transition, 4)).toMatchObject({ to: 5, usedFreeze: true })
+  })
+
+  it('carries the milestone bonus the extension earned', () => {
+    const transition = resolveStreak({ ...base, currentStreak: 6 })
+
+    expect(streakCelebration(transition, 6)).toMatchObject({ to: 7, bonusXp: 50 })
+  })
+
+  it('celebrates nothing when the streak did not grow', () => {
+    const sameDay = resolveStreak({ ...base, lastJournalDate: '2026-07-25' })
+    const first = resolveStreak({ ...base, lastJournalDate: null, currentStreak: 0 })
+    const reset = resolveStreak({ ...base, lastJournalDate: '2026-07-20' })
+
+    expect(streakCelebration(sameDay, 4)).toBeNull()
+    expect(streakCelebration(first, 0)).toBeNull()
+    expect(streakCelebration(reset, 4)).toBeNull()
   })
 })

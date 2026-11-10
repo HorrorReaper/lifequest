@@ -85,6 +85,9 @@ For a release containing an additive migration:
 
 Avoid deploying browser code that requires a column/function before the database has it. For destructive or incompatible changes, use expand-and-contract across multiple releases.
 
+The first-cohort release (`feat/first-cohort-readiness`) adds `supabase/migrations/20261025120000_beta_feedback_and_activation.sql`. It is additive. Without it the app still works, except that "Send feedback" shows its failure message and the Beta activation card on `/admin/tools` says the numbers are not available yet; apply it before inviting the cohort.
+
+
 ## Production smoke test
 
 After Vercel reports Ready:
@@ -142,3 +145,13 @@ The generated `supabase/.temp/` CLI cache is ignored and is not part of the rele
 Contacts rollout requires contacts_management before deploying the new routes and Calendar source. Staging/Production share a database; verify migrations locally first, apply the additive schema, verify deployed RPCs with a rollback-only smoke transaction, then publish the application. Application rollback leaves contact tables intact.
 
 The contacts_management migration was applied to the shared LifeQuest database as 20261004193855 after disposable Postgres tests. A deployed-schema smoke transaction checked shared occasions, idempotent task creation, note unlinking, archive visibility and normal-user denial, then rolled back all test data. Advisor checks found no new Contacts security warnings; new indexes can appear unused before regular traffic.
+
+## Admin Academy rollout
+
+Apply `20261029191235_learning_academy.sql` to the intended Supabase environment before saving the optional fourth course. Confirm the intended admin has trusted `app_metadata.role = admin`; email/route allowlisting alone is insufficient. The migration does not change account roles, seed content or publish drafts. Legacy article rewards and shared Toolbox operations are unaffected.
+
+After deployment, `/learn` offers the authored personal course as a labelled device-only preview if it has no published version. In Learning Studio, use Add personal course, inspect Preview draft, Save draft and explicitly Publish. Existing enrollments stay pinned to their prior versions. Verify normal users and normal-user preview retain the original Library and cannot call course RPCs. A code deployment without the database migration does not establish that backend role boundary.
+
+## Library focus timer
+
+Apply `20261029203006_library_focus_timer.sql` before deploying the Toolbox timer or updated admin timer. It adds owner SELECT and authenticated server-timed RPCs, preserving existing admin policies for compatibility. It has no dependency on the optional Academy migration and changes no existing sessions or roles. Verify normal-user start/resume/complete/cancel and admin return navigation. Rolling the frontend back is compatible with the additive migration; do not remove the RPCs while the new clients are deployed.

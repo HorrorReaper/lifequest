@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, CalendarClock } from 'lucide-react'
 import {
   Dialog,
@@ -45,7 +44,6 @@ export function DailyPlanPrompt({
   heldBackBy = null,
   onPreviewClose,
 }: DailyPlanPromptProps) {
-  const reduceMotion = useReducedMotion()
   const { dismissed, dismiss } = usePromptDismissal(ritualDismissKey('daily_plan', today))
   const heldBack = usePromptHeldBack(heldBackBy)
 
@@ -66,22 +64,13 @@ export function DailyPlanPrompt({
         <div className="pointer-events-none absolute -top-24 -right-24 h-48 w-48 rounded-full bg-linear-to-br from-primary/30 to-purple-500/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-linear-to-tr from-purple-500/20 to-primary/20 blur-3xl" />
         <DialogHeader className="relative">
-          <motion.span
-            className="flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-primary to-purple-500 text-primary-foreground"
-            animate={reduceMotion ? undefined : { y: [0, -6, 0], rotate: [0, 1.5, 0] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-          >
+          <span className="flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-primary to-purple-500 text-primary-foreground">
             <CalendarClock className="size-7" />
-          </motion.span>
-          <motion.div
-            className="space-y-2"
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.3 }}
-          >
+          </span>
+          <div className="space-y-2">
             <DialogTitle className="text-2xl font-bold tracking-tight">{copy.title}</DialogTitle>
             <DialogDescription>{copy.description}</DialogDescription>
-          </motion.div>
+          </div>
         </DialogHeader>
         <DialogFooter className="relative">
           <Button variant="ghost" onClick={close}>

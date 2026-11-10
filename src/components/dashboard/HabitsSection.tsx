@@ -1,20 +1,33 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Check, ChevronDown, Flame, Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { createHabit, setHabitLogCompletion } from '@/lib/habits'
 import { applyHabitCheckInReward } from '@/lib/habit-check-in'
 import { useUserStore } from '@/lib/stores/user-store'
-import type { DashboardHabit } from '@/lib/dashboard-habits'
+import { openHabitsFirst, type DashboardHabit } from '@/lib/dashboard-habits'
+import { completesHabitDay } from '@/lib/habit-day-complete'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { ClickableSection } from '@/components/dashboard/ClickableSection'
+import { SectionAddButton } from '@/components/dashboard/SectionAddButton'
+import { SectionStatHeader } from '@/components/dashboard/SectionStatHeader'
 import {
   HabitEditorDialog,
   type HabitEditorValue,
 } from '@/components/habits/HabitEditorDialog'
+import {
+  DAY_COMPLETE_BAR_CLASS,
+  DAY_COMPLETE_CHECK_CLASS,
+  DAY_COMPLETE_ROW_CLASS,
+  DayCompleteAnnouncer,
+  DayCompleteBadge,
+  dayCompleteWave,
+  useDayCompleteCelebration,
+} from '@/components/habits/day-complete'
 
 interface HabitsSectionProps {
   userId: string
@@ -45,6 +58,8 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
   const [editorSaving, setEditorSaving] = useState(false)
   const [editorError, setEditorError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const reduceMotion = useReducedMotion()
+  const dayComplete = useDayCompleteCelebration(userId, today)
 
   async function handleCreate(value: HabitEditorValue) {
     setEditorSaving(true)
@@ -69,15 +84,27 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
   }
 
   const doneCount = habits.filter((habit) => completedIds.has(habit.id)).length
+  const allDone = habits.length > 0 && doneCount === habits.length
+  // From the optimistic set, so a ticked habit drops to the bottom on the tap
+  // itself rather than after the save; the preview's first rows are then
+  // always the habits still left to do.
+  const orderedHabits = openHabitsFirst(habits, completedIds)
 
   async function toggleHabit(habit: DashboardHabit) {
     if (busyId) return
 
     const wasCompleted = completedIds.has(habit.id)
     const completed = !wasCompleted
+    const completesDay = completesHabitDay({
+      doneBefore: doneCount,
+      doneAfter: completed ? doneCount + 1 : doneCount - 1,
+      total: habits.length,
+    })
 
     setBusyId(habit.id)
     setError(null)
+    // With the optimistic tick, so the wave starts on the tap itself.
+    if (completesDay) dayComplete.celebrate()
     setCompletedIds((current) => {
       const next = new Set(current)
       if (completed) next.add(habit.id)
@@ -115,6 +142,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
       window.dispatchEvent(new CustomEvent('lifequest-data-updated'))
       router.refresh()
     } catch (saveError) {
+      if (completesDay) dayComplete.cancel()
       setCompletedIds((current) => {
         const next = new Set(current)
         if (wasCompleted) next.add(habit.id)
@@ -132,20 +160,27 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
   }
 
   return (
-    <section className="rounded-2xl border bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Flame className="size-4" />
-          </span>
-          <h2 className="text-lg font-semibold sm:text-base">Habits</h2>
-        </div>
-        {habits.length > 0 && (
-          <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
-            {doneCount} of {habits.length} today
-          </span>
-        )}
-      </div>
+    <ClickableSection href="/habits" className="rounded-2xl border bg-card p-5">
+      {/* Empty, the section's own "Add habit" button is the way in; a count
+          and a second one up here would only repeat it. */}
+      <SectionStatHeader
+        icon={Flame}
+        title="Habits"
+        href="/habits"
+        value={
+          habits.length === 0 ? undefined : allDone ? (
+            <DayCompleteBadge celebrating={dayComplete.celebrating} />
+          ) : (
+            doneCount
+          )
+        }
+        unit={allDone ? undefined : `of ${habits.length} today`}
+        action={
+          habits.length > 0 && (
+            <SectionAddButton label="Add habit" onClick={() => setEditorOpen(true)} />
+          )
+        }
+      />
 
       {habits.length === 0 ? (
         <div className="mt-4 space-y-3">
@@ -159,27 +194,33 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
         </div>
       ) : (
         <>
-          {/* One dot per habit rather than a percentage: it carries the same
-              completion signal and also says how many habits there are. */}
-          <div className="mt-3 flex flex-wrap gap-1.5" aria-hidden="true">
-            {habits.map((habit) => (
-              <span
-                key={habit.id}
-                className={cn(
-                  'h-1.5 w-6 rounded-full transition-colors',
-                  completedIds.has(habit.id) ? 'bg-orange-500' : 'bg-muted'
-                )}
-              />
-            ))}
+          {/* One continuous bar rather than a dot per habit: the header
+              already says how many there are, and a row of dots grew wider
+              than the card with every habit added. */}
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <div
+              className={cn(
+                'h-full rounded-full transition-[width,background-color] duration-300',
+                allDone ? DAY_COMPLETE_BAR_CLASS : 'bg-orange-500'
+              )}
+              style={{ width: `${(doneCount / habits.length) * 100}%` }}
+            />
           </div>
 
           <ul className="mt-4 space-y-2">
-            {(expanded ? habits : habits.slice(0, HABITS_PREVIEW_COUNT)).map((habit) => {
+            {(expanded ? orderedHabits : orderedHabits.slice(0, HABITS_PREVIEW_COUNT)).map((habit, index) => {
               const checked = completedIds.has(habit.id)
               const busy = busyId === habit.id
+              const wave = dayCompleteWave(index, dayComplete.celebrating, reduceMotion)
 
               return (
-                <li key={habit.id}>
+                // layout slides a habit to its new place instead of jumping;
+                // skipped for anyone who asked the system for less motion.
+                <motion.li
+                  key={habit.id}
+                  layout={reduceMotion ? false : 'position'}
+                  transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                >
                   {/* Mobile-first: the larger sizes are the base and desktop
                       steps back down, since thumbs need the room more than a
                       cursor does. */}
@@ -188,18 +229,24 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
                     onClick={() => void toggleHabit(habit)}
                     disabled={busy}
                     aria-pressed={checked}
+                    style={wave.style}
                     className={cn(
                       'flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border px-3 text-left transition-colors disabled:cursor-default disabled:opacity-60 sm:min-h-12',
                       checked
-                        ? 'border-orange-500/40 bg-orange-500/5'
+                        ? allDone
+                          ? DAY_COMPLETE_ROW_CLASS
+                          : 'border-orange-500/40 bg-orange-500/5'
                         : 'border-border bg-background hover:border-foreground/25 hover:bg-muted/50'
                     )}
                   >
-                    <span
+                    <motion.span
+                      {...wave}
                       className={cn(
                         'flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors sm:size-6',
                         checked
-                          ? 'border-orange-500 bg-orange-500 text-white'
+                          ? allDone
+                            ? DAY_COMPLETE_CHECK_CLASS
+                            : 'border-orange-500 bg-orange-500 text-white'
                           : 'border-border'
                       )}
                     >
@@ -208,7 +255,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
                       ) : (
                         checked && <Check className="size-4 sm:size-3.5" />
                       )}
-                    </span>
+                    </motion.span>
                     <span aria-hidden="true" className="text-xl sm:text-base">
                       {habit.emoji}
                     </span>
@@ -221,7 +268,7 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
                       {habit.name}
                     </span>
                   </button>
-                </li>
+                </motion.li>
               )
             })}
           </ul>
@@ -239,22 +286,10 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
               />
             </button>
           )}
-
-          <div className="mt-4 flex items-center justify-between border-t pt-3">
-            <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
-              <Plus />
-              Add habit
-            </Button>
-            <Link
-              href="/habits"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
-            >
-              Manage habits →
-            </Link>
-          </div>
         </>
       )}
 
+      <DayCompleteAnnouncer celebrating={dayComplete.celebrating} />
       {error && <p className="mt-3 text-sm text-destructive sm:text-xs">{error}</p>}
 
       <HabitEditorDialog
@@ -268,6 +303,6 @@ export function HabitsSection({ userId, today, habits }: HabitsSectionProps) {
         }}
         onSubmit={handleCreate}
       />
-    </section>
+    </ClickableSection>
   )
 }

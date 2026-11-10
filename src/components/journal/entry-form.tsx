@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { dateInTimezone } from '@/lib/dates'
-import { resolveStreak, streakMilestoneBonus } from '@/lib/streak'
+import { resolveStreak, streakCelebration, streakMilestoneBonus } from '@/lib/streak'
 import { supabaseInsert, supabaseFrom, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import { useUserStore } from '@/lib/stores/user-store'
@@ -44,6 +44,7 @@ import {
   isDisplayOnlyJournalField,
   isJournalFieldComplete,
   journalDraftKey,
+  journalFieldProblem,
   JournalStepPanel,
   removeStoredJournalDraft,
   restoreJournalDraft,
@@ -199,7 +200,7 @@ export function EntryForm({
 }: EntryFormProps) {
   const router = useRouter()
   const supabase = createClient()
-  const { addXp, updateStreak } = useUserStore()
+  const { addXp, updateStreak, notifyStreakExtended } = useUserStore()
 
   const initialValues = useMemo(
     () => createInitialValues(fields, existingResponses),
@@ -301,13 +302,9 @@ export function EntryForm({
     setError(null)
   }
 
-  function validate(): boolean {
-    for (const field of fields) {
-      if (!field.is_required) continue
-      if (isDisplayOnlyJournalField(field)) continue
-      if (!isJournalFieldComplete(field, values[field.id])) return false
-    }
-    return true
+  /** The first field that cannot be saved as it is: a missing required answer or an out-of-range number. */
+  function firstProblemField() {
+    return fields.find((field) => journalFieldProblem(field, values[field.id]) !== null) ?? null
   }
 
   function requestClose() {
@@ -343,17 +340,17 @@ export function EntryForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!validate()) {
-      const firstIncompleteField = requiredFields.find(
-        (field) => !isJournalFieldComplete(field, values[field.id])
-      )
-      const firstIncompleteStep = firstIncompleteField
-        ? steps.findIndex((step) => step.answerField?.id === firstIncompleteField.id)
-        : -1
+    const problemField = firstProblemField()
+    if (problemField) {
+      const problemStep = steps.findIndex((step) => step.answerField?.id === problemField.id)
 
-      if (firstIncompleteField) setFieldErrorId(firstIncompleteField.id)
-      if (firstIncompleteStep >= 0) setActiveStep(firstIncompleteStep)
-      setError('Please fill in all required fields.')
+      setFieldErrorId(problemField.id)
+      if (problemStep >= 0) setActiveStep(problemStep)
+      setError(
+        isJournalFieldComplete(problemField, values[problemField.id]) || !problemField.is_required
+          ? 'Please fix the highlighted answer.'
+          : 'Please fill in all required fields.'
+      )
       return
     }
 
@@ -618,7 +615,7 @@ export function EntryForm({
           })
         }
 
-        const streakBonus = streakMilestoneBonus(newStreak)
+        const streakBonus = streakMilestoneBonus(transition)
         if (streakBonus > 0) {
           await supabaseInsert(supabase, 'xp_events', {
             user_id: user.id,
@@ -642,6 +639,8 @@ export function EntryForm({
         // Update Zustand store
         addXp(totalXpEarned + streakBonus, profile.total_xp)
         updateStreak(newStreak)
+        const celebration = streakCelebration(transition, profile.current_streak)
+        if (celebration) notifyStreakExtended(celebration)
         setXpEarned(totalXpEarned + streakBonus)
       }
 
@@ -876,7 +875,8 @@ export function EntryForm({
                       role="alert"
                       className="mt-3 rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive"
                     >
-                      This prompt is required before you continue.
+                      {journalFieldProblem(field, values[field.id]) ??
+                        'This prompt is required before you continue.'}
                     </p>
                   )}
                 </motion.div>

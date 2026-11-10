@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import { Target } from 'lucide-react'
 import type { ScorecardRow } from '@/lib/metric-targets'
 import { cn } from '@/lib/utils'
+import { ClickableSection, SectionHeadingLink } from '@/components/dashboard/ClickableSection'
 
 interface ScorecardSectionProps {
   rows: ScorecardRow[]
@@ -40,13 +40,15 @@ export function ScorecardSection({ rows }: ScorecardSectionProps) {
   if (rows.length === 0) return null
 
   return (
-    <section className="rounded-2xl border bg-card p-5">
+    <ClickableSection href="/journal/metrics" className="rounded-2xl border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Target className="size-4" />
           </span>
-          <h2 className="text-lg font-semibold sm:text-base">Scorecard</h2>
+          <h2 className="text-lg font-semibold sm:text-base">
+            <SectionHeadingLink href="/journal/metrics">Scorecard</SectionHeadingLink>
+          </h2>
         </div>
         <span className="text-sm tabular-nums text-muted-foreground sm:text-xs">
           {rows.filter((row) => row.met).length} of {rows.length} met
@@ -107,15 +109,6 @@ export function ScorecardSection({ rows }: ScorecardSectionProps) {
           )
         })}
       </ul>
-
-      <div className="mt-4 border-t pt-3">
-        <Link
-          href="/journal/metrics"
-          className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-xs"
-        >
-          All metrics →
-        </Link>
-      </div>
-    </section>
+    </ClickableSection>
   )
 }

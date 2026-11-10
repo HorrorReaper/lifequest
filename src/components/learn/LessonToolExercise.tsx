@@ -21,7 +21,10 @@ async function loadToolContext(toolId: string): Promise<ToolContext | null> {
 
   if (!user) return null
 
-  return { userId: user.id, entries: await fetchToolEntries(supabase, user.id, toolId) }
+  return {
+    userId: user.id,
+    entries: await fetchToolEntries(supabase, user.id, toolId),
+  }
 }
 
 /**
@@ -64,16 +67,18 @@ export function LessonToolExercise({
   exercise,
   accentSoft,
   onUsed,
+  showHeading = true,
 }: {
   exercise: ToolExercise
   accentSoft: string
   onUsed: () => void
+  showHeading?: boolean
 }) {
   const manifest = getToolManifest(exercise.toolId)
   // Held in state so the promise survives re-renders; recreating it each
   // render would make `use()` suspend forever.
   const [contextPromise] = useState(() =>
-    manifest ? loadToolContext(manifest.id) : Promise.resolve(null)
+    manifest ? loadToolContext(manifest.id) : Promise.resolve(null),
   )
 
   if (!manifest) {
@@ -85,8 +90,8 @@ export function LessonToolExercise({
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
           <p>
-            This lesson references a tool called <code>{exercise.toolId}</code>, which is
-            not available in this version of the app.
+            This lesson references a tool called <code>{exercise.toolId}</code>,
+            which is not available in this version of the app.
           </p>
         </div>
       </div>
@@ -97,25 +102,40 @@ export function LessonToolExercise({
 
   return (
     <div className="my-auto">
-      <div className={cn('mb-6 grid size-16 place-items-center rounded-2xl', accentSoft)}>
+      <div
+        className={cn(
+          'mb-6 grid size-16 place-items-center rounded-2xl',
+          accentSoft,
+        )}
+      >
         <Icon className="size-7" />
       </div>
-      <h1 className="max-w-2xl text-2xl font-semibold tracking-tight sm:text-3xl">
-        {exercise.prompt}
-      </h1>
+      {showHeading && (
+        <h1 className="max-w-2xl text-2xl font-semibold tracking-tight sm:text-3xl">
+          {exercise.prompt}
+        </h1>
+      )}
       <p className="mt-3 text-sm leading-6 text-muted-foreground">
-        {manifest.description} You can come back to it any time from the Toolbox.
+        {manifest.description} You can come back to it any time from the
+        Toolbox.
       </p>
 
       <div className="mt-6">
         <Suspense
           fallback={
-            <div className="h-40 animate-pulse rounded-2xl bg-muted" aria-busy="true">
+            <div
+              className="h-40 animate-pulse rounded-2xl bg-muted"
+              aria-busy="true"
+            >
               <span className="sr-only">Loading {manifest.title}</span>
             </div>
           }
         >
-          <ToolRunner manifest={manifest} contextPromise={contextPromise} onUsed={onUsed} />
+          <ToolRunner
+            manifest={manifest}
+            contextPromise={contextPromise}
+            onUsed={onUsed}
+          />
         </Suspense>
       </div>
     </div>

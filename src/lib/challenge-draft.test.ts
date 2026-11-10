@@ -48,13 +48,14 @@ describe('validateChallengeDraft', () => {
     )
   })
 
-  it('accepts images from allowed hosts and names the day with a bad one', () => {
+  it('accepts https images from any host and names the day with a bad one', () => {
     const draft = { ...validDraft(), cover_image_url: 'https://images.unsplash.com/photo-1' }
     draft.days[0] = { ...draft.days[0], image_url: 'https://images.unsplash.com/photo-2' }
     expect(validateChallengeDraft(draft)).toBeNull()
-    expect(validateChallengeDraft({ ...draft, cover_image_url: 'https://evil.example/a.png' })).toMatch(/images must be https links/i)
+    expect(validateChallengeDraft({ ...draft, cover_image_url: 'https://cdn.example.org/a.png' })).toBeNull()
+    expect(validateChallengeDraft({ ...draft, cover_image_url: 'http://cdn.example.org/a.png' })).toMatch(/images must be direct https links/i)
     draft.days[0] = { ...draft.days[0], image_url: 'http://images.unsplash.com/photo-2' }
-    expect(validateChallengeDraft(draft)).toMatch(/^Day 1: images must be https links/)
+    expect(validateChallengeDraft(draft)).toMatch(/^Day 1: images must be direct https links/)
   })
 
   it('requires the question on a reflection day', () => {

@@ -25,20 +25,24 @@
 
 | Route | Purpose |
 | --- | --- |
-| `/onboarding` | Four-step first-run experience: welcome, profile name and timezone, the app's core loop, and an initial template |
-| `/dashboard` | Main LifeQuest briefing, XP/streak/city progress, quick actions, the daily reflection prompt, goals, quests, and admin-only widgets |
+| `/onboarding` | Three-step activation: focus (name and timezone carried over), a first task, and a time block for it today |
+| `/dashboard` | Main LifeQuest briefing, in this order: greeting and date, Next up, today's plan, habits, tasks, then the journal nudge, challenges, goals, scorecard, the daily reflection prompt, quests, admin-only widgets and a "Send feedback" link (XP, coins and streak are in the top bar). Ritual prompts open as dialogs. `?goal=new#goals` opens the goal form and scrolls to it; `?welcome=1` shows the first-run card |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
-| `/plan` | Five-step Today Plan ritual |
-| `/tasks` | Full task manager |
-| `/habits` | Today/history/archived habit manager |
+| `/plan` | Plan editor (timeline with Save plan) when today has blocks, otherwise the six-step daily ritual. `?step=ritual` forces the ritual; `?step=timeline` opens the editor |
+| `/tasks` | Full task manager. `?new=1` opens the create dialog |
+| `/habits` | Today/history/archived habit manager. `?new=1` opens the create dialog |
 | `/habits/[habitId]` | Habit detail and analytics |
 | `/quests` | Achievements and custom one-time quests; links to `/challenges` |
-| `/challenges` | Every published challenge plus the user's personal ones, running first; form to create a personal "X days of Y" challenge |
+| `/challenges` | Every published challenge plus the user's personal ones, running first. The form to create a personal "X days of Y" challenge is currently hidden (commented out in `src/app/(app)/challenges/page.tsx`) |
 | `/challenges/[id]` | One challenge: today's step (manual or auto-detected), deep link, all days |
-| `/learn` | Article library; admins additionally get the interactive Academy courses |
+| `/learn` | Normal users and user-preview retain the existing Library, Toolbox and journal-insight rails. Admins get the redesigned course overview, initially showing the personal Business, Tech & AI path; other courses and articles remain available |
+
 | `/learn/[lessonId]` | Article reader and completion quiz, or — for admins — the course lesson player |
+| `/learn/courses/[pathId]` | Admin-only course overview with units, progress and next lesson; direct normal-user links redirect to `/learn` |
 | `/learn/tools` | Toolbox: library of self-improvement tools |
 | `/learn/tools/[toolId]` | A single tool, resolved from `TOOL_REGISTRY` |
+| `/learn/tools/focus-timer` | Focus Timer setup/resume for all signed-in users, backed by existing focus sessions |
+| `/learn/tools/focus-timer/run` | Shared full-screen nature timer; returns to Toolbox setup after completion/cancellation |
 | `/city` | Virtual city view/build mode |
 | `/settings` | Appearance, profile, timezone, AI consent, sign-out, account deletion |
 | `/analytics` | Journal stats, mood/activity charts, and a Skills tab with per-category XP levels |
@@ -98,13 +102,17 @@ Detailed contracts are in [HTTP API and external providers](./backend/api.md).
 
 ## Navigation behavior
 
+Every page with the standard shell also shows a sticky top bar with level, XP progress, coins and streak (`src/components/layout/app-top-bar.tsx`). It is hidden on the same immersive routes as the bottom navigation.
+
 The standard bottom navigation contains:
 
 - Home → `/dashboard`
 - Journal → `/journal`
 - Center quick action button
-- City → `/city`
-- Settings → `/settings`
+- Library → `/learn` (also reachable as "Learn" from the quick action sheet; stays highlighted on `/learn/tools` and its sub-pages)
+- Avatar → `/profile` (icon is the player's own head with the equipped hat)
+
+Settings (`/settings`) has no tab of its own; it opens from the Settings button on `/profile`, and the Avatar tab stays highlighted there (`src/components/layout/bottom-nav.tsx`).
 
 The quick action opens direct paths into tasks, habits, journaling, Today Plan, and admin-only tools. Trusted/route-allowlisted admins additionally see a "LifeQuest Labs" entry in the quick action sheet linking to `/admin`, since the standard bottom navigation has no persistent admin entry point. Bottom navigation and the admin chatbot are hidden on immersive routes.
 

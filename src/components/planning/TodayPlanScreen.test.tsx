@@ -41,6 +41,11 @@ describe('shared Daily Planner screen', () => {
     expect(publicScreen.props.returnHref).toBe('/dashboard')
   })
 
+  it('opens an existing plan in the editor, and the ritual only on request', async () => {
+    expect((await TodayPlanScreen({})).props.startAt).toBe('timeline')
+    expect((await TodayPlanScreen({ requestedStep: 'ritual' })).props.startAt).toBeUndefined()
+  })
+
   it.each(['day_plans', 'tasks', 'profiles'])('refuses to offer an empty replacement when %s fails to load', async (table) => {
     mocks.failedTable = table
     await expect(TodayPlanScreen({ embedded: true })).rejects.toThrow('could not be loaded')

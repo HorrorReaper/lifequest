@@ -183,6 +183,8 @@ export function AdminTestingTools({ userId, onboardingComplete }: AdminTestingTo
   const addXp = useUserStore((state) => state.addXp)
   const notifyLevelUp = useUserStore((state) => state.notifyLevelUp)
   const clearLevelUp = useUserStore((state) => state.clearLevelUp)
+  const notifyStreakExtended = useUserStore((state) => state.notifyStreakExtended)
+  const clearStreakExtended = useUserStore((state) => state.clearStreakExtended)
   const totalXp = useUserStore((state) => state.totalXp)
   const level = useUserStore((state) => state.level)
 
@@ -215,7 +217,28 @@ export function AdminTestingTools({ userId, onboardingComplete }: AdminTestingTo
           <Button type="button" variant="outline" onClick={() => notifyLevelUp(10)}>
             Show level 10 overlay
           </Button>
-          <Button type="button" variant="secondary" onClick={clearLevelUp}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => notifyStreakExtended({ from: 1, to: 2, usedFreeze: false, bonusXp: 0 })}
+          >
+            Show streak overlay
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => notifyStreakExtended({ from: 6, to: 7, usedFreeze: false, bonusXp: 50 })}
+          >
+            Show 7-day streak overlay
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              clearLevelUp()
+              clearStreakExtended()
+            }}
+          >
             Clear overlay state
           </Button>
           <Button type="button" variant="secondary" onClick={() => router.refresh()}>

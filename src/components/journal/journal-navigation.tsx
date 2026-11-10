@@ -33,8 +33,14 @@ export function JournalNavigation({
         <ChevronLeft className="size-5" />
         Back
       </Button>
+      {/* Separate keys, so these are two elements, never one <button> whose
+          type flips. With one, tapping Next on the second-to-last step
+          re-rendered it as type="submit" before the browser ran the tap's
+          default action, and that same tap saved the entry instead of
+          showing the last step. */}
       {isFinalStep ? (
         <Button
+          key="save"
           type="submit"
           className="min-h-14 flex-[1.35] rounded-xl"
           disabled={submitting}
@@ -44,6 +50,7 @@ export function JournalNavigation({
         </Button>
       ) : (
         <Button
+          key="next"
           type="button"
           onClick={onNext}
           className="min-h-14 flex-[1.35] rounded-xl"

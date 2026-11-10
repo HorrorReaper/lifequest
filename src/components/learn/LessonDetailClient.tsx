@@ -1,12 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { LockKeyhole } from 'lucide-react'
 import { LESSONS } from '@/lib/lessons'
-import { LessonReader } from '@/components/learn/LessonReader'
-import { InteractiveLessonPlayer } from '@/components/learn/InteractiveLessonPlayer'
+import { LessonReader } from './LessonReader'
+import { InteractiveLessonPlayer } from './InteractiveLessonPlayer'
 import { createClient } from '@/lib/supabase/client'
 import {
   DEFAULT_LEARNING_CATALOG,
@@ -16,139 +15,176 @@ import {
   type LearningCatalog,
   type LearningProgress,
 } from '@/lib/learning-paths'
-import { readLocalLearningCatalog, readLocalLearningProgress } from '@/lib/learning-local'
+import {
+  readLearningDraftPreview,
+  readLocalLearningCatalog,
+  readLocalLearningProgress,
+} from '@/lib/learning-local'
+import { withPersonalLearningPath } from '@/lib/personal-learning'
 import { Button } from '@/components/ui/button'
-import { fetchLearningExperience } from '@/lib/learning-api'
+import {
+  fetchAdminLearningCatalog,
+  fetchLearningExperience,
+} from '@/lib/learning-api'
+import { mergePreviewProgress } from './use-preview-progress'
 
-interface LessonCompletionLookup {
-  from(table: 'lesson_completions'): {
-    select(columns: 'id'): {
-      eq(column: 'user_id', userId: string): {
-        eq(column: 'lesson_id', lessonId: string): {
-          maybeSingle(): Promise<{ data: { id: string } | null }>
-        }
-      }
-    }
-  }
-}
-
-interface LessonDetailClientProps {
+interface Props {
   lessonId: string
-  /** False for a normal user: courses are admin-only, so only articles resolve. */
   coursesEnabled: boolean
+  userId: string
+  draftPreview?: boolean
 }
 
-export function LessonDetailClient({ lessonId, coursesEnabled }: LessonDetailClientProps) {
-  const router = useRouter()
-  const [catalog, setCatalog] = useState<LearningCatalog>(DEFAULT_LEARNING_CATALOG)
-  const [progress, setProgress] = useState<LearningProgress>(EMPTY_LEARNING_PROGRESS)
-  const [alreadyCompleted, setAlreadyCompleted] = useState(false)
-  const [loadingLegacy, setLoadingLegacy] = useState(true)
-  const [loadingLearning, setLoadingLearning] = useState(coursesEnabled)
-  const [backendEnabled, setBackendEnabled] = useState(false)
+export function LessonDetailClient({
+  lessonId,
+  coursesEnabled,
+  userId,
+  draftPreview = false,
+}: Props) {
+  const [learning, setLearning] = useState<{
+    catalog: LearningCatalog
+    progress: LearningProgress
+    backend: boolean
+    ready: boolean
+  }>({
+    catalog: DEFAULT_LEARNING_CATALOG,
+    progress: EMPTY_LEARNING_PROGRESS,
+    backend: false,
+    ready: !coursesEnabled,
+  })
+  const [legacyComplete, setLegacyComplete] = useState<boolean | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const legacy = LESSONS.find((lesson) => lesson.id === lessonId)
+  const pathLesson =
+    coursesEnabled && !legacy
+      ? findPathLesson(learning.catalog, lessonId)
+      : null
 
   useEffect(() => {
-    if (!coursesEnabled) return
-
-    const supabase = createClient()
-    ;(async () => {
+    if (!coursesEnabled || legacy) return
+    let active = true
+    const client = createClient()
+    void (async () => {
       try {
-        const learning = await fetchLearningExperience(supabase)
-        setCatalog(learning.catalog)
-        setProgress(learning.progress)
-        setBackendEnabled(true)
+        if (draftPreview) {
+          const catalog =
+            readLearningDraftPreview() ??
+            (await fetchAdminLearningCatalog(client))
+          if (active)
+            setLearning({
+              catalog,
+              progress: EMPTY_LEARNING_PROGRESS,
+              backend: false,
+              ready: true,
+            })
+          return
+        }
+        const response = await fetchLearningExperience(client)
+        const catalog = withPersonalLearningPath(response.catalog)
+        const publishedIds = response.catalog.paths.map((p) => p.id)
+        const found = findPathLesson(catalog, lessonId)
+        const progress = mergePreviewProgress(
+          catalog,
+          response.progress,
+          readLocalLearningProgress(userId),
+          publishedIds,
+        )
+        if (active)
+          setLearning({
+            catalog,
+            progress,
+            backend: !!found && publishedIds.includes(found.path.id),
+            ready: true,
+          })
       } catch (error) {
-        console.error('Could not load the learning backend; using local preview data.', error)
-        setCatalog(readLocalLearningCatalog())
-        setProgress(readLocalLearningProgress())
-      } finally {
-        setLoadingLearning(false)
+        if (draftPreview) {
+          if (active)
+            setLoadError(
+              'Could not load this draft. Return to Learning Studio and open Preview draft again.',
+            )
+          return
+        }
+        console.error(
+          'Learning backend unavailable; opening the labelled local preview.',
+          error,
+        )
+        if (active)
+          setLearning({
+            catalog: withPersonalLearningPath(readLocalLearningCatalog()),
+            progress: readLocalLearningProgress(userId),
+            backend: false,
+            ready: true,
+          })
       }
     })()
-  }, [coursesEnabled])
-
-  const pathLesson = coursesEnabled ? findPathLesson(catalog, lessonId) : undefined
-  const legacyLesson = LESSONS.find((lesson) => lesson.id === lessonId)
+    return () => {
+      active = false
+    }
+  }, [coursesEnabled, draftPreview, legacy, lessonId, userId])
 
   useEffect(() => {
-    if (loadingLearning || pathLesson || !legacyLesson) return
-
-    const supabase = createClient()
-    ;(async () => {
-      const { data: userData } = await supabase.auth.getUser()
-      const user = userData?.user
-      if (!user) {
-        router.replace('/login')
-        return
-      }
-
-      const { data } = await (supabase as unknown as LessonCompletionLookup)
-        .from('lesson_completions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('lesson_id', lessonId)
-        .maybeSingle()
-
-      setAlreadyCompleted(Boolean(data))
-      setLoadingLegacy(false)
-    })()
-  }, [legacyLesson, lessonId, loadingLearning, pathLesson, router])
-
-  if (loadingLearning) {
-    return (
-      <div className="flex min-h-svh items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading lesson…</p>
-      </div>
-    )
-  }
-
-  if (!pathLesson && !legacyLesson) {
-    return (
-      <div className="flex min-h-svh items-center justify-center">
-        <p className="text-muted-foreground">Lesson not found.</p>
-      </div>
-    )
-  }
-
-  if (loadingLegacy && legacyLesson) {
-    return (
-      <div className="flex min-h-svh items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      </div>
-    )
-  }
-
-  if (pathLesson) {
-    const unlocked = isLessonUnlocked(pathLesson.path, lessonId, progress)
-    if (!unlocked && !progress.completions[lessonId]) {
-      return (
-        <div className="grid min-h-svh place-items-center bg-background p-4">
-          <div className="max-w-sm rounded-[2rem] border bg-card p-8 text-center">
-            <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-muted">
-              <LockKeyhole className="size-6 text-muted-foreground" />
-            </span>
-            <h1 className="mt-5 text-xl font-semibold">Lesson locked</h1>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Complete the previous lesson in {pathLesson.path.title} to unlock this one.
-            </p>
-            <Button className="mt-5 w-full" asChild>
-              <Link href="/learn">Back to the path</Link>
-            </Button>
-          </div>
-        </div>
-      )
+    if (!legacy) return
+    let active = true
+    void createClient()
+      .from('lesson_completions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('lesson_id', lessonId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active) setLegacyComplete(!!data)
+      })
+    return () => {
+      active = false
     }
+  }, [legacy, lessonId, userId])
 
-    return (
-      <InteractiveLessonPlayer
-        catalog={catalog}
-        path={pathLesson.path}
-        lesson={pathLesson.lesson}
-        progress={progress}
-        backendEnabled={backendEnabled}
-      />
+  if (legacy)
+    return legacyComplete === null ? (
+      <p className="p-8 text-sm text-muted-foreground">Loading…</p>
+    ) : (
+      <LessonReader lesson={legacy} alreadyCompleted={legacyComplete} />
     )
-  }
-
-  return <LessonReader lesson={legacyLesson!} alreadyCompleted={alreadyCompleted} />
+  if (loadError)
+    return (
+      <p className="p-8 text-destructive" role="alert">
+        {loadError}
+      </p>
+    )
+  if (!learning.ready)
+    return <p className="p-8 text-sm text-muted-foreground">Loading lesson…</p>
+  if (!pathLesson)
+    return <p className="p-8 text-muted-foreground">Lesson not found.</p>
+  if (
+    !draftPreview &&
+    !isLessonUnlocked(pathLesson.path, lessonId, learning.progress)
+  )
+    return (
+      <div className="grid min-h-svh place-items-center p-6">
+        <div className="max-w-sm space-y-4 text-center">
+          <LockKeyhole className="mx-auto size-8" />
+          <h1 className="text-xl font-medium">Lesson locked</h1>
+          <p className="text-sm text-muted-foreground">
+            Complete the previous lesson to unlock this one.
+          </p>
+          <Button asChild>
+            <Link href={`/learn/courses/${pathLesson.path.id}`}>
+              Back to the course
+            </Link>
+          </Button>
+        </div>
+      </div>
+    )
+  return (
+    <InteractiveLessonPlayer
+      key={lessonId}
+      catalog={learning.catalog}
+      path={pathLesson.path}
+      lesson={pathLesson.lesson}
+      progress={learning.progress}
+      backendEnabled={learning.backend && !draftPreview}
+      userId={userId}
+      draftPreview={draftPreview}
+    />
+  )
 }
