@@ -4,7 +4,7 @@
 
 A "tool" is a self-contained self-improvement framework — defining a vision, a cookie jar of wins, a wheel of life, a time audit. Unlike habits or journal templates, tools are not for daily use: they are picked up when needed, produce something durable, and are revisited later.
 
-Tools live in the Toolbox at `/learn/tools`, reachable from `/learn`.
+Tools live in the Toolbox at `/learn/tools`, reachable from the Library and the admin Academy header on `/learn`.
 
 Primary implementation areas:
 

@@ -19,6 +19,7 @@ import {
   NotebookPen,
   Play,
   Workflow,
+  Wrench,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -97,15 +98,25 @@ export function LearningPathLibrary({
   return (
     <div className={styles.academy} lang={personal ? 'de' : 'en'}>
       <div className={styles.page}>
-        <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-          <Link href="/learn">Academy</Link>
-          <ChevronRight />
-          <span>{personal ? 'Dein Lernpfad' : path.title}</span>
-          <span className="ml-auto inline-flex items-center gap-1">
-            <LockKeyhole />
-            {personal ? 'Privater Lernbereich' : 'Admin academy'}
-          </span>
-        </nav>
+        <div className={styles.breadcrumb}>
+          <nav className="flex flex-wrap items-center gap-2" aria-label="Breadcrumb">
+            <Link href="/learn">Academy</Link>
+            <ChevronRight />
+            <span>{personal ? 'Dein Lernpfad' : path.title}</span>
+          </nav>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="inline-flex items-center gap-1">
+              <LockKeyhole />
+              {personal ? 'Privater Lernbereich' : 'Admin academy'}
+            </span>
+            <Button variant="outline" size="sm" className={styles.outline} asChild>
+              <Link href="/learn/tools">
+                <Wrench aria-hidden="true" />
+                Toolbox
+              </Link>
+            </Button>
+          </div>
+        </div>
         <header className={styles.hero}>
           <div>
             <p className={styles.eyebrow}>

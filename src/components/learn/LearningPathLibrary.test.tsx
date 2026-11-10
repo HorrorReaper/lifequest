@@ -32,6 +32,9 @@ describe('personal Academy overview', () => {
       /Unternehmerisch denken/,
     )
     expect(screen.getByRole('status').textContent).toMatch(/Kursvorschau/)
+    expect(screen.getByRole('link', { name: 'Toolbox' }).getAttribute('href')).toBe(
+      '/learn/tools',
+    )
     expect(
       screen
         .getByRole('link', { name: /Lektion starten/ })
