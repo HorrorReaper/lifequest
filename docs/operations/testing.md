@@ -56,7 +56,7 @@ npx vitest run -t "flushes dirty sets"
 
 ## Current automated coverage
 
-Focus Timer: `FocusTimerTool.test.tsx` covers duration selection, duplicate submission, resume, validation, failed start retry and failed-load state. `FullscreenFocusTimer.test.tsx` covers control visibility, a single finish request, Library return navigation, XP synchronization and finish retry. Shell tests distinguish setup from immersive run. `scripts/verify-focus-timer.mjs` runs isolated PostgreSQL checks for owner SELECT, direct-write denial, task ownership, server time, bounds, idempotent starts/rewards, cancellation, sub-minute completion, transactional rollback and anonymous denial. Run with a separately installed PGlite module URL in `LIFEQUEST_PGLITE_MODULE`; the script reads no environment files and never connects to Supabase.
+Focus Timer checks cover the required selection of one to three existing tasks, duplicate submission, duration, full-screen setup, saved task titles on resume, return navigation, and retry behavior. `scripts/verify-focus-timer.mjs` runs isolated PostgreSQL checks for ownership, validation of open tasks, commitment order, direct-write denial, server time, idempotent starts and rewards, cancellation, transactional rollback, and anonymous denial. Run with a separately installed PGlite module URL in `LIFEQUEST_PGLITE_MODULE`. The script reads no environment files and never connects to Supabase.
 
 The repository currently contains 32 test files.
 
@@ -75,6 +75,7 @@ The repository currently contains 32 test files.
 - Habit mutations, analytics, manager behavior, and editor (single named check-in control, details folded away on create).
 - Onboarding: three steps, no age question, a real task and a linked block, and no duplicates on back, reload or double tap (`onboarding-flow.test.tsx`, `src/lib/onboarding.test.ts`).
 - Feedback and activation helpers (`src/lib/activation.test.ts`).
+- Landing-page traffic: event validation, referrer reduction, bot pattern and device buckets (`src/lib/landing-events.test.ts`); `/api/landing-events` status codes, the hashed payload without IP or user agent, bot/prefetch drops and the rate limit (`src/app/api/landing-events/route.test.ts`); the `waitlist_signup` event in `/api/waitlist` (`src/app/api/waitlist/route.test.ts`); series, funnel and breakdown aggregation (`src/lib/landing-analytics.test.ts`); tracker opt-out (`src/lib/landing-tracker.test.ts`); the admin card (`src/components/admin/LandingTraffic.test.tsx`).
 
 
 ### Journal

@@ -21,6 +21,7 @@ const activeSession: FocusSessionRow = {
   id: 'session-1',
   user_id: 'user',
   task_id: null,
+  committed_task_ids: [],
   planned_minutes: 25,
   status: 'active',
   started_at: new Date().toISOString(),
@@ -123,7 +124,7 @@ describe('FullscreenFocusTimer ending', () => {
     })
   })
 
-  it('returns Library users to the toolbox timer and updates their XP', async () => {
+  it('shows the committed tasks on resume and returns Library users to the Toolbox after completion', async () => {
     mocks.rpc.mockResolvedValue({
       data: { awarded: true, xpAwarded: 25, previousTotal: 100, newTotal: 125 },
       error: null,
@@ -131,14 +132,22 @@ describe('FullscreenFocusTimer ending', () => {
     render(
       <FullscreenFocusTimer
         userId="user"
-        returnHref="/learn/tools/focus-timer"
+        returnHref="/learn/tools"
+        initial={{
+          session: activeSession,
+          now: Date.now(),
+          quote: 'Keep going.',
+          committedTasks: [{ id: 'task-1', title: 'Write proposal' }],
+        }}
       />,
     )
+    expect(
+      screen.getByRole('list', { name: 'Tasks for this focus block' })
+        .textContent,
+    ).toContain('Write proposal')
     await waitFor(() => expect(screen.getByText('Keep going.')).toBeTruthy())
     fireEvent.click(screen.getByRole('button', { name: /complete/i }))
-    await waitFor(() =>
-      expect(mocks.push).toHaveBeenCalledWith('/learn/tools/focus-timer'),
-    )
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/learn/tools'))
     expect(mocks.addXp).toHaveBeenCalledWith(25, 100)
   })
 

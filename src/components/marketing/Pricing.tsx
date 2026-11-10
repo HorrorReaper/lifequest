@@ -18,7 +18,7 @@ export default function Pricing({
           Every template, every field type, every habit, the whole game. No trial, no card,
           nothing held back behind a tier that doesn&apos;t exist yet.
         </p>
-        <PrimaryCta isMvp={isMvp} onWaitlist={onWaitlist} className="mt-2" />
+        <PrimaryCta isMvp={isMvp} onWaitlist={onWaitlist} cta="pricing" className="mt-2" />
       </Reveal>
     </section>
   );

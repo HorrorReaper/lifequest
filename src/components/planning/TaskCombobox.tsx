@@ -17,7 +17,7 @@ interface TaskComboboxProps {
   value: string;
   onChangeText: (text: string) => void;
   onSelectTask: (task: TodayPlannerTask) => void;
-  onCreateTask: (title: string) => void;
+  onCreateTask?: (title: string) => void;
   /**
    * Offers the typed text as it is, without creating a task. Without it the
    * only way to use a new title is to create a task from it.
@@ -77,8 +77,9 @@ export function TaskCombobox({
   const exactMatch = query
     ? tasks.some((task) => task.title.trim().toLowerCase() === query)
     : true;
-  const offerCreate = query.length > 0 && !exactMatch;
-  const offerText = offerCreate && Boolean(onUseText);
+  const newTitle = query.length > 0 && !exactMatch;
+  const offerCreate = newTitle && Boolean(onCreateTask);
+  const offerText = newTitle && Boolean(onUseText);
   // The create row, when present, follows the tasks in keyboard navigation,
   // and the plain-text row follows that.
   const createIndex = results.length;
@@ -123,7 +124,7 @@ export function TaskCombobox({
       return;
     }
     if (offerCreate && highlight === createIndex) {
-      onCreateTask(value.trim());
+      onCreateTask?.(value.trim());
       setOpen(false);
       return;
     }
@@ -291,7 +292,7 @@ export function TaskCombobox({
               tabIndex={-1}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
-                onCreateTask(value.trim());
+                onCreateTask?.(value.trim());
                 setOpen(false);
               }}
               disabled={creating}

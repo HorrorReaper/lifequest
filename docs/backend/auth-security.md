@@ -45,7 +45,7 @@ The middleware:
 3. Loads the profile for authenticated users.
 4. Redirects incomplete profiles to `/onboarding`.
 
-Public short-circuits are `/`, `/login`, `/auth/callback`, and `/api/waitlist`.
+Public short-circuits are `/`, `/login`, `/auth/callback`, `/api/waitlist`, and `/api/landing-events`. The two API routes are listed because `/api/:path*` is in the proxy matcher; without the entry an anonymous visitor's request would be redirected to `/login`.
 
 Server pages and route handlers still call `auth.getUser()` themselves. Middleware is routing/session support, not the only authorization control.
 
@@ -124,7 +124,7 @@ Security Invoker functions execute under the caller's role and should perform ex
 
 ### Secret/service-role key
 
-`SUPABASE_SECRET_KEY` or the legacy service-role fallback is used only in `DELETE /api/account`.
+`SUPABASE_SECRET_KEY` or the legacy service-role fallback is used in `DELETE /api/account`. `SUPABASE_SERVICE_ROLE_KEY` is also preferred, when set, by `createPublicRouteClient` (`src/lib/supabase/public-route-client.ts`) for `/api/waitlist` and `/api/landing-events`, which otherwise fall back to the publishable key.
 
 Rules:
 
@@ -177,6 +177,18 @@ The route globally signs out the user, then deletes the Auth user. Database clea
 
 These drafts can contain sensitive personal text. Do not move them into shared analytics, logs, or error reports.
 
+The landing-page traffic tracker stores nothing in the browser (see below).
+
+## Landing-page traffic
+
+The landing page counts visits without cookies, browser storage or a third party, so it needs no consent banner ([Landing-page traffic](../features/landing-traffic.md)). The boundaries:
+
+- **No IP or user agent at rest.** `/api/landing-events` and `/api/waitlist` hash `IP|user agent` with SHA-256 in the route and send only the hash. `record_landing_event` hashes it again with a salt that exists for one UTC day and is deleted when the next day's salt is created. Once the salt is gone, the stored `visitor_hash` cannot be recomputed from an address, and hashes from different days cannot be linked.
+- **Minimal fields.** Referrer host only, short UTM labels, a four-value device bucket, a CTA name. No full URL, screen data, language or location.
+- **Opt-out respected.** Global Privacy Control and `Do Not Track: 1` stop the tracker in the browser.
+- **No direct table access.** `landing_events` and `landing_visitor_salts` have RLS on and no policies, and `anon`/`authenticated` have no table privileges. Writes go through `record_landing_event` (security definer, executable by `anon` and `service_role` only), reads through `admin_landing_daily` and `admin_landing_breakdown`, which return counts to a trusted admin and nothing to anyone else.
+- **Why `anon` may execute the insert function.** The route uses the publishable key until `SUPABASE_SERVICE_ROLE_KEY` is set. Someone could therefore call `record_landing_event` directly and skip the route's bot filter and rate limit; the function still enforces the event list, field lengths and hash format, and can only add rows, never read them. Once the service-role key is set in every environment, revoking `anon` execute closes that path.
+
 ## Security review checklist
 
 Before shipping a new feature:
@@ -204,5 +216,7 @@ With `20261029191235_learning_academy.sql` applied, the three course learner RPC
 Unpublished local progress/reflections are keyed by authenticated user ID and never replace synchronized published progress. This isolates account display, not same-origin scripts. Studio preview snapshots contain curriculum only, use session storage and never write learner results. See `../features/learning-paths.md`.
 
 ## Focus timer access
+
+`start_committed_focus_session` is an authenticated invoker wrapper for the implementation in the non-exposed `focus_internal` schema. The implementation uses an empty search path, checks `auth.uid()`, and accepts only one to three distinct open tasks owned by the caller. Commitment IDs inherit the session's owner-only read policy.
 
 After `20261029203006_library_focus_timer.sql`, signed-in users may SELECT only their own `focus_sessions`. Normal users have no direct INSERT/UPDATE/DELETE policy. `start_focus_session` and `finish_focus_session` intentionally use `SECURITY DEFINER` with an empty search path, fully qualified tables, `auth.uid()` ownership checks, validated inputs, and EXECUTE limited to authenticated callers (revoked from PUBLIC and anon). A task from another user cannot be linked; another user's timer cannot be closed. Client-supplied elapsed time, XP and owner IDs are never accepted. Locks make starts/resumes and completed rewards idempotent across tabs; XP failure rolls back closure so the user can retry. The existing trusted-admin own-row write policy remains for compatibility. Toolbox access does not grant access to admin routes.

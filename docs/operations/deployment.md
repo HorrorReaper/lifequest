@@ -87,6 +87,8 @@ Avoid deploying browser code that requires a column/function before the database
 
 The first-cohort release (`feat/first-cohort-readiness`) adds `supabase/migrations/20261025120000_beta_feedback_and_activation.sql`. It is additive. Without it the app still works, except that "Send feedback" shows its failure message and the Beta activation card on `/admin/tools` says the numbers are not available yet; apply it before inviting the cohort.
 
+The landing-page traffic release adds `supabase/migrations/20261110120000_landing_page_traffic.sql`. It is additive. Without it the landing page still works and `/api/landing-events` answers 204 while logging the failed insert, signups are still saved, and the Landing page traffic card on `/admin/tools` names the migration to apply. Apply it before deploying so no visits are lost.
+
 
 ## Production smoke test
 
@@ -153,5 +155,7 @@ Apply `20261029191235_learning_academy.sql` to the intended Supabase environment
 After deployment, `/learn` offers the authored personal course as a labelled device-only preview if it has no published version. In Learning Studio, use Add personal course, inspect Preview draft, Save draft and explicitly Publish. Existing enrollments stay pinned to their prior versions. Verify normal users and normal-user preview retain the original Library and cannot call course RPCs. A code deployment without the database migration does not establish that backend role boundary.
 
 ## Library focus timer
+
+Apply `20261110170036_focus_task_commitments.sql` after `20261029203006_library_focus_timer.sql` and before deploying the full-screen Toolbox flow. It adds the ordered task IDs and a dedicated start RPC. Verify choosing one to three existing tasks, direct resume and closing a session from the Toolbox.
 
 Apply `20261029203006_library_focus_timer.sql` before deploying the Toolbox timer or updated admin timer. It adds owner SELECT and authenticated server-timed RPCs, preserving existing admin policies for compatibility. It has no dependency on the optional Academy migration and changes no existing sessions or roles. Verify normal-user start/resume/complete/cancel and admin return navigation. Rolling the frontend back is compatible with the additive migration; do not remove the RPCs while the new clients are deployed.

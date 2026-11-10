@@ -27,3 +27,15 @@ export async function finishFocusSession(
   if (error) throw error
   return data as FocusXpAwardResult
 }
+
+export async function startCommittedFocusSession(
+  supabase: SupabaseClient,
+  minutes: number,
+  taskIds: string[],
+): Promise<void> {
+  const { error } = await supabase.rpc('start_committed_focus_session', {
+    p_planned_minutes: minutes,
+    p_task_ids: taskIds,
+  })
+  if (error) throw error
+}
