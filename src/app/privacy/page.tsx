@@ -100,6 +100,9 @@ export default function PrivacyPage() {
             <p className="text-sm leading-7 text-muted-foreground">
               LifeQuest uses authentication cookies required to keep you signed in and local storage to remember device-level preferences such as appearance. We do not currently use advertising cookies.
             </p>
+            <p className="text-sm leading-7 text-muted-foreground">
+              On the public landing page we count visits without cookies, without storing anything on your device, and without third-party analytics. For each visit and each click on a call to action we store the referring website&apos;s domain, campaign tags in the link (UTM parameters), a coarse device type (mobile, tablet, desktop), and a visitor code. The visitor code is derived from your IP address and browser identifier together with a random value that is deleted after one day, so it cannot be traced back to you or linked across days; your IP address and browser identifier themselves are not stored. If your browser sends Global Privacy Control or Do Not Track, no visit is counted. The legal basis is our legitimate interest in understanding how people find LifeQuest.
+            </p>
           </section>
 
           <section className={sectionClass}>

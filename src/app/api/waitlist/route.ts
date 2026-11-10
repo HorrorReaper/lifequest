@@ -1,32 +1,16 @@
-import { createClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
-import type { Database } from '@/lib/supabase/database.types'
 import { supabaseInsert } from '@/lib/supabase/helpers'
+import { createPublicRouteClient } from '@/lib/supabase/public-route-client'
+import { recordLandingEvent, requestDevice, requestFingerprint } from '@/lib/landing-events-server'
 
 /**
  * Every signup lands here rather than going straight at the table from the
  * browser, so the honeypot, the address check and the rate limit below cannot
- * be skipped by posting at Supabase directly.
- *
- * The client prefers SUPABASE_SERVICE_ROLE_KEY, which is what allows
- * waitlist_signups to refuse anonymous inserts in RLS. Without that variable
- * it falls back to the same publishable key the browser used to use, so this
- * works before the key is set and closing the table down later is a change of
- * environment rather than of code.
+ * be skipped by posting at Supabase directly. The client
+ * (createPublicRouteClient) prefers SUPABASE_SERVICE_ROLE_KEY, which is what
+ * allows waitlist_signups to refuse anonymous inserts in RLS.
  */
-function waitlistClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-
-  if (!url || !key) return null
-
-  return createClient<Database>(url, key, {
-    // Nothing here is acting as a signed-in user, and a route handler has no
-    // session to keep between requests.
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-}
 
 /**
  * Deliberately modest: this lives in one serverless instance's memory, so it
@@ -132,7 +116,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const supabase = waitlistClient()
+  const supabase = createPublicRouteClient()
   if (!supabase) {
     console.error('Waitlist: Supabase environment variables are missing')
     return NextResponse.json({ ok: false, error: 'Server error' }, { status: 500 })
@@ -162,6 +146,17 @@ export async function POST(request: NextRequest) {
       status: 500,
     })
   }
+
+  // The signup as a step of the landing-page funnel. Hashed the same way as
+  // the visitor's page views (docs/features/landing-traffic.md), so the admin
+  // view can relate the two; no address or name goes with it.
+  const { error: eventError } = await recordLandingEvent(supabase as unknown as SupabaseClient, {
+    event: 'waitlist_signup',
+    fingerprint: requestFingerprint(request),
+    device: requestDevice(request),
+    cta: text(body.source, 40)?.toLowerCase().replace(/[^a-z0-9_-]/g, '') || null,
+  })
+  if (eventError) console.error('Waitlist: landing event failed', eventError)
 
   // The address is saved by this point. An outage at the mail provider must
   // not tell the visitor otherwise, so this is logged and swallowed.

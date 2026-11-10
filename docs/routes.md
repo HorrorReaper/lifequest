@@ -11,7 +11,7 @@
 
 | Route | Access | Purpose |
 | --- | --- | --- |
-| `/` | Public | Primary marketing page; MVP or waitlist calls to action |
+| `/` | Public | Primary marketing page; MVP or waitlist calls to action. Sends anonymous page views and CTA clicks to `/api/landing-events` ([Landing-page traffic](features/landing-traffic.md)) |
 | `/landing2` | Public | Alternate landing page experiment |
 | `/login` | Public | Email/password login, sign-up, Google OAuth, and password reset request |
 | `/auth/callback` | Public callback | Exchanges Supabase auth code, creates profile, redirects to onboarding/dashboard/reset-password |
@@ -84,13 +84,14 @@ All admin pages live under the immersive `AdminShell`.
 | `/admin/challenges` | Challenge Lab: authoring, completion rules per day, public link, publishing to all users |
 | `/admin/notes` | Markdown knowledge base |
 | `/admin/projects` | Project outcomes, task board/list, milestones |
-| `/admin/tools` | Signup analytics (`?range=30\|90\|365`) and private test and development controls |
+| `/admin/tools` | Signup analytics and landing-page traffic (`?range=30\|90\|365`), beta activation, and private test and development controls |
 
 ## HTTP endpoints
 
 | Method and route | Access | Purpose |
 | --- | --- | --- |
-| `POST /api/waitlist` | Public | Validates a waitlist signup and currently logs it server-side |
+| `POST /api/waitlist` | Public | Validates and saves a waitlist signup, records a `waitlist_signup` landing event |
+| `POST /api/landing-events` | Public | Records an anonymous landing-page `pageview` or `cta_click` |
 | `DELETE /api/account` | User | Permanently deletes the authenticated account after email confirmation |
 | `POST /api/chat` | Admin + consent | Contextual AI assistant and supported app actions |
 | `POST /api/goals/[goalId]/quest-suggestions` | Admin | Generates three structured quest suggestions (goals themselves are open to all users; only this AI step is admin-only) |

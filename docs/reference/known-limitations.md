@@ -54,6 +54,17 @@ Note also that the migrations fall back to `Europe/Berlin` when a profile has no
 
 Impact: waitlist submissions are not durable.
 
+## Landing-page traffic is approximate
+
+The numbers on the Landing page traffic card ([Landing-page traffic](../features/landing-traffic.md)) are a rough picture, deliberately:
+
+- Visitors are unique per UTC day only; a returning visitor counts again each day, and people sharing an IP and browser version on one day count once.
+- Bot filtering is by user agent and prefetch header. A bot that imitates a browser is counted.
+- The rate limit (40 events per ten minutes per visitor) lives in one serverless instance's memory.
+- Until `SUPABASE_SERVICE_ROLE_KEY` is set and `anon` execute on `record_landing_event` is revoked, the function can be called directly, skipping the route's bot filter and rate limit.
+- Visitors with Global Privacy Control or Do Not Track, and visitors whose blocker refuses the request, are not counted, while their waitlist signup still is. The signup rate can therefore read slightly high.
+- Staging and preview deployments share the production database, so their landing-page visits are counted too.
+
 ## Password recovery
 
 The login UI does not currently provide a complete password-reset flow.

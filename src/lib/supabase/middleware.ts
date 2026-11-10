@@ -14,7 +14,7 @@ export async function updateSession(request: NextRequest) {
   // Schnell prüfen, ob die Route öffentlich ist – wenn ja, kurzschließen
   // ohne Supabase-Client/Netzwerkaufrufe. Das vermeidet Latenz für die
   // Marketing-Seite und andere öffentliche Routen.
-  const publicRoutes = ['/', '/login', '/auth/callback', '/api/waitlist']
+  const publicRoutes = ['/', '/login', '/auth/callback', '/api/waitlist', '/api/landing-events']
   const isPublicRoute = publicRoutes.some(
     (route) => request.nextUrl.pathname === route
   )

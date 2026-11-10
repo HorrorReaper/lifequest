@@ -87,6 +87,8 @@ Avoid deploying browser code that requires a column/function before the database
 
 The first-cohort release (`feat/first-cohort-readiness`) adds `supabase/migrations/20261025120000_beta_feedback_and_activation.sql`. It is additive. Without it the app still works, except that "Send feedback" shows its failure message and the Beta activation card on `/admin/tools` says the numbers are not available yet; apply it before inviting the cohort.
 
+The landing-page traffic release adds `supabase/migrations/20261110120000_landing_page_traffic.sql`. It is additive. Without it the landing page still works and `/api/landing-events` answers 204 while logging the failed insert, signups are still saved, and the Landing page traffic card on `/admin/tools` names the migration to apply. Apply it before deploying so no visits are lost.
+
 
 ## Production smoke test
 

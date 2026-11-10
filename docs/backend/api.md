@@ -24,13 +24,45 @@ Request:
 
 - `hp` is a honeypot. A populated value returns success without processing.
 - Email is validated with a basic format check.
-- The current implementation logs accepted signups server-side and does not persist them or send them to a mailing provider.
+- An accepted signup is saved to `waitlist_signups` through `createPublicRouteClient` (`src/lib/supabase/public-route-client.ts`); a duplicate address answers 409.
+- After saving, the route records a `waitlist_signup` landing event with the same visitor hash as the visitor's page views and the form's `source` as its CTA name, and no address or name ([Landing-page traffic](../features/landing-traffic.md)). A failure there is logged and does not change the answer.
 
 Success:
 
 ```json
 { "ok": true }
 ```
+
+## `POST /api/landing-events`
+
+Public endpoint used by the landing page's tracker (`src/lib/landing-tracker.ts`, sent with `navigator.sendBeacon`). Listed in `publicRoutes` in `src/lib/supabase/middleware.ts`, because `/api/:path*` is in the proxy matcher.
+
+Request (at most 2048 bytes):
+
+```json
+{
+  "event": "pageview",
+  "path": "/",
+  "referrer": "https://news.ycombinator.com/item?id=1",
+  "utm_source": "hn",
+  "utm_medium": "social",
+  "utm_campaign": "launch"
+}
+```
+
+- `event` is `pageview` or `cta_click`. `waitlist_signup` is refused; only `/api/waitlist` records it.
+- `cta` is required for `cta_click`: 1–40 characters of `a-z`, `0-9`, `_`, `-`.
+- `path` must be a tracked page (currently `/`); query and fragment are stripped.
+- `referrer` is reduced to its host; UTM values are trimmed, lower-cased and cut to 100 characters.
+
+Responses:
+
+- `204` with no body: recorded, or dropped on purpose (bot, prefetch, more than 40 events in ten minutes from one visitor). The two are not distinguishable. A failed insert is logged and also answers 204.
+- `400` `{ "ok": false, "error": "..." }`: malformed JSON, unknown event, untracked path, invalid CTA.
+- `413`: body over 2048 bytes.
+- `500`: Supabase environment variables missing.
+
+All responses carry `Cache-Control: no-store`. The route sends the database a SHA-256 hash of IP and user agent and a device bucket, never the raw values; see [Authentication, authorization, and privacy](auth-security.md#landing-page-traffic).
 
 ## `DELETE /api/account`
 

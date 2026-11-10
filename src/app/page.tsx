@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import WaitlistModal from "@/components/waitlist/WaitlistModal";
 import Roadmap from "@/components/marketing/Roadmap";
@@ -14,11 +14,18 @@ import { PrimaryCta } from "@/components/marketing/PrimaryCta";
 import { TypedHeading } from "@/components/marketing/TypedHeading";
 import { StickyCta } from "@/components/marketing/StickyCta";
 import { nightfallBody, nightfallDisplay } from "@/lib/marketing-fonts";
+import { trackLandingPageview } from "@/lib/landing-tracker";
 
 export default function LandingPage() {
   const is_MVP = process.env.NEXT_PUBLIC_IS_MVP === "true";
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const openWaitlist = () => setWaitlistOpen(true);
+
+  // One anonymous page view per visit to this page, sent to our own route
+  // (docs/features/landing-traffic.md).
+  useEffect(() => {
+    trackLandingPageview();
+  }, []);
 
   return (
     <div
@@ -42,7 +49,7 @@ export default function LandingPage() {
               Your journal, habits, daily plan and tasks all in one place. <br></br>Get rewarded for showing up and becoming the best version of yourself, one day at a time.
             </p>
             <div className="flex flex-wrap justify-center gap-3 lg:justify-start">
-              <PrimaryCta isMvp={is_MVP} onWaitlist={openWaitlist} />
+              <PrimaryCta isMvp={is_MVP} onWaitlist={openWaitlist} cta="hero" />
               <a
                 href="#how"
                 className="inline-flex items-center justify-center rounded-xl border border-[#eae5da] bg-white px-6 py-3.5 text-base font-bold transition-colors hover:border-[#d9d2c4]"
@@ -79,7 +86,7 @@ export default function LandingPage() {
           <p className="max-w-[34ch] text-[#6f6b63]">
             Tomorrow there&apos;s a streak to keep, and that turns out to be enough.
           </p>
-          <PrimaryCta isMvp={is_MVP} onWaitlist={openWaitlist} className="mt-1" />
+          <PrimaryCta isMvp={is_MVP} onWaitlist={openWaitlist} cta="hero" className="mt-1" />
         </Reveal>
       </section>*/}
 
