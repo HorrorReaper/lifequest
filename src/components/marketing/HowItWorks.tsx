@@ -15,19 +15,19 @@ type Step = {
 const STEPS: Step[] = [
   {
     title: "Write",
-    body: "Choose your template and answer the fields: Morning briefing, evening review, weekly review,... or create your own template with 14 different fields available.",
+    body: "Choose your journaling template and answer the available fields: Morning briefing, evening review, weekly review,... or create your own template with 14 different field-types available.",
     image: "/images/how-write.png",
     alt: "The Morning Reflection entry: a mood picker, and a bar showing one of its four required fields answered.",
   },
   {
-    title: "Finish",
-    body: "Finish your entries, tasks, habits and earn xp for doing that. So you earn xp while also getting better in real life, isn't that amazing?!",
+    title: "Complete",
+    body: "Finish your journal entries, tasks, habits and earn xp for doing that. So you earn xp while also getting better in real life, isn't that amazing?!",
     image: "/images/how-earn.png",
     alt: "The confirmation after saving an entry, showing the XP it paid.",
   },
   {
     title: "Level up",
-    body: "Achieve higher levels with your character, level up his skills and get motivated to stay consistent! You can also spend coins to customize your character.",
+    body: "Achieve higher levels with your character, level up his skills and get motivated to stay consistent!",
     image: "/images/how-levelup.png",
     alt: "The dashboard: level 10, 1,150 coins, a one-day streak, and 206 XP to level 11.",
   },
