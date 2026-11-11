@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchAvatarState, getDefaultAvatarState, type AvatarSlot } from '@/lib/avatar'
+import { streakFromProfile, type ProfileStreakRow } from '@/lib/streak'
 
 /**
  * What the app shell shows on every page: the top bar's level, XP, coins and
@@ -28,12 +29,17 @@ export function getDefaultShellStats(): ShellStats {
  */
 export async function fetchShellStats(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  now: Date = new Date()
 ): Promise<ShellStats> {
   const defaults = getDefaultShellStats()
 
   const [profileRes, cityRes, equippedItems] = await Promise.all([
-    supabase.from('profiles').select('total_xp, current_streak').eq('id', userId).maybeSingle(),
+    supabase
+      .from('profiles')
+      .select('total_xp, current_streak, last_journal_date, streak_freezes, timezone')
+      .eq('id', userId)
+      .maybeSingle(),
     supabase.from('city_states').select('coins').eq('user_id', userId).maybeSingle(),
     fetchAvatarState(supabase, userId)
       .then((state) => state.equippedItems)
@@ -43,12 +49,14 @@ export async function fetchShellStats(
       }),
   ])
 
-  const profile = profileRes.data as { total_xp: number | null; current_streak: number | null } | null
+  const profile = profileRes.data as ({ total_xp: number | null } & ProfileStreakRow) | null
   const city = cityRes.data as { coins: number | null } | null
 
   return {
     totalXp: profile?.total_xp ?? defaults.totalXp,
-    streak: profile?.current_streak ?? defaults.streak,
+    // The stored streak only moves when an entry is saved; after a missed day
+    // it is shown as 0 rather than as the length the next entry will reset.
+    streak: profile ? streakFromProfile(profile, now) : defaults.streak,
     coins: city?.coins ?? defaults.coins,
     equippedItems,
   }

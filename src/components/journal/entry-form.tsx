@@ -382,9 +382,10 @@ export function EntryForm({
       let entryId = existingEntryId
 
       if (entryId) {
+        // An edit keeps the XP the entry earned when it was first saved: the
+        // rewards below are settled only once, for a new entry.
         await supabaseUpdateWhere(supabase, 'journal_entries', {
           is_complete: true,
-          xp_earned: entryXp,
           updated_at: new Date().toISOString(),
         }, 'id', entryId)
       } else {
@@ -542,6 +543,17 @@ export function EntryForm({
         })
       }
 
+      // Every entry is complete from its first save (drafts live in local
+      // storage), so an edit has already earned its XP and counted towards
+      // the streak. Settling again would pay the XP a second time and count
+      // the edit as journaling today, keeping a streak alive without a new
+      // entry.
+      if (existingEntryId) {
+        clearDraft()
+        setSubmitted(true)
+        return
+      }
+
       // 3. Record XP event
       let totalXpEarned = entryXp
 
@@ -672,24 +684,32 @@ export function EntryForm({
         </motion.div>
         <div>
           <h2 className="font-heading text-2xl font-semibold tracking-tight">
-            {firstEntry ? 'Your first reflection is saved' : 'Reflection saved'}
+            {firstEntry
+              ? 'Your first reflection is saved'
+              : existingEntryId
+                ? 'Changes saved'
+                : 'Reflection saved'}
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {firstEntry
               ? "That's the loop: reflect, act, grow. Here's where the rest of it lives."
-              : "Your journal entry is stored. Take the next useful action when you're ready."}
+              : existingEntryId
+                ? 'Your journal entry is updated. The XP it earned stays as it was.'
+                : "Your journal entry is stored. Take the next useful action when you're ready."}
           </p>
         </div>
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="rounded-full border bg-background px-4 py-2"
-        >
-          <span className="text-sm font-semibold text-primary">
-            +{xpEarned} XP
-          </span>
-        </motion.div>
+        {!existingEntryId && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="rounded-full border bg-background px-4 py-2"
+          >
+            <span className="text-sm font-semibold text-primary">
+              +{xpEarned} XP
+            </span>
+          </motion.div>
+        )}
 
         {firstEntry && (
           <motion.div

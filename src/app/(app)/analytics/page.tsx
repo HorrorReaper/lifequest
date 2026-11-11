@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  calculateStreaks,
   extractMoodTrend,
   getTemplateUsage,
   getWeeklySummary,
@@ -19,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { redirect } from "next/navigation";
 import { SkillLevels } from "@/components/analytics/SkillLevels";
 import { fetchSkillXpTotals, type SkillCategory } from "@/lib/skill-categories";
+import { fetchProfileStreak, type ProfileStreak } from "@/lib/profile-streak";
 
 export default function AnalyticsPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -26,6 +26,7 @@ export default function AnalyticsPage() {
     SkillCategory,
     number
   > | null>(null);
+  const [streaks, setStreaks] = useState<ProfileStreak>({ current: 0, best: 0 });
 
   /*useEffect(() => {
     const stored = localStorage.getItem("journal-entries");
@@ -60,6 +61,22 @@ export default function AnalyticsPage() {
   }, []);
 
   useEffect(() => {
+    async function fetchStreak() {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      try {
+        setStreaks(await fetchProfileStreak(supabase, user.id));
+      } catch (error) {
+        console.error("Failed to fetch the journaling streak", error);
+      }
+    }
+    fetchStreak();
+  }, []);
+
+  useEffect(() => {
     async function fetchSkillTotals() {
       const supabase = createClient();
       const {
@@ -76,7 +93,6 @@ export default function AnalyticsPage() {
     fetchSkillTotals();
   }, []);
 
-  const streaks = calculateStreaks(entries);
   const moodTrend = extractMoodTrend(entries);
   const templateUsage = getTemplateUsage(entries);
   const weekly = getWeeklySummary(entries);
@@ -94,7 +110,7 @@ export default function AnalyticsPage() {
       <StatsCards
         totalEntries={entries.length}
         currentStreak={streaks.current}
-        longestStreak={streaks.longest}
+        longestStreak={streaks.best}
         topTemplate={templateUsage[0]?.name ?? "—"}
       />
 

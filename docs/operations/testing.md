@@ -80,6 +80,7 @@ The repository currently contains 32 test files.
 
 ### Journal
 
+- Journaling streak: the transition on a new entry, milestone bonuses and the celebration (`src/lib/streak.test.ts`); the displayed streak, shown as stored while the next entry would continue it and as 0 once a missed day has broken it, with "today" in the profile timezone (`displayedStreak`, `streakFromProfile` in the same file); the top bar's streak (`src/lib/shell-stats.test.ts`) and `fetchProfileStreak` (`src/lib/profile-streak.test.ts`). That an edited entry earns no XP and leaves the streak alone is in the submit handler of `entry-form.tsx` and is not covered by an automated test.
 - Mobile step construction/navigation.
 - Mobile wizard validation and state preservation.
 - Dirty close/discard behavior.

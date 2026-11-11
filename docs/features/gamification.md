@@ -66,6 +66,12 @@ The journal pipeline handles:
 
 Because the journal side effects are sequential, streak and XP changes should be tested together whenever the submission pipeline changes.
 
+### Displayed streak
+
+`profiles.current_streak` only changes when an entry is saved, so after a missed day it still holds the old length until the next entry resets it. Every screen that shows the current journaling streak therefore reads it through `displayedStreak` in `src/lib/streak.ts` (`streakFromProfile` for a profile row, with "today" in the profile timezone). It applies the same rules as `resolveStreak`: a streak the next entry would continue (an entry today or yesterday, or one missed day while a freeze is left) is shown as stored, and one the next entry would reset is shown as 0. The stored value is not written back; the next entry still resets and archives it as before.
+
+The profile is the only source of the streak. The top bar (`fetchShellStats` in `src/lib/shell-stats.ts`) and `/profile` read it from the profile row they already load; `/analytics` and the city's journal rewards use `fetchProfileStreak` in `src/lib/profile-streak.ts`, which also returns `best_streak`. `/analytics` used to recount both values from `journal_entries` (`calculateStreaks`, removed), using `created_at` in the browser timezone and no freezes, so it could disagree with the top bar.
+
 ### Streak celebration
 
 A save that grows the streak raises a full-screen celebration (`StreakOverlay` in `src/components/ui/streak-overlay.tsx`, built on the shared `CelebrationOverlay` with its orange `streak` tone, the colour of the top bar's flame). The ring holds a flame that grows and the streak flipping from its old value to its new one; the title is the new length ("2 days"). The subtitle names the way to the next milestone ("5 days to your 7-day bonus"), the bonus on a milestone day ("+50 XP streak bonus"), or "Keep the flame alive." past the last milestone, prefixed with "Streak freeze used" when a freeze bridged the day. It closes on a tap or after 4 seconds; under reduced motion it leaves out the burst and the pulse and shows the new value straight away.
@@ -148,7 +154,7 @@ Each building has unlock requirements and a coin cost. Building unlocks are base
 
 ### Journal rewards
 
-Eligible unclaimed journal entries can yield city rewards. A base reward is multiplied by the active streak, capped at a 2.5× multiplier for a 30-day streak.
+Eligible unclaimed journal entries can yield city rewards. A base reward is multiplied by the active streak, capped at a 2.5× multiplier for a 30-day streak. The streak is the displayed journaling streak from the profile (see [Displayed streak](#displayed-streak)), so a broken streak gives no multiplier.
 
 The reward claimer prevents the same entry from being claimed again by storing claimed entry IDs.
 
@@ -158,7 +164,7 @@ The building picker shows unlocked and affordable options. The grid stores user 
 
 ## Analytics
 
-`/analytics` shows journal-derived stats (streaks, mood trend, template usage, activity heatmap) across Overview/Mood/Activity tabs, plus a Skills tab (`SkillLevels`) rendering the six per-category level bars described above.
+`/analytics` shows journal-derived stats (mood trend, template usage, activity heatmap), the current and best streak from the profile (see [Displayed streak](#displayed-streak)), across Overview/Mood/Activity tabs, plus a Skills tab (`SkillLevels`) rendering the six per-category level bars described above.
 
 ## Implementation locations
 

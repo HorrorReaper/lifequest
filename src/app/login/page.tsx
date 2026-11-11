@@ -11,7 +11,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     // Arriving from a challenge landing page: the join route has already
     // remembered the challenge, so this only has to say what happens next.
-    <AuthScene heading={challenge ? 'Your challenge starts right after sign-up.' : 'Build your life like a city.'}>
+    <AuthScene heading={challenge ? 'Your challenge starts right after sign-up.' : 'Build your life like an adventure'}>
       <LoginForm
         accountDeleted={account === 'deleted'}
         defaultSignUp={mode === 'signup'}
