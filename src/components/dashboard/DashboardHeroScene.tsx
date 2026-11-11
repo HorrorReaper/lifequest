@@ -1,6 +1,6 @@
 'use client'
 
-import { useId } from 'react'
+import { useId, type CSSProperties } from 'react'
 import type { DayStage } from '@/lib/day-progress'
 import { cn } from '@/lib/utils'
 
@@ -10,7 +10,20 @@ interface DashboardHeroSceneProps {
 }
 
 /** The width of one landscape tile, in SVG units; the scroll moves by one. */
-const TILE = 480
+export const TILE = 480
+
+/** The scene's height in SVG units; on a phone it fills the hero's height. */
+export const SCENE_HEIGHT = 140
+
+/**
+ * Seconds the near ground, path, trees and flowers take to drift past by one
+ * tile. The avatar's stride is timed to this (STRIDE_SECONDS in
+ * DashboardGreeting.tsx), so change the two together.
+ */
+export const NEAR_SCROLL_SECONDS = 36
+
+/** The far hills drift at half that speed. */
+export const FAR_SCROLL_SECONDS = NEAR_SCROLL_SECONDS * 2
 
 /**
  * Elements that join the scene from a stage on fade in rather than pop, and
@@ -123,9 +136,15 @@ export function DashboardHeroScene({ stage, className }: DashboardHeroSceneProps
       aria-hidden="true"
       data-slot="hero-scene"
       data-stage={stage}
-      viewBox={`0 0 ${TILE} 140`}
+      viewBox={`0 0 ${TILE} ${SCENE_HEIGHT}`}
       preserveAspectRatio="xMidYMax slice"
       className={cn('h-full w-full', className)}
+      style={
+        {
+          '--hero-scroll-near': `${NEAR_SCROLL_SECONDS}s`,
+          '--hero-scroll-far': `${FAR_SCROLL_SECONDS}s`,
+        } as CSSProperties
+      }
     >
       <defs>
         <linearGradient id={fadeAcross} x1="0" x2="1" y1="0" y2="0">

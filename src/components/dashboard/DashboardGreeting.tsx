@@ -1,7 +1,7 @@
 'use client'
 
 import { Fraunces } from 'next/font/google'
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { Pause, Play } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { useTheme } from '@/components/providers/theme-provider'
@@ -9,6 +9,7 @@ import { AvatarFigure } from '@/components/profile/AvatarFigure'
 import { Button } from '@/components/ui/button'
 import { DashboardHeroScene } from '@/components/dashboard/DashboardHeroScene'
 import type { AvatarSlot } from '@/lib/avatar'
+import { cn } from '@/lib/utils'
 import type { DayProgress, DayStage } from '@/lib/day-progress'
 
 // Scoped to this component only -- must not touch the app's global
@@ -45,11 +46,44 @@ export function greetingFor(nowMinutes: number | undefined): string {
   return 'Good evening'
 }
 
-/** How long the avatar takes to walk onto the path, in seconds. */
+/**
+ * How long the avatar takes to walk onto the path, in seconds. It fades in
+ * one body width (its own 120 units) left of its place and covers that
+ * distance at an even pace.
+ */
 export const WALK_SECONDS = 1.6
+
+/** Strides the avatar takes to walk in: quicker and longer than its stroll. */
+export const WALK_IN_STRIDES = 3
+
+/**
+ * How far each leg swings during the walk-in, in degrees. Over the walk-in
+ * the feet have to cover the avatar's own width plus the path drifting
+ * past, in WALK_IN_STRIDES strides, so a planted foot keeps pace with the
+ * ground here too (see STRIDE_SECONDS for the arithmetic).
+ */
+export const WALK_IN_DEGREES = 19
+
+/** How far each leg swings to either side of straight down, in degrees. */
+export const STRIDE_DEGREES = 13
+
+/**
+ * How long one stride (a step with each leg) takes, in seconds. Timed so a
+ * planted foot swings back exactly as fast as the path drifts past, which is
+ * what keeps it from sliding: in half a stride a foot covers
+ * 2 x AVATAR_LEG_UNITS x sin(STRIDE_DEGREES) of the figure's own units, and
+ * on a phone (158px of scene inside the 160px hero's border, showing the
+ * scene's 140 units; a 96px avatar drawn in 160) the path drifts
+ * TILE / NEAR_SCROLL_SECONDS scene units a second. Other widths scale the
+ * scene by up to about 6% more or less than the avatar, too little to see.
+ * Change it together with NEAR_SCROLL_SECONDS.
+ */
+export const STRIDE_SECONDS = 1.47
 
 /** How far apart the scene's stages arrive while it walks, in milliseconds. */
 export const STAGE_STEP_MS = 600
+
+const noSubscription = () => () => {}
 
 /** Where the viewer's choice to pause the scene is remembered, per browser. */
 export const HERO_PAUSE_KEY = 'lifequest:hero-scene-paused'
@@ -97,8 +131,9 @@ const pausePreference = {
  * Kept short on purpose (160px on a phone): the greeting is orientation, and
  * the next step below it is the part of the page that asks for attention.
  *
- * On load the avatar walks in from the left and the world grows stage by
- * stage up to today's while it walks. After that it keeps walking slowly on
+ * On load the avatar walks in from the left with a few brisk strides and the
+ * world grows stage by stage up to today's while it walks. After that it
+ * keeps walking slowly on
  * the spot while the landscape drifts past, for as long as the page is open.
  * The movement stops while the hero is scrolled out of view, and a button in
  * the corner pauses it for good (remembered per browser) -- moving content
@@ -140,6 +175,13 @@ export function DashboardGreeting({
   const pausedByViewer = useSyncExternalStore(
     pausePreference.subscribe,
     pausePreference.get,
+    () => false
+  )
+  // The walk starts once the page is live, together with the hero's fade-in:
+  // in the server's HTML the CSS would start it before anyone can see it.
+  const live = useSyncExternalStore(
+    noSubscription,
+    () => true,
     () => false
   )
   // No point moving a landscape nobody can see.
@@ -187,19 +229,30 @@ export function DashboardGreeting({
       </div>
 
       {/* Ends on the path, right of the words so it never sits on them. The
-          outer layer walks it in once; the inner one is the stride, a CSS
-          loop that keeps going (`.hero-stride` in globals.css). */}
-      <motion.div
+          outer layer walks it in once (`.hero-walker`); the inner one carries
+          the walk cycle on the avatar's legs, arms and body, brisk strides
+          for the walk-in and then a stroll that keeps going (`.hero-stride`).
+          All of it is CSS in globals.css, so the strides and the walk-in
+          start on the same frame. */}
+      <div
         data-slot="hero-walker"
-        className="absolute bottom-1 z-10"
-        initial={reduceMotion ? false : { left: '-20%' }}
-        animate={{ left: '58%' }}
-        transition={{ duration: WALK_SECONDS, ease: 'easeOut' }}
+        className={cn('absolute bottom-1 left-[58%] z-10', live && 'hero-walker')}
+        style={
+          {
+            '--hero-walk-in': `${WALK_SECONDS}s`,
+            '--hero-stride-in': `${WALK_SECONDS / WALK_IN_STRIDES}s`,
+            '--hero-stride-angle-in': `${WALK_IN_DEGREES}deg`,
+            '--hero-strides-in': WALK_IN_STRIDES,
+            '--hero-bobs-in': WALK_IN_STRIDES * 2,
+            '--hero-stride': `${STRIDE_SECONDS}s`,
+            '--hero-stride-angle': `${STRIDE_DEGREES}deg`,
+          } as CSSProperties
+        }
       >
-        <div className="hero-stride">
+        <div className={live ? 'hero-stride' : undefined}>
           <AvatarFigure equippedItems={equippedItems} className="h-24 w-auto sm:h-28" />
         </div>
-      </motion.div>
+      </div>
 
       <Button
         type="button"
