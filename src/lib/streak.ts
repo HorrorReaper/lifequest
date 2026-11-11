@@ -1,4 +1,4 @@
-import { addDays, daysBetween } from '@/lib/dates'
+import { addDays, dateInTimezone, daysBetween } from '@/lib/dates'
 
 // The journaling streak transition, isolated from the submission pipeline that
 // applies it. The pipeline is a long sequence of Supabase writes and cannot be
@@ -84,6 +84,39 @@ export function resolveStreak({
           }
         : null,
   }
+}
+
+/**
+ * The streak as it stands today, for display.
+ *
+ * `profiles.current_streak` only changes when an entry is saved, so after a
+ * missed day it still holds the old length until the next entry resets it.
+ * This reads the stored value through the same rules `resolveStreak` applies:
+ * a streak the next entry would continue (today, yesterday, or one missed day
+ * a freeze still covers) is shown as stored; one it would reset is shown as 0.
+ * The stored value itself is left alone.
+ */
+export function displayedStreak(input: StreakInput): number {
+  if (!input.lastJournalDate || input.currentStreak <= 0) return 0
+  return resolveStreak(input).reason === 'reset' ? 0 : input.currentStreak
+}
+
+/** The profile columns {@link streakFromProfile} reads. */
+export interface ProfileStreakRow {
+  current_streak: number | null
+  last_journal_date: string | null
+  streak_freezes: number | null
+  timezone: string | null
+}
+
+/** {@link displayedStreak} for a profile row, with "today" in the profile's timezone. */
+export function streakFromProfile(profile: ProfileStreakRow, now: Date): number {
+  return displayedStreak({
+    today: dateInTimezone(now, profile.timezone ?? 'UTC'),
+    lastJournalDate: profile.last_journal_date,
+    currentStreak: profile.current_streak ?? 0,
+    streakFreezes: profile.streak_freezes ?? 0,
+  })
 }
 
 /**

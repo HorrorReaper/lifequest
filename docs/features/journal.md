@@ -110,6 +110,8 @@ The existing final submission pipeline performs the following work as applicable
 8. Record entry XP and update profile progression.
 9. Update streak, streak-freeze, milestone, and streak-history state.
 
+Steps 8 and 9 run only for a new entry. Every entry is complete from its first save (drafts live in local storage), so saving an edit (`existingEntryId`) stores the changed responses and their side effects (steps 1 to 7) and keeps the entry's `xp_earned`, the profile XP and the streak as they were. The success screen then says "Changes saved" and shows no XP. Before this, an edit recorded the entry XP a second time and set `last_journal_date` to today, so editing an older entry kept a streak alive without a new entry.
+
 Morning and evening completion can award an additional daily bonus. Streak milestones award larger bonuses at configured thresholds, once on the day the milestone is reached; a further entry that day earns no second bonus (see [Gamification](./gamification.md#streaks)). A save that grows the streak also raises the streak celebration (see [Gamification](./gamification.md#streak-celebration)).
 
 Every date key the pipeline writes — `entry_date`, the same-day bonus lookup, `last_journal_date` — is resolved once from the profile timezone at the start of the submission, so a submission that straddles midnight cannot file its side effects under two different days. The streak decision itself is not in the pipeline: `resolveStreak` in `src/lib/streak.ts` is a pure function over date keys, unit-tested, and the pipeline only applies its result. It previously compared a wall-clock "yesterday" against a UTC-formatted date, which drifted apart at daylight-saving transitions and reset live streaks.
@@ -152,7 +154,7 @@ Any `number` field can be flagged as a tracked metric from the template builder 
 ## Archive and editing
 
 - `/journal/entries` provides the full chronological archive.
-- `/journal/[entryId]` loads an existing entry and responses for review/editing.
+- `/journal/[entryId]` loads an existing entry and responses for review/editing. Saving there earns no XP and does not count towards the streak (see [Entry submission](#entry-submission)).
 - Entries are always filtered to the authenticated owner through both application queries and RLS.
 
 ## Important integration points

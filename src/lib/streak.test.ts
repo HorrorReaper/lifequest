@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  displayedStreak,
   nextStreakMilestone,
   resolveStreak,
   streakCelebration,
+  streakFromProfile,
   streakMilestoneBonus,
 } from '@/lib/streak'
 
@@ -12,6 +14,54 @@ const base = {
   currentStreak: 4,
   streakFreezes: 0,
 }
+
+describe('displayedStreak', () => {
+  it('shows the stored streak after an entry today', () => {
+    expect(displayedStreak({ ...base, lastJournalDate: '2026-07-25' })).toBe(4)
+  })
+
+  it('shows the stored streak while today is still open, without counting today yet', () => {
+    expect(displayedStreak(base)).toBe(4)
+  })
+
+  it('shows the stored streak across one missed day a freeze still covers', () => {
+    expect(displayedStreak({ ...base, lastJournalDate: '2026-07-23', streakFreezes: 1 })).toBe(4)
+  })
+
+  it('shows 0 once a missed day has broken the streak', () => {
+    expect(displayedStreak({ ...base, lastJournalDate: '2026-07-23' })).toBe(0)
+    expect(displayedStreak({ ...base, lastJournalDate: '2026-07-20', streakFreezes: 1 })).toBe(0)
+  })
+
+  it('shows 0 for a user who has never journaled', () => {
+    expect(displayedStreak({ ...base, lastJournalDate: null, currentStreak: 0 })).toBe(0)
+  })
+})
+
+describe('streakFromProfile', () => {
+  const profile = {
+    current_streak: 6,
+    last_journal_date: '2026-07-24',
+    streak_freezes: 0,
+    timezone: 'Europe/Berlin',
+  }
+
+  it('decides "today" in the profile timezone, not in UTC', () => {
+    // 23:30 UTC on the 25th is already the 26th in Berlin: the entry on the
+    // 24th is two days back there, which breaks the streak.
+    expect(streakFromProfile(profile, new Date('2026-07-25T23:30:00Z'))).toBe(0)
+    expect(streakFromProfile(profile, new Date('2026-07-25T21:30:00Z'))).toBe(6)
+  })
+
+  it('falls back to UTC and to zero for missing columns', () => {
+    expect(
+      streakFromProfile(
+        { current_streak: null, last_journal_date: null, streak_freezes: null, timezone: null },
+        new Date('2026-07-25T12:00:00Z')
+      )
+    ).toBe(0)
+  })
+})
 
 describe('resolveStreak', () => {
   it('extends the streak on a consecutive day', () => {

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { getLevel, getCityTier, getXpProgress, CITY_TIER_LABELS } from '@/lib/gamification'
+import { streakFromProfile } from '@/lib/streak'
 import { fetchSkillXpTotals } from '@/lib/skill-categories'
 import { fetchAvatarState } from '@/lib/avatar'
 import type { Database } from '@/lib/supabase/database.types'
@@ -78,7 +79,7 @@ export default async function ProfilePage() {
           totalXp={profile.total_xp}
           pct={progress.pct}
           coins={coins}
-          streak={profile.current_streak}
+          streak={streakFromProfile(profile, new Date())}
         />
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
