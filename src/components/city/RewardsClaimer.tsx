@@ -8,7 +8,7 @@ import {
   calculateRewards,
   fetchUnclaimedEntryCount,
 } from "@/lib/city/city";
-import { calculateStreaks, type JournalEntry } from "@/lib/analytics";
+import { fetchProfileStreak } from "@/lib/profile-streak";
 
 interface RewardsClaimerProps {
   userId: string;
@@ -37,22 +37,13 @@ export function RewardsClaimer({ userId, claimedIds, onClaim }: RewardsClaimerPr
       setUnclaimedCount(count);
       setUnclaimedIds(entryIds);
 
-      // Get streak from journal_entries
-      const { data: entries } = await supabase
-        .from("journal_entries")
-        .select("id, created_at")
-        .eq("user_id", userId);
-
-      if (entries) {
-        const entryRows = entries as unknown as Array<{ id: string; created_at: string }>
-        const mapped: JournalEntry[] = entryRows.map((entry) => ({
-          id: entry.id,
-          templateId: "",
-          templateName: "",
-          createdAt: entry.created_at,
-          fields: {},
-        }));
-        setStreakDays(calculateStreaks(mapped).current);
+      // The same streak the top bar shows: a broken streak gives no bonus.
+      try {
+        const streak = await fetchProfileStreak(supabase, userId);
+        setStreakDays(streak.current);
+      } catch (error) {
+        console.error("Failed to load the streak for city rewards", error);
+        setStreakDays(0);
       }
 
       setLoading(false);

@@ -97,6 +97,7 @@ src/app/
 | `habit-xp.ts` | Habit check-in streak-multiplier formula and reward-RPC wrappers |
 | `routines.ts` | Routine queries/mutations |
 | `gamification.ts` | XP/level helpers |
+| `streak.ts`, `profile-streak.ts` | Journaling streak: transition on a new entry, milestones, displayed streak, and the profile read for screens outside the shell |
 | `skill-categories.ts` | Skill taxonomy, labels, and per-category XP total fetch |
 | `quests.ts` | Quest data helpers |
 | `lessons.ts` | Static lesson catalog |

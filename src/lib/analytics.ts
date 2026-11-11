@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
+import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
 
 export interface JournalEntry {
   id: string;
@@ -8,63 +8,9 @@ export interface JournalEntry {
   fields: Record<string, any>;
 }
 
-// ---------- Streak ----------
-export function calculateStreaks(entries: JournalEntry[]) {
-  if (entries.length === 0) return { current: 0, longest: 0 };
-
-  const validDates = entries
-    .map((e) => new Date(e.createdAt))
-    .filter((d) => !isNaN(d.getTime()));
-
-  if (validDates.length === 0) return { current: 0, longest: 0 };
-
-  const uniqueDays = [
-    ...new Set(validDates.map((d) => format(d, "yyyy-MM-dd"))),
-  ].sort();
-
-  let current = 1;
-  let longest = 1;
-  let tempStreak = 1;
-
-  // Walk backwards from today to find current streak
-  const today = format(new Date(), "yyyy-MM-dd");
-  const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
-  const lastEntry = uniqueDays[uniqueDays.length - 1];
-
-  if (lastEntry !== today && lastEntry !== yesterday) {
-    current = 0;
-  } else {
-    current = 1;
-    for (let i = uniqueDays.length - 2; i >= 0; i--) {
-      const diff = differenceInCalendarDays(
-        new Date(uniqueDays[i + 1]),
-        new Date(uniqueDays[i])
-      );
-      if (diff === 1) {
-        current++;
-      } else {
-        break;
-      }
-    }
-  }
-
-  // Calculate longest streak
-  for (let i = 1; i < uniqueDays.length; i++) {
-    const diff = differenceInCalendarDays(
-      new Date(uniqueDays[i]),
-      new Date(uniqueDays[i - 1])
-    );
-    if (diff === 1) {
-      tempStreak++;
-      longest = Math.max(longest, tempStreak);
-    } else {
-      tempStreak = 1;
-    }
-  }
-  longest = Math.max(longest, tempStreak);
-
-  return { current, longest };
-}
+// The journaling streak is not recounted from entries here: it comes from
+// the profile (`fetchProfileStreak` in src/lib/profile-streak.ts), which the
+// journal pipeline keeps with freezes and the profile timezone applied.
 
 // ---------- Mood over time ----------
 export interface MoodDataPoint {
