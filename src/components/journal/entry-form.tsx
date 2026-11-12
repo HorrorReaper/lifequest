@@ -11,6 +11,9 @@ import { supabaseInsert, supabaseFrom, supabaseUpdateWhere } from '@/lib/supabas
 import type { Database, Json } from '@/lib/supabase/database.types'
 import { useUserStore } from '@/lib/stores/user-store'
 import { FieldRenderer } from '@/components/journal/field-renderer'
+import { JournalMetricsBlock } from '@/components/journal/JournalMetricsBlock'
+import { entryMetricWrites, logMetricValue, type Metric } from '@/lib/metrics'
+import { parseDecimal } from '@/lib/decimal'
 import { upsertDayPlan } from '@/lib/day-plans'
 import { Button } from '@/components/ui/button'
 import { logHabits } from "@/lib/habits";
@@ -79,6 +82,23 @@ interface EntryFormProps {
    * whose day opened this entry. Replaces the Dashboard button.
    */
   returnTo?: { href: string; label: string } | null
+  /**
+   * The day an existing entry belongs to (`entry_date`). Metric values are
+   * written to this day, not to today, so an entry edited later still files
+   * its numbers where it was written. A new entry has none and uses today.
+   */
+  entryDate?: string
+  /**
+   * The user's local day, computed on the server from the profile time zone.
+   * Only labels the Metrics block; the submit resolves its own day.
+   */
+  today: string
+  /**
+   * The user's metrics this template feeds, each with the value it already
+   * has on the entry's day. Metrics fed by one of the template's own fields
+   * take that field's number; the others get an input in the "Metrics" block.
+   */
+  linkedMetrics?: { metric: Metric; value: number | null }[]
 }
 
 type JournalResponseInsert = Database['public']['Tables']['journal_responses']['Insert']
@@ -197,6 +217,9 @@ export function EntryForm({
   firstEntry = false,
   prompt = null,
   returnTo = null,
+  entryDate,
+  today: serverToday,
+  linkedMetrics = [],
 }: EntryFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -216,6 +239,30 @@ export function EntryForm({
   const [activeStep, setActiveStep] = useState(0)
   const [draftReady, setDraftReady] = useState(false)
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
+  // Set once the entry row exists, so a retry after a later step failed
+  // updates that entry rather than creating a second one, and files its
+  // metrics under the day the entry was saved on even if midnight has passed.
+  const savedEntry = useRef<{ id: string; date: string } | null>(null)
+
+  const fieldIds = useMemo(() => new Set(fields.map((field) => field.id)), [fields])
+  // A metric whose source field is one of this template's fields is fed by
+  // that field; every other linked metric is asked for in the Metrics block.
+  const blockMetrics = useMemo(
+    () =>
+      linkedMetrics.filter(
+        ({ metric }) => !(metric.sourceFieldId && fieldIds.has(metric.sourceFieldId))
+      ),
+    [fieldIds, linkedMetrics]
+  )
+  const initialMetricInputs = useMemo(
+    () =>
+      Object.fromEntries(
+        blockMetrics.map(({ metric, value }) => [metric.id, value === null ? '' : String(value)])
+      ),
+    [blockMetrics]
+  )
+  const initialMetricInputsSnapshot = useRef(JSON.stringify(initialMetricInputs))
+  const [metricInputs, setMetricInputs] = useState<Record<string, string>>(initialMetricInputs)
 
   const previewBonusXp = useMemo(() => {
     try {
@@ -251,7 +298,9 @@ export function EntryForm({
     () => journalDraftKey({ userId, templateId: template.id, existingEntryId }),
     [existingEntryId, template.id, userId]
   )
-  const dirty = JSON.stringify(values) !== initialValuesSnapshot.current
+  const dirty =
+    JSON.stringify(values) !== initialValuesSnapshot.current ||
+    JSON.stringify(metricInputs) !== initialMetricInputsSnapshot.current
 
   useEffect(() => {
     try {
@@ -260,6 +309,16 @@ export function EntryForm({
 
       if (draft) {
         setValues((currentValues) => ({ ...currentValues, ...draft.values }))
+        if (draft.metricInputs) {
+          const restored = draft.metricInputs
+          setMetricInputs((current) => {
+            const next = { ...current }
+            for (const metricId of Object.keys(current)) {
+              if (metricId in restored) next[metricId] = restored[metricId]
+            }
+            return next
+          })
+        }
         setActiveStep(draft.activeStep)
       } else if (rawDraft) {
         window.sessionStorage.removeItem(draftStorageKey)
@@ -278,7 +337,7 @@ export function EntryForm({
       if (dirty) {
         window.sessionStorage.setItem(
           draftStorageKey,
-          serializeJournalDraft({ activeStep, values })
+          serializeJournalDraft({ activeStep, values, metricInputs })
         )
       } else {
         window.sessionStorage.removeItem(draftStorageKey)
@@ -286,7 +345,7 @@ export function EntryForm({
     } catch {
       // Draft persistence is best-effort; the reflection remains in React state.
     }
-  }, [activeStep, draftReady, draftStorageKey, dirty, values])
+  }, [activeStep, draftReady, draftStorageKey, dirty, values, metricInputs])
 
   function clearDraft() {
     try {
@@ -299,6 +358,11 @@ export function EntryForm({
   function updateValue(fieldId: string, value: FieldValue) {
     setValues((prev) => ({ ...prev, [fieldId]: value }))
     if (fieldErrorId === fieldId) setFieldErrorId(null)
+    setError(null)
+  }
+
+  function updateMetricInput(metricId: string, text: string) {
+    setMetricInputs((prev) => ({ ...prev, [metricId]: text }))
     setError(null)
   }
 
@@ -379,7 +443,8 @@ export function EntryForm({
       const today = dateInTimezone(new Date(), timezone)
 
       // 1. Create or update journal entry
-      let entryId = existingEntryId
+      let entryId = existingEntryId ?? savedEntry.current?.id
+      const updatingEntry = entryId !== undefined
 
       if (entryId) {
         // An edit keeps the XP the entry earned when it was first saved: the
@@ -402,6 +467,7 @@ export function EntryForm({
 
         if (entryError) throw entryError
         entryId = (entry as { id: string }).id
+        savedEntry.current = { id: entryId, date: today }
       }
 
       // 2. Upsert responses
@@ -433,7 +499,7 @@ export function EntryForm({
       })
 
       // Delete existing responses if editing
-      if (existingEntryId) {
+      if (updatingEntry) {
         await supabase
           .from('journal_responses')
           .delete()
@@ -475,6 +541,63 @@ export function EntryForm({
           })
 
         if (learningError) throw learningError
+      }
+
+      // Write the entry's numbers to the metrics it is linked to. The entry
+      // and its responses are saved by now, so a failure here stops before the
+      // XP and keeps the form: saving again updates this entry and retries.
+      const metricFieldValues: Record<string, number | null> = {}
+      for (const field of fields) {
+        const number = values[field.id]?.value_number ?? null
+        // Editing an entry writes a field-fed value only when the number
+        // differs from the one loaded with the entry: the day's value may
+        // have been corrected on the metric page since, and re-saving the
+        // entry must not put the old number back. A new entry, and a retry
+        // after a failed write, always write.
+        const unchanged =
+          existingEntryId !== undefined &&
+          number === (existingResponses?.[field.id]?.value_number ?? null)
+        metricFieldValues[field.id] = unchanged ? null : number
+      }
+
+      // A block input that still holds what it was prefilled with is not a
+      // new answer: writing it back would relabel a value logged elsewhere
+      // and could overwrite a newer one with the stale prefill. Only inputs
+      // whose number changed are written (so 81.6 and 81,6 are equal).
+      const changedInputs: Record<string, string> = {}
+      for (const [metricId, text] of Object.entries(metricInputs)) {
+        if (parseDecimal(text) !== parseDecimal(initialMetricInputs[metricId] ?? '')) {
+          changedInputs[metricId] = text
+        }
+      }
+
+      const metricWrites = entryMetricWrites({
+        // A stale source field (not in this template) must not shadow the input.
+        linked: linkedMetrics.map(({ metric }) =>
+          blockMetrics.some((block) => block.metric.id === metric.id)
+            ? { ...metric, sourceFieldId: null }
+            : metric
+        ),
+        fieldValues: metricFieldValues,
+        blockValues: changedInputs,
+      })
+
+      try {
+        await Promise.all(
+          metricWrites.map((write) =>
+            logMetricValue(supabase, user.id, {
+              ...write,
+              date: entryDate ?? savedEntry.current?.date ?? today,
+              sourceEntryId: entryId!,
+            })
+          )
+        )
+      } catch (metricError) {
+        console.error('Failed to write metric values:', metricError)
+        setError(
+          'Your reflection is saved, but a metric value could not be saved. Please try again.'
+        )
+        return
       }
 
       // 2) Find tasks fields and persist their tasks
@@ -903,6 +1026,19 @@ export function EntryForm({
               ))}
             </JournalStepPanel>
           ))}
+
+          {/* The Metrics block belongs to the final step, below its fields. */}
+          {blockMetrics.length > 0 && (
+            <JournalStepPanel active={activeStep >= steps.length - 1}>
+              <JournalMetricsBlock
+                metrics={blockMetrics}
+                values={metricInputs}
+                onChange={updateMetricInput}
+                entryDate={entryDate ?? serverToday}
+                today={serverToday}
+              />
+            </JournalStepPanel>
+          )}
 
           {error && (
             <p

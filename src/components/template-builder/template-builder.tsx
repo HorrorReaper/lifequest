@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { Fragment, useState, useCallback, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   DndContext,
@@ -20,7 +21,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/supabase/database.types'
-import { supabaseInsert, supabaseFrom } from '@/lib/supabase/helpers'
+import { supabaseFrom } from '@/lib/supabase/helpers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -38,6 +39,12 @@ import { FieldConfigEditor } from '@/components/template-builder/field-config-ed
 import { AddFieldPanel } from '@/components/template-builder/add-field-panel'
 import { TemplatePreview } from '@/components/template-builder/template-preview'
 import { FieldTypeDefinition, getFieldDefinition } from '@/lib/field-registry'
+import {
+  fetchTemplateMetricLinks,
+  matchFieldsByLabel,
+  updateMetric,
+  type TemplateMetricLink,
+} from '@/lib/metrics'
 
 interface TemplateBuilderProps {
   templateId?: string
@@ -83,6 +90,43 @@ export function TemplateBuilder({
   // Below lg the preview cannot sit beside the builder, so it moves into a
   // sheet the same way the dashboard puts its day management in one.
   const [previewOpen, setPreviewOpen] = useState(false)
+  // Metrics tied to this template, for the "Also asks for" line and the
+  // field editor's "Feeds metric" note. A failed read only hides them.
+  const [metricLinks, setMetricLinks] = useState<TemplateMetricLink[]>([])
+
+  useEffect(() => {
+    if (!templateId || isSystem) return
+    let cancelled = false
+
+    fetchTemplateMetricLinks(
+      createClient(),
+      templateId,
+      initialFields.map((f) => f.id)
+    )
+      .then((links) => {
+        if (!cancelled) setMetricLinks(links)
+      })
+      .catch((err) => console.error('Metric links error:', err))
+
+    return () => {
+      cancelled = true
+    }
+    // The initial fields are only the first read's lookup keys; reloading
+    // when the parent re-renders would not find anything new.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId, isSystem])
+
+  const feedsMetricByFieldId = useMemo(() => {
+    const feeds: Record<string, string> = {}
+    for (const link of metricLinks) {
+      if (link.sourceFieldId) feeds[link.sourceFieldId] = link.name
+    }
+    return feeds
+  }, [metricLinks])
+
+  const alsoAsksFor = metricLinks
+    .filter((link) => link.templateId === templateId)
+    .map((link) => ({ id: link.id, name: link.name }))
 
   const sensors = useSensors( // DnD Kit Sensoren für Maus und Tastatur
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -160,29 +204,51 @@ export function TemplateBuilder({
       if (!user) throw new Error('Not authenticated')
 
       let savedTemplateId = templateId
+      // Metrics fed by the fields about to be replaced, with those fields as
+      // they are now. Read before the delete: the foreign key nulls
+      // metrics.source_field_id as soon as the old fields are gone.
+      let linkedToOldFields: TemplateMetricLink[] = []
+      let oldFields: { id: string; label: string }[] = []
 
       if (savedTemplateId && !isSystem) {
         // Nothing may be written before we know the fields can be replaced.
         // This check used to run after the metadata update, which left a
         // refused save with a changed name, icon and XP reward on a template
         // whose fields had not moved.
-        const { data: existingFields } = await supabase
+        const { data: existingFields, error: fieldsError } = await supabase
           .from('template_fields')
-          .select('id')
+          .select('id, label')
           .eq('template_id', savedTemplateId)
+          // Pairing by label hands duplicates out in order, so both lists
+          // have to be in field order.
+          .order('sort_order', { ascending: true })
 
-        const fieldIds = (existingFields ?? []).map((f: { id: string }) => f.id)
+        // A failed read must not look like "no fields" or "no responses":
+        // both would let the delete below run.
+        if (fieldsError) throw fieldsError
+
+        oldFields = (existingFields ?? []) as { id: string; label: string }[]
+        const fieldIds = oldFields.map((f) => f.id)
         if (fieldIds.length > 0) {
-          const { count } = await supabase
+          const { count, error: countError } = await supabase
             .from('journal_responses')
             .select('id', { count: 'exact', head: true })
             .in('field_id', fieldIds)
+
+          if (countError) throw countError
 
           if ((count ?? 0) > 0) {
             setError('Cannot modify template fields because there are existing responses. Duplicate or archive the template first.')
             setSaving(false)
             return
           }
+        }
+
+        if (fieldIds.length > 0) {
+          const links = await fetchTemplateMetricLinks(supabase, savedTemplateId, fieldIds)
+          linkedToOldFields = links.filter(
+            (link) => link.sourceFieldId && fieldIds.includes(link.sourceFieldId)
+          )
         }
 
         // Update existing template
@@ -242,9 +308,57 @@ export function TemplateBuilder({
         xp_rules: field.xp_rules ?? [],
       }))
 
-      const { error: fieldsError } = await supabaseInsert(supabase, 'template_fields', fieldInserts as any)
+      const { data: insertedFields, error: fieldsError } = await supabaseFrom(
+        supabase,
+        'template_fields'
+      )
+        .insert(fieldInserts)
+        .select('id, label, sort_order')
 
       if (fieldsError) throw fieldsError
+
+      // The fields have new ids now. Point each metric at the field with the
+      // same label; one whose field is gone stays unlinked (it is null
+      // already) and keeps asking for its value in the entry's Metrics block.
+      if (linkedToOldFields.length > 0) {
+        const newIdByOldId = matchFieldsByLabel(
+          oldFields,
+          [...((insertedFields ?? []) as { id: string; label: string; sort_order?: number }[])].sort(
+            (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+          )
+        )
+        const unrestored: string[] = []
+
+        for (const metric of linkedToOldFields) {
+          try {
+            await updateMetric(supabase, metric.id, {
+              sourceFieldId: newIdByOldId.get(metric.sourceFieldId!) ?? null,
+            })
+          } catch (err) {
+            console.error('Metric link error:', err)
+            unrestored.push(metric.name)
+          }
+        }
+
+        // The builder keeps its field ids after a save, so a restored link
+        // still points at the right field here. A lost one does not.
+        const lost = new Set(linkedToOldFields.filter((m) => unrestored.includes(m.name)).map((m) => m.id))
+        const gone = new Set(
+          linkedToOldFields.filter((m) => !newIdByOldId.get(m.sourceFieldId!)).map((m) => m.id)
+        )
+        setMetricLinks((links) =>
+          links.map((link) =>
+            lost.has(link.id) || gone.has(link.id) ? { ...link, sourceFieldId: null } : link
+          )
+        )
+
+        if (unrestored.length > 0) {
+          setError(
+            `The template was saved, but these metrics lost their field link: ${unrestored.join(', ')}. They still appear in the entry's Metrics block.`
+          )
+          return
+        }
+      }
 
       router.push('/journal/templates')
       router.refresh()
@@ -396,6 +510,20 @@ export function TemplateBuilder({
 
       <Separator />
 
+      {alsoAsksFor.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          Also asks for:{' '}
+          {alsoAsksFor.map((metric, index) => (
+            <Fragment key={metric.id}>
+              {index > 0 && ', '}
+              <Link href={`/journal/metrics/${metric.id}`} className="underline underline-offset-2">
+                {metric.name}
+              </Link>
+            </Fragment>
+          ))}
+        </p>
+      )}
+
       {/* Add Field Palette */}
       <AddFieldPanel onAdd={handleAddField} />
 
@@ -426,6 +554,7 @@ export function TemplateBuilder({
         open={!!editingField}
         onClose={() => setEditingField(null)}
         onSave={handleSaveField}
+        feedsMetricByFieldId={feedsMetricByFieldId}
       />
       </div>
 

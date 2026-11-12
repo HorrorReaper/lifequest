@@ -8,7 +8,8 @@ import { EntryForm } from '@/components/journal/entry-form'
 import { JournalTemplate, TemplateField, FieldValue } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { fetchInsightTagSuggestions, isInsightType } from '@/lib/insights'
-import { formatDateOnly } from '@/lib/dates'
+import { dateInTimezone, formatDateOnly } from '@/lib/dates'
+import { fetchJournalMetrics } from '@/lib/metrics'
 import {
   DAILY_REFLECTION_TEMPLATE_ID,
   reflectionPromptForDate,
@@ -65,6 +66,7 @@ export default async function ViewEntryPage({ params }: PageProps) {
     supabase.from('profiles').select('timezone').eq('id', user.id).maybeSingle(),
   ])
   const timezone = (profileData as { timezone?: string | null } | null)?.timezone ?? 'UTC'
+  const templateFields = (fields as TemplateField[]) ?? []
   const responses = responsesData as Database['public']['Tables']['journal_responses']['Row'][] | null
 
   // Map responses to field values
@@ -83,6 +85,19 @@ export default async function ViewEntryPage({ params }: PageProps) {
     }
   }
 
+
+  // The metrics this template asks for, with the value each has on the
+  // entry's day. Editing must work without them, so a failed read shows none.
+  const linkedMetrics = await fetchJournalMetrics(
+    supabase,
+    user.id,
+    template.id,
+    templateFields.map((field) => field.id),
+    entry.entry_date
+  ).catch((error) => {
+    console.error('Failed to load linked metrics:', error)
+    return []
+  })
 
   // Derived from the entry's date rather than read back from a column: the
   // rotation is a pure function of the day, so a reflection opened months
@@ -120,12 +135,15 @@ export default async function ViewEntryPage({ params }: PageProps) {
         <EntryForm
           userId={user.id}
           template={template}
-          fields={(fields as TemplateField[]) ?? []}
+          fields={templateFields}
           existingEntryId={entry.id}
           existingResponses={existingResponses}
           suggestedInsightTags={suggestedInsightTags}
           timezone={timezone}
           prompt={prompt}
+          entryDate={entry.entry_date}
+          today={dateInTimezone(new Date(), timezone)}
+          linkedMetrics={linkedMetrics}
         />
       </div>
     </div>

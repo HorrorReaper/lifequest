@@ -59,7 +59,6 @@ import {
   ritualDismissKey,
   type RitualSetting,
 } from '@/lib/rituals'
-import { fetchMetricSeries, fetchTrackedMetrics } from '@/lib/metrics'
 import { MetricDashboardWidget } from '@/components/dashboard/MetricDashboardWidget'
 import { ScorecardSection } from '@/components/dashboard/ScorecardSection'
 import { ReflectionSection } from '@/components/dashboard/ReflectionSection'
@@ -69,9 +68,10 @@ import {
 } from '@/lib/daily-reflection'
 import {
   buildScorecardRows,
-  fetchLatestMetricValues,
-  fetchMetricTargets,
-} from '@/lib/metric-targets'
+  fetchLatestValues,
+  fetchMetrics,
+  fetchMetricValues,
+} from '@/lib/metrics'
 import {
   isSectionVisible,
   normalizeDashboardSections,
@@ -211,46 +211,32 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const today = dateInTimezone(new Date(), profile.timezone ?? 'UTC')
   const thisWeekStart = weekStart(today)
 
-  // Scorecard rows come from targets, not the tracked-metric list, so fetch
-  // targets first and only pay for the list when something actually needs
-  // it: the chart (shows('metric')) or a scorecard that has targets set.
-  // The scorecard is on by default with no targets on day one, so gating
-  // the list this way removes two wasted sequential queries for exactly the
-  // population that sees no section.
-  const metricTargets = shows('scorecard')
-    ? await fetchMetricTargets(supabase, user.id)
-    : []
-  const trackedMetrics =
-    shows('metric') || metricTargets.length > 0
-      ? await fetchTrackedMetrics(supabase, user.id)
-      : []
-  const trackedMetricSeries = shows('metric')
+  // Both the scorecard and the chart read the user's metrics; the chart
+  // also needs each metric's recent values to pick one that has data.
+  const needsMetrics = shows('scorecard') || shows('metric')
+  const metrics = needsMetrics ? await fetchMetrics(supabase, user.id) : []
+  const latestValues = needsMetrics
+    ? await fetchLatestValues(
+        supabase,
+        metrics.map((metric) => metric.id)
+      )
+    : {}
+  // 180 days is the longest range the metric page charts, and keeps each
+  // series well under PostgREST's 1000-row response cap.
+  const metricSeries = shows('metric')
     ? await Promise.all(
-        trackedMetrics.map((metric) =>
-          fetchMetricSeries(supabase, user.id, metric.fieldId)
-        )
+        metrics.map((metric) => fetchMetricValues(supabase, metric.id, addDays(today, -180)))
       )
     : []
-  // Prefer a metric that actually has data over the first one alphabetically/
-  // by creation order, so a brand-new, still-empty metric doesn't bump one
-  // the user is already filling in off the dashboard.
-  const primaryMetricIndex = trackedMetricSeries.findIndex((series) => series.length > 0)
+  // Prefer a metric that actually has data over the first one by creation
+  // order, so a brand-new, still-empty metric doesn't bump one the user is
+  // already filling in off the dashboard.
+  const primaryMetricIndex = metricSeries.findIndex((series) => series.length > 0)
   const primaryMetric =
-    primaryMetricIndex >= 0 ? trackedMetrics[primaryMetricIndex] : trackedMetrics[0] ?? null
-  const primaryMetricSeries =
-    primaryMetricIndex >= 0 ? trackedMetricSeries[primaryMetricIndex] : []
+    primaryMetricIndex >= 0 ? metrics[primaryMetricIndex] : (metrics[0] ?? null)
+  const primaryMetricSeries = primaryMetricIndex >= 0 ? metricSeries[primaryMetricIndex] : []
 
-  const scorecardRows = shows('scorecard')
-    ? buildScorecardRows({
-        metrics: trackedMetrics,
-        targets: metricTargets,
-        latest: await fetchLatestMetricValues(
-          supabase,
-          user.id,
-          metricTargets.map((target) => target.fieldId)
-        ),
-      })
-    : []
+  const scorecardRows = shows('scorecard') ? buildScorecardRows(metrics, latestValues) : []
 
   const [
     briefingHabitsRes,
@@ -660,11 +646,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         )}
 
-        {shows('scorecard') && <ScorecardSection rows={scorecardRows} />}
+        {shows('scorecard') && (
+          <ScorecardSection rows={scorecardRows} userId={user.id} today={today} />
+        )}
 
         {shows('metric') && primaryMetric && (
           <MetricDashboardWidget
-            label={primaryMetric.label}
+            metricId={primaryMetric.id}
+            name={primaryMetric.name}
             unit={primaryMetric.unit}
             data={primaryMetricSeries}
           />

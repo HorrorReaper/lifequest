@@ -62,6 +62,7 @@ src/app/
 | `dev/` | Private testing/development controls |
 | `habits/` | Habit manager, editor, analytics |
 | `journal/` | Field rendering, entry form, mobile wizard, archive, insights |
+| `metrics/` | Standalone metrics: create, log, history, settings dialogs and the list (`lib/metrics.ts` is the data layer) |
 | `layout/` | Standard app shell, navigation, quick actions |
 | `learn/` | Lesson list/cards/reader |
 | `learnings/` | User learning library |

@@ -36,10 +36,16 @@ Application filters such as `.eq('user_id', user.id)` improve clarity and perfor
 | `journal_prompts` | Prompt library used by `prompt` template fields, drawn at random |
 | `ritual_settings` | One row per dashboard ritual prompt (Daily Plan, Evening Review, Weekly Review, Weekly Plan): enabled, window, target template, copy. Read by all users, updated by trusted admins |
 | `journal_learnings` | Durable user learning/insight records |
+| `metrics` | A number a user tracks over time (name, optional unit, optional target value and `at_least`/`at_most` direction). `template_id` and `source_field_id` optionally link it to the journal template field that feeds it; both are `on delete set null` |
+| `metric_values` | One value per metric and local day, primary key `(metric_id, value_date)`, so the latest write for a day replaces the earlier one. `source_entry_id` is null for a value entered directly and is `on delete set null`, so deleting an entry keeps its value |
+| `metric_targets` | Legacy. Targets keyed by `(user_id, field_id)` from before standalone metrics; `20261101120100_migrate_tracked_metrics.sql` copies them into `metrics.target_value`/`target_direction`. Dropped in a later migration |
+| `metric_legacy_fields` | Migration-only mapping `(metric_id, field_id)` from `track_as_metric` template fields to the metric they were merged into. RLS is on with no policies and no grants. Dropped with `metric_targets` |
 
 The dashboard's Daily Reflection is a separate mechanism from `journal_prompts`: its questions are authored in `src/lib/daily-reflection.ts` and picked by calendar day, and it writes into a seeded system template whose id is a constant in that same module. Nothing about the day's question is stored per entry; it is derived from the entry's date.
 
 Responses support text, numeric, boolean, and JSON value columns. The field definition determines which representation is meaningful.
+
+Standalone metrics (`20261101120000_create_standalone_metrics.sql`, `20261101120100_migrate_tracked_metrics.sql`): `metrics` and `metric_values` replace the `config.track_as_metric` flag and `metric_targets`. The data migration has two parts. Part A runs once (it does nothing when `metric_legacy_fields` already has rows, so applying the file again creates no duplicates): it collects user-owned `number` fields with `track_as_metric = 'true'` (archived templates included), merges them per owner by `lower(trim(label))` plus trimmed `metric_unit`, and inserts one metric per group. Fields on system templates (`journal_templates.user_id is null`) are not migrated. A group's `template_id`/`source_field_id` come from its field on the newest active template and stay null when every field is on an archived template. Targets are copied from `metric_targets`, the linked field's target winning. Part B is `public.backfill_metric_values()` (`security definer`, `search_path = public`, returns the number of rows written): for each metric and entry date it takes the response of the owner's entry with the latest `created_at` (ties broken by entry id, then field id) and upserts it into `metric_values`. An existing row is replaced only when it has a `source_entry_id` whose entry is not newer than the incoming one and its number differs, which picks up entries edited since the last run. A value entered directly is never replaced, and a re-run writes nothing when there is no new or changed journal data. The function runs once at the end of the migration and can be run again after deploy. `config.track_as_metric` stays in `template_fields.config` but is no longer read. `scripts/verify-standalone-metrics.mjs` checks the migration against fixtures.
 
 Insight metadata is stored on journal responses so a saved answer can be marked as a learning, problem, idea, or decision without duplicating its source text.
 
@@ -232,6 +238,7 @@ Migrations currently cover:
 11. The metadata-only exercise catalog import.
 12. Skill categories (`habits`/`quests`/`xp_events`) and habit check-in reward RPCs, including the `xp_events.source_id` widening to `text` and the habit-dedup unique index.
 13. First-cohort readiness: `beta_feedback` and the admin activation and feedback functions (`20261025120000_beta_feedback_and_activation.sql`).
+14. Standalone metrics: `metrics`, `metric_values`, the migration-only `metric_legacy_fields`, the one-time conversion of tracked journal fields and the re-runnable `backfill_metric_values()` (`20261101120000_create_standalone_metrics.sql`, `20261101120100_migrate_tracked_metrics.sql`).
 
 
 Apply migrations strictly in filename timestamp order.

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { BookOpen, CalendarClock, Flame, ListTodo, Mountain, NotebookPen, Plus, ShieldCheck, Sparkles, Trophy, X } from 'lucide-react'
+import { BookOpen, CalendarClock, Flame, LineChart, ListTodo, Mountain, NotebookPen, Plus, ShieldCheck, Sparkles, Trophy, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -47,6 +47,12 @@ const QUICK_ACTIONS = [
     title: 'Habit',
     description: 'Create a small daily action to repeat.',
     icon: Flame,
+  },
+  {
+    href: '/journal/metrics?new=1',
+    title: 'Metric',
+    description: 'Track a number over time — weight, steps, sleep…',
+    icon: LineChart,
   },
   {
     href: '/routines',

@@ -21,6 +21,8 @@ export interface JournalStep {
 export interface JournalDraft {
   activeStep: number
   values: Record<string, FieldValue>
+  /** What was typed in the Metrics block, per metric id. Drafts saved before the block existed have none. */
+  metricInputs?: Record<string, string>
 }
 
 export interface JournalStepAdvance {
@@ -265,6 +267,7 @@ export function serializeJournalDraft(draft: JournalDraft) {
     version: DRAFT_VERSION,
     activeStep: draft.activeStep,
     values: draft.values,
+    ...(draft.metricInputs ? { metricInputs: draft.metricInputs } : {}),
   })
 }
 
@@ -313,10 +316,20 @@ export function restoreJournalDraft(
     values[fieldId] = value
   }
 
+  // Optional, and lenient: an older draft has none, and a bad entry is
+  // dropped rather than discarding the answers around it.
+  const metricInputs: Record<string, string> = {}
+  if (isRecord(parsed.metricInputs)) {
+    for (const [metricId, text] of Object.entries(parsed.metricInputs)) {
+      if (typeof text === 'string') metricInputs[metricId] = text
+    }
+  }
+
   return {
     activeStep:
       stepCount > 0 ? Math.min(parsed.activeStep as number, stepCount - 1) : 0,
     values,
+    ...(isRecord(parsed.metricInputs) ? { metricInputs } : {}),
   }
 }
 
