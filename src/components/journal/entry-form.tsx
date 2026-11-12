@@ -547,7 +547,18 @@ export function EntryForm({
       // and its responses are saved by now, so a failure here stops before the
       // XP and keeps the form: saving again updates this entry and retries.
       const metricFieldValues: Record<string, number | null> = {}
-      for (const field of fields) metricFieldValues[field.id] = values[field.id]?.value_number ?? null
+      for (const field of fields) {
+        const number = values[field.id]?.value_number ?? null
+        // Editing an entry writes a field-fed value only when the number
+        // differs from the one loaded with the entry: the day's value may
+        // have been corrected on the metric page since, and re-saving the
+        // entry must not put the old number back. A new entry, and a retry
+        // after a failed write, always write.
+        const unchanged =
+          existingEntryId !== undefined &&
+          number === (existingResponses?.[field.id]?.value_number ?? null)
+        metricFieldValues[field.id] = unchanged ? null : number
+      }
 
       // A block input that still holds what it was prefilled with is not a
       // new answer: writing it back would relabel a value logged elsewhere

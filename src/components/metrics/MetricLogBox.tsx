@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { stepFor, type LatestValue, type Metric } from '@/lib/metrics'
+import { alreadyLoggedText, stepFor, type LatestValue, type Metric } from '@/lib/metrics'
 import { parseDecimal } from '@/lib/decimal'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -20,7 +20,8 @@ interface MetricLogBoxProps {
 /**
  * Logs today's value on the metric page itself: the same stepper and save as
  * `MetricLogDialog`, in place on the page. Starts from the latest value; a
- * second save on the same day replaces the first, which the heading reflects.
+ * second save on the same day replaces the first, which the heading and a
+ * sentence above the save button say.
  */
 export function MetricLogBox({ userId, metric, latest, today }: MetricLogBoxProps) {
   const { log, busy, error } = useLogMetricValue(userId)
@@ -52,6 +53,12 @@ export function MetricLogBox({ userId, metric, latest, today }: MetricLogBoxProp
             label={metric.name}
             disabled={busy}
           />
+
+          {loggedToday && latest && (
+            <p className="text-sm text-muted-foreground">
+              {alreadyLoggedText(latest.value, metric.unit)}
+            </p>
+          )}
 
           {error && (
             <p role="alert" className="text-sm text-destructive">

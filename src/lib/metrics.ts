@@ -116,6 +116,11 @@ export function formatMetricValue(value: number, unit: string | null): string {
   return unit ? `${rounded} ${unit}` : `${rounded}`
 }
 
+/** The warning shown where a value is logged and today already has one. */
+export function alreadyLoggedText(value: number, unit: string | null): string {
+  return `You already logged ${formatMetricValue(value, unit)} today. Saving replaces it.`
+}
+
 /**
  * The scorecard rows, in the order the metrics come in. `met` is null when
  * there is nothing to judge: no target, or no value yet.
@@ -519,6 +524,7 @@ export async function updateMetric(
   supabase: SupabaseClient,
   metricId: string,
   patch: {
+    name?: string
     unit?: string | null
     targetValue?: number | null
     targetDirection?: MetricTargetDirection | null
@@ -527,6 +533,7 @@ export async function updateMetric(
   }
 ): Promise<void> {
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (patch.name !== undefined) update.name = patch.name.trim()
   if (patch.unit !== undefined) update.unit = patch.unit
   if (patch.targetValue !== undefined) update.target_value = patch.targetValue
   if (patch.targetDirection !== undefined) update.target_direction = patch.targetDirection

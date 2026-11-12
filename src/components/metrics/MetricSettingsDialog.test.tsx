@@ -33,8 +33,22 @@ const metric: Metric = {
 }
 
 const templates = [
-  { id: 'tpl-1', name: 'Morning check-in', archived: false },
-  { id: 'tpl-2', name: 'Evening review', archived: false },
+  {
+    id: 'tpl-1',
+    name: 'Morning check-in',
+    archived: false,
+    numberFields: [{ id: 'fld-1-weight', label: 'Weight' }],
+  },
+  {
+    id: 'tpl-2',
+    name: 'Evening review',
+    archived: false,
+    numberFields: [
+      { id: 'fld-2-sleep', label: 'Sleep' },
+      { id: 'fld-2-weight', label: '  weight ' },
+    ],
+  },
+  { id: 'tpl-3', name: 'Weekly plan', archived: false, numberFields: [{ id: 'f3', label: 'Mood' }] },
 ]
 
 function renderDialog(
@@ -107,6 +121,7 @@ describe('MetricSettingsDialog', () => {
 
     await waitFor(() => expect(updateMetric).toHaveBeenCalledTimes(1))
     expect(updateMetric).toHaveBeenCalledWith({ client: true }, 'metric-1', {
+      name: 'Weight',
       unit: 'kg',
       targetValue: 8000,
       targetDirection: 'at_least',
@@ -205,7 +220,7 @@ describe('MetricSettingsDialog', () => {
   })
 
   it('unlinks the template when the journal switch is turned off', async () => {
-    renderDialog({ templateId: 'tpl-1', templateName: 'Morning check-in' })
+    renderDialog({ templateId: 'tpl-1', templateName: 'Morning check-in', sourceFieldId: 'fld-1-weight' })
 
     expect(templateSelect().value).toBe('tpl-1')
     fireEvent.click(journalSwitch())
@@ -215,8 +230,80 @@ describe('MetricSettingsDialog', () => {
     expect(updateMetric).toHaveBeenCalledWith(
       { client: true },
       'metric-1',
-      expect.objectContaining({ templateId: null })
+      expect.objectContaining({ templateId: null, sourceFieldId: null })
     )
+  })
+
+  it('re-points the source field at the same-named number field of a new template', async () => {
+    renderDialog({ templateId: 'tpl-1', templateName: 'Morning check-in', sourceFieldId: 'fld-1-weight' })
+
+    fireEvent.change(templateSelect(), { target: { value: 'tpl-2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(updateMetric).toHaveBeenCalledTimes(1))
+    expect(updateMetric).toHaveBeenCalledWith(
+      { client: true },
+      'metric-1',
+      expect.objectContaining({ templateId: 'tpl-2', sourceFieldId: 'fld-2-weight' })
+    )
+  })
+
+  it('clears the source field when the new template has no field of that name', async () => {
+    renderDialog({ templateId: 'tpl-1', templateName: 'Morning check-in', sourceFieldId: 'fld-1-weight' })
+
+    fireEvent.change(templateSelect(), { target: { value: 'tpl-3' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(updateMetric).toHaveBeenCalledTimes(1))
+    expect(updateMetric).toHaveBeenCalledWith(
+      { client: true },
+      'metric-1',
+      expect.objectContaining({ templateId: 'tpl-3', sourceFieldId: null })
+    )
+  })
+
+  it('leaves the source field alone when the template is unchanged', async () => {
+    renderDialog({ templateId: 'tpl-1', templateName: 'Morning check-in', sourceFieldId: 'fld-1-weight' })
+
+    fireEvent.change(screen.getByLabelText('Unit'), { target: { value: 'lb' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(updateMetric).toHaveBeenCalledTimes(1))
+    const patch = updateMetric.mock.calls[0][2]
+    expect(patch).toMatchObject({ templateId: 'tpl-1', unit: 'lb' })
+    expect(patch).not.toHaveProperty('sourceFieldId')
+  })
+
+  it('prefills the name and saves a renamed, trimmed one', async () => {
+    renderDialog()
+
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Weight')
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: '  Body weight ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(updateMetric).toHaveBeenCalledTimes(1))
+    expect(updateMetric).toHaveBeenCalledWith(
+      { client: true },
+      'metric-1',
+      expect.objectContaining({ name: 'Body weight' })
+    )
+  })
+
+  it('does not save an empty name', () => {
+    renderDialog()
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: '   ' } })
+
+    expect(screen.getByText('Give the metric a name.')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.submit(screen.getByRole('button', { name: 'Save' }).closest('form')!)
+    expect(updateMetric).not.toHaveBeenCalled()
+  })
+
+  it('limits the name to 60 characters', () => {
+    renderDialog()
+
+    expect(screen.getByLabelText('Name').getAttribute('maxlength')).toBe('60')
   })
 
   it('says so when there is no template to link', () => {
@@ -231,7 +318,12 @@ describe('MetricSettingsDialog', () => {
   it('shows an archived link and focuses the select on Change template', () => {
     renderDialog(
       { templateId: 'tpl-old', templateName: 'Morning check-in', templateArchived: true },
-      { templates: [{ id: 'tpl-old', name: 'Morning check-in', archived: true }, ...templates] }
+      {
+        templates: [
+          { id: 'tpl-old', name: 'Morning check-in', archived: true, numberFields: [] },
+          ...templates,
+        ],
+      }
     )
 
     expect(screen.getByText('Asked in Morning check-in (archived)')).toBeTruthy()

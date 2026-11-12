@@ -19,7 +19,6 @@ import { formatMetricDay, type MetricValue } from '@/lib/metrics'
 interface MetricChartProps {
   label: string
   unit: string | null
-  subtitle?: string
   /** Drawn as a dashed line across the chart. */
   targetValue?: number | null
   /** The user's local day; the ranges count back from it. */
@@ -38,7 +37,6 @@ function formatValue(value: number, unit: string | null) {
 export function MetricChart({
   label,
   unit,
-  subtitle,
   targetValue = null,
   today,
   data,
@@ -49,16 +47,15 @@ export function MetricChart({
   const chartData = data
     .filter((point) => point.date >= since)
     .map((point) => ({ ...point, dateLabel: formatMetricDay(point.date) }))
-  // The newest value overall, not only within the range.
+  // The newest value of the data it was given, not only within the range. The
+  // chart sees just that window (the metric page passes the last 180 days), so
+  // an older value is not the "newest" here.
   const latest = data.at(-1)
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-        <div className="min-w-0">
-          <CardTitle className="text-base">{label}</CardTitle>
-          {subtitle && <p className="mt-1 truncate text-xs text-muted-foreground">{subtitle}</p>}
-        </div>
+        <CardTitle className="min-w-0 text-base">{label}</CardTitle>
         {latest && (
           <p className="shrink-0 text-lg font-semibold tabular-nums">
             {formatValue(latest.value, unit)}
@@ -74,7 +71,7 @@ export function MetricChart({
               aria-pressed={range === days}
               onClick={() => setRange(days)}
               className={cn(
-                'min-h-8 rounded-full px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                'min-h-11 rounded-full px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                 range === days
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'

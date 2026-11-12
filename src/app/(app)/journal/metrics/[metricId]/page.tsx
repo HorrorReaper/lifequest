@@ -52,12 +52,45 @@ export default async function MetricPage({
       .from('journal_templates')
       .select('id, name')
       .or(`user_id.eq.${user.id},is_system.eq.true`)
-      .eq('is_active', true),
+      .eq('is_active', true)
+      .order('name'),
   ])
 
-  const templates = ((templateRows.data ?? []) as { id: string; name: string }[]).map(
-    (template) => ({ id: template.id, name: template.name, archived: false })
-  )
+  // A failed read must reach the error boundary: an empty list would make the
+  // settings say "Create a journal template first…" to a user who has some.
+  if (templateRows.error) throw templateRows.error
+
+  const templateList = (templateRows.data ?? []) as { id: string; name: string }[]
+  // Each template's number fields in field order, in one query, so changing
+  // the journal link can re-point a legacy source field to its namesake.
+  const numberFieldsByTemplate = new Map<string, { id: string; label: string }[]>()
+  const linkedTemplateIds = [
+    ...templateList.map((template) => template.id),
+    ...(metric.templateId ? [metric.templateId] : []),
+  ]
+  if (linkedTemplateIds.length > 0) {
+    const { data: fieldRows, error: fieldsError } = await supabase
+      .from('template_fields')
+      .select('id, template_id, label')
+      .in('template_id', linkedTemplateIds)
+      .eq('field_type', 'number')
+      .order('sort_order', { ascending: true })
+
+    if (fieldsError) throw fieldsError
+
+    for (const row of (fieldRows ?? []) as { id: string; template_id: string; label: string }[]) {
+      const fields = numberFieldsByTemplate.get(row.template_id) ?? []
+      fields.push({ id: row.id, label: row.label })
+      numberFieldsByTemplate.set(row.template_id, fields)
+    }
+  }
+
+  const templates = templateList.map((template) => ({
+    id: template.id,
+    name: template.name,
+    archived: false,
+    numberFields: numberFieldsByTemplate.get(template.id) ?? [],
+  }))
   // A template archived after the metric was linked is still shown, so the
   // settings can say where the metric is asked and offer to change it.
   if (metric.templateId && !templates.some((template) => template.id === metric.templateId)) {
@@ -65,6 +98,7 @@ export default async function MetricPage({
       id: metric.templateId,
       name: metric.templateName ?? 'Archived template',
       archived: metric.templateArchived,
+      numberFields: numberFieldsByTemplate.get(metric.templateId) ?? [],
     })
   }
 
@@ -75,6 +109,7 @@ export default async function MetricPage({
           metric={metric}
           backHref={query.from === 'home' ? '/dashboard' : '/journal/metrics'}
           templates={templates}
+          latest={latestByMetric[metric.id] ?? null}
           created={query.created === '1'}
         />
         <MetricLogBox

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { describe, expect, it } from 'vitest'
 import {
+  alreadyLoggedText,
   applyStep,
   buildMetricAssistantContext,
   buildScorecardRows,
@@ -192,6 +193,13 @@ describe('formatMetricValue', () => {
 
   it('leaves the unit off when there is none', () => {
     expect(formatMetricValue(3, null)).toBe('3')
+  })
+})
+
+describe('alreadyLoggedText', () => {
+  it('names the value and says saving replaces it', () => {
+    expect(alreadyLoggedText(81.6, 'kg')).toBe('You already logged 81.6 kg today. Saving replaces it.')
+    expect(alreadyLoggedText(3, null)).toBe('You already logged 3 today. Saving replaces it.')
   })
 })
 
@@ -699,6 +707,17 @@ describe('writes', () => {
     expect(update?.args[0]).not.toHaveProperty('template_id')
     expect(update?.args[0]).toHaveProperty('updated_at')
     expect(calls).toContainEqual({ table: 'metrics', method: 'eq', args: ['id', 'm-1'] })
+  })
+
+  it('updateMetric renames with the trimmed name and leaves it alone otherwise', async () => {
+    const { client, calls } = fakeClient()
+
+    await updateMetric(client, 'm-1', { name: '  Body weight ' })
+    await updateMetric(client, 'm-1', { unit: 'kg' })
+
+    const updates = calls.filter((call) => call.method === 'update')
+    expect(updates[0].args[0]).toMatchObject({ name: 'Body weight' })
+    expect(updates[1].args[0]).not.toHaveProperty('name')
   })
 
   it('updateMetric can clear the target', async () => {

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import {
+  alreadyLoggedText,
   formatMetricDay,
   formatMetricValue,
   stepFor,
@@ -89,7 +90,7 @@ export function MetricLogDialog({
           <DialogDescription>
             {latest
               ? loggedToday
-                ? `You already logged ${formatMetricValue(latest.value, metric.unit)} today. Saving replaces it.`
+                ? alreadyLoggedText(latest.value, metric.unit)
                 : `Last: ${formatMetricValue(latest.value, metric.unit)} · ${formatMetricDay(latest.date)}`
               : 'Last: nothing yet'}
           </DialogDescription>

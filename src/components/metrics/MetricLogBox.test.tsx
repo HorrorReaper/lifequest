@@ -50,6 +50,18 @@ describe('MetricLogBox', () => {
     expect(screen.getByRole('heading', { name: 'Update today' })).toBeTruthy()
   })
 
+  it('warns that saving replaces today\'s value when one exists', () => {
+    renderBox({ value: 81.6, date: today })
+
+    expect(screen.getByText('You already logged 81.6 kg today. Saving replaces it.')).toBeTruthy()
+  })
+
+  it('shows no replace warning when today has no value yet', () => {
+    renderBox({ value: 81.6, date: '2026-10-30' })
+
+    expect(screen.queryByText(/Saving replaces it/)).toBeNull()
+  })
+
   it('starts from the latest value and steps by the size that fits it', () => {
     renderBox({ value: 81.6, date: '2026-10-30' })
 

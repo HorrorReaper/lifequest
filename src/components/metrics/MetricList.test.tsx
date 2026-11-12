@@ -81,6 +81,22 @@ describe('MetricList', () => {
     expect(screen.getByText(arrow)).toBeTruthy()
   })
 
+  it.each([
+    [82, 81.6, 'down'],
+    [80, 81.6, 'up'],
+    [81.6, 81.6, 'unchanged'],
+  ])('reads %s before with %s now as "%s" to a screen reader', (before, now, text) => {
+    render(
+      <MetricList
+        metrics={[metric()]}
+        latest={{ 'm-1': { value: now, date: '2026-10-29' } }}
+        previous={{ 'm-1': before }}
+      />
+    )
+
+    expect(screen.getByText(text).className).toContain('sr-only')
+  })
+
   it('shows no arrow without a previous value', () => {
     render(
       <MetricList

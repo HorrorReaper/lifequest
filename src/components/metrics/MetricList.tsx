@@ -14,10 +14,23 @@ interface MetricListProps {
   previous: Record<string, number | null>
 }
 
-function trendArrow(latest: number, previous: number): string {
-  if (latest > previous) return '↗'
-  if (latest < previous) return '↘'
-  return '→'
+function trendArrow(latest: number, previous: number): { arrow: string; text: string } {
+  if (latest > previous) return { arrow: '↗', text: 'up' }
+  if (latest < previous) return { arrow: '↘', text: 'down' }
+  return { arrow: '→', text: 'unchanged' }
+}
+
+/** The arrow is decoration; the words carry the trend for a screen reader. */
+function TrendIndicator({ latest, previous }: { latest: number; previous: number }) {
+  const { arrow, text } = trendArrow(latest, previous)
+  return (
+    <>
+      <span aria-hidden="true" className="text-base text-muted-foreground">
+        {arrow}
+      </span>
+      <span className="sr-only">{text}</span>
+    </>
+  )
 }
 
 /** One compact row per metric: name, latest value with its day, a trend arrow and the linked journal template. */
@@ -54,9 +67,7 @@ export function MetricList({ metrics, latest, previous }: MetricListProps) {
                     </span>
                   </span>
                   {before !== null && (
-                    <span aria-hidden="true" className="text-base text-muted-foreground">
-                      {trendArrow(value.value, before)}
-                    </span>
+                    <TrendIndicator latest={value.value} previous={before} />
                   )}
                 </span>
               ) : (

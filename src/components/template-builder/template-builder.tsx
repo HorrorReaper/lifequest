@@ -215,7 +215,7 @@ export function TemplateBuilder({
         // This check used to run after the metadata update, which left a
         // refused save with a changed name, icon and XP reward on a template
         // whose fields had not moved.
-        const { data: existingFields } = await supabase
+        const { data: existingFields, error: fieldsError } = await supabase
           .from('template_fields')
           .select('id, label')
           .eq('template_id', savedTemplateId)
@@ -223,13 +223,19 @@ export function TemplateBuilder({
           // have to be in field order.
           .order('sort_order', { ascending: true })
 
+        // A failed read must not look like "no fields" or "no responses":
+        // both would let the delete below run.
+        if (fieldsError) throw fieldsError
+
         oldFields = (existingFields ?? []) as { id: string; label: string }[]
         const fieldIds = oldFields.map((f) => f.id)
         if (fieldIds.length > 0) {
-          const { count } = await supabase
+          const { count, error: countError } = await supabase
             .from('journal_responses')
             .select('id', { count: 'exact', head: true })
             .in('field_id', fieldIds)
+
+          if (countError) throw countError
 
           if ((count ?? 0) > 0) {
             setError('Cannot modify template fields because there are existing responses. Duplicate or archive the template first.')

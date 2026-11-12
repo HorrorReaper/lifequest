@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
+  METRIC_NAME_MAX,
   METRIC_UNIT_MAX,
   deleteMetric,
   updateMetric,
+  validateMetricInput,
   type Metric,
   type MetricTargetDirection,
 } from '@/lib/metrics'
@@ -28,6 +30,8 @@ export interface MetricTemplateOption {
   id: string
   name: string
   archived: boolean
+  /** The template's `number` fields in field order, for re-pointing a legacy source field. */
+  numberFields: { id: string; label: string }[]
 }
 
 interface MetricSettingsDialogProps {
@@ -46,7 +50,7 @@ const DIRECTIONS: { value: MetricTargetDirection; label: string }[] = [
 ]
 
 /**
- * A metric's unit, target and journal link, and its deletion. Everything is
+ * A metric's name, unit, target and journal link, and its deletion. Everything is
  * saved together with one Save; deleting asks first, inside the dialog.
  */
 export function MetricSettingsDialog({
@@ -59,6 +63,7 @@ export function MetricSettingsDialog({
   const [supabase] = useState(() => createClient())
   const router = useRouter()
 
+  const [name, setName] = useState(metric.name)
   const [unit, setUnit] = useState(metric.unit ?? '')
   const [targetOn, setTargetOn] = useState(metric.targetValue !== null)
   const [direction, setDirection] = useState<MetricTargetDirection>(
@@ -84,6 +89,7 @@ export function MetricSettingsDialog({
   if (open !== wasOpen) {
     setWasOpen(open)
     if (open) {
+      setName(metric.name)
       setUnit(metric.unit ?? '')
       setTargetOn(metric.targetValue !== null)
       setDirection(metric.targetDirection ?? 'at_least')
@@ -95,6 +101,7 @@ export function MetricSettingsDialog({
     }
   }
 
+  const nameError = validateMetricInput({ name, unit })
   const parsedTarget = parseDecimal(targetText)
   const targetValid = !targetOn || parsedTarget !== null
   const journalValid = !journalOn || templateId !== ''
@@ -117,15 +124,33 @@ export function MetricSettingsDialog({
     }
   }
 
+  /** The `number` field of the new template named like the metric, or null. */
+  function sourceFieldFor(nextTemplateId: string | null): string | null {
+    if (!nextTemplateId) return null
+    const wanted = name.trim().toLowerCase()
+    const template = templates.find((option) => option.id === nextTemplateId)
+    return (
+      template?.numberFields.find((field) => field.label.trim().toLowerCase() === wanted)?.id ??
+      null
+    )
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (!targetValid || !journalValid) return
+    if (!targetValid || !journalValid || nameError) return
+    const nextTemplateId = journalOn ? templateId : null
     void run(async () => {
       await updateMetric(supabase, metric.id, {
+        name: name.trim(),
         unit: unit.trim() || null,
         targetValue: targetOn ? parsedTarget : null,
         targetDirection: targetOn ? direction : null,
-        templateId: journalOn ? templateId : null,
+        templateId: nextTemplateId,
+        // The field that fed the metric belongs to the old template, so a
+        // changed link clears it or re-points it. An unchanged link leaves it.
+        ...(nextTemplateId !== metric.templateId && {
+          sourceFieldId: sourceFieldFor(nextTemplateId),
+        }),
       })
       router.refresh()
       onOpenChange(false)
@@ -159,7 +184,7 @@ export function MetricSettingsDialog({
       >
         <DialogHeader className="pr-8">
           <DialogTitle className="text-xl">{metric.name} settings</DialogTitle>
-          <DialogDescription>Unit, target and journal link.</DialogDescription>
+          <DialogDescription>Name, unit, target and journal link.</DialogDescription>
         </DialogHeader>
 
         {confirmingDelete ? (
@@ -192,6 +217,20 @@ export function MetricSettingsDialog({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="metric-settings-name">Name</Label>
+              <Input
+                id="metric-settings-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={METRIC_NAME_MAX}
+                aria-invalid={nameError !== null}
+                disabled={busy}
+                className="h-11"
+              />
+              {nameError && <p className="text-sm text-destructive">{nameError}</p>}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="metric-settings-unit">Unit</Label>
               <Input
@@ -310,7 +349,7 @@ export function MetricSettingsDialog({
 
             <Button
               type="submit"
-              disabled={busy || !targetValid || !journalValid}
+              disabled={busy || !targetValid || !journalValid || nameError !== null}
               className="w-full"
             >
               {busy && <Loader2 className="size-4 animate-spin" />}

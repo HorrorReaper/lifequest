@@ -16,6 +16,12 @@ describe('MetricEmptyState', () => {
     ).toBeTruthy()
   })
 
+  it('titles itself with an h3, as it sits under section headings', () => {
+    render(<MetricEmptyState onCreate={() => {}} />)
+
+    expect(screen.getByRole('heading', { level: 3, name: 'Track a number over time' })).toBeTruthy()
+  })
+
   it('offers to create the first metric', () => {
     const onCreate = vi.fn()
     render(<MetricEmptyState onCreate={onCreate} />)

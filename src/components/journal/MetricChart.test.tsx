@@ -68,9 +68,11 @@ describe('MetricChart', () => {
     expect(screen.queryByTestId('target-line')).toBeNull()
   })
 
-  it('shows the subtitle when given', () => {
-    render(<MetricChart label="Weight" unit="kg" subtitle="Daily check-in" data={data} today={today} />)
+  it('gives the range buttons a touch-sized height', () => {
+    render(<MetricChart label="Weight" unit="kg" data={data} today={today} />)
 
-    expect(screen.getByText('Daily check-in')).toBeTruthy()
+    for (const name of ['30d', '90d', '180d']) {
+      expect(screen.getByRole('button', { name }).className).toContain('min-h-11')
+    }
   })
 })

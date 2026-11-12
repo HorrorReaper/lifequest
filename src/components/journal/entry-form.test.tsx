@@ -228,6 +228,64 @@ describe('EntryForm metric writes', () => {
     })
   })
 
+  describe('a field-fed value on an edited entry', () => {
+    const stepsResponse = {
+      'field-steps': {
+        field_id: 'field-steps',
+        value_text: null,
+        value_number: 8200,
+        value_boolean: null,
+        value_json: null,
+        insight_type: null,
+        topic_tags: [],
+      },
+    } as unknown as React.ComponentProps<typeof EntryForm>['existingResponses']
+
+    function renderEdit() {
+      renderForm({
+        existingEntryId: 'entry-old',
+        existingResponses: stepsResponse,
+        entryDate: '2026-10-20',
+        linkedMetrics: [stepsMetric],
+      })
+    }
+
+    it('writes nothing when the field still holds the loaded number', async () => {
+      renderEdit()
+
+      expect(stepsInput().value).toBe('8200')
+      await save()
+
+      expect(await screen.findByText('Reflection saved')).toBeTruthy()
+      expect(logMetricValue).not.toHaveBeenCalled()
+    })
+
+    it('writes the number when the field was changed', async () => {
+      renderEdit()
+
+      fireEvent.change(stepsInput(), { target: { value: '9000' } })
+      await save()
+
+      await waitFor(() => expect(logMetricValue).toHaveBeenCalledTimes(1))
+      expect(logMetricValue).toHaveBeenCalledWith(expect.anything(), 'user-1', {
+        metricId: 'metric-steps',
+        date: '2026-10-20',
+        value: 9000,
+        sourceEntryId: 'entry-old',
+      })
+    })
+
+    it('writes the number of a new entry even when it equals nothing loaded', async () => {
+      renderForm({ linkedMetrics: [stepsMetric] })
+
+      fireEvent.change(stepsInput(), { target: { value: '8200' } })
+      await save()
+
+      await waitFor(() => expect(logMetricValue).toHaveBeenCalledTimes(1))
+      expect(logMetricValue.mock.calls[0][2]).toMatchObject({ metricId: 'metric-steps', value: 8200 })
+    })
+  })
+
   it('writes nothing for an empty input or an empty field', async () => {
     renderForm({ linkedMetrics: [weight, stepsMetric] })
 

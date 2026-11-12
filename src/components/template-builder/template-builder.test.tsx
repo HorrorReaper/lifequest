@@ -126,6 +126,34 @@ describe('TemplateBuilder, saving an existing template', () => {
     )
   })
 
+  it('writes nothing when the fields cannot be read before the delete', async () => {
+    db.results['template_fields.select'] = { data: null, error: { message: 'boom' } }
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(await screen.findByText(/failed to save template/i)).toBeTruthy()
+    expect(db.calls).not.toContain('journal_templates.update')
+    expect(db.calls).not.toContain('template_fields.delete')
+    expect(push).not.toHaveBeenCalled()
+    error.mockRestore()
+  })
+
+  it('writes nothing when the responses cannot be counted before the delete', async () => {
+    db.results['journal_responses.select'] = { count: null, error: { message: 'boom' } }
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderEditor()
+
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(await screen.findByText(/failed to save template/i)).toBeTruthy()
+    expect(db.calls).not.toContain('journal_templates.update')
+    expect(db.calls).not.toContain('template_fields.delete')
+    expect(push).not.toHaveBeenCalled()
+    error.mockRestore()
+  })
+
   it('saves the template once nothing references its fields', async () => {
     db.results['journal_responses.select'] = { count: 0, error: null }
     renderEditor()

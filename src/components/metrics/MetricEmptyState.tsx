@@ -15,7 +15,7 @@ export function MetricEmptyState({ onCreate }: MetricEmptyStateProps) {
         <TrendingUp className="size-6" />
       </span>
       <div className="space-y-1.5">
-        <h2 className="text-lg font-semibold">Track a number over time</h2>
+        <h3 className="text-lg font-semibold">Track a number over time</h3>
         <p className="mx-auto max-w-sm text-sm text-muted-foreground">
           Weight, steps, sleep, revenue — anything you can count. Log it in a tap, see the trend,
           set a target.
