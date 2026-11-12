@@ -256,7 +256,8 @@ describe('EntryForm metric writes', () => {
       expect(stepsInput().value).toBe('8200')
       await save()
 
-      expect(await screen.findByText('Reflection saved')).toBeTruthy()
+      // An edit ends on its own screen since the streak fix on master.
+      expect(await screen.findByText('Changes saved')).toBeTruthy()
       expect(logMetricValue).not.toHaveBeenCalled()
     })
 
