@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   alreadyLoggedText,
   applyStep,
@@ -9,8 +9,10 @@ import {
   deleteMetric,
   deleteMetricValue,
   entryMetricWrites,
+  fetchAssistantMetrics,
   fetchLatestValues,
   fetchJournalMetrics,
+  loadDashboardMetrics,
   fetchLinkedMetrics,
   fetchMetric,
   fetchMetricValues,
@@ -911,5 +913,78 @@ describe('fetchPreviousValues', () => {
     const { client } = fakeClient({ metric_values: { data: null, error: new Error('boom') } })
 
     await expect(fetchPreviousValues(client, ['m-1'])).rejects.toThrow('boom')
+  })
+})
+
+describe('loadDashboardMetrics', () => {
+  it('loads metrics, latest values and series', async () => {
+    const { client } = fakeClient({
+      metrics: { data: [metricRow], error: null },
+      metric_values: [
+        { data: [{ metric_id: 'm-1', value_date: '2026-10-31', value: 81.6 }], error: null },
+        {
+          data: [{ metric_id: 'm-1', value_date: '2026-10-31', value: 81.6, source_entry_id: null }],
+          error: null,
+        },
+      ],
+    })
+
+    const result = await loadDashboardMetrics(client, 'u-1', {
+      withSeries: true,
+      sinceDate: '2026-05-04',
+    })
+
+    expect(result.metrics.map((m) => m.id)).toEqual(['m-1'])
+    expect(result.latest['m-1']).toEqual({ value: 81.6, date: '2026-10-31' })
+    expect(result.series).toHaveLength(1)
+  })
+
+  it('returns empty sections instead of throwing when a read fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // What PostgREST answers before the metrics migration is applied.
+    const { client } = fakeClient({
+      metrics: { data: null, error: { code: 'PGRST205', message: 'Could not find the table' } },
+    })
+
+    const result = await loadDashboardMetrics(client, 'u-1', {
+      withSeries: true,
+      sinceDate: '2026-05-04',
+    })
+
+    expect(result).toEqual({ metrics: [], latest: {}, series: [] })
+    expect(consoleError).toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+})
+
+describe('fetchAssistantMetrics', () => {
+  it('groups the window of values per metric', async () => {
+    const { client, calls } = fakeClient({
+      metrics: { data: [metricRow], error: null },
+      metric_values: {
+        data: [{ metric_id: 'm-1', value_date: '2026-10-30', value: 81.7, source_entry_id: null }],
+        error: null,
+      },
+    })
+
+    const context = await fetchAssistantMetrics(client, 'u-1', '2026-10-02')
+
+    expect(context).toHaveLength(1)
+    expect(context[0].recent).toEqual([{ date: '2026-10-30', value: 81.7 }])
+    expect(calls).toContainEqual({
+      table: 'metric_values',
+      method: 'gte',
+      args: ['value_date', '2026-10-02'],
+    })
+  })
+
+  it('returns no metrics instead of throwing when a read fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { client } = fakeClient({
+      metrics: { data: null, error: { code: 'PGRST205', message: 'Could not find the table' } },
+    })
+
+    await expect(fetchAssistantMetrics(client, 'u-1', '2026-10-02')).resolves.toEqual([])
+    consoleError.mockRestore()
   })
 })

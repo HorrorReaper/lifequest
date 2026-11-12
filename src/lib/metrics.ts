@@ -500,6 +500,91 @@ export async function fetchJournalMetrics(
   return linked.map((metric) => ({ metric, value: values[metric.id] ?? null }))
 }
 
+export interface DashboardMetrics {
+  metrics: Metric[]
+  latest: Record<string, LatestValue>
+  /** One series per metric, in `metrics` order; empty unless `withSeries`. */
+  series: MetricValue[][]
+}
+
+/**
+ * Everything the dashboard's scorecard and metric chart read.
+ *
+ * A failed read leaves both sections empty rather than taking the whole
+ * dashboard down with it, like the goals section. That also covers a
+ * deployment whose database does not have the metrics tables yet.
+ */
+export async function loadDashboardMetrics(
+  supabase: SupabaseClient,
+  userId: string,
+  options: { withSeries: boolean; sinceDate: string }
+): Promise<DashboardMetrics> {
+  try {
+    const metrics = await fetchMetrics(supabase, userId)
+    const ids = metrics.map((metric) => metric.id)
+    const [latest, series] = await Promise.all([
+      fetchLatestValues(supabase, ids),
+      options.withSeries
+        ? Promise.all(ids.map((id) => fetchMetricValues(supabase, id, options.sinceDate)))
+        : Promise.resolve([]),
+    ])
+    return { metrics, latest, series }
+  } catch (error) {
+    console.error('Failed to load metrics:', error)
+    return { metrics: [], latest: {}, series: [] }
+  }
+}
+
+/**
+ * The assistant's view of every metric with its values since `sinceDate`.
+ *
+ * One query for all values. A failed read gives the assistant no metrics
+ * instead of failing the whole chat request.
+ */
+export async function fetchAssistantMetrics(
+  supabase: SupabaseClient,
+  userId: string,
+  sinceDate: string
+): Promise<ReturnType<typeof buildMetricAssistantContext>> {
+  try {
+    const metrics = await fetchMetrics(supabase, userId)
+    if (metrics.length === 0) return []
+
+    const { data, error } = await supabase
+      .from('metric_values')
+      .select('metric_id, value_date, value, source_entry_id')
+      .in(
+        'metric_id',
+        metrics.map((metric) => metric.id)
+      )
+      .gte('value_date', sinceDate)
+      .order('value_date', { ascending: true })
+
+    if (error) throw error
+
+    const rows = (data ?? []) as {
+      metric_id: string
+      value_date: string
+      value: number
+      source_entry_id: string | null
+    }[]
+    const values: Record<string, MetricValue[]> = {}
+    for (const row of rows) {
+      ;(values[row.metric_id] ??= []).push({
+        date: row.value_date,
+        value: row.value,
+        sourceEntryId: row.source_entry_id,
+        sourceLabel: null,
+      })
+    }
+
+    return buildMetricAssistantContext(metrics, values)
+  } catch (error) {
+    console.error('Failed to load metrics for the assistant:', error)
+    return []
+  }
+}
+
 export async function createMetric(
   supabase: SupabaseClient,
   userId: string,

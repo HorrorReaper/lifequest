@@ -66,12 +66,7 @@ import {
   DAILY_REFLECTION_TEMPLATE_ID,
   reflectionPromptForDate,
 } from '@/lib/daily-reflection'
-import {
-  buildScorecardRows,
-  fetchLatestValues,
-  fetchMetrics,
-  fetchMetricValues,
-} from '@/lib/metrics'
+import { buildScorecardRows, loadDashboardMetrics } from '@/lib/metrics'
 import {
   isSectionVisible,
   normalizeDashboardSections,
@@ -213,21 +208,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   // Both the scorecard and the chart read the user's metrics; the chart
   // also needs each metric's recent values to pick one that has data.
-  const needsMetrics = shows('scorecard') || shows('metric')
-  const metrics = needsMetrics ? await fetchMetrics(supabase, user.id) : []
-  const latestValues = needsMetrics
-    ? await fetchLatestValues(
-        supabase,
-        metrics.map((metric) => metric.id)
-      )
-    : {}
   // 180 days is the longest range the metric page charts, and keeps each
-  // series well under PostgREST's 1000-row response cap.
-  const metricSeries = shows('metric')
-    ? await Promise.all(
-        metrics.map((metric) => fetchMetricValues(supabase, metric.id, addDays(today, -180)))
-      )
-    : []
+  // series well under PostgREST's 1000-row response cap. A failed read
+  // leaves both sections empty instead of failing the dashboard.
+  const needsMetrics = shows('scorecard') || shows('metric')
+  const {
+    metrics,
+    latest: latestValues,
+    series: metricSeries,
+  } = needsMetrics
+    ? await loadDashboardMetrics(supabase, user.id, {
+        withSeries: shows('metric'),
+        sinceDate: addDays(today, -180),
+      })
+    : { metrics: [], latest: {}, series: [] }
   // Prefer a metric that actually has data over the first one by creation
   // order, so a brand-new, still-empty metric doesn't bump one the user is
   // already filling in off the dashboard.
