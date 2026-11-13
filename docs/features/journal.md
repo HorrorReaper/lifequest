@@ -211,7 +211,11 @@ When editing an existing template the builder shows `Also asks for: Weight, Slee
 
 ### Chat context
 
-The assistant chat lists the user's metrics with their recent values from `metric_values`, so numbers entered directly are visible alongside those written by journal entries. The exact context is described in `docs/backend/api.md`.
+The assistant chat lists the user's metrics with their recent values from `metric_values`, so numbers entered directly are visible alongside those written by journal entries. The exact context is described in `docs/backend/api.md`. `fetchAssistantMetrics` (`src/lib/metrics.ts`) loads it; a failed read gives the assistant no metrics instead of failing the chat request.
+
+### When the metric reads fail
+
+The dashboard loads the scorecard and the single-metric chart through `loadDashboardMetrics` (`src/lib/metrics.ts`). A failed read is logged and leaves both sections empty, like the goals section, so the rest of the dashboard still renders. This also covers a deployment whose database does not have the metrics tables yet (PostgREST answers `PGRST205`). `/journal/metrics` and `/journal/metrics/[metricId]` have no such fallback and show the error page in that case, since the metrics are all they show.
 
 ### Scope
 

@@ -119,7 +119,7 @@ Required controls:
 - Profile `ai_assistant_enabled=true`.
 - Non-null `ai_consent_at`.
 
-Context can include up to 15 tasks, 15 active habits, and 10 completed journal entries from the last 30 days, with bounded responses. It also lists the user's metrics (name, unit, target as text such as `at most 80 kg`, and up to the 14 newest values from the last 30 days, newest last), so numbers entered directly are visible alongside those written by journal entries. All metric values come from one `metric_values` query, shaped by `buildMetricAssistantContext` in `src/lib/metrics.ts`; a metric without recent values has an empty `recent` list.
+Context can include up to 15 tasks, 15 active habits, and 10 completed journal entries from the last 30 days, with bounded responses. It also lists the user's metrics (name, unit, target as text such as `at most 80 kg`, and up to the 14 newest values from the last 30 days, newest last), so numbers entered directly are visible alongside those written by journal entries. All metric values come from one `metric_values` query in `fetchAssistantMetrics`, shaped by `buildMetricAssistantContext` (both in `src/lib/metrics.ts`); a metric without recent values has an empty `recent` list. If the metric reads fail, the context has no metrics and the chat request still goes through.
 
 Supported model decisions:
 
