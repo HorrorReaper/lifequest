@@ -1159,11 +1159,21 @@ describe("TodayPlanner", () => {
     expect(px(c, "top") / px(a, "height")).toBeCloseTo(180 / 60, 5);
   });
 
-  it("folds a long stretch of free time into one labelled row that opens", () => {
+  it("opens the whole day by default and folds a long free stretch into one labelled row", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
 
+    // The day opens at scale: 11:45 to 18:00 is empty but still drawn, and
+    // nothing is folded until someone asks for the compact view.
+    expect(
+      screen.getByLabelText("Add something between 11:45 and 18:00")
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /11:45–18:00 · 6h 15m free/ })
+    ).toBeNull();
+
     // 11:45 to 18:00 is empty: one row says so instead of six hour lines.
+    fireEvent.click(screen.getByRole("button", { name: "Compact view" }));
     const fold = screen.getByRole("button", { name: /11:45–18:00 · 6h 15m free/ });
     expect(fold.getAttribute("aria-expanded")).toBe("false");
     expect(
@@ -1199,7 +1209,6 @@ describe("TodayPlanner", () => {
   it("previews only the hour it would offer, where the pointer is", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
-    fireEvent.click(screen.getByRole("button", { name: "Show full day" }));
 
     const gap = screen.getByLabelText("Add something between 11:45 and 18:00");
     // jsdom reports a zero-origin rect, so clientY is the offset from the top
