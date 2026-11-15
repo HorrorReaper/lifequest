@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  eveningReviewPayload,
   isGoneStatus,
   parsePushSubscription,
   safeNotificationPath,
@@ -56,5 +57,11 @@ describe('isGoneStatus', () => {
     expect(isGoneStatus(410)).toBe(true)
     expect(isGoneStatus(429)).toBe(false)
     expect(isGoneStatus(undefined)).toBe(false)
+  })
+})
+
+describe('eveningReviewPayload', () => {
+  it('opens the evening review template and replaces an earlier reminder', () => {
+    expect(eveningReviewPayload('tpl 1')).toMatchObject({ url: '/journal/new/tpl%201', tag: 'evening-review' })
   })
 })

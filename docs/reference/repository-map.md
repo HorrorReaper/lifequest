@@ -128,7 +128,7 @@ src/app/
 | Dashboard greeting and hero scene | `components/dashboard/DashboardGreeting.tsx`, `components/dashboard/DashboardHeroScene.tsx`, `lib/day-progress.ts` |
 | Dashboard next step and plan status | `components/dashboard/NextUpCard.tsx`, `lib/dashboard-plan.ts`, `components/ui/progress-ring.tsx` |
 | Onboarding | `components/onboarding/onboarding-flow.tsx`, `lib/onboarding.ts` |
-| Push notifications | `public/sw.js`, `lib/push-*.ts`, `app/api/push/test/route.ts`, `components/settings/PushReminderCard.tsx` |
+| Push notifications | `public/sw.js`, `lib/push-*.ts`, `app/api/push/test/route.ts`, `app/api/push/evening-review/route.ts`, `components/settings/PushReminderCard.tsx`, `scripts/verify-evening-review-push.mjs` |
 | Landing-page traffic | `app/api/landing-events/route.ts`, `lib/landing-*.ts`, `components/admin/LandingTraffic.tsx` |
 | Feedback and beta activation | `components/feedback/FeedbackDialog.tsx`, `lib/feedback.ts`, `components/admin/BetaActivation.tsx`, `lib/activation.ts` |
 | Shared page header, completion control | `components/ui/page-header.tsx`, `components/ui/completion-toggle.tsx` |

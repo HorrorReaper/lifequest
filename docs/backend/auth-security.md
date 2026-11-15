@@ -45,7 +45,7 @@ The middleware:
 3. Loads the profile for authenticated users.
 4. Redirects incomplete profiles to `/onboarding`.
 
-Public short-circuits are `/`, `/login`, `/auth/callback`, `/api/waitlist`, and `/api/landing-events`. The two API routes are listed because `/api/:path*` is in the proxy matcher; without the entry an anonymous visitor's request would be redirected to `/login`.
+Public short-circuits are `/`, `/login`, `/auth/callback`, `/api/waitlist`, `/api/landing-events`, and `/api/push/evening-review`. The API routes are listed because `/api/:path*` is in the proxy matcher; without the entry a request without a session would be redirected to `/login`. `/api/push/evening-review` is called by the scheduler and guards itself with `CRON_SECRET`.
 
 Server pages and route handlers still call `auth.getUser()` themselves. Middleware is routing/session support, not the only authorization control.
 
@@ -124,7 +124,7 @@ Security Invoker functions execute under the caller's role and should perform ex
 
 ### Secret/service-role key
 
-`SUPABASE_SECRET_KEY` or the legacy service-role fallback is used in `DELETE /api/account`. `SUPABASE_SERVICE_ROLE_KEY` is also preferred, when set, by `createPublicRouteClient` (`src/lib/supabase/public-route-client.ts`) for `/api/waitlist` and `/api/landing-events`, which otherwise fall back to the publishable key.
+`SUPABASE_SECRET_KEY` or the legacy service-role fallback is used in `DELETE /api/account` and in `/api/push/evening-review`. `SUPABASE_SERVICE_ROLE_KEY` is also preferred, when set, by `createPublicRouteClient` (`src/lib/supabase/public-route-client.ts`) for `/api/waitlist` and `/api/landing-events`, which otherwise fall back to the publishable key.
 
 Rules:
 
@@ -189,6 +189,7 @@ Web push for the evening review reminder ([Push notifications](../features/push-
 - **Payload content.** Pushes go through the browser vendor's push service, encrypted end to end with the browser's keys. Keep journal text and other personal content out of payloads anyway; a title, a short line and a path are enough.
 - **Keys.** `VAPID_PRIVATE_KEY` signs pushes and stays server-only; only the public key carries the `NEXT_PUBLIC_` prefix.
 - **Notification clicks** open only paths on the site, never another origin.
+- **Scheduled sending.** `/api/push/evening-review` accepts only `Authorization: Bearer <CRON_SECRET>` (constant-time comparison) and uses the Supabase secret key, because it reads every user's devices. `claim_evening_review_reminders` is executable by `service_role` only, and `push_reminder_log` has no client privileges. The secret for `pg_cron` is kept in Supabase Vault, not in a migration.
 
 ## Landing-page traffic
 

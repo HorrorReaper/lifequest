@@ -65,9 +65,14 @@ The numbers on the Landing page traffic card ([Landing-page traffic](../features
 - Visitors with Global Privacy Control or Do Not Track, and visitors whose blocker refuses the request, are not counted, while their waitlist signup still is. The signup rate can therefore read slightly high.
 - Staging and preview deployments share the production database, so their landing-page visits are counted too.
 
-## Evening review push is opt-in only so far
+## Evening review push
 
-Users can turn on the evening review reminder in Settings and receive test notifications, but nothing sends the reminder when the evening review window opens yet. On iPhone and iPad, push only works once LifeQuest is added to the home screen (iOS 16.4+). See [Push notifications](../features/push-notifications.md).
+- The reminder needs the `pg_cron` schedule set up by hand in Supabase; without it nothing is sent.
+- A failed send is not retried that day.
+- On Sundays the push reminds about the evening review even though the dashboard shows the Weekly Review first.
+- On iPhone and iPad, push only works once LifeQuest is added to the home screen (iOS 16.4+).
+
+See [Push notifications](../features/push-notifications.md).
 
 ## Password recovery
 

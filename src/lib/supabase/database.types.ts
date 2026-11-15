@@ -944,6 +944,10 @@ export interface Database {
         }
         Returns: Json
       }
+      claim_evening_review_reminders: {
+        Args: { p_grace_minutes?: number }
+        Returns: { user_id: string; template_id: string; endpoint: string; p256dh: string; auth: string }[]
+      }
       save_push_subscription: {
         Args: { p_endpoint: string; p_p256dh: string; p_auth: string }
         Returns: undefined

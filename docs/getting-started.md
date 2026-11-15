@@ -106,6 +106,12 @@ VAPID_SUBJECT=mailto:you@example.com
 
 Without them the Settings switch is disabled and `POST /api/push/test` answers `503`. Push works on `localhost` in Chrome and Firefox; Safari needs `next dev --experimental-https`.
 
+The scheduled reminder additionally needs `CRON_SECRET` and `SUPABASE_SECRET_KEY`. To trigger it by hand:
+
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/push/evening-review
+```
+
 ## Account deletion
 
 Permanent account deletion uses the server-only Supabase Admin API:

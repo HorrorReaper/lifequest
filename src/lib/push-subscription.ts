@@ -77,3 +77,13 @@ export function safeNotificationPath(path: unknown): string {
 export function isGoneStatus(statusCode: number | undefined): boolean {
   return statusCode === 404 || statusCode === 410
 }
+
+/** The scheduled reminder. Opens the evening review's journal template. */
+export function eveningReviewPayload(templateId: string): PushPayload {
+  return {
+    title: 'Time for your evening review',
+    body: 'A few minutes to look back on today and keep your streak going.',
+    url: `/journal/new/${encodeURIComponent(templateId)}`,
+    tag: 'evening-review',
+  }
+}

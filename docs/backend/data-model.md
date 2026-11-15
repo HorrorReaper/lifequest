@@ -169,6 +169,7 @@ Project tasks reuse `tasks` rather than having a separate task table.
 | `waitlist_signups` | Waitlist signups, written by `/api/waitlist`; counted for admins by `admin_app_stats` and `admin_signup_series` |
 | `landing_events` | Anonymous landing-page events (`pageview`, `cta_click`, `waitlist_signup`) with path, referrer host, UTM labels, device bucket, CTA name and a daily-salted visitor hash. RLS on, no policies; written only by `record_landing_event`, read only through the admin aggregates |
 | `push_subscriptions` | One row per browser a user opted in to push from Settings: push service `endpoint` (unique, https), the browser's `p256dh` and `auth` keys, `created_at`, `last_sent_at`. Users select and delete their own rows and may update only `last_sent_at`; inserts go through `save_push_subscription` |
+| `push_reminder_log` | One row per user, ritual (`evening_review`) and local day a reminder was claimed for; prevents a second reminder the same day. Rows older than a week are deleted by the claim. RLS on, no policies, no client privileges |
 | `landing_visitor_salts` | Today's random salt for the visitor hash (UTC day → salt). Older days are deleted by the first event of a new day. RLS on, no policies, no client privileges |
 
 ## Database functions
@@ -206,6 +207,7 @@ Project tasks reuse `tasks` rather than having a separate task table.
 - `admin_app_stats` — registered users and waitlist size
 - `admin_signup_series` — waitlist entries and new accounts per UTC day since a date
 - `save_push_subscription(p_endpoint, p_p256dh, p_auth)` — security definer upsert on `endpoint` for the signed-in user. An endpoint already stored for another account moves to the current one, since an endpoint identifies one browser and that browser is now signed in as someone else
+- `claim_evening_review_reminders(p_grace_minutes)` — service role only. Returns `(user_id, template_id, endpoint, p256dh, auth)` for every device of every user due an evening review reminder now and records those users in `push_reminder_log` in the same statement. Due: ritual enabled with a template, window opened within `p_grace_minutes` in the profile timezone (unknown zones count as UTC), matching weekday, no complete entry with the template for the local day, not claimed yet that day
 - `admin_landing_daily(p_since)` — landing-page page views, unique visitors, CTA clicks, visitors who clicked, and waitlist signups per UTC day since a date (days with events only)
 - `admin_landing_breakdown(p_since)` — visitors and events per referrer host, UTM source, UTM campaign and device (page views), and per CTA (clicks); at most 25 labels per dimension, null label for none
 - `record_landing_event(p_event, p_fingerprint, p_device, p_path, p_referrer_host, p_utm_source, p_utm_medium, p_utm_campaign, p_cta)` — security definer insert into `landing_events`; rotates the daily salt and stores `sha256(salt:fingerprint)` as the visitor hash. Executable by `anon` and `service_role` only
