@@ -59,6 +59,7 @@ export default function PrivacyPage() {
               <li><a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noreferrer" className="text-primary underline underline-offset-4">Vercel</a> provides application hosting and delivery infrastructure.</li>
               <li>Google processes authentication information when you choose Google sign-in.</li>
               <li><a href="https://openrouter.ai/privacy" target="_blank" rel="noreferrer" className="text-primary underline underline-offset-4">OpenRouter</a> routes optional AI assistant requests to the configured model provider.</li>
+              <li>If you turn on reminders in Settings, your browser&apos;s push service (for example Google, Apple or Mozilla) delivers the notifications. We store the push address and encryption keys your browser creates for this device, and delete them when you turn reminders off or delete your account.</li>
             </ul>
             <p className="text-sm leading-7 text-muted-foreground">
               Some providers may process data outside the European Economic Area. Where required, transfers rely on the safeguards offered by the relevant provider and applicable data-protection law.

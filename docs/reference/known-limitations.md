@@ -65,18 +65,21 @@ The numbers on the Landing page traffic card ([Landing-page traffic](../features
 - Visitors with Global Privacy Control or Do Not Track, and visitors whose blocker refuses the request, are not counted, while their waitlist signup still is. The signup rate can therefore read slightly high.
 - Staging and preview deployments share the production database, so their landing-page visits are counted too.
 
+## Evening review push is opt-in only so far
+
+Users can turn on the evening review reminder in Settings and receive test notifications, but nothing sends the reminder when the evening review window opens yet. On iPhone and iPad, push only works once LifeQuest is added to the home screen (iOS 16.4+). See [Push notifications](../features/push-notifications.md).
+
 ## Password recovery
 
 The login UI does not currently provide a complete password-reset flow.
 
 ## PWA/offline behavior
 
-- A web manifest exists.
-- Referenced `/icons/icon-192.png` and `/icons/icon-512.png` files are missing.
-- There is no service worker or offline application shell.
+- A web manifest exists, with `/icons/icon-192.png` and `/icons/icon-512.png` generated from `public/logo.svg`.
+- `public/sw.js` handles web push only. There is no offline application shell or caching.
 - Browser drafts and local food history provide limited resilience, but most features require Supabase connectivity.
 
-Impact: install behavior may have incomplete icons, and the application is not generally usable offline.
+Impact: the application is not generally usable offline.
 
 ## Testing gaps
 

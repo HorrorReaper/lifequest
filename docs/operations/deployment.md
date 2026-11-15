@@ -62,6 +62,16 @@ USDA_FDC_API_KEY
 OPEN_FOOD_FACTS_USER_AGENT
 ```
 
+### Push notifications
+
+```text
+NEXT_PUBLIC_VAPID_PUBLIC_KEY
+VAPID_PRIVATE_KEY
+VAPID_SUBJECT
+```
+
+Set the same key pair in Preview and Production when they share the database: a subscription created with one public key cannot be pushed with another pair. Rotating the pair invalidates all stored subscriptions.
+
 ### Account deletion
 
 ```text
@@ -88,6 +98,8 @@ Avoid deploying browser code that requires a column/function before the database
 The first-cohort release (`feat/first-cohort-readiness`) adds `supabase/migrations/20261025120000_beta_feedback_and_activation.sql`. It is additive. Without it the app still works, except that "Send feedback" shows its failure message and the Beta activation card on `/admin/tools` says the numbers are not available yet; apply it before inviting the cohort.
 
 The landing-page traffic release adds `supabase/migrations/20261110120000_landing_page_traffic.sql`. It is additive. Without it the landing page still works and `/api/landing-events` answers 204 while logging the failed insert, signups are still saved, and the Landing page traffic card on `/admin/tools` names the migration to apply. Apply it before deploying so no visits are lost.
+
+The push notifications release adds `supabase/migrations/20261115120000_push_subscriptions.sql`. It is additive. Without it, turning on reminders in Settings fails with "Could not turn reminders on" and nothing else is affected. Apply it and set the three VAPID variables before deploying.
 
 
 ## Production smoke test

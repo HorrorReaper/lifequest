@@ -179,6 +179,17 @@ These drafts can contain sensitive personal text. Do not move them into shared a
 
 The landing-page traffic tracker stores nothing in the browser (see below).
 
+## Push notifications
+
+Web push for the evening review reminder ([Push notifications](../features/push-notifications.md)):
+
+- **Opt-in per device.** Nothing is subscribed until the user flips the switch in Settings, which also triggers the browser's own permission prompt.
+- **Minimal data.** `push_subscriptions` holds only what the Web Push protocol needs: the push service endpoint (an opaque URL at Google, Mozilla or Apple) and the browser's public keys. No user agent, IP or device name. Rows are deleted with the account (`on delete cascade`), when the user turns the switch off, or when a push service reports them gone.
+- **RLS.** Users read and delete their own rows and may only update `last_sent_at`. They cannot insert directly; `save_push_subscription` inserts for `auth.uid()` only.
+- **Payload content.** Pushes go through the browser vendor's push service, encrypted end to end with the browser's keys. Keep journal text and other personal content out of payloads anyway; a title, a short line and a path are enough.
+- **Keys.** `VAPID_PRIVATE_KEY` signs pushes and stays server-only; only the public key carries the `NEXT_PUBLIC_` prefix.
+- **Notification clicks** open only paths on the site, never another origin.
+
 ## Landing-page traffic
 
 The landing page counts visits without cookies, browser storage or a third party, so it needs no consent banner ([Landing-page traffic](../features/landing-traffic.md)). The boundaries:

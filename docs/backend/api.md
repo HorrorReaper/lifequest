@@ -64,6 +64,19 @@ Responses:
 
 All responses carry `Cache-Control: no-store`. The route sends the database a SHA-256 hash of IP and user agent and a device bucket, never the raw values; see [Authentication, authorization, and privacy](auth-security.md#landing-page-traffic).
 
+## `POST /api/push/test`
+
+Sends a test notification to every device the signed-in user has opted in from Settings ([Push notifications](../features/push-notifications.md)). No request body. A request with an `Origin` header from another origin is refused.
+
+- `200` `{ "sent": n, "removed": m }`: at least one push was accepted. `removed` counts subscriptions the push service reported as gone (404/410); their rows are deleted.
+- `401`: not signed in.
+- `403`: foreign origin.
+- `409`: the user has no device opted in.
+- `502`: no push service accepted the notification.
+- `503`: VAPID variables missing on the server.
+
+All responses carry `Cache-Control: no-store` and an `error` string on failure. Rows are read, deleted and marked sent (`last_sent_at`) with the user's own session, so RLS limits the route to their devices.
+
 ## `DELETE /api/account`
 
 Permanently deletes the current Supabase Auth user.

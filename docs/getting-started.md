@@ -90,6 +90,22 @@ OPEN_FOOD_FACTS_USER_AGENT="LifeQuest/0.1 (contact@example.com)"
 - Provider requests run on the server with a seven-second timeout.
 - Local, recent, favorite, and saved foods remain available when providers fail.
 
+## Push notifications
+
+The evening review reminder ([Push notifications](./features/push-notifications.md)) needs a VAPID key pair:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+```bash
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@example.com
+```
+
+Without them the Settings switch is disabled and `POST /api/push/test` answers `503`. Push works on `localhost` in Chrome and Firefox; Safari needs `next dev --experimental-https`.
+
 ## Account deletion
 
 Permanent account deletion uses the server-only Supabase Admin API:

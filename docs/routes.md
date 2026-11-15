@@ -44,7 +44,7 @@
 | `/learn/tools/focus-timer` | Full-screen setup with one to three open tasks, or direct resume of the active countdown. Closing the block opens the setup again |
 | `/learn/tools/focus-timer/run` | Redirects old links to `/learn/tools/focus-timer` |
 | `/city` | Virtual city view/build mode |
-| `/settings` | Appearance, profile, timezone, AI consent, sign-out, account deletion |
+| `/settings` | Appearance, profile, timezone, dashboard sections, evening review reminder for this device ([Push notifications](features/push-notifications.md)), AI consent, sign-out, account deletion |
 | `/analytics` | Journal stats, mood/activity charts, and a Skills tab with per-category XP levels |
 | `/learnings` | Redirects to `/journal/insights` |
 
@@ -92,6 +92,7 @@ All admin pages live under the immersive `AdminShell`.
 | --- | --- | --- |
 | `POST /api/waitlist` | Public | Validates and saves a waitlist signup, records a `waitlist_signup` landing event |
 | `POST /api/landing-events` | Public | Records an anonymous landing-page `pageview` or `cta_click` |
+| `POST /api/push/test` | User | Sends a test push to every device the user has opted in |
 | `DELETE /api/account` | User | Permanently deletes the authenticated account after email confirmation |
 | `POST /api/chat` | Admin + consent | Contextual AI assistant and supported app actions |
 | `POST /api/goals/[goalId]/quest-suggestions` | Admin | Generates three structured quest suggestions (goals themselves are open to all users; only this AI step is admin-only) |

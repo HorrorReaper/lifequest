@@ -94,6 +94,7 @@ export interface Database {
       knowledge_note_contacts: MutableTable<{ user_id: string; contact_id: string; note_id: string }, 'user_id' | 'contact_id' | 'note_id'>
       task_contacts: MutableTable<{ user_id: string; contact_id: string; task_id: string }, 'user_id' | 'contact_id' | 'task_id'>
       contact_event_occurrence_states: MutableTable<{ user_id: string; event_id: string; occurrence_date: string; is_done: boolean; snoozed_until: string | null; task_id: string | null; updated_at: string }, 'user_id' | 'event_id' | 'occurrence_date'>
+      push_subscriptions: MutableTable<{ id: string; user_id: string; endpoint: string; p256dh: string; auth: string; created_at: string; last_sent_at: string | null }, 'endpoint' | 'p256dh' | 'auth'>
       profiles: {
         Row: {
           id: string
@@ -942,6 +943,10 @@ export interface Database {
           p_change_summary?: string | null
         }
         Returns: Json
+      }
+      save_push_subscription: {
+        Args: { p_endpoint: string; p_p256dh: string; p_auth: string }
+        Returns: undefined
       }
       admin_app_stats: {
         Args: Record<PropertyKey, never>
