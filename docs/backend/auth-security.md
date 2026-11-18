@@ -45,7 +45,7 @@ The middleware:
 3. Loads the profile for authenticated users.
 4. Redirects incomplete profiles to `/onboarding`.
 
-Public short-circuits are `/`, `/login`, `/auth/callback`, `/api/waitlist`, `/api/landing-events`, and `/api/push/evening-review`. The API routes are listed because `/api/:path*` is in the proxy matcher; without the entry a request without a session would be redirected to `/login`. `/api/push/evening-review` is called by the scheduler and guards itself with `CRON_SECRET`.
+Public short-circuits are `/`, `/login`, `/auth/callback`, `/api/waitlist`, `/api/landing-events`, `/api/push/reminders` and `/api/push/evening-review`. The API routes are listed because `/api/:path*` is in the proxy matcher; without the entry a request without a session would be redirected to `/login`. The two push routes are called by the scheduler and guard themselves with `CRON_SECRET`.
 
 Server pages and route handlers still call `auth.getUser()` themselves. Middleware is routing/session support, not the only authorization control.
 
@@ -124,7 +124,7 @@ Security Invoker functions execute under the caller's role and should perform ex
 
 ### Secret/service-role key
 
-`SUPABASE_SECRET_KEY` or the legacy service-role fallback is used in `DELETE /api/account` and in `/api/push/evening-review`. `SUPABASE_SERVICE_ROLE_KEY` is also preferred, when set, by `createPublicRouteClient` (`src/lib/supabase/public-route-client.ts`) for `/api/waitlist` and `/api/landing-events`, which otherwise fall back to the publishable key.
+`SUPABASE_SECRET_KEY` or the legacy service-role fallback is used in `DELETE /api/account` and in `/api/push/reminders` (also served at `/api/push/evening-review`). `SUPABASE_SERVICE_ROLE_KEY` is also preferred, when set, by `createPublicRouteClient` (`src/lib/supabase/public-route-client.ts`) for `/api/waitlist` and `/api/landing-events`, which otherwise fall back to the publishable key.
 
 Rules:
 
@@ -185,11 +185,11 @@ Web push for the evening review reminder ([Push notifications](../features/push-
 
 - **Opt-in per device.** Nothing is subscribed until the user flips the switch in Settings, which also triggers the browser's own permission prompt.
 - **Minimal data.** `push_subscriptions` holds only what the Web Push protocol needs: the push service endpoint (an opaque URL at Google, Mozilla or Apple) and the browser's public keys. No user agent, IP or device name. Rows are deleted with the account (`on delete cascade`), when the user turns the switch off, or when a push service reports them gone.
-- **RLS.** Users read and delete their own rows and may only update `last_sent_at`. They cannot insert directly; `save_push_subscription` inserts for `auth.uid()` only.
+- **RLS.** Users read and delete their own rows and may only update `last_sent_at` and the two reminder switches (`evening_review`, `daily_plan`); a check keeps at least one switch on. They cannot insert directly; `save_push_subscription` inserts for `auth.uid()` only.
 - **Payload content.** Pushes go through the browser vendor's push service, encrypted end to end with the browser's keys. Keep journal text and other personal content out of payloads anyway; a title, a short line and a path are enough.
 - **Keys.** `VAPID_PRIVATE_KEY` signs pushes and stays server-only; only the public key carries the `NEXT_PUBLIC_` prefix.
 - **Notification clicks** open only paths on the site, never another origin.
-- **Scheduled sending.** `/api/push/evening-review` accepts only `Authorization: Bearer <CRON_SECRET>` (constant-time comparison) and uses the Supabase secret key, because it reads every user's devices. `claim_evening_review_reminders` is executable by `service_role` only, and `push_reminder_log` has no client privileges. The secret for `pg_cron` is kept in Supabase Vault, not in a migration.
+- **Scheduled sending.** `/api/push/reminders` (and its old address `/api/push/evening-review`) accepts only `Authorization: Bearer <CRON_SECRET>` (constant-time comparison) and uses the Supabase secret key, because it reads every user's devices. `claim_daily_plan_reminders` and `claim_evening_review_reminders` are executable by `service_role` only, and `push_reminder_log` has no client privileges. The secret for `pg_cron` is kept in Supabase Vault, not in a migration.
 
 ## Landing-page traffic
 

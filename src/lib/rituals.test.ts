@@ -12,7 +12,7 @@ import { WEEKLY_PLAN_TEMPLATE_ID, WEEKLY_REVIEW_TEMPLATE_ID } from '@/lib/weekly
 
 describe('DEFAULT_RITUAL_SETTINGS', () => {
   it('matches the behaviour the dashboard hard-coded before the table existed', () => {
-    expect(DEFAULT_RITUAL_SETTINGS.daily_plan).toMatchObject({ enabled: true, weekday: null, fromMinutes: 0, templateId: null })
+    expect(DEFAULT_RITUAL_SETTINGS.daily_plan).toMatchObject({ enabled: true, weekday: null, fromMinutes: 0, templateId: null, reminderMinutes: 8 * 60 })
     expect(DEFAULT_RITUAL_SETTINGS.evening_review).toMatchObject({ enabled: true, weekday: null, fromMinutes: 20 * 60, templateId: null })
     expect(DEFAULT_RITUAL_SETTINGS.weekly_review).toMatchObject({ enabled: true, weekday: 6, fromMinutes: 18 * 60, templateId: WEEKLY_REVIEW_TEMPLATE_ID })
     expect(DEFAULT_RITUAL_SETTINGS.weekly_plan).toMatchObject({ enabled: true, weekday: 0, fromMinutes: 0, templateId: WEEKLY_PLAN_TEMPLATE_ID })
@@ -52,6 +52,7 @@ describe('normalizeRitualSettings', () => {
       weekday: null,
       fromMinutes: 1290,
       templateId: 'tmpl-1',
+      reminderMinutes: null,
       title: 'Evening, {name}',
       description: 'Wrap up.',
       ctaLabel: 'Go',
@@ -78,6 +79,14 @@ describe('normalizeRitualSettings', () => {
 
     expect(settings.weekly_plan.weekday).toBe(0)
     expect(settings.weekly_plan.templateId).toBeNull()
+  })
+
+  it('reads the daily plan reminder time, keeping null as "no reminder"', () => {
+    const daily = { ...row, ritual: 'daily_plan', template_id: null }
+    expect(normalizeRitualSettings([{ ...daily, reminder_minutes: 7 * 60 + 30 }]).daily_plan.reminderMinutes).toBe(450)
+    expect(normalizeRitualSettings([{ ...daily, reminder_minutes: null }]).daily_plan.reminderMinutes).toBeNull()
+    expect(normalizeRitualSettings([{ ...daily, reminder_minutes: 2000 }]).daily_plan.reminderMinutes).toBe(8 * 60)
+    expect(normalizeRitualSettings([daily]).daily_plan.reminderMinutes).toBe(8 * 60)
   })
 
   it('ignores rows for rituals it does not know', () => {

@@ -17,7 +17,7 @@ export type MetricTargetRow = { user_id: string; field_id: string; target_value:
 export type MetricRow = { id: string; user_id: string; name: string; unit: string | null; target_value: number | null; target_direction: 'at_least' | 'at_most' | null; template_id: string | null; source_field_id: string | null; created_at: string; updated_at: string }
 export type MetricValueRow = { metric_id: string; user_id: string; value_date: string; value: number; source_entry_id: string | null; created_at: string; updated_at: string }
 export type RitualId = 'daily_plan' | 'evening_review' | 'weekly_review' | 'weekly_plan'
-export type RitualSettingRow = { ritual: RitualId; enabled: boolean; weekday: number | null; from_minutes: number; template_id: string | null; title: string; description: string; cta_label: string; updated_at: string; updated_by: string | null }
+export type RitualSettingRow = { ritual: RitualId; enabled: boolean; weekday: number | null; from_minutes: number; template_id: string | null; reminder_minutes: number | null; title: string; description: string; cta_label: string; updated_at: string; updated_by: string | null }
 export type ExercisePreferenceRow = { user_id: string; exercise_id: string; is_favorite: boolean; rest_seconds: number | null; created_at: string; updated_at: string }
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other'
 export type NutritionTargetRow = { user_id: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number | null; sodium_mg: number | null; created_at: string; updated_at: string }
@@ -96,7 +96,7 @@ export interface Database {
       knowledge_note_contacts: MutableTable<{ user_id: string; contact_id: string; note_id: string }, 'user_id' | 'contact_id' | 'note_id'>
       task_contacts: MutableTable<{ user_id: string; contact_id: string; task_id: string }, 'user_id' | 'contact_id' | 'task_id'>
       contact_event_occurrence_states: MutableTable<{ user_id: string; event_id: string; occurrence_date: string; is_done: boolean; snoozed_until: string | null; task_id: string | null; updated_at: string }, 'user_id' | 'event_id' | 'occurrence_date'>
-      push_subscriptions: MutableTable<{ id: string; user_id: string; endpoint: string; p256dh: string; auth: string; created_at: string; last_sent_at: string | null }, 'endpoint' | 'p256dh' | 'auth'>
+      push_subscriptions: MutableTable<{ id: string; user_id: string; endpoint: string; p256dh: string; auth: string; evening_review: boolean; daily_plan: boolean; created_at: string; last_sent_at: string | null }, 'endpoint' | 'p256dh' | 'auth'>
       profiles: {
         Row: {
           id: string

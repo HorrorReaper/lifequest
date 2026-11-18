@@ -78,7 +78,23 @@ export function isGoneStatus(statusCode: number | undefined): boolean {
   return statusCode === 404 || statusCode === 410
 }
 
-/** The scheduled reminder. Opens the evening review's journal template. */
+/**
+ * The scheduled reminders a device can switch on, named like the rituals
+ * they remind about and like their push_subscriptions columns.
+ */
+export type ReminderKind = 'daily_plan' | 'evening_review'
+
+/** The morning reminder. Opens today's planner. */
+export function dailyPlanPayload(): PushPayload {
+  return {
+    title: 'Plan your day',
+    body: 'A few minutes to choose what matters most today.',
+    url: '/plan',
+    tag: 'daily-plan',
+  }
+}
+
+/** The evening reminder. Opens the evening review's journal template. */
 export function eveningReviewPayload(templateId: string): PushPayload {
   return {
     title: 'Time for your evening review',

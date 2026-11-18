@@ -104,6 +104,8 @@ The push notifications release adds `supabase/migrations/20261115120000_push_sub
 
 The scheduled reminder adds `20261115130000_evening_review_reminders.sql`, also additive. After applying it and setting `CRON_SECRET` and `SUPABASE_SECRET_KEY`, schedule the job once in the Supabase SQL editor as described in [Push notifications](../features/push-notifications.md#scheduler). Without the schedule nothing is sent; without the migration the route answers `500` on each run and nothing else is affected.
 
+The morning reminder adds `20261118120000_daily_plan_reminders.sql`. Apply it before deploying: the new Settings card saves with the four-argument `save_push_subscription` and reads the per-reminder columns, so without it turning a reminder on fails. Existing devices keep the evening review and get no morning reminder until the user turns it on. The existing `pg_cron` job keeps working, since `/api/push/evening-review` now runs both reminders; point it at `/api/push/reminders` when convenient ([Scheduler](../features/push-notifications.md#scheduler)).
+
 
 ## Production smoke test
 

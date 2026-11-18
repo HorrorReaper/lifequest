@@ -94,7 +94,8 @@ All admin pages live under the immersive `AdminShell`.
 | `POST /api/waitlist` | Public | Validates and saves a waitlist signup, records a `waitlist_signup` landing event |
 | `POST /api/landing-events` | Public | Records an anonymous landing-page `pageview` or `cta_click` |
 | `POST /api/push/test` | User | Sends a test push to every device the user has opted in |
-| `GET`/`POST /api/push/evening-review` | Cron secret | Sends the evening review reminder to everyone due now; called every 15 minutes by the scheduler |
+| `GET`/`POST /api/push/reminders` | Cron secret | Sends the morning (Daily Plan) and evening review reminders to everyone due now; called every 15 minutes by the scheduler |
+| `GET`/`POST /api/push/evening-review` | Cron secret | The same handler as `/api/push/reminders`, kept for a scheduler set up before it |
 | `DELETE /api/account` | User | Permanently deletes the authenticated account after email confirmation |
 | `POST /api/chat` | Admin + consent | Contextual AI assistant and supported app actions |
 | `POST /api/goals/[goalId]/quest-suggestions` | Admin | Generates three structured quest suggestions (goals themselves are open to all users; only this AI step is admin-only) |

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  dailyPlanPayload,
   eveningReviewPayload,
   isGoneStatus,
   parsePushSubscription,
@@ -63,5 +64,11 @@ describe('isGoneStatus', () => {
 describe('eveningReviewPayload', () => {
   it('opens the evening review template and replaces an earlier reminder', () => {
     expect(eveningReviewPayload('tpl 1')).toMatchObject({ url: '/journal/new/tpl%201', tag: 'evening-review' })
+  })
+})
+
+describe('dailyPlanPayload', () => {
+  it('opens the planner and replaces an earlier morning reminder', () => {
+    expect(dailyPlanPayload()).toMatchObject({ url: '/plan', tag: 'daily-plan' })
   })
 })

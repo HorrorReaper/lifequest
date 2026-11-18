@@ -24,6 +24,12 @@ export interface RitualSetting {
   fromMinutes: number
   /** The journal template the prompt opens; null for the Daily Plan, or once the chosen template is gone. */
   templateId: string | null
+  /**
+   * Minutes after local midnight the push reminder goes out
+   * (docs/features/push-notifications.md). Only the Daily Plan uses it, since
+   * its prompt opens at midnight; null sends no Daily Plan reminder.
+   */
+  reminderMinutes: number | null
   /** `{name}` in any of these becomes the user's name. */
   title: string
   description: string
@@ -56,6 +62,7 @@ export const DEFAULT_RITUAL_SETTINGS: RitualSettings = {
     weekday: null,
     fromMinutes: 0,
     templateId: null,
+    reminderMinutes: 8 * 60,
     title: 'Welcome back, {name} 👋',
     description:
       'Want to start with your daily briefing? A few minutes now to set your Top Three makes the rest of the day easier to navigate.',
@@ -67,6 +74,7 @@ export const DEFAULT_RITUAL_SETTINGS: RitualSettings = {
     weekday: null,
     fromMinutes: 20 * 60,
     templateId: null,
+    reminderMinutes: null,
     title: 'How was your day, {name}?',
     description:
       'Close the loop before you switch off. A couple of minutes to reflect on today and set tomorrow\'s focus.',
@@ -78,6 +86,7 @@ export const DEFAULT_RITUAL_SETTINGS: RitualSettings = {
     weekday: 6,
     fromMinutes: 18 * 60,
     templateId: WEEKLY_REVIEW_TEMPLATE_ID,
+    reminderMinutes: null,
     title: 'How was your week, {name}?',
     description:
       'Step back before the next one starts. A few minutes on what worked, what did not, and what you want to change.',
@@ -89,6 +98,7 @@ export const DEFAULT_RITUAL_SETTINGS: RitualSettings = {
     weekday: 0,
     fromMinutes: 0,
     templateId: WEEKLY_PLAN_TEMPLATE_ID,
+    reminderMinutes: null,
     title: 'New week, {name} 🗓️',
     description:
       'Give the week a theme and three outcomes before the days start deciding for you. Each morning\'s briefing gets easier with them set.',
@@ -136,6 +146,10 @@ export function normalizeRitualSettings(rows: unknown): RitualSettings {
         row.template_id === null
           ? null
           : nonEmptyString(row.template_id) ?? fallback.templateId,
+      reminderMinutes:
+        row.reminder_minutes === null
+          ? null
+          : intInRange(row.reminder_minutes, 0, 1439) ?? fallback.reminderMinutes,
       title: nonEmptyString(row.title) ?? fallback.title,
       description: nonEmptyString(row.description) ?? fallback.description,
       ctaLabel: nonEmptyString(row.cta_label) ?? fallback.ctaLabel,
