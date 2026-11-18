@@ -7,6 +7,11 @@ import { cn } from '@/lib/utils'
 interface DashboardHeroSceneProps {
   stage: DayStage
   className?: string
+  /**
+   * The pale veil of sky top left that keeps the dashboard greeting
+   * readable. Off where no text sits on the scene (onboarding).
+   */
+  veil?: boolean
 }
 
 /** The width of one landscape tile, in SVG units; the scroll moves by one. */
@@ -76,7 +81,7 @@ const TREES = [130, 390]
  * cropped: a phone shows only about x 85-395 of the 480 units and a wide
  * screen loses the top 20, so the sun and birds stay inside that frame.
  */
-export function DashboardHeroScene({ stage, className }: DashboardHeroSceneProps) {
+export function DashboardHeroScene({ stage, className, veil = true }: DashboardHeroSceneProps) {
   const from = (min: DayStage) => (stage >= min ? 'opacity-100' : 'opacity-0')
   // Ids for this instance's gradients and masks, safe inside url(#...).
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -197,14 +202,16 @@ export function DashboardHeroScene({ stage, className }: DashboardHeroSceneProps
       {/* A veil of sky behind the greeting, fading out to the right and
           down, so a tree drifting under the words softens instead of
           crossing them. */}
-      <g mask={`url(#${maskDown})`}>
-        <rect
-          width="320"
-          height="110"
-          mask={`url(#${maskAcross})`}
-          className={cn(SKY[stage], 'transition-colors duration-700')}
-        />
-      </g>
+      {veil && (
+        <g mask={`url(#${maskDown})`}>
+          <rect
+            width="320"
+            height="110"
+            mask={`url(#${maskAcross})`}
+            className={cn(SKY[stage], 'transition-colors duration-700')}
+          />
+        </g>
+      )}
     </svg>
   )
 }

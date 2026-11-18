@@ -1,99 +1,83 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildOnboardingPlan,
-  onboardingEndTime,
-  suggestedStartTime,
+  birthYearFromAge,
+  clockFromMinutes,
+  isValidAge,
+  PLAN_START_HREF,
+  questionSteps,
+  sceneStageFor,
+  startOptions,
+  type OnboardingTemplate,
 } from '@/lib/onboarding'
-import { plannedTaskIds } from '@/lib/day-plans'
-import { parseTodayPlanNotes, serializeTodayPlanNotes, createDefaultTodayPlanMetadata } from '@/lib/today-plan'
-import type { DayPlanBlock } from '@/lib/types'
 
-describe('suggestedStartTime', () => {
-  it('rounds up to the next quarter hour at least five minutes ahead', () => {
-    expect(suggestedStartTime(14 * 60 + 7)).toBe('14:15')
-    expect(suggestedStartTime(14 * 60 + 12)).toBe('14:30')
-    expect(suggestedStartTime(14 * 60)).toBe('14:15')
-  })
+const template = (over: Partial<OnboardingTemplate>): OnboardingTemplate => ({
+  id: 't',
+  name: 'Free Write',
+  description: 'No prompts.',
+  entry_type: 'free_write',
+  xp_reward: 10,
+  sort_order: 4,
+  ...over,
+})
 
-  it('stops at 23:30 late at night so a block still fits', () => {
-    expect(suggestedStartTime(23 * 60 + 50)).toBe('23:30')
+describe('isValidAge', () => {
+  it('takes whole numbers from 13 to 120', () => {
+    expect(isValidAge('13')).toBe(true)
+    expect(isValidAge('120')).toBe(true)
+    expect(isValidAge('12')).toBe(false)
+    expect(isValidAge('121')).toBe(false)
+    expect(isValidAge('2a')).toBe(false)
+    expect(isValidAge('')).toBe(false)
   })
 })
 
-describe('onboardingEndTime', () => {
-  it('adds the length and keeps the block inside the day', () => {
-    expect(onboardingEndTime('15:00', 25)).toBe('15:25')
-    expect(onboardingEndTime('23:50', 60)).toBe('23:59')
-    expect(onboardingEndTime('nope', 25)).toBeNull()
+describe('birthYearFromAge', () => {
+  it('subtracts the age from this year', () => {
+    expect(birthYearFromAge(30, new Date('2026-11-18T12:00:00Z'))).toBe(1996)
   })
 })
 
-describe('buildOnboardingPlan', () => {
-  const now = new Date('2026-10-25T10:00:00Z')
+describe('questionSteps', () => {
+  it('counts the questions, with or without the reminders step', () => {
+    expect(questionSteps(true)).toEqual(['name', 'age', 'goal', 'reminders', 'start'])
+    expect(questionSteps(false)).toEqual(['name', 'age', 'goal', 'start'])
+  })
+})
 
-  it('links the block to the task and makes it the main priority', () => {
-    const plan = buildOnboardingPlan({
-      existingBlocks: [],
-      existingNotes: null,
-      taskId: 'task-1',
-      title: 'Pay the bill',
-      start: '19:00',
-      end: '19:25',
-      now,
-    })
-    expect(plan.blocks).toEqual([
-      expect.objectContaining({ id: 'onboarding-task-1', source_type: 'task', source_id: 'task-1' }),
+describe('sceneStageFor', () => {
+  it('grows the scene as the answers come in', () => {
+    expect(sceneStageFor('welcome')).toBe(0)
+    expect(sceneStageFor('name')).toBe(0)
+    expect(sceneStageFor('age')).toBe(1)
+    expect(sceneStageFor('goal')).toBe(1)
+    expect(sceneStageFor('reminders')).toBe(2)
+    expect(sceneStageFor('done')).toBe(2)
+  })
+})
+
+describe('startOptions', () => {
+  it('offers the daily plan first, then each template once, in sort order', () => {
+    const options = startOptions([
+      template({ id: 'quick', name: 'Quick Insight', sort_order: 5 }),
+      template({ id: 'morning', name: 'Morning Reflection', sort_order: 1, xp_reward: 25 }),
+      template({ id: 'old-weekly', name: 'Weekly Review', sort_order: 3 }),
+      template({ id: 'weekly', name: 'Weekly Review', sort_order: 101 }),
     ])
-    const metadata = parseTodayPlanNotes(plan.notes).metadata
-    expect(metadata?.outcomes).toEqual([
-      expect.objectContaining({ role: 'must_win', task_id: 'task-1', duration_minutes: 25 }),
-    ])
-    // Widened to hold an evening block, and marked as planned.
-    expect(metadata?.day_end).toBe('19:25')
-    expect(metadata?.ritual_completed_at).toBe(now.toISOString())
-  })
 
-  it('is idempotent: running it again replaces its own block, keeps the rest', () => {
-    const other: DayPlanBlock = {
-      id: 'mine',
-      start_time: '09:00',
-      end_time: '10:00',
-      title: 'Existing',
-      category: 'other',
-    }
-    const first = buildOnboardingPlan({
-      existingBlocks: [other],
-      existingNotes: serializeTodayPlanNotes(createDefaultTodayPlanMetadata()),
-      taskId: 'task-1',
-      title: 'Pay the bill',
-      start: '11:00',
-      end: '11:25',
-      now,
+    expect(options.map((option) => option.id)).toEqual(['plan', 'morning', 'quick', 'weekly'])
+    expect(options[0]).toMatchObject({ kind: 'plan', href: PLAN_START_HREF })
+    expect(options[1]).toMatchObject({
+      kind: 'template',
+      xpReward: 25,
+      href: '/journal/new/morning?firstEntry=1',
     })
-    const second = buildOnboardingPlan({
-      existingBlocks: first.blocks,
-      existingNotes: first.notes,
-      taskId: 'task-1',
-      title: 'Pay the bill',
-      start: '12:00',
-      end: '12:15',
-      now,
-    })
-    expect(second.blocks.map((b) => b.id)).toEqual(['mine', 'onboarding-task-1'])
-    expect(second.blocks[1].start_time).toBe('12:00')
-    expect(plannedTaskIds(second.blocks)).toEqual(['task-1'])
   })
 })
 
-describe('plannedTaskIds', () => {
-  it('lists linked tasks once, in block order, and skips other blocks', () => {
-    const blocks = [
-      { id: 'a', start_time: '08:00', end_time: '09:00', title: 'A', category: 'other', source_type: 'task', source_id: 't2' },
-      { id: 'b', start_time: '09:00', end_time: '10:00', title: 'B', category: 'other', source_type: 'manual', source_id: 'x' },
-      { id: 'c', start_time: '10:00', end_time: '11:00', title: 'C', category: 'other', source_type: 'task', source_id: 't2' },
-      { id: 'd', start_time: '11:00', end_time: '12:00', title: 'D', category: 'other', source_type: 'task', source_id: 't1' },
-    ] as DayPlanBlock[]
-    expect(plannedTaskIds(blocks)).toEqual(['t2', 't1'])
-    expect(plannedTaskIds(null)).toEqual([])
+describe('clockFromMinutes', () => {
+  it('writes minutes after midnight as a 24-hour time', () => {
+    expect(clockFromMinutes(480)).toBe('08:00')
+    expect(clockFromMinutes(1200)).toBe('20:00')
+    expect(clockFromMinutes(65)).toBe('01:05')
   })
 })
