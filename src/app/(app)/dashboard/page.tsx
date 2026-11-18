@@ -555,6 +555,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               ? { href: `/journal/new/${eveningReviewTemplateId}` }
               : null
           }
+          briefingOpen={dailyPlanWindow && !planCommitted}
           today={today}
         />
         <DailyPlanPrompt

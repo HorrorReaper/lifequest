@@ -133,8 +133,10 @@ export function plannedTaskProgress(blocks: readonly PlanStatusBlock[]): {
  * day's blocks left open, open habits, and then the reflections chosen for
  * today -- the first one still unwritten, or that all are written. Without a
  * plan it asks for one, naming how many tasks are due today when there are
- * any -- or, on an account with no tasks at all, for the first task, since
- * there is nothing to plan yet.
+ * any. With no open tasks it still asks for the plan while the morning
+ * briefing is on offer, since the planner is where the day starts and new
+ * tasks can be made there; only outside the briefing does it ask for a
+ * first task instead.
  */
 export function nextUpFor<T extends PlanStatusBlock>({
   blocks,
@@ -145,6 +147,7 @@ export function nextUpFor<T extends PlanStatusBlock>({
   overdueCount = 0,
   reflections = [],
   eveningReviewDue = false,
+  briefingOpen = false,
 }: {
   blocks: readonly T[]
   nowMinutes: number
@@ -161,10 +164,15 @@ export function nextUpFor<T extends PlanStatusBlock>({
    * template, and no entry for it is complete yet.
    */
   eveningReviewDue?: boolean
+  /**
+   * Whether today's morning briefing is on offer: the Daily Plan's window is
+   * open and today's plan is not committed yet.
+   */
+  briefingOpen?: boolean
 }): NextUp<T> {
   if (blocks.length === 0) {
     if (eveningReviewDue) return { kind: 'evening-review', openTasks: 0, openHabits }
-    if (openTaskCount === 0) return { kind: 'first-task' }
+    if (openTaskCount === 0 && !briefingOpen) return { kind: 'first-task' }
     return dueTodayCount > 0
       ? { kind: 'tasks-due', dueToday: dueTodayCount, overdue: overdueCount }
       : { kind: 'plan-day' }
