@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { journalAnchorTitles, TodayPlanner } from "@/components/planning/TodayPlanner";
+import { useUserStore } from "@/lib/stores/user-store";
 import {
   createDefaultTodayPlanMetadata,
   serializeTodayPlanNotes,
@@ -271,6 +272,37 @@ describe("TodayPlanner", () => {
       recordStreakDay.mock.invocationCallOrder[0]
     );
     await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  it("celebrates a streak the saved plan grew, and shows the new length at once", async () => {
+    useUserStore.setState({ currentStreak: 4, bestStreak: 4, pendingStreak: null, totalXp: 100 });
+    const celebration = { from: 4, to: 5, usedFreeze: false, bonusXp: 0 };
+    recordStreakDay.mockResolvedValueOnce({ streak: 5, xpEarned: 0, totalXp: 100, celebration });
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+    pickMainTask();
+    next();
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
+
+    await waitFor(() => expect(useUserStore.getState().pendingStreak).toEqual(celebration));
+    expect(useUserStore.getState().currentStreak).toBe(5);
+    expect(useUserStore.getState().totalXp).toBe(100);
+  });
+
+  it("does not celebrate a save on a day that already counted", async () => {
+    useUserStore.setState({ currentStreak: 7, bestStreak: 7, pendingStreak: null, totalXp: 150 });
+    recordStreakDay.mockResolvedValueOnce({ streak: 7, xpEarned: 0, totalXp: 150, celebration: null });
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+    pickMainTask();
+    next();
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard"));
+    expect(useUserStore.getState().pendingStreak).toBeNull();
+    expect(useUserStore.getState().totalXp).toBe(150);
   });
 
   it("keeps the saved plan when the streak cannot be counted", async () => {

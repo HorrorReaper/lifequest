@@ -74,7 +74,8 @@ function StreakBadge({ from, to }: { from: number; to: number }) {
 /**
  * The level-up style moment for a streak that just grew, in the flame's
  * orange. Fed by `notifyStreakExtended` in the user store, which both journal
- * save paths call (see docs/features/gamification.md). Mounted once in the
+ * save paths and the daily planner's final save call (see
+ * docs/features/gamification.md). Mounted once in the
  * (app) layout; it waits for a challenge-day celebration, and a level-up
  * waits for it.
  */

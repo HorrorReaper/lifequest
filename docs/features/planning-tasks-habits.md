@@ -104,7 +104,7 @@ Saving is guarded against double taps by a ref, so a second tap while a save run
 
 The ritual's final save counts the day for the streak like a saved journal entry. After the plan is stored, `commitPlan` calls `recordStreakDay` (`src/lib/streak-day.ts`) with the plan's date and the `day_plans` row id. It applies `resolveStreak` and settles a spent freeze, an archived broken streak, a milestone bonus (`streak_bonus` XP event pointing at the plan) and the profile's streak, best streak and `last_journal_date`. The plan itself earns no XP. A second plan or entry on the same day changes nothing (`same_day`). Saving edits in the plan editor does not count.
 
-If counting the day fails, the plan stays saved and the planner continues as usual; the error is only logged. The planner shows no streak celebration; the top bar shows the new streak on the next page.
+The result goes to the user store as after a journal entry: the top bar's streak (`updateStreak`) and any milestone bonus (`addXp`) change at once, and a streak that grew opens the streak celebration (`notifyStreakExtended`). `StreakOverlay` is mounted in the app layout, so it opens on the page the planner returns to. If counting the day fails, the plan stays saved and the planner continues as usual without a celebration; the error is only logged.
 
 ## Task manager
 
