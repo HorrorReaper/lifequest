@@ -135,8 +135,9 @@ These are intentional current boundaries:
 
 - Workouts and nutrition are admin-only.
 - Habits are daily and binary. Flexible weekdays and weekly targets ("3× a week"), with streaks and stats counting only due days, are the planned extension after the first beta; they are not promised in the app or in acquisition copy.
-- The onboarding focus choice only steers first-task suggestions and is not stored.
-- Onboarding duplicate protection for the first task lives in `sessionStorage`: within one tab it survives back navigation and reloads; starting onboarding again in a second tab or browser before finishing can create a second task.
+- Onboarding writes nothing before its last question (apart from push subscriptions), so reloading the page starts the questions over.
+- A notification permission denied during onboarding is not mentioned there; the reminders simply stay off until turned on in Settings.
+- The onboarding scene shows the default avatar, since a new account has no gear yet.
 - Habits and reflections kept flexible in plans saved before the planner dropped "Also today" stay in the plan's metadata but are no longer shown anywhere; they can only be planned again with a time.
 - The dashboard's plan section shows time blocks only. They stay on their normal habit and journal pages either way.
 - The dashboard hero moves for as long as the page is open (paused when scrolled out of view, or for good with its pause button). It is cheap CSS, but it is continuous motion on the main page; reduced motion turns it off. The avatar's strides are timed to the near path as a phone scales it; other widths scale the scene up to about 6% differently from the avatar, a slip too small to see. A viewer who paused the scene still sees the walk-in, with the path standing still, so its brisk strides run a little ahead of the ground for those 1.6 s.

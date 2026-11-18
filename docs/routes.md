@@ -25,7 +25,7 @@
 
 | Route | Purpose |
 | --- | --- |
-| `/onboarding` | Three-step activation: focus (name and timezone carried over), a first task, and a time block for it today |
+| `/onboarding` | First run under the trail scene: name and timezone, age, a first goal, reminders (where push works), then the first step of the day (daily plan or a journal template) |
 | `/dashboard` | Main LifeQuest briefing, in this order: greeting and date, Next up, today's plan, habits, tasks, then the journal nudge, challenges, goals, scorecard, the daily reflection prompt, quests, admin-only widgets and a "Send feedback" link (XP, coins and streak are in the top bar). Ritual prompts open as dialogs. `?goal=new#goals` opens the goal form and scrolls to it; `?welcome=1` shows the first-run card |
 | `/dashboard2` | Alternate dashboard implementation retained for experimentation |
 | `/plan` | Plan editor (timeline with Save plan) when today has blocks, otherwise the six-step daily ritual. `?step=ritual` forces the ritual; `?step=timeline` opens the editor |

@@ -1,14 +1,14 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OnboardingFlow } from '@/components/onboarding/onboarding-flow'
 
 const push = vi.fn()
 const fetchCityState = vi.fn()
 const upsert = vi.fn()
-const createTask = vi.fn()
-const updateTask = vi.fn()
-const fetchDayPlan = vi.fn()
-const upsertDayPlan = vi.fn()
+const createGoal = vi.fn()
+const enablePush = vi.fn()
+const pushSupport = vi.fn()
+const vapidPublicKey = vi.fn()
 
 // AnimatePresence mode="wait" holds the next step back until the exit
 // animation finishes, which never happens in jsdom. The flow's behaviour is
@@ -33,207 +33,212 @@ vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ client: true })
 vi.mock('@/lib/city/city', () => ({
   fetchCityState: (...a: unknown[]) => fetchCityState(...a),
 }))
-vi.mock('@/lib/tasks', () => ({
-  createTask: (...a: unknown[]) => createTask(...a),
-  updateTask: (...a: unknown[]) => updateTask(...a),
+vi.mock('@/lib/goals', () => ({
+  createGoal: (...a: unknown[]) => createGoal(...a),
 }))
-vi.mock('@/lib/day-plans', () => ({
-  fetchDayPlan: (...a: unknown[]) => fetchDayPlan(...a),
-  upsertDayPlan: (...a: unknown[]) => upsertDayPlan(...a),
+vi.mock('@/lib/push-client', () => ({
+  enablePush: (...a: unknown[]) => enablePush(...a),
+  pushSupport: () => pushSupport(),
+  vapidPublicKey: () => vapidPublicKey(),
 }))
 vi.mock('@/lib/supabase/helpers', () => ({
   supabaseFrom: () => ({ upsert: (...a: unknown[]) => upsert(...a) }),
 }))
 
-const props = { userId: 'user-1', currentName: 'Patrick' }
+const templates = [
+  { id: 'morning', name: 'Morning Reflection', description: 'Start your day with gratitude.', entry_type: 'morning', xp_reward: 25, sort_order: 1 },
+  { id: 'free', name: 'Free Write', description: 'Just write.', entry_type: 'free_write', xp_reward: 10, sort_order: 4 },
+]
+
+const props = {
+  userId: 'user-1',
+  currentName: 'Patrick',
+  templates,
+  reminderTimes: { daily_plan: '08:00', evening_review: '20:00' },
+}
 
 beforeEach(() => {
   push.mockReset()
   fetchCityState.mockReset().mockResolvedValue({})
-  createTask.mockReset().mockResolvedValue({ id: 'task-1', title: 'Pay the open bill' })
-  updateTask.mockReset().mockResolvedValue({})
-  fetchDayPlan.mockReset().mockResolvedValue(null)
-  upsertDayPlan.mockReset().mockResolvedValue({})
+  createGoal.mockReset().mockResolvedValue({ id: 'goal-1' })
+  enablePush.mockReset().mockResolvedValue({ ok: true })
+  pushSupport.mockReset().mockReturnValue('supported')
+  vapidPublicKey.mockReset().mockReturnValue('public-key')
   upsert.mockReset().mockReturnValue({
     select: () => Promise.resolve({ data: [{ id: 'user-1' }], error: null }),
   })
-  window.sessionStorage.clear()
 })
 
 afterEach(cleanup)
 
-function continueButton() {
-  return screen.getByRole('button', { name: /continue|save task|plan it and finish/i })
+const primary = () =>
+  screen.getByRole('button', { name: /start the adventure|continue|open the planner|start writing/i })
+
+const heading = () => screen.getByRole('heading', { level: 1 }).textContent
+
+/** Lets the mount-time push check settle, as a browser does before any tap. */
+async function settle() {
+  await act(async () => {})
 }
 
-async function reachTaskStep() {
-  fireEvent.click(screen.getByRole('button', { name: 'Home and life admin' }))
-  fireEvent.click(continueButton())
-  await screen.findByLabelText('Your first task')
+async function answerUpToGoal() {
+  await settle()
+  fireEvent.click(primary())
+  fireEvent.click(primary())
+  fireEvent.change(screen.getByLabelText('Your age'), { target: { value: '30' } })
+  fireEvent.click(primary())
+  fireEvent.click(screen.getByRole('button', { name: 'Learning' }))
+  fireEvent.change(screen.getByLabelText('Your goal'), { target: { value: 'Read 12 books' } })
+  fireEvent.click(primary())
 }
 
 describe('OnboardingFlow', () => {
-  it('has three steps and asks no age question', () => {
+  it('opens on the adventure, then asks the name with the known one filled in', async () => {
     render(<OnboardingFlow {...props} />)
+    await settle()
+    expect(heading()).toBe('Build your life like an adventure.')
 
-    expect(screen.getByText('Step 1 of 3')).toBeTruthy()
-    expect(screen.queryByText(/how old are you/i)).toBeNull()
-    expect(screen.queryByLabelText(/age/i)).toBeNull()
+    fireEvent.click(primary())
+    expect(heading()).toBe('What is your name?')
+    expect((screen.getByLabelText('Your name') as HTMLInputElement).value).toBe('Patrick')
+    expect(screen.getByText('Step 1 of 5')).toBeTruthy()
   })
 
-  it('carries the existing name over and keeps the timezone change unobtrusive', () => {
-    render(<OnboardingFlow {...props} />)
+  it('has the avatar greet the user by first name once there is one', () => {
+    render(<OnboardingFlow {...props} currentName="" />)
+    fireEvent.click(primary())
+    expect(screen.queryByText(/^Hey /)).toBeNull()
 
-    expect(screen.getByText(/Hi Patrick\./)).toBeTruthy()
-    expect(screen.queryByLabelText('Timezone')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Change timezone' }))
-    expect(screen.getByLabelText('Timezone')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Alex Morgan' } })
+    expect(screen.getByText('Hey Alex!')).toBeTruthy()
   })
 
-  it('suggests first tasks that fit the chosen focus', async () => {
-    render(<OnboardingFlow {...props} />)
-    await reachTaskStep()
+  it('asks for a name, an age in range and a goal before moving on', () => {
+    render(<OnboardingFlow {...props} currentName="" />)
+    fireEvent.click(primary())
+    fireEvent.click(primary())
+    expect(screen.getByRole('alert').textContent).toBe('Add the name we should greet you with.')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pay the open bill' }))
-    expect((screen.getByLabelText('Your first task') as HTMLInputElement).value).toBe(
-      'Pay the open bill'
-    )
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Alex' } })
+    fireEvent.click(primary())
+    expect(heading()).toBe('How old are you?')
+
+    fireEvent.change(screen.getByLabelText('Your age'), { target: { value: '12' } })
+    fireEvent.click(primary())
+    expect(screen.getByRole('alert').textContent).toBe('Enter an age between 13 and 120.')
+    fireEvent.change(screen.getByLabelText('Your age'), { target: { value: '30' } })
+    fireEvent.click(primary())
+
+    expect(heading()).toBe('What do you want to improve?')
+    expect(screen.getByLabelText('Your goal').getAttribute('placeholder')).toBe('Run a half marathon')
+    fireEvent.click(screen.getByRole('button', { name: 'Finance' }))
+    expect(screen.getByLabelText('Your goal').getAttribute('placeholder')).toBe('Save 3 months of expenses')
+    fireEvent.click(primary())
+    expect(screen.getByRole('alert').textContent).toBe('Write down one thing you want to improve.')
   })
 
-  it('saves a real task due today, plans it, and finishes without a template choice', async () => {
+  it('subscribes the reminders left on, from the tap on Continue', async () => {
     render(<OnboardingFlow {...props} />)
-    await reachTaskStep()
+    await answerUpToGoal()
 
-    fireEvent.change(screen.getByLabelText('Your first task'), {
-      target: { value: 'Pay the open bill' },
+    expect(heading()).toBe('Should we remind you?')
+    expect(screen.getByText('08:00')).toBeTruthy()
+    expect(screen.getByText('20:00')).toBeTruthy()
+    fireEvent.click(screen.getByRole('switch', { name: 'Evening review' }))
+    fireEvent.click(primary())
+
+    await waitFor(() => expect(heading()).toBe('How do you want to start today?'))
+    expect(enablePush).toHaveBeenCalledTimes(1)
+    expect(enablePush).toHaveBeenCalledWith('daily_plan')
+  })
+
+  it('skips the reminders where this browser cannot get push', async () => {
+    pushSupport.mockReturnValue('ios-needs-install')
+    render(<OnboardingFlow {...props} />)
+    await answerUpToGoal()
+
+    expect(heading()).toBe('How do you want to start today?')
+    expect(enablePush).not.toHaveBeenCalled()
+  })
+
+  it('offers the daily plan and every template, and one tap saves and shows day one', async () => {
+    render(<OnboardingFlow {...props} />)
+    await answerUpToGoal()
+    fireEvent.click(primary())
+    await waitFor(() => expect(heading()).toBe('How do you want to start today?'))
+
+    expect(screen.getByRole('button', { name: /Plan today/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Morning Reflection.*\+25 XP/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /Free Write/ }))
+
+    await waitFor(() => expect(heading()).toBe('Patrick, your streak starts today.'))
+    expect(screen.getByText('Finishing your Free Write counts as day one.')).toBeTruthy()
+    expect(createGoal).toHaveBeenCalledWith({ client: true }, 'user-1', {
+      title: 'Read 12 books',
+      category: 'learning',
     })
-    fireEvent.click(continueButton())
-
-    await screen.findByLabelText('Start')
-    expect(createTask).toHaveBeenCalledWith(
-      { client: true },
-      'user-1',
-      expect.objectContaining({ title: 'Pay the open bill', priority: 'high' })
-    )
-    expect(createTask.mock.calls[0][2].due_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-
-    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '15:00' } })
-    fireEvent.click(screen.getByRole('button', { name: '45 min' }))
-    fireEvent.click(continueButton())
-
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard?welcome=1'))
-    const plan = upsertDayPlan.mock.calls[0][2]
-    expect(plan.blocks).toEqual([
-      expect.objectContaining({
-        id: 'onboarding-task-1',
-        start_time: '15:00',
-        end_time: '15:45',
-        source_type: 'task',
-        source_id: 'task-1',
-        mission_type: 'main_quest',
-      }),
-    ])
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'user-1',
         username: 'Patrick',
+        birth_year: new Date().getFullYear() - 30,
         onboarding_complete: true,
       }),
       { onConflict: 'id' }
     )
-    expect(upsert.mock.calls[0][0]).not.toHaveProperty('birth_year')
+
+    fireEvent.click(screen.getByRole('button', { name: /Start writing/ }))
+    expect(push).toHaveBeenCalledWith('/journal/new/free?firstEntry=1')
   })
 
-  it('reuses the saved task after going back, instead of creating a second one', async () => {
+  it('leads the daily plan into the planner ritual', async () => {
     render(<OnboardingFlow {...props} />)
-    await reachTaskStep()
+    await answerUpToGoal()
+    fireEvent.click(primary())
+    await waitFor(() => expect(heading()).toBe('How do you want to start today?'))
+    fireEvent.click(screen.getByRole('button', { name: /Plan today/ }))
 
-    fireEvent.change(screen.getByLabelText('Your first task'), {
-      target: { value: 'Pay the open bill' },
-    })
-    fireEvent.click(continueButton())
-    await screen.findByLabelText('Start')
-
-    fireEvent.click(screen.getByRole('button', { name: /back/i }))
-    fireEvent.change(await screen.findByLabelText('Your first task'), {
-      target: { value: 'Pay the electricity bill' },
-    })
-    fireEvent.click(continueButton())
-    await screen.findByLabelText('Start')
-
-    expect(createTask).toHaveBeenCalledTimes(1)
-    expect(updateTask).toHaveBeenCalledWith(
-      { client: true },
-      'task-1',
-      expect.objectContaining({ title: 'Pay the electricity bill' })
-    )
+    await waitFor(() => expect(screen.getByText('Saving today’s plan counts as day one.')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: /Open the planner/ }))
+    expect(push).toHaveBeenCalledWith('/plan?step=ritual')
   })
 
-  it('picks the saved task back up after a reload', async () => {
-    window.sessionStorage.setItem(
-      'lifequest:onboarding:user-1',
-      JSON.stringify({ taskId: 'task-9', title: 'Sort the mail' })
-    )
+  it('stays put when saving fails and does not save the goal twice on retry', async () => {
+    upsert.mockReturnValueOnce({
+      select: () => Promise.resolve({ data: null, error: { message: 'offline' } }),
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     render(<OnboardingFlow {...props} />)
-    fireEvent.click(continueButton())
+    await answerUpToGoal()
+    fireEvent.click(primary())
+    await waitFor(() => expect(heading()).toBe('How do you want to start today?'))
 
-    const field = (await screen.findByLabelText('Your first task')) as HTMLInputElement
-    await waitFor(() => expect(field.value).toBe('Sort the mail'))
-    fireEvent.click(continueButton())
-    await screen.findByLabelText('Start')
+    fireEvent.click(screen.getByRole('button', { name: /Plan today/ }))
+    expect((await screen.findByRole('alert')).textContent).toMatch(/not saved/)
+    expect(heading()).toBe('How do you want to start today?')
 
-    expect(createTask).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /Plan today/ }))
+    await waitFor(() => expect(heading()).toBe('Patrick, your streak starts today.'))
+    expect(createGoal).toHaveBeenCalledTimes(1)
+    expect(upsert).toHaveBeenCalledTimes(2)
   })
 
-  it('creates only one task when Save task is pressed twice quickly', async () => {
+  it('saves once when an option is tapped twice quickly', async () => {
     let resolve: (value: unknown) => void = () => undefined
-    createTask.mockReturnValue(new Promise((r) => (resolve = r)))
+    createGoal.mockReturnValue(new Promise((r) => (resolve = r)))
     render(<OnboardingFlow {...props} />)
-    await reachTaskStep()
+    await answerUpToGoal()
+    fireEvent.click(primary())
+    await waitFor(() => expect(heading()).toBe('How do you want to start today?'))
 
-    fireEvent.change(screen.getByLabelText('Your first task'), { target: { value: 'One task' } })
-    const button = continueButton()
-    fireEvent.click(button)
-    fireEvent.click(button)
-    resolve({ id: 'task-1', title: 'One task' })
+    const option = screen.getByRole('button', { name: /Free Write/ })
+    fireEvent.click(option)
+    fireEvent.click(option)
+    resolve({ id: 'goal-1' })
 
-    await screen.findByLabelText('Start')
-    expect(createTask).toHaveBeenCalledTimes(1)
-  })
-
-  it('keeps the typed task and says so at the field when saving fails', async () => {
-    createTask.mockRejectedValue(new Error('offline'))
-    render(<OnboardingFlow {...props} />)
-    await reachTaskStep()
-
-    fireEvent.change(screen.getByLabelText('Your first task'), { target: { value: 'Keep me' } })
-    fireEvent.click(continueButton())
-
-    expect((await screen.findByRole('alert')).textContent).toMatch(/not saved/i)
-    expect((screen.getByLabelText('Your first task') as HTMLInputElement).value).toBe('Keep me')
-    expect(screen.getAllByRole('alert')).toHaveLength(1)
-  })
-
-  it('does not mark onboarding complete when the plan cannot be saved', async () => {
-    upsertDayPlan.mockRejectedValue(new Error('offline'))
-    render(<OnboardingFlow {...props} />)
-    await reachTaskStep()
-    fireEvent.change(screen.getByLabelText('Your first task'), { target: { value: 'A task' } })
-    fireEvent.click(continueButton())
-    await screen.findByLabelText('Start')
-
-    fireEvent.click(continueButton())
-
-    expect((await screen.findByRole('alert')).textContent).toMatch(/plan was not saved/i)
-    expect(upsert).not.toHaveBeenCalled()
-    expect(push).not.toHaveBeenCalled()
-  })
-
-  it('asks for a name when none is known yet', () => {
-    render(<OnboardingFlow userId="user-1" currentName="" />)
-    fireEvent.click(continueButton())
-
-    expect(screen.getByText('Add the name we should greet you with.')).toBeTruthy()
-    expect(screen.getByText('Step 1 of 3')).toBeTruthy()
+    await waitFor(() => expect(heading()).toBe('Patrick, your streak starts today.'))
+    expect(createGoal).toHaveBeenCalledTimes(1)
   })
 })

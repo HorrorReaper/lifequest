@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Flame, NotebookPen, X } from 'lucide-react'
+import { CalendarClock, Flame, X } from 'lucide-react'
 
 // Set once the card is dismissed so a bookmarked or re-shared ?welcome=1 URL
 // does not keep resurfacing it for a returning user.
@@ -25,21 +25,20 @@ function readDismissedOnServer() {
   return true
 }
 
-// What comes after the first planned task, each with the place to do it.
-// Reflection is offered here, after the productive first step, and stays
-// optional -- onboarding no longer asks anyone to pick a journal first.
+// Shown after the first journal entry, which onboarding can lead to
+// (`?firstEntry=1`): what comes next, each with the place to do it.
 const POINTS = [
+  {
+    icon: CalendarClock,
+    title: 'Plan your day',
+    description: 'How you feel, what you are grateful for, and what matters most.',
+    href: '/plan?step=ritual',
+  },
   {
     icon: Flame,
     title: 'Add a daily habit',
     description: 'One small action to check off each day.',
     href: '/habits?new=1',
-  },
-  {
-    icon: NotebookPen,
-    title: 'Reflect, if you like',
-    description: 'A short check-in at the end of the day. Optional.',
-    href: '/journal',
   },
 ]
 
@@ -86,11 +85,10 @@ export function FirstRunWelcome({ show: requested }: { show: boolean }) {
       </button>
 
       <p className="pr-8 text-base font-semibold">
-        Your first task is saved and planned for today.
+        Day one of your streak is done.
       </p>
       <p className="mt-1 pr-8 text-sm text-muted-foreground">
-        It is shown under Next up and in Today&apos;s Plan below. Check it off
-        when it is done. When you are ready:
+        Your first entry is saved. When you are ready:
       </p>
 
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
