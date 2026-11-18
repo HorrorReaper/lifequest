@@ -5,14 +5,14 @@ import type { TodayPlanMetadata } from "@/lib/today-plan";
  *
  * Daily anchors used to be a step of their own between priorities and the
  * timeline. Habits and reflections are now added from the timeline itself
- * ("Add to your day"), so the ritual has five steps.
+ * ("Add to your day"). The review step after the timeline is gone too: the
+ * plan is saved from the timeline, so the ritual has four steps.
  */
 export const PLANNER_STEP_IDS = [
   "mood",
   "intention",
   "priorities",
   "timeline",
-  "review",
 ] as const;
 
 export type PlannerStepId = (typeof PLANNER_STEP_IDS)[number];
@@ -31,7 +31,8 @@ const LEGACY_STEP_IDS = [
 const STEP_ALIASES: Record<string, PlannerStepId> = {
   anchors: "timeline",
   outcomes: "priorities",
-  commit: "review",
+  review: "timeline",
+  commit: "timeline",
 };
 
 /**
@@ -39,7 +40,9 @@ const STEP_ALIASES: Record<string, PlannerStepId> = {
  *
  * A number is taken as an index into the six-step order, the only order a
  * stored index can come from; anything pointing at the old anchors step
- * lands on the timeline, where its contents went. Unknown values give null.
+ * lands on the timeline, where its contents went, and so does the old
+ * review step, since the timeline is where the plan is saved now. Unknown
+ * values give null.
  */
 export function resolvePlannerStep(value: unknown): PlannerStepId | null {
   if (typeof value === "number") {
@@ -65,7 +68,7 @@ export function furthestStepFor(metadata: TodayPlanMetadata): PlannerStepId {
   if (!metadata.mood) return "mood";
   const main = metadata.outcomes.find((outcome) => outcome.role === "must_win");
   if (!main?.title.trim()) return "priorities";
-  return "review";
+  return "timeline";
 }
 
 /** The earlier of two steps. */

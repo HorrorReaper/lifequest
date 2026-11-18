@@ -99,10 +99,6 @@ describe("TodayPlanner", () => {
     fireEvent.click(screen.getByRole("option", { name: /without a task/ }));
   };
 
-  /** From the timeline to the last step. */
-  const reviewPlan = () =>
-    fireEvent.click(screen.getByRole("button", { name: /Review plan/ }));
-
   /** Reopens the picker of a filled main focus, where its block length is. */
   const reopenMain = () =>
     fireEvent.click(screen.getByRole("button", { name: /Change your main focus/ }));
@@ -122,7 +118,7 @@ describe("TodayPlanner", () => {
     next();
 
     expect(
-      screen.getByRole("heading", { name: "What quality should guide today?" })
+      screen.getByRole("heading", { name: "What should guide today?" })
     ).toBeTruthy();
   });
 
@@ -139,12 +135,12 @@ describe("TodayPlanner", () => {
   it("asks for reasons only once there is a feeling to explain", () => {
     render(<TodayPlanner {...defaultProps} />);
 
-    expect(screen.queryByText("What is behind that?")).toBeNull();
+    expect(screen.queryByText("Why is that?")).toBeNull();
     expect(screen.queryByRole("button", { name: /adventure/i })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /good/i }));
 
-    expect(screen.getByText("What is behind that?")).toBeTruthy();
+    expect(screen.getByText("Why is that?")).toBeTruthy();
     expect(screen.getByRole("button", { name: /adventure/i })).toBeTruthy();
   });
 
@@ -174,7 +170,7 @@ describe("TodayPlanner", () => {
     next();
 
     expect(
-      screen.getByRole("heading", { name: "What quality should guide today?" })
+      screen.getByRole("heading", { name: "What should guide today?" })
     ).toBeTruthy();
   });
 
@@ -191,9 +187,8 @@ describe("TodayPlanner", () => {
     next();
     pickMainTask();
     next();
-    reviewPlan();
     fireEvent.click(
-      screen.getByRole("button", { name: /Save today's plan/i })
+      screen.getByRole("button", { name: "Save plan" })
     );
 
     await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
@@ -209,12 +204,12 @@ describe("TodayPlanner", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
     pickMood();
     expect(
-      screen.getByRole("textbox", { name: "What quality should guide today?" })
+      screen.getByRole("textbox", { name: "What should guide today?" })
     ).toBeTruthy();
 
     next();
     expect(
-      screen.getByRole("heading", { name: "What matters most today?" })
+      screen.getByRole("heading", { name: "Set your priorities" })
     ).toBeTruthy();
   });
 
@@ -378,7 +373,7 @@ describe("TodayPlanner", () => {
     pickMood();
     next();
     expect(
-      screen.getByRole("heading", { name: "What matters most today?" })
+      screen.getByRole("heading", { name: "Set your priorities" })
     ).toBeTruthy();
 
     next();
@@ -386,14 +381,14 @@ describe("TodayPlanner", () => {
       "Choose your main focus"
     );
     expect(
-      screen.getByRole("heading", { name: "What matters most today?" })
+      screen.getByRole("heading", { name: "Set your priorities" })
     ).toBeTruthy();
 
     pickMainTask();
     expect(screen.queryByRole("alert")).toBeNull();
     next();
     expect(
-      screen.getByRole("heading", { name: "Make room for your day" })
+      screen.getByRole("heading", { name: "Schedule your day" })
     ).toBeTruthy();
   });
 
@@ -527,8 +522,7 @@ describe("TodayPlanner", () => {
     expect(screen.getByRole("button", { name: /Change your main focus: Draft the pitch/ })).toBeTruthy();
 
     next();
-    reviewPlan();
-    fireEvent.click(screen.getByRole("button", { name: /Save today's plan/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
     await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
     const saved = upsertDayPlan.mock.calls[0][2];
     expect(saved.notes).toContain("task-new");
@@ -627,14 +621,8 @@ describe("TodayPlanner", () => {
     expect(
       screen.getByLabelText(/Write launch brief, \d\d:\d\d to \d\d:\d\d/)
     ).toBeTruthy();
-    keepHabitFlexible();
-    // Kept flexible, the habit is on today's list, never a block of its own.
-    expect(screen.queryByLabelText(/^Read, /)).toBeNull();
-    expect(alsoToday().textContent).toContain("Read");
-
-    reviewPlan();
     fireEvent.click(
-      screen.getByRole("button", { name: /Save today's plan/i })
+      screen.getByRole("button", { name: "Save plan" })
     );
 
     await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
@@ -656,7 +644,7 @@ describe("TodayPlanner", () => {
     const first = render(<TodayPlanner {...defaultProps} />);
     pickMood();
     fireEvent.change(
-      screen.getByRole("textbox", { name: "What quality should guide today?" }),
+      screen.getByRole("textbox", { name: "What should guide today?" }),
       { target: { value: "Calm execution" } }
     );
 
@@ -754,48 +742,37 @@ describe("TodayPlanner", () => {
   const chooseKind = (kind: string) =>
     fireEvent.click(within(dialog()).getByRole("radio", { name: kind }));
 
-  /** Puts the "Read" habit on today's list without a time block. */
-  function keepHabitFlexible() {
-    openAddDialog();
-    chooseKind("Habit");
-    fireEvent.click(within(dialog()).getByRole("radio", { name: /^Read/ }));
-    fireEvent.click(within(dialog()).getByRole("radio", { name: /Keep flexible/ }));
-    submitAdd();
-  }
-
   /** Reserves a block for the "Read" habit at `start`. */
   function reserveHabit(start: string) {
     openAddDialog();
     chooseKind("Habit");
     fireEvent.click(within(dialog()).getByRole("radio", { name: /^Read/ }));
-    fireEvent.click(within(dialog()).getByRole("radio", { name: /Reserve a time block/ }));
     fireEvent.change(within(dialog()).getByLabelText("Starts"), {
       target: { value: start },
     });
     submitAdd();
   }
 
-  const alsoToday = () =>
-    screen.getByRole("region", { name: /Also today/ }) as HTMLElement;
-
-  it("walks five steps and goes from the priorities straight to the timeline", () => {
+  it("walks four steps and saves the plan from the timeline", () => {
     render(<TodayPlanner {...defaultProps} />);
 
-    expect(screen.getByText(/Step 1 of 5/)).toBeTruthy();
+    expect(screen.getByText(/Step 1 of 4/)).toBeTruthy();
     pickMood();
     next();
     pickMainTask();
     next();
 
-    expect(screen.getByText(/Step 4 of 5/)).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Make room for your day" })).toBeTruthy();
+    expect(screen.getByText(/Step 4 of 4/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Schedule your day" })).toBeTruthy();
     expect(screen.queryByText("Add your daily anchors")).toBeNull();
-    expect(screen.getByRole("button", { name: "Edit day hours" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add to your day" })).toBeTruthy();
-
-    reviewPlan();
-    expect(screen.getByText(/Step 5 of 5/)).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Review and save your plan" })).toBeTruthy();
+    // The timeline is the last step: no day hours to set, no review after it.
+    expect(screen.queryByRole("button", { name: "Edit day hours" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Save plan" })).toBeTruthy();
+    expect(screen.queryByText(/scheduled/)).toBeNull();
+    expect(screen.queryByText("Also today")).toBeNull();
+    expect(screen.queryByText("Draft · not saved")).toBeNull();
   });
 
   it("goes back without losing the choice, and forward again without a second block", () => {
@@ -804,7 +781,7 @@ describe("TodayPlanner", () => {
     next();
     pickMainTask();
     next();
-    keepHabitFlexible();
+    reserveHabit("10:00");
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(
@@ -813,7 +790,7 @@ describe("TodayPlanner", () => {
     next();
 
     expect(screen.getAllByLabelText(/^Write launch brief, /)).toHaveLength(1);
-    expect(alsoToday().textContent).toContain("Read");
+    expect(screen.getAllByLabelText(/^Read, /)).toHaveLength(1);
   });
 
   it("follows a changed main focus with its block instead of keeping the old one", () => {
@@ -849,29 +826,7 @@ describe("TodayPlanner", () => {
     expect(screen.getByLabelText("Review pull request, 08:00 to 09:00")).toBeTruthy();
   });
 
-  it("keeps a habit flexible: on today's list, with no block and no time counted", async () => {
-    render(<TodayPlanner {...timelineProps} />);
-    gotoTimeline();
-    expect(screen.getByText("2h 30m scheduled")).toBeTruthy();
-
-    keepHabitFlexible();
-
-    expect(alsoToday().textContent).toContain("Read");
-    expect(alsoToday().textContent).not.toContain("Done today");
-    expect(screen.queryByLabelText(/^Read, /)).toBeNull();
-    expect(screen.getByText("2h 30m scheduled")).toBeTruthy();
-
-    reviewPlan();
-    fireEvent.click(screen.getByRole("button", { name: /Save today's plan/i }));
-    await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
-    const saved = upsertDayPlan.mock.calls[0][2];
-    expect(saved.notes).toContain('"source_id":"habit-1"');
-    expect(
-      saved.blocks.some((block: { source_type?: string }) => block.source_type === "habit")
-    ).toBe(false);
-  });
-
-  it("reserves a habit once, however often it is confirmed, and turns it back to flexible", () => {
+  it("reserves a habit once, however often it is confirmed, and always with a time", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
 
@@ -882,48 +837,10 @@ describe("TodayPlanner", () => {
     reserveHabit("10:30");
     expect(screen.getAllByLabelText(/^Read, /)).toHaveLength(1);
     expect(screen.getByLabelText("Read, 10:30 to 10:45")).toBeTruthy();
-    expect(within(alsoToday()).queryByText("Read")).toBeNull();
 
+    // Nothing can be kept on the day without a time any more.
     fireEvent.click(screen.getByLabelText("Read, 10:30 to 10:45"));
-    fireEvent.click(screen.getByRole("button", { name: "Keep flexible instead" }));
-
-    expect(screen.queryByLabelText(/^Read, /)).toBeNull();
-    expect(within(alsoToday()).getAllByText("Read")).toHaveLength(1);
-  });
-
-  it("takes a flexible habit off today's plan without touching the habit", () => {
-    render(<TodayPlanner {...timelineProps} />);
-    gotoTimeline();
-    keepHabitFlexible();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Remove Read from today's plan" })
-    );
-    expect(within(alsoToday()).queryByText("Read")).toBeNull();
-
-    // Still offered: only today's plan changed, not the habit.
-    openAddDialog();
-    chooseKind("Habit");
-    expect(within(dialog()).getByRole("radio", { name: /^Read/ })).toBeTruthy();
-  });
-
-  it("schedules a flexible habit from today's list through the dialog", () => {
-    render(<TodayPlanner {...timelineProps} />);
-    gotoTimeline();
-    keepHabitFlexible();
-
-    fireEvent.click(screen.getByRole("button", { name: "Reserve a time for Read" }));
-    expect(
-      (within(dialog()).getByRole("radio", { name: /Reserve a time block/ }) as HTMLInputElement)
-        .checked
-    ).toBe(true);
-    fireEvent.change(within(dialog()).getByLabelText("Starts"), {
-      target: { value: "12:00" },
-    });
-    submitAdd();
-
-    expect(screen.getByLabelText("Read, 12:00 to 12:15")).toBeTruthy();
-    expect(within(alsoToday()).queryByText("Read")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Keep flexible instead" })).toBeNull();
   });
 
   it("hides habits already done today until asked, and never marks one done", () => {
@@ -1023,8 +940,7 @@ describe("TodayPlanner", () => {
     expect(screen.getByLabelText("Lunch with Sam, 12:00 to 13:00")).toBeTruthy();
     expect(createTask).not.toHaveBeenCalled();
 
-    reviewPlan();
-    fireEvent.click(screen.getByRole("button", { name: /Save today's plan/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
     await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
     expect(
       upsertDayPlan.mock.calls[0][2].blocks.find(
@@ -1055,85 +971,20 @@ describe("TodayPlanner", () => {
     expect(within(dialog()).getByLabelText("Starts")).toHaveProperty("value", "10:00");
   });
 
-  it("shows capacity as one line from real blocks, counting overlaps once", () => {
+  it("shows the whole day from midnight, without day hours, a day-end reminder or a time summary", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
 
-    expect(screen.getByText("2h 30m scheduled")).toBeTruthy();
-    expect(screen.getByText("· 7h 30m unplanned")).toBeTruthy();
-    expect(screen.queryByText("Capacity of scheduled blocks")).toBeNull();
-
-    // Pull the second block onto the first: 15 minutes are shared, and they
-    // count once.
-    fireEvent.click(screen.getByLabelText("Side quest, 09:15 to 10:00"));
-    fireEvent.change(within(dialog()).getByLabelText("Starts"), {
-      target: { value: "08:45" },
-    });
-    fireEvent.click(within(dialog()).getByRole("radio", { name: "Keep them where they are" }));
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Apply" }));
-
-    expect(screen.getByText("2h 15m scheduled")).toBeTruthy();
-    expect(screen.getByText("· overlapping time counted once")).toBeTruthy();
-  });
-
-  it("edits the day hours in a dialog, explains a bad range and applies nothing on cancel", () => {
-    render(<TodayPlanner {...timelineProps} />);
-    gotoTimeline();
-    expect(screen.getByText("Your day · 08:00–18:00")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit day hours" }));
-    fireEvent.change(within(dialog()).getByLabelText("Day ends"), {
-      target: { value: "07:00" },
-    });
-    expect(within(dialog()).getByText("Your day has to end after it starts.")).toBeTruthy();
-    expect(
-      (within(dialog()).getByRole("button", { name: "Apply" }) as HTMLButtonElement).disabled
-    ).toBe(true);
-
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Cancel" }));
-    expect(screen.getByText("Your day · 08:00–18:00")).toBeTruthy();
-  });
-
-  it("keeps blocks that fall outside narrowed day hours, and says so", () => {
-    render(<TodayPlanner {...timelineProps} />);
-    gotoTimeline();
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit day hours" }));
-    fireEvent.change(within(dialog()).getByLabelText("Day ends"), {
-      target: { value: "10:30" },
-    });
-    expect(within(dialog()).getByText("1 block falls outside these hours.")).toBeTruthy();
-    expect(within(dialog()).getByText(/Training · 11:00–11:45/)).toBeTruthy();
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Apply" }));
-
-    expect(screen.getByText("Your day · 08:00–10:30")).toBeTruthy();
-    // Not moved, not deleted: marked, and counted apart from the day.
-    const training = screen.getByLabelText("Training, 11:00 to 11:45");
-    expect(training.getAttribute("data-outside")).toBe("true");
-    expect(screen.getByText("· 45m outside your day hours")).toBeTruthy();
-    // 08:00-10:30 holds 1h 45m of blocks and 45m of room.
-    expect(screen.getByText("1h 45m scheduled")).toBeTruthy();
-    expect(screen.getByText("· 45m unplanned")).toBeTruthy();
-  });
-
-  it("turns the day-end reminder off without it ever reserving time", async () => {
-    render(<TodayPlanner {...timelineProps} />);
-    gotoTimeline();
-    expect(screen.getByText("Day-end reminder · 18:00 · No time block")).toBeTruthy();
-    expect(document.querySelector('[data-slot="shutdown-marker"]')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit day hours" }));
-    fireEvent.click(within(dialog()).getByRole("switch"));
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Apply" }));
-
-    expect(screen.getByText("No day-end reminder")).toBeTruthy();
+    expect(screen.getByLabelText("Add something between 00:00 and 08:00")).toBeTruthy();
+    expect(screen.getByLabelText("Add something between 11:45 and 23:59")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit day hours" })).toBeNull();
     expect(document.querySelector('[data-slot="shutdown-marker"]')).toBeNull();
-    expect(screen.getByText("2h 30m scheduled")).toBeTruthy();
-
-    reviewPlan();
-    fireEvent.click(screen.getByRole("button", { name: /Save today's plan/i }));
-    await waitFor(() => expect(upsertDayPlan).toHaveBeenCalledTimes(1));
-    expect(upsertDayPlan.mock.calls[0][2].notes).toContain('"shutdown_time":""');
+    expect(screen.queryByText(/scheduled/)).toBeNull();
+    expect(screen.queryByText(/unplanned/)).toBeNull();
+    // Nothing is outside the day when the day is all 24 hours.
+    expect(
+      screen.getByLabelText("Training, 11:00 to 11:45").getAttribute("data-outside")
+    ).not.toBe("true");
   });
 
   it("draws a block as tall as it is long, and where it starts", () => {
@@ -1152,45 +1003,45 @@ describe("TodayPlanner", () => {
     expect(px(a, "height") / px(b, "height")).toBeCloseTo(60 / 45, 5);
     expect(px(b, "height")).toBeCloseTo(px(c, "height"), 5);
 
-    // The day opens at 08:00, so the first block sits at the very top and the
-    // others are offset by their real distance from it.
-    expect(px(a, "top")).toBe(0);
-    expect(px(b, "top") / px(a, "height")).toBeCloseTo(75 / 60, 5);
-    expect(px(c, "top") / px(a, "height")).toBeCloseTo(180 / 60, 5);
+    // The day opens at midnight, so the first block sits eight hours down and
+    // the others are offset by their real distance from it.
+    expect(px(a, "top")).toBeCloseTo(8 * 60 * 1.2, 5);
+    expect((px(b, "top") - px(a, "top")) / px(a, "height")).toBeCloseTo(75 / 60, 5);
+    expect((px(c, "top") - px(a, "top")) / px(a, "height")).toBeCloseTo(180 / 60, 5);
   });
 
   it("opens the whole day by default and folds a long free stretch into one labelled row", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
 
-    // The day opens at scale: 11:45 to 18:00 is empty but still drawn, and
+    // The day opens at scale: 11:45 to midnight is empty but still drawn, and
     // nothing is folded until someone asks for the compact view.
     expect(
-      screen.getByLabelText("Add something between 11:45 and 18:00")
+      screen.getByLabelText("Add something between 11:45 and 23:59")
     ).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: /11:45–18:00 · 6h 15m free/ })
+      screen.queryByRole("button", { name: /11:45–23:59 · 12h 15m free/ })
     ).toBeNull();
 
-    // 11:45 to 18:00 is empty: one row says so instead of six hour lines.
+    // 11:45 to midnight is empty: one row says so instead of twelve hour lines.
     fireEvent.click(screen.getByRole("button", { name: "Compact view" }));
-    const fold = screen.getByRole("button", { name: /11:45–18:00 · 6h 15m free/ });
+    const fold = screen.getByRole("button", { name: /11:45–23:59 · 12h 15m free/ });
     expect(fold.getAttribute("aria-expanded")).toBe("false");
     expect(
-      screen.queryByLabelText("Add something between 11:45 and 18:00")
+      screen.queryByLabelText("Add something between 11:45 and 23:59")
     ).toBeNull();
 
     fireEvent.click(fold);
     expect(
-      screen.getByLabelText("Add something between 11:45 and 18:00")
+      screen.getByLabelText("Add something between 11:45 and 23:59")
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Compact view" }));
-    expect(screen.getByRole("button", { name: /11:45–18:00 · 6h 15m free/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /11:45–23:59 · 12h 15m free/ })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Show full day" }));
     expect(
-      screen.getByLabelText("Add something between 11:45 and 18:00")
+      screen.getByLabelText("Add something between 11:45 and 23:59")
     ).toBeTruthy();
   });
 
@@ -1210,11 +1061,11 @@ describe("TodayPlanner", () => {
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
 
-    const gap = screen.getByLabelText("Add something between 11:45 and 18:00");
+    const gap = screen.getByLabelText("Add something between 11:45 and 23:59");
     // jsdom reports a zero-origin rect, so clientY is the offset from the top
-    // of the track: 348px at 1.2px per minute is 290 minutes past 08:00,
+    // of the track: 924px at 1.2px per minute is 770 minutes past midnight,
     // which is 12:50.
-    fireEvent.mouseMove(gap, { clientY: 348 });
+    fireEvent.mouseMove(gap, { clientY: 924 });
 
     const shown = gap.querySelector('[data-slot="gap-preview"]') as HTMLElement;
     expect(shown.textContent).toContain("12:00");
@@ -1452,9 +1303,8 @@ describe("TodayPlanner", () => {
     );
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
-    reviewPlan();
 
-    const save = screen.getByRole("button", { name: /Save today's plan/i });
+    const save = screen.getByRole("button", { name: "Save plan" });
     fireEvent.click(save);
     fireEvent.click(save);
     finish({});
@@ -1468,15 +1318,14 @@ describe("TodayPlanner", () => {
     const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
     render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
-    keepHabitFlexible();
-    reviewPlan();
+    reserveHabit("12:00");
 
-    fireEvent.click(screen.getByRole("button", { name: /Save today's plan/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
     await waitFor(() =>
       expect(screen.getByText(/could not be saved/)).toBeTruthy()
     );
     expect(push).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "Review and save your plan" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Schedule your day" })).toBeTruthy();
     expect(
       sessionStorage.getItem("lifequest:today-plan:user-1:2026-07-25")
     ).toContain("habit-1");
@@ -1490,7 +1339,7 @@ describe("TodayPlanner", () => {
   it("reopens a restored draft on the timeline, where it was left", async () => {
     const first = render(<TodayPlanner {...timelineProps} />);
     gotoTimeline();
-    keepHabitFlexible();
+    reserveHabit("12:00");
     await waitFor(() =>
       expect(
         sessionStorage.getItem("lifequest:today-plan:user-1:2026-07-25")
@@ -1500,9 +1349,9 @@ describe("TodayPlanner", () => {
 
     render(<TodayPlanner {...timelineProps} />);
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Make room for your day" })).toBeTruthy()
+      expect(screen.getByRole("heading", { name: "Schedule your day" })).toBeTruthy()
     );
-    expect(alsoToday().textContent).toContain("Read");
+    expect(screen.getByLabelText("Read, 12:00 to 12:15")).toBeTruthy();
   });
 
   it("brings a draft saved on the old anchors step back on the timeline", async () => {
@@ -1540,10 +1389,11 @@ describe("TodayPlanner", () => {
     render(<TodayPlanner {...timelineProps} />);
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Make room for your day" })).toBeTruthy()
+      expect(screen.getByRole("heading", { name: "Schedule your day" })).toBeTruthy()
     );
-    // The anchor it carried is a flexible habit now, listed once.
-    expect(within(alsoToday()).getAllByText("Read")).toHaveLength(1);
+    // The anchor it carried stays in the plan's metadata; the timeline only
+    // draws what has a time.
+    expect(screen.queryByLabelText(/^Read, /)).toBeNull();
   });
 
   it("never resumes a draft past a missing main focus", async () => {
@@ -1558,7 +1408,7 @@ describe("TodayPlanner", () => {
     render(<TodayPlanner {...defaultProps} />);
 
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "What matters most today?" })).toBeTruthy()
+      expect(screen.getByRole("heading", { name: "Set your priorities" })).toBeTruthy()
     );
   });
 

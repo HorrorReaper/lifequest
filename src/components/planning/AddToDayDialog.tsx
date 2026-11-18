@@ -99,6 +99,12 @@ interface AddToDayDialogProps {
   /** Creates a task from a title; resolves null when that failed. */
   onCreateTask: (title: string) => Promise<TodayPlannerTask | null>;
   onSubmit: (entry: AddEntry) => void;
+  /**
+   * Whether a habit or reflection may be kept for today without a time.
+   * The planner has nowhere to show such items any more and passes false;
+   * then everything added gets a time block.
+   */
+  allowFlexible?: boolean;
 }
 
 const DEFAULT_MINUTES: Record<AddKind, number> = {
@@ -159,6 +165,7 @@ function AddForm({
   onCreateTask,
   onSubmit,
   onOpenChange,
+  allowFlexible = true,
 }: AddToDayDialogProps) {
   const preselected = request.anchorId
     ? anchorOptions.find((anchor) => anchor.id === request.anchorId) ?? null
@@ -178,7 +185,9 @@ function AddForm({
   const [anchorId, setAnchorId] = useState<string | null>(
     preselected?.id ?? null
   );
-  const [mode, setMode] = useState<PlanMode>(request.mode ?? "block");
+  const [mode, setMode] = useState<PlanMode>(
+    allowFlexible ? (request.mode ?? "block") : "block"
+  );
   const [breakTitle, setBreakTitle] = useState("Break");
   const [generalTitle, setGeneralTitle] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
@@ -239,7 +248,7 @@ function AddForm({
     : false;
   const anchorBlock = anchor ? blockForAnchor(blocks, anchor) : undefined;
 
-  const asks = kind === "habit" || kind === "reflection";
+  const asks = allowFlexible && (kind === "habit" || kind === "reflection");
   const needsTime = !asks || mode === "block";
 
   const startMinutes = timeToMinutes(start);
@@ -335,7 +344,9 @@ function AddForm({
       <DialogHeader>
         <DialogTitle className="text-lg">Add to your day</DialogTitle>
         <DialogDescription>
-          Give it a time, or keep a habit or reflection flexible.
+          {allowFlexible
+            ? "Give it a time, or keep a habit or reflection flexible."
+            : "Give it a time."}
         </DialogDescription>
       </DialogHeader>
 
@@ -470,6 +481,7 @@ function AddForm({
               setStartTouched(true);
               setMode("block");
             } else if (
+              allowFlexible &&
               chosen &&
               plannedAnchors.some((item) => item.id === chosen.id)
             ) {

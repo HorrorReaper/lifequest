@@ -8,13 +8,12 @@ import {
 import { createDefaultTodayPlanMetadata } from "@/lib/today-plan";
 
 describe("planner steps", () => {
-  it("has five steps, without the anchors step", () => {
+  it("has four steps, without the anchors and review steps", () => {
     expect(PLANNER_STEP_IDS).toEqual([
       "mood",
       "intention",
       "priorities",
       "timeline",
-      "review",
     ]);
   });
 
@@ -22,7 +21,9 @@ describe("planner steps", () => {
     expect(resolvePlannerStep("anchors")).toBe("timeline");
     expect(resolvePlannerStep(3)).toBe("timeline");
     expect(resolvePlannerStep(4)).toBe("timeline");
-    expect(resolvePlannerStep(5)).toBe("review");
+    expect(resolvePlannerStep(5)).toBe("timeline");
+    expect(resolvePlannerStep("review")).toBe("timeline");
+    expect(resolvePlannerStep("commit")).toBe("timeline");
     expect(resolvePlannerStep(2)).toBe("priorities");
     expect(resolvePlannerStep("timeline")).toBe("timeline");
     expect(resolvePlannerStep(9)).toBeNull();
@@ -43,8 +44,8 @@ describe("planner steps", () => {
           { id: "m", role: "must_win", title: "Ship", task_id: null, duration_minutes: 60 },
         ],
       })
-    ).toBe("review");
-    expect(earlierStep("review", "priorities")).toBe("priorities");
-    expect(earlierStep("intention", "review")).toBe("intention");
+    ).toBe("timeline");
+    expect(earlierStep("timeline", "priorities")).toBe("priorities");
+    expect(earlierStep("intention", "timeline")).toBe("intention");
   });
 });
