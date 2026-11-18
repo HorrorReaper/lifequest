@@ -1,4 +1,4 @@
-import type { TodayPlanMetadata } from "@/lib/today-plan";
+import { gratitudeToSave, type TodayPlanMetadata } from "@/lib/today-plan";
 
 /**
  * The daily ritual's steps, in order.
@@ -6,10 +6,12 @@ import type { TodayPlanMetadata } from "@/lib/today-plan";
  * Daily anchors used to be a step of their own between priorities and the
  * timeline. Habits and reflections are now added from the timeline itself
  * ("Add to your day"). The review step after the timeline is gone too: the
- * plan is saved from the timeline, so the ritual has four steps.
+ * plan is saved from the timeline. Gratitude, as Morning Reflection asks
+ * it, follows the mood, so the ritual has five steps.
  */
 export const PLANNER_STEP_IDS = [
   "mood",
+  "gratitude",
   "intention",
   "priorities",
   "timeline",
@@ -61,11 +63,13 @@ export function resolvePlannerStep(value: unknown): PlannerStepId | null {
  * The furthest step a plan may resume at.
  *
  * A restored draft reopens where it was left, but never past a step whose
- * required answer is missing: without a mood the ritual starts over, and
- * without a main focus it stops at the priorities.
+ * required answer is missing: without a mood the ritual starts over,
+ * without one thing to be grateful for it stops at gratitude, and without a
+ * main focus it stops at the priorities.
  */
 export function furthestStepFor(metadata: TodayPlanMetadata): PlannerStepId {
   if (!metadata.mood) return "mood";
+  if (gratitudeToSave(metadata.gratitude).length === 0) return "gratitude";
   const main = metadata.outcomes.find((outcome) => outcome.role === "must_win");
   if (!main?.title.trim()) return "priorities";
   return "timeline";

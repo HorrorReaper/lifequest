@@ -6,16 +6,17 @@
 
 - **Plan editor.** When today already has blocks, `/plan` opens straight on the timeline (`TodayPlanScreen` passes `startAt="timeline"`). The header shows "Edit today's plan" and a save state ("All changes saved", "Unsaved changes", "Saving…", "Saved at HH:mm") instead of step numbers. The page is the same timeline as the ritual's timeline step ("Add to your day" and the whole day from 00:00). The footer has "Dashboard" and "Save plan"; Save is disabled until something changed. Saving (`savePlanEdits`) writes the plan and stays on the timeline. It does not require a main priority, keeps `ritual_completed_at` (or sets it if the plan never had one), and on failure keeps the edits on screen with "Not saved. Your changes are still here in this tab.", turns the header status red ("Not saved") and scrolls the message into view, since Save sits in the footer and the message at the end of the page.
  Leaving with unsaved changes offers "Save plan", "Continue editing", "Leave and keep draft" and "Discard draft". `?step=timeline` opens the same editor.
-- **Daily ritual.** Without blocks, or with `?step=ritual` (linked from the editor as "Start the full daily ritual instead (mood, intention, priorities)"), the four-step ritual below runs from the start.
+- **Daily ritual.** Without blocks, or with `?step=ritual` (linked from the editor as "Start the full daily ritual instead (mood, intention, priorities)"), the five-step ritual below runs from the start.
 
 ### Steps
 
-The step order lives in `src/components/planning/planner-steps.ts` (`PLANNER_STEP_IDS`). The header reads "Step N of 4", from 640px up with the step name in front ("Shape your day · Step 4 of 4"), over a four-part progress bar. Each step shows only its title as the heading, without a line of explanation under it.
+The step order lives in `src/components/planning/planner-steps.ts` (`PLANNER_STEP_IDS`). The header reads "Step N of 5", from 640px up with the step name in front ("Shape your day · Step 5 of 5"), over a five-part progress bar. Each step shows only its title as the heading, without a line of explanation under it.
 
 1. **Mood** — "How are you feeling right now?"; once a mood is picked, "Why is that?" offers optional reasons. Required to go on.
-2. **Intention** — "What should guide today?". Optional.
-3. **Priorities** — "Set your priorities". One main focus (required), one optional second task, and a separate, optional moment to recharge. See [Priorities step](#priorities-step). "Next" turns the chosen priorities into blocks (`buildTodayPlanSchedule`).
-4. **Shape your day** — "Schedule your day". The timeline with "Add to your day". See [Timeline step](#timeline-step). It is the last step: the footer button reads "Save plan" and saves the day (`commitPlan`). Saving is refused, with the reason under the page, while a block is invalid or two blocks overlap.
+2. **Gratitude** — "What are you grateful for?", the three lines Morning Reflection asks: "I'm grateful for…", "I'm also grateful for…" and "And grateful for…" (the last two marked "Optional"), up to 200 characters each (`PlanGratitude.tsx`). One filled line is required; "Next" without one shows "Write down one thing you are grateful for before moving on." and marks the first line. Spaces alone do not count.
+3. **Intention** — "What should guide today?". Optional.
+4. **Priorities** — "Set your priorities". One main focus (required), one optional second task, and a separate, optional moment to recharge. See [Priorities step](#priorities-step). "Next" turns the chosen priorities into blocks (`buildTodayPlanSchedule`).
+5. **Shape your day** — "Schedule your day". The timeline with "Add to your day". See [Timeline step](#timeline-step). It is the last step: the footer button reads "Save plan" and saves the day (`commitPlan`). Saving is refused, with the reason under the page, while a block is invalid or two blocks overlap. A saved plan counts as a streak day, see [Streak](#streak).
 
 Daily anchors used to be a step of their own between the priorities and the timeline, and a review step used to follow the timeline; both are gone. The footer shows "Back" (on the first step "Dashboard") and "Next", on the last step "Save plan".
 
@@ -93,11 +94,17 @@ The committed plan is stored in `day_plans`. Rich Today Plan metadata is seriali
 LIFEQUEST_TODAY_PLAN_V1:
 ```
 
-The envelope preserves legacy free-form notes rather than replacing them. `shutdown_time` is `""` when the day-end reminder is turned off; a missing or unreadable value still falls back to the day's end, as plans from before the switch expect.
+The envelope preserves legacy free-form notes rather than replacing them. `gratitude` holds the gratitude lines: a draft keeps all three in place, empty ones included, and the final save keeps only the filled ones, trimmed (`gratitudeToSave`). Plans saved before the step existed have none. `shutdown_time` is `""` when the day-end reminder is turned off; a missing or unreadable value still falls back to the day's end, as plans from before the switch expect.
 
-Before commitment, the planner stores a user-and-date-scoped draft in `sessionStorage` (`lifequest:today-plan:<userId>:<date>`): the metadata, the blocks, and the step it was on as a step id (`"timeline"`). A restored draft shows "Your unfinished plan was restored." and reopens on that step, but never past a missing answer: without a mood on the mood step, without a main focus on the priorities (`furthestStepFor`). Drafts from before the anchors step was folded in carry no step (reopen at the start), an old step index (0–5 of the six-step order) or the name `anchors`; `resolvePlannerStep` maps the old anchors step to the timeline, and the old `review` (or `commit`) step too. The plan editor ignores the stored step. Closing or leaving a dirty plan asks for discard confirmation. No database write occurs until commit, apart from creating a task from a picker or "Add to your day".
+Before commitment, the planner stores a user-and-date-scoped draft in `sessionStorage` (`lifequest:today-plan:<userId>:<date>`): the metadata, the blocks, and the step it was on as a step id (`"timeline"`). A restored draft shows "Your unfinished plan was restored." and reopens on that step, but never past a missing answer: without a mood on the mood step, without a gratitude line on the gratitude step, without a main focus on the priorities (`furthestStepFor`). Drafts from before the anchors step was folded in carry no step (reopen at the start), an old step index (0–5 of the six-step order) or the name `anchors`; `resolvePlannerStep` maps the old anchors step to the timeline, and the old `review` (or `commit`) step too. The plan editor ignores the stored step. Closing or leaving a dirty plan asks for discard confirmation. No database write occurs until commit, apart from creating a task from a picker or "Add to your day".
 
 Saving is guarded against double taps by a ref, so a second tap while a save runs sends nothing. A failed final save keeps every choice on screen and in the draft, shows "Your plan is still safe in this tab, but it could not be saved." with "Retry save", and stays on the timeline. Removing anything from the plan only changes `day_plans`; tasks, habits, journal templates and their history are separate records.
+
+### Streak
+
+The ritual's final save counts the day for the streak like a saved journal entry. After the plan is stored, `commitPlan` calls `recordStreakDay` (`src/lib/streak-day.ts`) with the plan's date and the `day_plans` row id. It applies `resolveStreak` and settles a spent freeze, an archived broken streak, a milestone bonus (`streak_bonus` XP event pointing at the plan) and the profile's streak, best streak and `last_journal_date`. The plan itself earns no XP. A second plan or entry on the same day changes nothing (`same_day`). Saving edits in the plan editor does not count.
+
+If counting the day fails, the plan stays saved and the planner continues as usual; the error is only logged. The planner shows no streak celebration; the top bar shows the new streak on the next page.
 
 ## Task manager
 

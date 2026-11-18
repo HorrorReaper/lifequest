@@ -1,21 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { dateInTimezone } from '@/lib/dates'
-import {
-  resolveStreak,
-  streakCelebration,
-  streakMilestoneBonus,
-  type StreakCelebration,
-} from '@/lib/streak'
-import { supabaseInsert, supabaseFrom, supabaseUpdateWhere } from '@/lib/supabase/helpers'
+import type { StreakCelebration } from '@/lib/streak'
+import { recordStreakDay } from '@/lib/streak-day'
+import { supabaseInsert, supabaseFrom } from '@/lib/supabase/helpers'
 import { DAILY_REFLECTION_FIELD_ID, DAILY_REFLECTION_TEMPLATE_ID } from '@/lib/daily-reflection'
-
-interface ProfileSnapshot {
-  total_xp: number
-  current_streak: number
-  best_streak: number
-  last_journal_date: string | null
-  streak_freezes: number
-}
 
 export interface SaveReflectionParams {
   userId: string
@@ -100,75 +88,18 @@ export async function saveReflectionEntry(
   })
   if (xpEventError) throw xpEventError
 
-  const { data: profileData, error: profileError } = await supabase
-    .from('profiles')
-    .select('total_xp, current_streak, best_streak, last_journal_date, streak_freezes')
-    .eq('id', userId)
-    .single()
-  if (profileError) throw profileError
-  const profile = profileData as ProfileSnapshot
-
-  const transition = resolveStreak({
+  const settled = await recordStreakDay(supabase, {
+    userId,
     today,
-    lastJournalDate: profile.last_journal_date,
-    currentStreak: profile.current_streak,
-    streakFreezes: profile.streak_freezes,
+    xp: template.xp_reward,
+    sourceId: entryId,
   })
-  const newStreak = transition.streak
-
-  if (transition.usedFreeze) {
-    await supabaseUpdateWhere(
-      supabase,
-      'profiles',
-      { streak_freezes: profile.streak_freezes - 1 },
-      'id',
-      userId
-    )
-  }
-
-  if (transition.brokenStreak) {
-    await supabaseInsert(supabase, 'streak_history', {
-      user_id: userId,
-      streak_length: transition.brokenStreak.length,
-      started_on: transition.brokenStreak.startedOn,
-      ended_on: transition.brokenStreak.endedOn,
-      used_freeze: false,
-    })
-  }
-
-  const streakBonus = streakMilestoneBonus(transition)
-  if (streakBonus > 0) {
-    await supabaseInsert(supabase, 'xp_events', {
-      user_id: userId,
-      source_type: 'streak_bonus',
-      source_id: entryId,
-      xp_amount: streakBonus,
-      description: `${newStreak}-day streak bonus!`,
-    })
-  }
-
-  const xpEarned = template.xp_reward + streakBonus
-  const totalXp = profile.total_xp + xpEarned
-
-  await supabaseUpdateWhere(
-    supabase,
-    'profiles',
-    {
-      total_xp: totalXp,
-      current_streak: newStreak,
-      best_streak: Math.max(profile.best_streak, newStreak),
-      last_journal_date: today,
-      updated_at: new Date().toISOString(),
-    },
-    'id',
-    userId
-  )
 
   return {
     entryId,
-    xpEarned,
-    totalXp,
-    streak: newStreak,
-    celebration: streakCelebration(transition, profile.current_streak),
+    xpEarned: settled.xpEarned,
+    totalXp: settled.totalXp,
+    streak: settled.streak,
+    celebration: settled.celebration,
   }
 }

@@ -34,6 +34,11 @@ vi.mock("@/lib/tasks", () => ({
   createTask: (...args: unknown[]) => createTask(...args),
 }));
 
+const recordStreakDay = vi.fn();
+vi.mock("@/lib/streak-day", () => ({
+  recordStreakDay: (...args: unknown[]) => recordStreakDay(...args),
+}));
+
 const defaultProps = {
   userId: "user-1",
   date: "2026-07-25",
@@ -64,7 +69,8 @@ const defaultProps = {
 
 beforeEach(() => {
   sessionStorage.clear();
-  upsertDayPlan.mockResolvedValue({});
+  upsertDayPlan.mockResolvedValue({ id: "plan-1" });
+  recordStreakDay.mockResolvedValue({ streak: 1, xpEarned: 0, totalXp: 0, celebration: null });
   vi.stubGlobal("scrollTo", vi.fn());
 });
 
@@ -78,10 +84,22 @@ describe("TodayPlanner", () => {
   const next = () =>
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-  /** Clears the mood step, which no longer lets anyone through unanswered. */
+  /** Fills the required first gratitude line and moves on. */
+  const writeGratitude = (text = "Morning coffee") => {
+    fireEvent.change(screen.getByLabelText("I'm grateful for…"), {
+      target: { value: text },
+    });
+    next();
+  };
+
+  /**
+   * Clears the mood step and the gratitude step after it, neither of which
+   * lets anyone through unanswered.
+   */
   const pickMood = () => {
     fireEvent.click(screen.getByRole("button", { name: /good/i }));
     next();
+    writeGratitude();
   };
 
   /** Opens the main focus picker and takes the existing task from it. */
@@ -117,6 +135,38 @@ describe("TodayPlanner", () => {
     fireEvent.click(screen.getByRole("button", { name: /good/i }));
     next();
 
+    expect(
+      screen.getByRole("heading", { name: "What are you grateful for?" })
+    ).toBeTruthy();
+  });
+
+  it("asks for one thing to be grateful for before moving on, the other two optional", () => {
+    render(<TodayPlanner {...defaultProps} />);
+    fireEvent.click(screen.getByRole("button", { name: /good/i }));
+    next();
+
+    expect(screen.getByLabelText("I'm grateful for…")).toBeTruthy();
+    expect(screen.getByLabelText(/I'm also grateful for…/)).toBeTruthy();
+    expect(screen.getByLabelText(/And grateful for…/)).toBeTruthy();
+
+    next();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Write down one thing you are grateful for"
+    );
+    expect(
+      screen.getByLabelText("I'm grateful for…").getAttribute("aria-invalid")
+    ).toBe("true");
+
+    // Spaces alone are not an answer.
+    fireEvent.change(screen.getByLabelText("I'm grateful for…"), {
+      target: { value: "   " },
+    });
+    next();
+    expect(
+      screen.getByRole("heading", { name: "What are you grateful for?" })
+    ).toBeTruthy();
+
+    writeGratitude("A quiet morning");
     expect(
       screen.getByRole("heading", { name: "What should guide today?" })
     ).toBeTruthy();
@@ -170,11 +220,11 @@ describe("TodayPlanner", () => {
     next();
 
     expect(
-      screen.getByRole("heading", { name: "What should guide today?" })
+      screen.getByRole("heading", { name: "What are you grateful for?" })
     ).toBeTruthy();
   });
 
-  it("commits the reasons and the written one with the plan", async () => {
+  it("commits the reasons, the written one and the gratitude with the plan", async () => {
     render(<TodayPlanner {...defaultProps} />);
 
     fireEvent.click(screen.getByRole("button", { name: /good/i }));
@@ -183,6 +233,10 @@ describe("TodayPlanner", () => {
       target: { value: "First frost this morning" },
     });
     next();
+    fireEvent.change(screen.getByLabelText(/And grateful for…/), {
+      target: { value: "  Warm socks  " },
+    });
+    writeGratitude("Morning coffee");
 
     next();
     pickMainTask();
@@ -195,6 +249,43 @@ describe("TodayPlanner", () => {
     const notes = upsertDayPlan.mock.calls[0][2].notes as string;
     expect(notes).toContain("adventure");
     expect(notes).toContain("First frost this morning");
+    // Filled lines only, trimmed: the empty middle line is not saved.
+    expect(notes).toContain('"gratitude":["Morning coffee","Warm socks"]');
+  });
+
+  it("counts a saved plan as a streak day, once the plan is stored", async () => {
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+    pickMainTask();
+    next();
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
+
+    await waitFor(() => expect(recordStreakDay).toHaveBeenCalledTimes(1));
+    expect(recordStreakDay.mock.calls[0][1]).toEqual({
+      userId: "user-1",
+      today: "2026-07-25",
+      sourceId: "plan-1",
+    });
+    expect(upsertDayPlan.mock.invocationCallOrder[0]).toBeLessThan(
+      recordStreakDay.mock.invocationCallOrder[0]
+    );
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  it("keeps the saved plan when the streak cannot be counted", async () => {
+    recordStreakDay.mockRejectedValueOnce(new Error("offline"));
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<TodayPlanner {...defaultProps} />);
+    pickMood();
+    next();
+    pickMainTask();
+    next();
+    fireEvent.click(screen.getByRole("button", { name: "Save plan" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard"));
+    expect(screen.queryByText(/could not be saved/)).toBeNull();
+    quiet.mockRestore();
   });
 
   it("asks mood and intention on their own steps", () => {
@@ -603,6 +694,7 @@ describe("TodayPlanner", () => {
       />
     );
     next();
+    writeGratitude();
     next();
 
     expect(
@@ -753,16 +845,16 @@ describe("TodayPlanner", () => {
     submitAdd();
   }
 
-  it("walks four steps and saves the plan from the timeline", () => {
+  it("walks five steps and saves the plan from the timeline", () => {
     render(<TodayPlanner {...defaultProps} />);
 
-    expect(screen.getByText(/Step 1 of 4/)).toBeTruthy();
+    expect(screen.getByText(/Step 1 of 5/)).toBeTruthy();
     pickMood();
     next();
     pickMainTask();
     next();
 
-    expect(screen.getByText(/Step 4 of 4/)).toBeTruthy();
+    expect(screen.getByText(/Step 5 of 5/)).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Schedule your day" })).toBeTruthy();
     expect(screen.queryByText("Add your daily anchors")).toBeNull();
     expect(screen.getByRole("button", { name: "Add to your day" })).toBeTruthy();
@@ -1361,6 +1453,7 @@ describe("TodayPlanner", () => {
         metadata: {
           ...createDefaultTodayPlanMetadata(),
           mood: "good",
+          gratitude: ["Tea"],
           outcomes: [
             {
               id: "main",
@@ -1400,7 +1493,7 @@ describe("TodayPlanner", () => {
     sessionStorage.setItem(
       "lifequest:today-plan:user-1:2026-07-25",
       JSON.stringify({
-        metadata: { ...createDefaultTodayPlanMetadata(), mood: "good" },
+        metadata: { ...createDefaultTodayPlanMetadata(), mood: "good", gratitude: ["Tea"] },
         blocks: [],
         step: "review",
       })

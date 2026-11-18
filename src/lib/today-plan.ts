@@ -97,6 +97,12 @@ export interface TodayPlanMetadata {
   mood_reasons: string[];
   /** A reason in the user's own words, when none of the offered ones fit. Empty when unused. */
   mood_reason_note: string;
+  /**
+   * Up to GRATITUDE_LINES things the user is grateful for today, in the
+   * order of the lines they were typed into. The ritual requires the first;
+   * empty for a plan made before this was asked.
+   */
+  gratitude: string[];
   outcomes: TodayPlanOutcome[];
   anchors: TodayPlanAnchor[];
   day_start: string;
@@ -149,6 +155,7 @@ export function createDefaultTodayPlanMetadata(): TodayPlanMetadata {
     mood: null,
     mood_reasons: [],
     mood_reason_note: "",
+    gratitude: [],
     outcomes: [],
     anchors: [],
     day_start: "08:00",
@@ -227,6 +234,27 @@ function normalizeAnchor(value: unknown): TodayPlanAnchor | null {
   };
 }
 
+/** How many things the gratitude step asks for, as in Morning Reflection. */
+export const GRATITUDE_LINES = 3;
+export const GRATITUDE_MAX = 200;
+
+/**
+ * Keeps the gratitude lines in place, empty ones included, so a draft
+ * restores the second line on the second line. Saving drops the empty ones
+ * (`gratitudeToSave`).
+ */
+function normalizeGratitude(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .slice(0, GRATITUDE_LINES)
+    .map((line) => (typeof line === "string" ? line.slice(0, GRATITUDE_MAX) : ""));
+}
+
+/** The gratitude lines worth keeping: trimmed, without the empty ones. */
+export function gratitudeToSave(lines: readonly string[]): string[] {
+  return lines.map((line) => line.trim()).filter(Boolean);
+}
+
 function normalizeMetadata(value: unknown): TodayPlanMetadata | null {
   if (!isRecord(value) || value.version !== 1) return null;
 
@@ -270,6 +298,7 @@ function normalizeMetadata(value: unknown): TodayPlanMetadata | null {
       typeof value.mood_reason_note === "string"
         ? value.mood_reason_note.trim().slice(0, MOOD_REASON_NOTE_MAX)
         : "",
+    gratitude: normalizeGratitude(value.gratitude),
     outcomes,
     anchors,
     day_start: dayStart,

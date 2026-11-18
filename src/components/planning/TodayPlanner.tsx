@@ -33,6 +33,8 @@ import {
   MOOD_REASONS,
 } from "@/lib/mood-reasons";
 import { TodayPriorities } from "@/components/planning/TodayPriorities";
+import { PlanGratitude } from "@/components/planning/PlanGratitude";
+import { recordStreakDay } from "@/lib/streak-day";
 import { PlanTimeline } from "@/components/planning/PlanTimeline";
 import {
   AddToDayDialog,
@@ -56,6 +58,7 @@ import {
   buildTodayPlanSchedule,
   createDefaultTodayPlanMetadata,
   findTodayPlanBlockProblems,
+  gratitudeToSave,
   keepAnchorFlexible,
   occupiedSpans,
   parseTodayPlanNotes,
@@ -139,6 +142,11 @@ const STEP_COPY: Record<
     title: "How are you feeling right now?",
     description: "",
   },
+  gratitude: {
+    label: "Gratitude",
+    title: "What are you grateful for?",
+    description: "",
+  },
   intention: {
     label: "Intention",
     title: "What should guide today?",
@@ -165,6 +173,7 @@ const STEPS = PLANNER_STEP_IDS.map((id) => ({ id, ...STEP_COPY[id] }));
  * keeps every check below to the step it means rather than a number.
  */
 const MOOD_STEP = PLANNER_STEP_IDS.indexOf("mood");
+const GRATITUDE_STEP = PLANNER_STEP_IDS.indexOf("gratitude");
 const INTENTION_STEP = PLANNER_STEP_IDS.indexOf("intention");
 const OUTCOMES_STEP = PLANNER_STEP_IDS.indexOf("priorities");
 const TIMELINE_STEP = PLANNER_STEP_IDS.indexOf("timeline");
@@ -681,6 +690,9 @@ export function TodayPlanner({
     if (step === MOOD_STEP && !metadata.mood) {
       return "Pick how you are feeling before moving on.";
     }
+    if (step === GRATITUDE_STEP && gratitudeToSave(metadata.gratitude).length === 0) {
+      return "Write down one thing you are grateful for before moving on.";
+    }
     if (step === OUTCOMES_STEP && !mainOutcome?.title.trim()) {
       return "Choose your main focus before moving on.";
     }
@@ -814,12 +826,13 @@ export function TodayPlanner({
     setSaveError(null);
     const committedMetadata: TodayPlanMetadata = {
       ...metadata,
+      gratitude: gratitudeToSave(metadata.gratitude),
       outcomes: metadata.outcomes.filter((outcome) => outcome.title.trim()),
       ritual_completed_at: new Date().toISOString(),
     };
 
     try {
-      await upsertDayPlan(supabase, userId, {
+      const saved = await upsertDayPlan(supabase, userId, {
         plan_date: date,
         blocks,
         notes: serializeTodayPlanNotes(
@@ -827,6 +840,18 @@ export function TodayPlanner({
           parsedNotes.legacyNotes
         ),
       });
+      // A planned day counts for the streak like a journal entry. The plan
+      // is already saved at this point, so a failure here is logged and
+      // does not undo or block it.
+      try {
+        await recordStreakDay(supabase, {
+          userId,
+          today: date,
+          sourceId: saved?.id ?? null,
+        });
+      } catch (streakError) {
+        console.error("Failed to count the planned day for the streak", streakError);
+      }
       sessionStorage.removeItem(draftKey(userId, date));
       window.dispatchEvent(new CustomEvent("lifequest-data-updated"));
       router.push(returnHref);
@@ -1098,6 +1123,16 @@ export function TodayPlanner({
                 </CardContent>
               </Card>
             </div>
+          )}
+
+          {step === GRATITUDE_STEP && (
+            <PlanGratitude
+              lines={metadata.gratitude}
+              onChange={(gratitude) => updateMetadata({ gratitude })}
+              missing={
+                Boolean(stepError) && gratitudeToSave(metadata.gratitude).length === 0
+              }
+            />
           )}
 
           {step === INTENTION_STEP && (
