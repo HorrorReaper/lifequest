@@ -34,6 +34,7 @@ Migration `20260919120000_create_ritual_settings.sql`. Eine Zeile pro Ritual:
 ```
 ritual (PK: daily_plan | evening_review | weekly_review | weekly_plan)
 enabled, weekday (0–6 | null), from_minutes (0–1439)
+reminder_minutes (0–1439 | null)   -- Push-Uhrzeit, nur Daily Plan (Default 08:00), seit 20261118120000
 template_id → journal_templates (on delete set null)
 title, description, cta_label   -- {name} wird zum Usernamen, Fallback „Adventurer“
 updated_at, updated_by
@@ -57,7 +58,7 @@ Migration `20260918120000_create_weekly_ritual_templates.sql`, `entry_type: 'wee
 
 ## Admin-Hub `/admin/rituals`
 
-`src/components/admin/RitualsHub.tsx`, Nav-Eintrag „Rituals“ (BellRing) hinter Productivity. Vier Karten, je: Switch An/Aus · Wochentag-Select (nur weekly) · `<input type="time">` · Template-Select (nur journal-backed, mit „— none —“ + Warnung) · Titel/Beschreibung/CTA mit Live-Vorschau des Titels („Alex“) · **Test**-Button (öffnet den echten Prompt mit dem *ungespeicherten* Entwurf) · Save (nur wenn dirty).
+`src/components/admin/RitualsHub.tsx`, Nav-Eintrag „Rituals“ (BellRing) hinter Productivity. Vier Karten, je: Switch An/Aus · Wochentag-Select (nur weekly) · `<input type="time">` · beim Daily Plan zusätzlich „Push reminder at“ (leer = kein Morgen-Push) · Template-Select (nur journal-backed, mit „— none —“ + Warnung) · Titel/Beschreibung/CTA mit Live-Vorschau des Titels („Alex“) · **Test**-Button (öffnet den echten Prompt mit dem *ungespeicherten* Entwurf) · Save (nur wenn dirty).
 
 - Allowlist-Admins (`ADMIN_EMAILS`, kein JWT-Role) sehen alles **read-only** mit Hinweis; Test geht trotzdem.
 - Änderungen gelten **für alle User** beim nächsten Dashboard-Load (kein Cache).

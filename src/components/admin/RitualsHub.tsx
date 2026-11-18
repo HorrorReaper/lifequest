@@ -13,6 +13,7 @@ import {
   type RitualSettings,
 } from '@/lib/rituals'
 import { minutesToTime, timeToMinutes } from '@/lib/today-plan'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -33,12 +34,17 @@ export interface RitualsHubProps {
   templates: { id: string; name: string; icon: string }[]
 }
 
-const RITUAL_META: Record<RitualId, { label: string; blurb: string; weekly: boolean; journal: boolean }> = {
+const RITUAL_META: Record<
+  RitualId,
+  { label: string; blurb: string; weekly: boolean; journal: boolean; reminder?: boolean }
+> = {
   daily_plan: {
     label: 'Daily Plan',
     blurb: 'The morning briefing. Opens the planner until today’s plan is committed.',
     weekly: false,
     journal: false,
+    // Its prompt opens at midnight, so the push gets a time of its own.
+    reminder: true,
   },
   evening_review: {
     label: 'Evening Review',
@@ -85,6 +91,8 @@ interface Draft {
   enabled: boolean
   weekday: number | null
   from: string
+  /** The push reminder time, '' for none. Only the Daily Plan has one. */
+  reminder: string
   templateId: string
   title: string
   description: string
@@ -102,6 +110,7 @@ function draftFrom(setting: RitualSetting, weekly: boolean): Draft {
     // write that null back, disagreeing with what was on screen.
     weekday: weekly ? (setting.weekday ?? 0) : setting.weekday,
     from: minutesToTime(setting.fromMinutes),
+    reminder: setting.reminderMinutes === null ? '' : minutesToTime(setting.reminderMinutes),
     templateId: setting.templateId ?? '',
     title: setting.title,
     description: setting.description,
@@ -280,6 +289,11 @@ function RitualCard({
       setError('Pick a time the prompt may open from.')
       return
     }
+    const reminderMinutes = draft.reminder === '' ? null : timeToMinutes(draft.reminder)
+    if (meta.reminder && Number.isNaN(reminderMinutes)) {
+      setError('Pick a reminder time, or clear it to send no reminder.')
+      return
+    }
     setSaving(true)
     const { data, error: saveError } = await supabaseUpdateWhereReturning(
       supabase,
@@ -289,6 +303,7 @@ function RitualCard({
         weekday: meta.weekly ? draft.weekday : null,
         from_minutes: fromMinutes,
         template_id: meta.journal && draft.templateId ? draft.templateId : null,
+        ...(meta.reminder ? { reminder_minutes: reminderMinutes } : {}),
         title: draft.title,
         description: draft.description,
         cta_label: draft.ctaLabel,
@@ -336,7 +351,7 @@ function RitualCard({
           </div>
 
           <form onSubmit={save} aria-labelledby={headingId} className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className={cn('grid gap-4', meta.reminder ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3')}>
               <div className="space-y-1.5">
                 <Label htmlFor={`ritual-${ritual}-weekday`}>Weekday</Label>
                 {meta.weekly ? (
@@ -367,6 +382,23 @@ function RitualCard({
                   onChange={(event) => patch({ from: event.target.value })}
                 />
               </div>
+              {meta.reminder && (
+                <div className="space-y-1.5">
+                  <Label htmlFor={`ritual-${ritual}-reminder`}>Push reminder at</Label>
+                  <Input
+                    id={`ritual-${ritual}-reminder`}
+                    name="reminder"
+                    type="time"
+                    value={draft.reminder}
+                    disabled={!trusted}
+                    onChange={(event) => patch({ reminder: event.target.value })}
+                    aria-describedby={`ritual-${ritual}-reminder-hint`}
+                  />
+                  <p id={`ritual-${ritual}-reminder-hint`} className="text-xs text-muted-foreground">
+                    Local time, for devices with the morning reminder on. Empty sends none.
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor={`ritual-${ritual}-template`}>Opens</Label>
                 {meta.journal ? (

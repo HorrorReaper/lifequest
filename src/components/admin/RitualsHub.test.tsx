@@ -100,6 +100,33 @@ describe('RitualsHub', () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled())
   })
 
+  it('offers a push reminder time only on the Daily Plan and saves it in minutes', async () => {
+    render(<RitualsHub userId="admin-1" trusted settings={settings} templates={templates} />)
+    expect(card(/evening review/i).querySelector('input[name="reminder"]')).toBeNull()
+    const region = card(/daily plan/i)
+    const reminder = region.querySelector('input[name="reminder"]') as HTMLInputElement
+    expect(reminder.value).toBe('08:00')
+
+    fireEvent.change(reminder, { target: { value: '07:15' } })
+    fireEvent.submit(region.querySelector('form')!)
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
+    expect(update.mock.calls[0][2]).toMatchObject({ reminder_minutes: 7 * 60 + 15 })
+
+    fireEvent.change(reminder, { target: { value: '' } })
+    fireEvent.submit(region.querySelector('form')!)
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2))
+    expect(update.mock.calls[1][2]).toMatchObject({ reminder_minutes: null })
+  })
+
+  it('leaves the reminder time alone when saving another ritual', async () => {
+    render(<RitualsHub userId="admin-1" trusted settings={settings} templates={templates} />)
+    const region = card(/evening review/i)
+    fireEvent.change(region.querySelector('input[name="cta"]')!, { target: { value: 'Wrap up' } })
+    fireEvent.submit(region.querySelector('form')!)
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
+    expect(update.mock.calls[0][2]).not.toHaveProperty('reminder_minutes')
+  })
+
   it('saves a weekly ritual\'s weekday as a number and "none" as a null template', async () => {
     render(<RitualsHub userId="admin-1" trusted settings={settings} templates={templates} />)
     const region = card(/weekly review/i)
