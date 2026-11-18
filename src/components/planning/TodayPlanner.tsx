@@ -34,18 +34,12 @@ import {
 } from "@/lib/mood-reasons";
 import { TodayPriorities } from "@/components/planning/TodayPriorities";
 import { PlanTimeline } from "@/components/planning/PlanTimeline";
-import { DayFrameBar } from "@/components/planning/DayFrameBar";
-import { PlanCapacityLine } from "@/components/planning/PlanCapacityLine";
-import { AlsoToday } from "@/components/planning/AlsoToday";
 import {
   AddToDayDialog,
   type AddEntry,
   type AddRequest,
 } from "@/components/planning/AddToDayDialog";
-import {
-  BlockEditorDialog,
-  PRIORITY_LABELS,
-} from "@/components/planning/BlockEditorDialog";
+import { BlockEditorDialog } from "@/components/planning/BlockEditorDialog";
 import {
   earlierStep,
   furthestStepFor,
@@ -59,13 +53,9 @@ import type {
   DayPlanOutcomeRole,
 } from "@/lib/types";
 import {
-  anchorTakesTime,
-  blockForAnchor,
   buildTodayPlanSchedule,
-  calculateTodayPlanCapacity,
   createDefaultTodayPlanMetadata,
   findTodayPlanBlockProblems,
-  flexibleAnchors,
   keepAnchorFlexible,
   occupiedSpans,
   parseTodayPlanNotes,
@@ -147,28 +137,22 @@ const STEP_COPY: Record<
   mood: {
     label: "Mood",
     title: "How are you feeling right now?",
-    description: "Name it before you plan around it. One tap is enough.",
+    description: "",
   },
   intention: {
     label: "Intention",
-    title: "What quality should guide today?",
-    description: "A short line you can hold every later tradeoff against.",
+    title: "What should guide today?",
+    description: "",
   },
   priorities: {
     label: "Priorities",
-    title: "What matters most today?",
-    description: "Choose one focus. Add one more if there’s room.",
+    title: "Set your priorities",
+    description: "",
   },
   timeline: {
     label: "Shape your day",
     title: "Schedule your day",
-    description:
-      "",
-  },
-  review: {
-    label: "Review",
-    title: "Review and save your plan",
-    description: "Check the time you scheduled, fix any conflicts, then save.",
+    description: "",
   },
 };
 
@@ -184,7 +168,14 @@ const MOOD_STEP = PLANNER_STEP_IDS.indexOf("mood");
 const INTENTION_STEP = PLANNER_STEP_IDS.indexOf("intention");
 const OUTCOMES_STEP = PLANNER_STEP_IDS.indexOf("priorities");
 const TIMELINE_STEP = PLANNER_STEP_IDS.indexOf("timeline");
-const COMMIT_STEP = PLANNER_STEP_IDS.indexOf("review");
+
+/**
+ * The timeline always shows the whole day. The planner used to ask for day
+ * hours first; the plan's stored day_start and day_end are left as they
+ * are and no longer read here.
+ */
+const FULL_DAY_START = "00:00";
+const FULL_DAY_END = "23:59";
 
 /** Where the planner may be asked to open, via ?step= on the route. */
 export type PlannerEntryPoint = "timeline";
@@ -372,11 +363,6 @@ export function TodayPlanner({
   );
   const isDirty = fingerprint(currentDraft) !== initialFingerprint.current;
   const mainOutcome = roleOutcome(metadata, "must_win");
-  const capacity = calculateTodayPlanCapacity(
-    blocks,
-    metadata.day_start,
-    metadata.day_end
-  );
   const problems = findTodayPlanBlockProblems(blocks);
   const canCommit =
     Boolean(mainOutcome?.title.trim()) &&
@@ -691,26 +677,12 @@ export function TodayPlanner({
     setStepError(null);
   }
 
-  function keepBlockFlexible(block: DayPlanBlock) {
-    const anchor = anchorForBlock(block);
-    if (!anchor) return;
-    const next = keepAnchorFlexible({ metadata, blocks }, anchor);
-    setMetadata(next.metadata);
-    setBlocks(next.blocks);
-  }
-
   function validateCurrentStep() {
     if (step === MOOD_STEP && !metadata.mood) {
       return "Pick how you are feeling before moving on.";
     }
     if (step === OUTCOMES_STEP && !mainOutcome?.title.trim()) {
       return "Choose your main focus before moving on.";
-    }
-    if (
-      step === TIMELINE_STEP &&
-      timeToMinutes(metadata.day_end) <= timeToMinutes(metadata.day_start)
-    ) {
-      return "Your day must end after it starts. Use “Edit day hours” to fix it.";
     }
     if (step === TIMELINE_STEP && problems.invalidBlockIds.length > 0) {
       return "A block needs attention: every block needs a title and an end time after its start. Tap the red block to fix it.";
@@ -824,6 +796,13 @@ export function TodayPlanner({
 
   async function commitPlan() {
     if (savingRef.current) return;
+    // The timeline is the last step, so its checks run here instead of on
+    // the way to a review step.
+    const error = validateCurrentStep();
+    if (error) {
+      setStepError(error);
+      return;
+    }
     if (!canCommit) {
       setStepError(
         "Resolve the highlighted plan issues before committing the day."
@@ -856,6 +835,11 @@ export function TodayPlanner({
       console.error("Failed to commit today plan", error);
       setSaveError(
         "Your plan is still safe in this tab, but it could not be saved. Check your connection and retry."
+      );
+      requestAnimationFrame(() =>
+        document
+          .getElementById("plan-save-error")
+          ?.scrollIntoView?.({ block: "center", behavior: "smooth" })
       );
       // Only a failure frees Save again; after success the page is leaving.
       savingRef.current = false;
@@ -896,28 +880,6 @@ export function TodayPlanner({
       : []),
   ];
 
-  // Habits and reflections kept for today without a time block. They stay in
-  // metadata.anchors either way, so committing still records what the day
-  // was meant to carry.
-  const flexible = flexibleAnchors(metadata, blocks);
-  const reservedAnchorCount = metadata.anchors.filter(
-    (anchor) => !anchorTakesTime(anchor) && blockForAnchor(blocks, anchor)
-  ).length;
-
-  function anchorCompletedToday(anchor: TodayPlanAnchor) {
-    if (anchor.source_type === "habit") {
-      return Boolean(
-        habits.find((habit) => habit.id === anchor.source_id)?.completedToday
-      );
-    }
-    if (anchor.source_type === "journal") {
-      return Boolean(
-        journals.find((journal) => journal.id === anchor.source_id)
-          ?.completedToday
-      );
-    }
-    return false;
-  }
 
   const sortedBlocks = blocks
     .slice()
@@ -1041,11 +1003,13 @@ export function TodayPlanner({
             >
               {editMode ? "Your plan for today" : STEPS[step].title}
             </h1>
-            <p className="mt-2 text-base leading-relaxed text-muted-foreground">
-              {editMode
-                ? "Move, lengthen or add blocks, then save. Tap a block for exact times."
-                : STEPS[step].description}
-            </p>
+            {(editMode || STEPS[step].description) && (
+              <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                {editMode
+                  ? "Move, lengthen or add blocks, then save. Tap a block for exact times."
+                  : STEPS[step].description}
+              </p>
+            )}
             {editMode && (
               <p className="mt-2 text-sm">
                 <Link
@@ -1080,14 +1044,7 @@ export function TodayPlanner({
                       before asking whether puts the answer first. */}
                   {metadata.mood && (
                     <div className="space-y-3 border-t pt-4">
-                      <div>
-                        <p className="text-sm font-semibold">
-                          What is behind that?
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Optional, and as many as apply.
-                        </p>
-                      </div>
+                      <p className="text-sm font-semibold">Why is that?</p>
 
                       <div className="flex flex-wrap gap-2">
                         {MOOD_REASONS.map((reason) => {
@@ -1151,7 +1108,7 @@ export function TodayPlanner({
                       it on screen would be noise -- but the field still needs
                       a name for anyone not reading the heading. */}
                   <label htmlFor="plan-intention" className="sr-only">
-                    What quality should guide today?
+                    What should guide today?
                   </label>
                   <Textarea
                     id="plan-intention"
@@ -1193,16 +1150,6 @@ export function TodayPlanner({
 
           {step === TIMELINE_STEP && (
             <div className="w-full max-w-3xl space-y-5">
-              <DayFrameBar
-                hours={{
-                  day_start: metadata.day_start,
-                  day_end: metadata.day_end,
-                  shutdown_time: metadata.shutdown_time,
-                }}
-                blocks={blocks}
-                onChange={(hours) => updateMetadata(hours)}
-              />
-
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                 <Button
                   type="button"
@@ -1243,9 +1190,8 @@ export function TodayPlanner({
               <div>
                 <PlanTimeline
                   blocks={blocks}
-                  dayStart={metadata.day_start}
-                  dayEnd={metadata.day_end}
-                  shutdownTime={metadata.shutdown_time}
+                  dayStart={FULL_DAY_START}
+                  dayEnd={FULL_DAY_END}
                   invalidBlockIds={problems.invalidBlockIds}
                   overlappingBlockIds={problems.overlappingBlockIds}
                   selectedId={selectedBlockId}
@@ -1292,182 +1238,9 @@ export function TodayPlanner({
                 )}
               </div>
 
-              <PlanCapacityLine
-                capacity={capacity}
-                hasOverlap={problems.overlappingBlockIds.length > 0}
-              />
-
-              <AlsoToday
-                anchors={flexible}
-                isDone={anchorCompletedToday}
-                onAdd={() => openAdd({ kind: "habit", mode: "flexible" })}
-                onSchedule={(anchor) =>
-                  openAdd({ anchorId: anchor.id, mode: "block" })
-                }
-                onRemove={removeAnchor}
-              />
             </div>
           )}
 
-          {step === COMMIT_STEP && (
-            <div className="grid w-full gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-              <div className="min-w-0 space-y-8">
-                <section
-                  aria-labelledby="review-focus"
-                  className="border-l-[3px] border-primary pl-5"
-                >
-                  <h2
-                    id="review-focus"
-                    className="text-xs font-semibold uppercase tracking-[0.12em] text-primary"
-                  >
-                    Your main focus
-                  </h2>
-                  <p className="mt-1.5 break-words text-xl font-medium">
-                    {mainOutcome?.title || "Choose your main focus"}
-                  </p>
-                  {metadata.intention && (
-                    <p className="mt-1.5 text-sm italic text-muted-foreground">
-                      “{metadata.intention}”
-                    </p>
-                  )}
-                  {metadata.outcomes
-                    .filter(
-                      (outcome) =>
-                        outcome.role !== "must_win" && outcome.title.trim()
-                    )
-                    .map((outcome) => (
-                      <p key={outcome.role} className="mt-3 text-sm">
-                        <span className="text-muted-foreground">
-                          {PRIORITY_LABELS[outcome.role]}:
-                        </span>{" "}
-                        <span className="font-medium">{outcome.title}</span>
-                      </p>
-                    ))}
-                </section>
-
-                <section aria-labelledby="review-day" className="space-y-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b pb-2">
-                    <h2 id="review-day" className="text-base font-semibold">
-                      Your day · {metadata.day_start}–{metadata.day_end}
-                    </h2>
-                    <PlanCapacityLine
-                      capacity={capacity}
-                      hasOverlap={problems.overlappingBlockIds.length > 0}
-                    />
-                  </div>
-                  {sortedBlocks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No time blocks yet. Go back to add some, or save the
-                      day as it is.
-                    </p>
-                  ) : (
-                    <ol className="divide-y">
-                      {sortedBlocks.map((block) => (
-                        <li key={block.id} className="flex gap-4 py-2.5">
-                          <span className="w-24 shrink-0 text-sm tabular-nums text-muted-foreground">
-                            {block.start_time}–{block.end_time}
-                          </span>
-                          <span className="min-w-0 flex-1 break-words text-sm font-medium">
-                            {block.title || "Untitled block"}
-                            {block.outcome_role && (
-                              <span className="ml-2 font-normal text-primary">
-                                {PRIORITY_LABELS[block.outcome_role]}
-                              </span>
-                            )}
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    {metadata.shutdown_time
-                      ? `Day-end reminder at ${metadata.shutdown_time}. It reserves no time.`
-                      : "No day-end reminder."}
-                  </p>
-                </section>
-
-                <section aria-labelledby="review-also" className="space-y-1.5">
-                  <h2 id="review-also" className="text-base font-semibold">
-                    Also today
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      No time reserved
-                    </span>
-                  </h2>
-                  <p className="text-sm">
-                    {flexible.length > 0
-                      ? flexible.map((anchor) => anchor.title).join(" · ")
-                      : "Nothing kept flexible today."}
-                  </p>
-                  {reservedAnchorCount > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {reservedAnchorCount === 1
-                        ? "1 habit or reflection has a time block above."
-                        : `${reservedAnchorCount} habits or reflections have a time block above.`}
-                    </p>
-                  )}
-                </section>
-
-                {(problems.invalidBlockIds.length > 0 ||
-                  problems.overlappingBlockIds.length > 0) && (
-                  <div className="flex items-start gap-3 rounded-xl border border-destructive/35 bg-destructive/8 p-4 text-sm">
-                    <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
-                    <div>
-                      <p className="font-medium">Timeline needs attention</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Go back to the timeline and fix invalid or overlapping
-                        blocks before saving.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <aside className="h-fit space-y-4 border-t pt-5 lg:sticky lg:top-24 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6">
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  You are committing to direction, not perfection. Replan
-                  when reality changes.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {saving
-                    ? "Saving…"
-                    : "Saving replaces today's saved plan."}
-                </p>
-                <Button
-                  type="button"
-                  size="lg"
-                  className="hidden w-full rounded-xl sm:inline-flex"
-                  disabled={!canCommit}
-                  onClick={() => void commitPlan()}
-                >
-                  {saving ? (
-                    "Saving…"
-                  ) : (
-                    <>
-                      <Check className="mr-1.5 size-5" />
-                      Save today&apos;s plan
-                    </>
-                  )}
-                </Button>
-                {saveError && (
-                  <div
-                    role="alert"
-                    className="space-y-2 rounded-xl border border-destructive/35 bg-destructive/8 p-3"
-                  >
-                    <p className="text-sm text-destructive">{saveError}</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => void commitPlan()}
-                      disabled={saving}
-                    >
-                      Retry save
-                    </Button>
-                  </div>
-                )}
-              </aside>
-            </div>
-          )}
         </section>
 
         {stepError && (
@@ -1479,7 +1252,7 @@ export function TodayPlanner({
             {stepError}
           </div>
         )}
-        {editMode && saveError && (
+        {saveError && (
           <div
             id="plan-save-error"
             role="alert"
@@ -1503,15 +1276,6 @@ export function TodayPlanner({
             {step === MOOD_STEP || editMode ? "Dashboard" : "Back"}
           </Button>
 
-          {/* Nothing reaches the database before the last step; saying so
-              where the buttons are answers "did that save?" before it is
-              asked. The editor says it in the header instead. */}
-          {!editMode && (
-            <span className="hidden min-w-0 truncate text-sm text-muted-foreground min-[400px]:block">
-              Draft · not saved
-            </span>
-          )}
-
           {editMode ? (
             <Button
               type="button"
@@ -1525,7 +1289,7 @@ export function TodayPlanner({
             </Button>
           ) : step < STEPS.length - 1 ? (
             <Button type="button" size="lg" onClick={goNext} className="h-12">
-              {step === TIMELINE_STEP ? "Review plan" : "Next"}
+              Next
               <ArrowRight className="ml-1.5 size-4" />
             </Button>
           ) : (
@@ -1533,10 +1297,11 @@ export function TodayPlanner({
               type="button"
               size="lg"
               onClick={() => void commitPlan()}
-              disabled={!canCommit}
-              className="h-12 sm:hidden"
+              disabled={saving}
+              className="h-12"
             >
-              {saving ? "Saving…" : "Save plan"}
+              <Check className="mr-1.5 size-4" />
+              {saving ? "Saving…" : saveError ? "Retry save" : "Save plan"}
             </Button>
           )}
         </div>
@@ -1548,8 +1313,8 @@ export function TodayPlanner({
       <BlockEditorDialog
         block={selectedBlock}
         blocks={blocks}
-        dayStart={metadata.day_start}
-        dayEnd={metadata.day_end}
+        dayStart={FULL_DAY_START}
+        dayEnd={FULL_DAY_END}
         onOpenChange={(open) => {
           if (!open) setSelectedBlockId(null);
         }}
@@ -1558,7 +1323,6 @@ export function TodayPlanner({
           setStepError(null);
         }}
         onRemove={removeBlock}
-        onKeepFlexible={keepBlockFlexible}
       />
 
       <AddToDayDialog
@@ -1566,8 +1330,9 @@ export function TodayPlanner({
         onOpenChange={setAddOpen}
         request={addRequest}
         blocks={blocks}
-        dayStart={metadata.day_start}
-        dayEnd={metadata.day_end}
+        dayStart={FULL_DAY_START}
+        dayEnd={FULL_DAY_END}
+        allowFlexible={false}
         today={date}
         tasks={taskList}
         habits={habits}
