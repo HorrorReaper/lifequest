@@ -55,7 +55,9 @@ See [Data model](../backend/data-model.md) for the `check_in_habit_reward`/`undo
 
 ## Streaks
 
-Journal completion is the primary streak driver. The profile stores current and best streak values, while `streak_history` supports historical display.
+Journal completion is the primary streak driver; a saved daily plan counts too ([Today Plan · Streak](./planning-tasks-habits.md#streak)). The profile stores current and best streak values, while `streak_history` supports historical display. `last_journal_date` is the last day that counted, whether through an entry or a plan.
+
+Outside the general entry form (`entry-form.tsx`, which keeps its own copy of these steps), a day is counted through `recordStreakDay` in `src/lib/streak-day.ts`, used by the dashboard's reflection (`saveReflectionEntry`) and the daily planner.
 
 The journal pipeline handles:
 
@@ -68,7 +70,7 @@ Because the journal side effects are sequential, streak and XP changes should be
 
 ### Displayed streak
 
-`profiles.current_streak` only changes when an entry is saved, so after a missed day it still holds the old length until the next entry resets it. Every screen that shows the current journaling streak therefore reads it through `displayedStreak` in `src/lib/streak.ts` (`streakFromProfile` for a profile row, with "today" in the profile timezone). It applies the same rules as `resolveStreak`: a streak the next entry would continue (an entry today or yesterday, or one missed day while a freeze is left) is shown as stored, and one the next entry would reset is shown as 0. The stored value is not written back; the next entry still resets and archives it as before.
+`profiles.current_streak` only changes when an entry or a daily plan is saved, so after a missed day it still holds the old length until the next entry resets it. Every screen that shows the current journaling streak therefore reads it through `displayedStreak` in `src/lib/streak.ts` (`streakFromProfile` for a profile row, with "today" in the profile timezone). It applies the same rules as `resolveStreak`: a streak the next entry would continue (an entry today or yesterday, or one missed day while a freeze is left) is shown as stored, and one the next entry would reset is shown as 0. The stored value is not written back; the next entry still resets and archives it as before.
 
 The profile is the only source of the streak. The top bar (`fetchShellStats` in `src/lib/shell-stats.ts`) and `/profile` read it from the profile row they already load; `/analytics` and the city's journal rewards use `fetchProfileStreak` in `src/lib/profile-streak.ts`, which also returns `best_streak`. `/analytics` used to recount both values from `journal_entries` (`calculateStreaks`, removed), using `created_at` in the browser timezone and no freezes, so it could disagree with the top bar.
 

@@ -8,9 +8,10 @@ import {
 import { createDefaultTodayPlanMetadata } from "@/lib/today-plan";
 
 describe("planner steps", () => {
-  it("has four steps, without the anchors and review steps", () => {
+  it("has five steps: gratitude after the mood, no anchors or review steps", () => {
     expect(PLANNER_STEP_IDS).toEqual([
       "mood",
+      "gratitude",
       "intention",
       "priorities",
       "timeline",
@@ -35,11 +36,18 @@ describe("planner steps", () => {
   it("never resumes past a missing answer", () => {
     const empty = createDefaultTodayPlanMetadata();
     expect(furthestStepFor(empty)).toBe("mood");
-    expect(furthestStepFor({ ...empty, mood: "good" })).toBe("priorities");
+    expect(furthestStepFor({ ...empty, mood: "good" })).toBe("gratitude");
+    expect(furthestStepFor({ ...empty, mood: "good", gratitude: ["", "  "] })).toBe(
+      "gratitude"
+    );
+    expect(furthestStepFor({ ...empty, mood: "good", gratitude: ["Tea"] })).toBe(
+      "priorities"
+    );
     expect(
       furthestStepFor({
         ...empty,
         mood: "good",
+        gratitude: ["Tea"],
         outcomes: [
           { id: "m", role: "must_win", title: "Ship", task_id: null, duration_minutes: 60 },
         ],
