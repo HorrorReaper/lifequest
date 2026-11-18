@@ -56,7 +56,8 @@ Reflections use blue (eyebrow, ring, icon and filled button) so they are not mis
 | State | Layout | Shows | Action |
 | --- | --- | --- | --- |
 | Evening review due, no block running or ahead (with or without a plan) | Ring first, blue, moon icon | "No more time blocks today" (without a plan: "This evening"), "Complete your evening review", "Look back on today before you close it.", chips "N planned tasks open" and "N habits still open" | "Start evening review" (`/journal/new/<evening review template>`) |
-| No plan, no open tasks | Ring first, plus icon | "Add your first task" | "Add task" (`/tasks?new=1`) |
+| No plan, no open tasks, morning briefing still on offer (Daily Plan window open, plan not committed; `briefingOpen`) | Ring first, calendar icon | "Plan your day" | "Plan my day" (`/plan`); tasks can be created from the planner's priority picker |
+| No plan, no open tasks, briefing not on offer | Ring first, plus icon | "Add your first task" | "Add task" (`/tasks?new=1`) |
 | No plan, tasks due today or overdue | Ring first, list icon | "Next up · nothing planned yet", "N tasks due today", chips "N overdue" and the first due task | "Plan my day" (`/plan`) |
 | No plan, nothing due | Ring first, calendar icon | "Plan your day" | "Plan my day" |
 | A block is running | Time first | minutes left | an open linked task: "Mark task done"; a reflection: "Write now" (`/journal/new/<template>`); a habit: "Check in" (`#habits`); each with "Edit plan" beside it. Any other block: "Edit plan" |

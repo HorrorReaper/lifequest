@@ -44,6 +44,14 @@ describe('nextUpFor', () => {
     expect(nextUpFor({ ...base, blocks: [] }).kind).toBe('plan-day')
   })
 
+  it('puts the morning briefing before a first task while the briefing is open', () => {
+    expect(nextUpFor({ ...base, blocks: [], openTaskCount: 0, briefingOpen: true }).kind).toBe('plan-day')
+    expect(nextUpFor({ ...base, blocks: [], openTaskCount: 0, briefingOpen: false }).kind).toBe('first-task')
+    expect(
+      nextUpFor({ ...base, blocks: [], openTaskCount: 0, briefingOpen: true, eveningReviewDue: true }).kind
+    ).toBe('evening-review')
+  })
+
   it('leads with the running block, then the next one', () => {
     const blocks = [block('now', '11:30', '12:30'), block('later', '14:00', '15:00')]
     expect(nextUpFor({ ...base, blocks })).toMatchObject({

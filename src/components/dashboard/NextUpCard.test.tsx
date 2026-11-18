@@ -39,6 +39,17 @@ const base = {
 const card = () => screen.getByRole('region', { name: /.+/ })
 
 describe('NextUpCard', () => {
+  it('offers the morning briefing before a first task, and the first task once the briefing is over', () => {
+    const { unmount } = render(<NextUpCard {...base} blocks={[]} openTaskCount={0} briefingOpen />)
+    expect(screen.getByText('Plan your day')).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Plan my day/ }).getAttribute('href')).toBe('/plan')
+    expect(screen.queryByText('Add your first task')).toBeNull()
+    unmount()
+
+    render(<NextUpCard {...base} blocks={[]} openTaskCount={0} briefingOpen={false} />)
+    expect(screen.getByText('Add your first task')).toBeTruthy()
+  })
+
   it('leads a running task block with the minutes left and marks the task done', async () => {
     completeTaskWithReward.mockResolvedValue({ awarded: false, previousTotal: 0 })
     const blocks: PlanStatusBlock[] = [

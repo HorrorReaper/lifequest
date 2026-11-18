@@ -56,6 +56,12 @@ interface NextUpCardProps {
    * Null or left out otherwise.
    */
   eveningReview?: { href: string } | null
+  /**
+   * Whether today's morning briefing is still on offer (Daily Plan window
+   * open, plan not committed). Without a plan, the card then asks for the
+   * plan even on an account with no open tasks.
+   */
+  briefingOpen?: boolean
   /** The profile's date key; due dates are described against it. */
   today: string
   plannerHref?: string
@@ -116,6 +122,7 @@ export function NextUpCard({
   habits,
   reflections = [],
   eveningReview = null,
+  briefingOpen = false,
   today,
   plannerHref = '/plan',
 }: NextUpCardProps) {
@@ -151,6 +158,7 @@ export function NextUpCard({
     overdueCount,
     reflections,
     eveningReviewDue: Boolean(eveningReview),
+    briefingOpen,
   })
 
   async function markDone(block: PlanStatusBlock) {
