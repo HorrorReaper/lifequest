@@ -161,9 +161,9 @@ const STEP_COPY: Record<
   },
   timeline: {
     label: "Shape your day",
-    title: "Make room for your day",
+    title: "Schedule your day",
     description:
-      "Your priorities on the clock, with habits, reflection and breaks around them.",
+      "",
   },
   review: {
     label: "Review",
@@ -1265,11 +1265,6 @@ export function TodayPlanner({
                     });
                   }}
                 />
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Drag a block to move it; everything after it moves along.
-                  Pull the bar on its bottom edge to make it longer. Tap a
-                  block for exact times.
-                </p>
 
                 {/* A block with an unreadable time cannot be drawn on a
                     time axis, so it would vanish exactly when it needs

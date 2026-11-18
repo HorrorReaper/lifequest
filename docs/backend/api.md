@@ -64,6 +64,28 @@ Responses:
 
 All responses carry `Cache-Control: no-store`. The route sends the database a SHA-256 hash of IP and user agent and a device bucket, never the raw values; see [Authentication, authorization, and privacy](auth-security.md#landing-page-traffic).
 
+## `POST /api/push/test`
+
+Sends a test notification to every device the signed-in user has opted in from Settings ([Push notifications](../features/push-notifications.md)). No request body. A request with an `Origin` header from another origin is refused.
+
+- `200` `{ "sent": n, "removed": m }`: at least one push was accepted. `removed` counts subscriptions the push service reported as gone (404/410); their rows are deleted.
+- `401`: not signed in.
+- `403`: foreign origin.
+- `409`: the user has no device opted in.
+- `502`: no push service accepted the notification.
+- `503`: VAPID variables missing on the server.
+
+All responses carry `Cache-Control: no-store` and an `error` string on failure. Rows are read, deleted and marked sent (`last_sent_at`) with the user's own session, so RLS limits the route to their devices.
+
+## `GET` / `POST /api/push/evening-review`
+
+The scheduled evening review reminder ([Push notifications](../features/push-notifications.md#the-scheduled-reminder)). Called every 15 minutes by Supabase `pg_cron` (POST) or Vercel Cron (GET) with `Authorization: Bearer <CRON_SECRET>`, compared in constant time. It has no user session, so it is listed in `publicRoutes` in `src/lib/supabase/middleware.ts`; the secret is its only access control. It uses the Supabase secret key to call `claim_evening_review_reminders` and to clean up devices.
+
+- `200` `{ "users": n, "sent": n, "removed": n, "failed": n }`.
+- `401`: missing or wrong secret.
+- `500`: the claim failed (for example, the migration is missing).
+- `503`: `CRON_SECRET`, a VAPID variable or the Supabase secret key is missing.
+
 ## `DELETE /api/account`
 
 Permanently deletes the current Supabase Auth user.

@@ -140,7 +140,9 @@ export function PlanTimeline({
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOrigin, setDragOrigin] = useState<DragOrigin | null>(null);
   const [preview, setPreview] = useState<GapPreview | null>(null);
-  const [showFullDay, setShowFullDay] = useState(false);
+  // Open by default: the whole day at scale is what someone planning it came
+  // to see. Long stretches of free time can still be folded away.
+  const [showFullDay, setShowFullDay] = useState(true);
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
 
   const { startMinutes, endMinutes } = timelineWindow(blocks, dayStart, dayEnd);
@@ -403,7 +405,7 @@ export function PlanTimeline({
         <p aria-live="polite" className="min-w-0 text-sm text-muted-foreground">
           {dragNote}
         </p>
-        {(foldable || anyOpened) && (
+        {foldable && (
           <Button
             type="button"
             variant="ghost"

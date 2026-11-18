@@ -1,0 +1,88 @@
+import { timingSafeEqual } from 'node:crypto'
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+import { sendPush, vapidConfig } from '@/lib/push-server'
+import { eveningReviewPayload, type StoredPushSubscription } from '@/lib/push-subscription'
+
+/**
+ * The scheduled evening review reminder (docs/features/push-notifications.md).
+ * Called every 15 minutes by a scheduler with `Authorization: Bearer
+ * <CRON_SECRET>`: Supabase pg_cron posts, Vercel Cron would send a GET, so
+ * both are accepted. Listed in publicRoutes in src/lib/supabase/middleware.ts,
+ * since the caller has no user session; the secret is the only way in.
+ *
+ * claim_evening_review_reminders picks who is due and records them in one
+ * statement, so a reminder that fails to send is not retried that day. That
+ * is deliberate: a late or doubled reminder is worse than a missed one.
+ */
+
+const json = (body: unknown, status = 200) =>
+  NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
+
+function authorized(request: Request, secret: string) {
+  const given = Buffer.from(request.headers.get('authorization') ?? '')
+  const expected = Buffer.from(`Bearer ${secret}`)
+  return given.length === expected.length && timingSafeEqual(given, expected)
+}
+
+function serviceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+interface ClaimRow extends StoredPushSubscription {
+  user_id: string
+  template_id: string
+}
+
+async function run(request: Request) {
+  const secret = process.env.CRON_SECRET
+  if (!secret) return json({ error: 'CRON_SECRET is not set.' }, 503)
+  if (!authorized(request, secret)) return json({ error: 'Unauthorized' }, 401)
+
+  const config = vapidConfig()
+  const supabase = serviceClient()
+  if (!config || !supabase) {
+    return json({ error: 'Push or the Supabase secret key is not configured.' }, 503)
+  }
+
+  const { data, error } = await supabase.rpc('claim_evening_review_reminders', { p_grace_minutes: 120 })
+  if (error) {
+    console.error('Evening review push: claim failed', error)
+    return json({ error: 'Could not load due reminders.' }, 500)
+  }
+
+  const rows = (data ?? []) as ClaimRow[]
+  // Each device gets the payload of its own user's template; the template is
+  // global today, but nothing here should rely on that.
+  const byTemplate = new Map<string, ClaimRow[]>()
+  for (const row of rows) byTemplate.set(row.template_id, [...(byTemplate.get(row.template_id) ?? []), row])
+
+  const results = (
+    await Promise.all(
+      [...byTemplate].map(([templateId, devices]) => sendPush(config, devices, eveningReviewPayload(templateId)))
+    )
+  ).flat()
+
+  const gone = results.filter((result) => result.status === 'gone').map((result) => result.endpoint)
+  const sent = results.filter((result) => result.status === 'sent').map((result) => result.endpoint)
+  const failed = results.filter((result) => result.status === 'failed')
+
+  if (gone.length > 0) await supabase.from('push_subscriptions').delete().in('endpoint', gone)
+  if (sent.length > 0) {
+    await supabase.from('push_subscriptions').update({ last_sent_at: new Date().toISOString() }).in('endpoint', sent)
+  }
+  if (failed.length > 0) console.error('Evening review push: some sends failed', failed)
+
+  return json({
+    users: new Set(rows.map((row) => row.user_id)).size,
+    sent: sent.length,
+    removed: gone.length,
+    failed: failed.length,
+  })
+}
+
+export const GET = run
+export const POST = run

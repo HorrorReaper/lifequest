@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import { DashboardSectionsCard } from '@/components/settings/DashboardSectionsCard'
+import { PushReminderCard } from '@/components/settings/PushReminderCard'
 import type { DashboardSectionVisibility } from '@/lib/dashboard-sections'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -238,6 +239,8 @@ export function SettingsForm({
         isAdmin={isAdmin}
         initial={dashboardSections}
       />
+
+      <PushReminderCard />
 
       {isAdmin && (
         <Card className="border-primary/30 bg-primary/5">
