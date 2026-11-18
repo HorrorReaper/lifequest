@@ -35,6 +35,7 @@ import {
 import { TodayPriorities } from "@/components/planning/TodayPriorities";
 import { PlanGratitude } from "@/components/planning/PlanGratitude";
 import { recordStreakDay } from "@/lib/streak-day";
+import { useUserStore } from "@/lib/stores/user-store";
 import { PlanTimeline } from "@/components/planning/PlanTimeline";
 import {
   AddToDayDialog,
@@ -319,6 +320,11 @@ export function TodayPlanner({
   returnHref = "/dashboard",
 }: TodayPlannerProps) {
   const router = useRouter();
+  const addXp = useUserStore((state) => state.addXp);
+  const updateStreak = useUserStore((state) => state.updateStreak);
+  const notifyStreakExtended = useUserStore(
+    (state) => state.notifyStreakExtended
+  );
   const supabase = useMemo(() => createClient(), []);
   const parsedNotes = useMemo(
     () => parseTodayPlanNotes(initialNotes),
@@ -844,11 +850,19 @@ export function TodayPlanner({
       // is already saved at this point, so a failure here is logged and
       // does not undo or block it.
       try {
-        await recordStreakDay(supabase, {
+        const settled = await recordStreakDay(supabase, {
           userId,
           today: date,
           sourceId: saved?.id ?? null,
         });
+        // The top bar and the celebration follow at once, as after a
+        // journal entry. StreakOverlay lives in the app layout, so it opens
+        // on the page the planner returns to.
+        if (settled.xpEarned > 0) {
+          addXp(settled.xpEarned, settled.totalXp - settled.xpEarned);
+        }
+        updateStreak(settled.streak);
+        if (settled.celebration) notifyStreakExtended(settled.celebration);
       } catch (streakError) {
         console.error("Failed to count the planned day for the streak", streakError);
       }
