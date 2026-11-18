@@ -1,34 +1,54 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell, Loader2, Share } from 'lucide-react'
+import { Loader2, Moon, Share, Sun, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import {
-  currentSubscription,
-  disablePush,
+  disableReminder,
   enablePush,
   pushSupport,
+  readReminders,
   sendTestPush,
   vapidPublicKey,
   type PushSupport,
+  type ReminderSwitches,
 } from '@/lib/push-client'
+import type { ReminderKind } from '@/lib/push-subscription'
 
 /**
- * Evening review reminder for this device (docs/features/push-notifications.md).
- * The switch subscribes or unsubscribes only the browser it is flipped in;
- * every device opts in on its own.
+ * Morning and evening reminders for this device
+ * (docs/features/push-notifications.md). Each switch turns its reminder on
+ * or off only in the browser it is flipped in; every device opts in on its
+ * own.
  */
 
 type Status = { tone: 'muted' | 'error'; text: string } | null
+
+const REMINDERS: Array<{ kind: ReminderKind; label: string; hint: string; icon: LucideIcon }> = [
+  {
+    kind: 'daily_plan',
+    label: 'Morning planning reminder',
+    hint: 'In the morning, until today’s plan is set.',
+    icon: Sun,
+  },
+  {
+    kind: 'evening_review',
+    label: 'Evening review reminder',
+    hint: 'When your evening review opens, until you have written it.',
+    icon: Moon,
+  },
+]
+
+const OFF: ReminderSwitches = { daily_plan: false, evening_review: false }
 
 export function PushReminderCard() {
   // Unknown until mounted: support and the existing subscription can only be
   // read in the browser, and the server render must not guess.
   const [support, setSupport] = useState<PushSupport | null>(null)
-  const [enabled, setEnabled] = useState(false)
+  const [enabled, setEnabled] = useState<ReminderSwitches>(OFF)
   const [busy, setBusy] = useState(false)
   const [testing, setTesting] = useState(false)
   const [status, setStatus] = useState<Status>(null)
@@ -37,9 +57,9 @@ export function PushReminderCard() {
     let cancelled = false
     async function detect() {
       const detected = pushSupport()
-      const subscription = detected === 'supported' ? await currentSubscription().catch(() => null) : null
+      const switches = detected === 'supported' ? await readReminders().catch(() => OFF) : OFF
       if (cancelled) return
-      setEnabled(Boolean(subscription) && Notification.permission === 'granted')
+      setEnabled(switches)
       setSupport(detected)
     }
     void detect()
@@ -48,14 +68,14 @@ export function PushReminderCard() {
     }
   }, [])
 
-  async function toggle(next: boolean) {
+  async function toggle(kind: ReminderKind, label: string, next: boolean) {
     setBusy(true)
     setStatus(null)
     if (next) {
-      const result = await enablePush()
+      const result = await enablePush(kind)
       if (result.ok) {
-        setEnabled(true)
-        setStatus({ tone: 'muted', text: 'Reminders are on for this device.' })
+        setEnabled((current) => ({ ...current, [kind]: true }))
+        setStatus({ tone: 'muted', text: `${label} is on for this device.` })
       } else if (result.reason === 'denied') {
         setStatus({
           tone: 'error',
@@ -64,15 +84,15 @@ export function PushReminderCard() {
       } else if (result.reason === 'not-configured') {
         setStatus({ tone: 'error', text: 'Push notifications are not configured on the server yet.' })
       } else {
-        setStatus({ tone: 'error', text: 'Could not turn reminders on. Try again.' })
+        setStatus({ tone: 'error', text: `Could not turn the ${label.toLowerCase()} on. Try again.` })
       }
     } else {
-      const ok = await disablePush()
-      if (ok) {
-        setEnabled(false)
-        setStatus({ tone: 'muted', text: 'Reminders are off for this device.' })
+      const otherStillOn = REMINDERS.some((reminder) => reminder.kind !== kind && enabled[reminder.kind])
+      if (await disableReminder(kind, otherStillOn)) {
+        setEnabled((current) => ({ ...current, [kind]: false }))
+        setStatus({ tone: 'muted', text: `${label} is off for this device.` })
       } else {
-        setStatus({ tone: 'error', text: 'Could not turn reminders off. Try again.' })
+        setStatus({ tone: 'error', text: `Could not turn the ${label.toLowerCase()} off. Try again.` })
       }
     }
     setBusy(false)
@@ -91,12 +111,16 @@ export function PushReminderCard() {
   }
 
   const configured = vapidPublicKey() !== null
+  const anyOn = REMINDERS.some((reminder) => enabled[reminder.kind])
 
   return (
     <Card className="border-border/50">
       <CardHeader>
         <CardTitle>Notifications</CardTitle>
-        <CardDescription>Get a reminder on this device when your evening review opens.</CardDescription>
+        <CardDescription>
+          Reminders on this device to plan your day and to write your evening review. Turn them on on each phone or
+          computer you want them on.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {support === 'ios-needs-install' ? (
@@ -113,28 +137,33 @@ export function PushReminderCard() {
           </p>
         ) : (
           <>
-            <div className="flex items-start justify-between gap-4 rounded-xl border bg-muted/25 p-4">
-              <div className="flex min-w-0 gap-3">
-                <Bell className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-                <div className="min-w-0 space-y-1">
-                  <Label htmlFor="push-evening-review" className="text-sm font-semibold">
-                    Evening review reminder
-                  </Label>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    Only this device. Turn it on on each phone or computer you want reminders on.
-                  </p>
-                </div>
-              </div>
-              <Switch
-                id="push-evening-review"
-                checked={enabled}
-                onCheckedChange={toggle}
-                disabled={support === null || busy || !configured}
-                aria-describedby="push-evening-review-status"
-              />
+            <div className="divide-y rounded-xl border bg-muted/25">
+              {REMINDERS.map(({ kind, label, hint, icon: Icon }) => {
+                const id = `push-${kind.replace('_', '-')}`
+                return (
+                  <div key={kind} className="flex items-start justify-between gap-4 p-4">
+                    <div className="flex min-w-0 gap-3">
+                      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <div className="min-w-0 space-y-1">
+                        <Label htmlFor={id} className="text-sm font-semibold">
+                          {label}
+                        </Label>
+                        <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
+                      </div>
+                    </div>
+                    <Switch
+                      id={id}
+                      checked={enabled[kind]}
+                      onCheckedChange={(next) => toggle(kind, label, next)}
+                      disabled={support === null || busy || !configured}
+                      aria-describedby="push-reminder-status"
+                    />
+                  </div>
+                )
+              })}
             </div>
 
-            {enabled && (
+            {anyOn && (
               <Button type="button" variant="outline" size="sm" onClick={test} disabled={testing}>
                 {testing && <Loader2 className="size-4 animate-spin" aria-hidden />}
                 Send test notification
@@ -143,7 +172,7 @@ export function PushReminderCard() {
           </>
         )}
 
-        <div id="push-evening-review-status" aria-live="polite" className="text-xs leading-relaxed">
+        <div id="push-reminder-status" aria-live="polite" className="text-xs leading-relaxed">
           {!configured && support === 'supported' ? (
             <p className="text-muted-foreground">Push notifications are not configured on the server yet.</p>
           ) : status ? (
