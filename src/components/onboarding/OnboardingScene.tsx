@@ -3,8 +3,7 @@
 import { useSyncExternalStore, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { DashboardHeroScene, SCENE_HEIGHT } from '@/components/dashboard/DashboardHeroScene'
-import { AvatarFigure } from '@/components/profile/AvatarFigure'
-import { getDefaultAvatarState } from '@/lib/avatar'
+import { TrailWalker } from '@/components/onboarding/TrailWalker'
 import type { DayStage } from '@/lib/day-progress'
 import { cn } from '@/lib/utils'
 
@@ -29,8 +28,9 @@ interface OnboardingSceneProps {
 /**
  * The trail scene at the top of onboarding: the dashboard's landscape
  * (`DashboardHeroScene`, without the veil it keeps for the greeting text)
- * with the default avatar walking on the path, the same walk cycle as on the
- * dashboard. It grows with the answers and says hello once there is a name.
+ * with the smiling `TrailWalker` walking on the path. It grows with the
+ * answers, and the walker says hello on the welcome screen and by name once
+ * there is one.
  *
  * Decorative: the scene and the avatar are hidden from assistive technology;
  * the greeting is repeated nowhere else, so it is a polite live region.
@@ -51,7 +51,6 @@ export function OnboardingScene({
   )
   const scale = height / SCENE_HEIGHT
   const feet = Math.max(0, Math.round(PATH_FROM_BOTTOM * scale - 4))
-  const { equippedItems } = getDefaultAvatarState()
 
   return (
     <div
@@ -67,25 +66,21 @@ export function OnboardingScene({
           'absolute left-[28%] z-10 transition-[bottom] duration-700 ease-out motion-reduce:transition-none',
           live && 'hero-walker'
         )}
-        // `.hero-walker` in globals.css carries the walk's timings, the
-        // same values DashboardGreeting sets.
+        // `.hero-walker` in globals.css walks it in once, as on the dashboard.
         style={{ bottom: feet }}
       >
         <div
-          className={cn(
-            'transition-[height] duration-700 ease-out motion-reduce:transition-none',
-            live && 'hero-stride'
-          )}
+          className="transition-[height] duration-700 ease-out motion-reduce:transition-none"
           style={{ height: avatarHeight }}
         >
-          <AvatarFigure equippedItems={equippedItems} className="h-full w-auto" />
+          <TrailWalker className="h-full w-auto text-primary" />
         </div>
       </div>
 
       <div
         aria-live="polite"
         className="absolute z-20 transition-[bottom] duration-700 ease-out motion-reduce:transition-none"
-        style={{ left: `calc(28% + ${Math.round(avatarHeight * 0.42)}px)`, bottom: feet + avatarHeight - 4 }}
+        style={{ left: `calc(28% + ${Math.round(avatarHeight * 0.4)}px)`, bottom: feet + avatarHeight - 2 }}
       >
         <AnimatePresence>
           {greeting && (
