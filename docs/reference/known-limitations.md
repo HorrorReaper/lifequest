@@ -74,6 +74,13 @@ The numbers on the Landing page traffic card ([Landing-page traffic](../features
 
 See [Push notifications](../features/push-notifications.md).
 
+## Task bets
+
+- Whether a task is really done is the user's own check-off. The limits (one bet per task, three a day, 20 coins each) cap what a dishonest check-off earns; nothing checks the work itself.
+- A bet whose day has passed is settled the next time a task list opens (`/tasks` or the dashboard), not at midnight, so the loss and its notice can arrive late.
+- Bets are not offered in Work, and there are no habit bets yet; the streak-goal bet for habits is the planned second step.
+- Reopening a task after its bet was won keeps the coins; the task cannot be bet on again.
+
 ## Password recovery
 
 The login UI does not currently provide a complete password-reset flow.

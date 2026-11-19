@@ -14,6 +14,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Circle,
+  Coins,
   Inbox,
   ListTodo,
   Pencil,
@@ -52,7 +53,18 @@ import {
   type ManagedTask,
   type TaskPriority,
 } from '@/lib/tasks'
+import {
+  canBetOn,
+  describeSettledBet,
+  fetchTaskBets,
+  isDueDateLockedError,
+  placeTaskBet,
+  PLACE_BET_MESSAGES,
+  settleTaskBets,
+  type TaskBet,
+} from '@/lib/task-bets'
 import { cn } from '@/lib/utils'
+import { TaskBetDialog } from './TaskBetDialog'
 import { TaskDeleteDialog } from './TaskDeleteDialog'
 import {
   TaskEditorDialog,
@@ -122,6 +134,9 @@ function clearNewTaskParam() {
 }
 
 function errorMessage(error: unknown, fallback: string): string {
+  if (isDueDateLockedError(error)) {
+    return 'The due date is locked while a bet runs on this task.'
+  }
   return error instanceof Error && error.message ? error.message : fallback
 }
 
@@ -139,6 +154,8 @@ export function TaskManager({
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
   const { addXp } = useUserStore()
+  const coins = useUserStore((state) => state.coins)
+  const setCoins = useUserStore((state) => state.setCoins)
   const [tasks, setTasks] = useState<ManagedTask[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -155,6 +172,44 @@ export function TaskManager({
   const [mutationKeys, setMutationKeys] = useState<Set<string>>(() => new Set())
   const [mutationError, setMutationError] = useState<MutationError | null>(null)
   const lockRef = useRef(new Set<string>())
+  // Bets by task id (docs/features/planning-tasks-habits.md#task-bets).
+  // Only on the user's own task lists, where tasks earn rewards; not in Work.
+  const betsEnabled = awardCompletionXp && !projectId
+  const [bets, setBets] = useState<Map<string, TaskBet>>(() => new Map())
+  const [betTask, setBetTask] = useState<ManagedTask | null>(null)
+  const [betPlacing, setBetPlacing] = useState(false)
+  const [betError, setBetError] = useState<string | null>(null)
+  const [betNotices, setBetNotices] = useState<string[]>([])
+
+  const loadBets = useCallback(async () => {
+    try {
+      setBets(await fetchTaskBets(supabase))
+    } catch (error) {
+      // Bets are extra; the task list stands without them.
+      console.error('Task bets could not be loaded', error)
+    }
+  }, [supabase])
+
+  /** Settles what is due and says how each newly settled bet went. */
+  const settleBets = useCallback(async () => {
+    try {
+      const settled = await settleTaskBets(supabase)
+      if (settled.length > 0) {
+        setBetNotices((current) => [...current, ...settled.map(describeSettledBet)])
+        setCoins(settled[settled.length - 1].coins)
+      }
+    } catch (error) {
+      console.error('Task bets could not be settled', error)
+    }
+    await loadBets()
+  }, [loadBets, setCoins, supabase])
+
+  useEffect(() => {
+    if (!betsEnabled) return
+    queueMicrotask(() => {
+      void settleBets()
+    })
+  }, [betsEnabled, settleBets])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -294,6 +349,8 @@ export function TaskManager({
         current.map((item) => (item.id === updated.id ? updated : item))
       )
       if (completed && awardCompletionXp) await awardXp(updated)
+      // Completing settles an open bet in the database; report it now.
+      if (completed && bets.get(task.id)?.status === 'open') await settleBets()
       notifyDataUpdated()
     } catch (error) {
       setTasks((current) =>
@@ -381,6 +438,27 @@ export function TaskManager({
     }
   }
 
+  async function placeBet(stake: number) {
+    if (!betTask) return
+    const key = `bet:${betTask.id}`
+    if (!beginMutation(key)) return
+    setBetPlacing(true)
+    setBetError(null)
+    try {
+      const result = await placeTaskBet(supabase, betTask.id, stake)
+      if (!result.ok) {
+        setBetError(PLACE_BET_MESSAGES[result.reason])
+        return
+      }
+      setCoins(result.coins)
+      setBetTask(null)
+      await loadBets()
+    } finally {
+      setBetPlacing(false)
+      endMutation(key)
+    }
+  }
+
   async function retryMutation() {
     if (!mutationError) return
     const action = mutationError.retry
@@ -428,6 +506,12 @@ export function TaskManager({
       todayKey={today}
       plannedTaskIds={plannedTaskIds}
       mutationKeys={mutationKeys}
+      bets={bets}
+      betsEnabled={betsEnabled}
+      onBet={(task) => {
+        setBetError(null)
+        setBetTask(task)
+      }}
       onToggle={(task) => void performToggle(task, !task.is_completed)}
       onEdit={openEdit}
       onDefer={(task) => void performDefer(task)}
@@ -456,6 +540,10 @@ export function TaskManager({
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
+            <BetNotices
+              notices={betNotices}
+              onDismiss={() => setBetNotices([])}
+            />
             <TaskStatus
               loading={loading}
               loadError={loadError}
@@ -576,6 +664,10 @@ export function TaskManager({
               )}
             </CardHeader>
             <CardContent className="space-y-4 p-3 sm:p-5">
+              <BetNotices
+                notices={betNotices}
+                onDismiss={() => setBetNotices([])}
+              />
               <MutationErrorBanner
                 error={mutationError}
                 onDismiss={() => setMutationError(null)}
@@ -603,6 +695,9 @@ export function TaskManager({
         open={editorOpen}
         task={editingTask}
         today={today}
+        dueDateLocked={
+          editingTask ? bets.get(editingTask.id)?.status === 'open' : false
+        }
         saving={editorSaving}
         error={editorError}
         onOpenChange={(open) => {
@@ -614,6 +709,15 @@ export function TaskManager({
           }
         }}
         onSubmit={handleEditorSubmit}
+      />
+      <TaskBetDialog
+        task={betTask}
+        balance={coins}
+        todayKey={today}
+        placing={betPlacing}
+        error={betError}
+        onCancel={() => setBetTask(null)}
+        onConfirm={(stake) => void placeBet(stake)}
       />
       <TaskDeleteDialog
         task={deleteCandidate}
@@ -637,6 +741,9 @@ interface TaskRowsProps {
   todayKey: string
   plannedTaskIds: readonly string[]
   mutationKeys: Set<string>
+  bets: Map<string, TaskBet>
+  betsEnabled: boolean
+  onBet: (task: ManagedTask) => void
   onToggle: (task: ManagedTask) => void
   onEdit: (task: ManagedTask) => void
   onDefer: (task: ManagedTask) => void
@@ -649,6 +756,9 @@ function TaskRows({
   todayKey,
   plannedTaskIds,
   mutationKeys,
+  bets,
+  betsEnabled,
+  onBet,
   onToggle,
   onEdit,
   onDefer,
@@ -664,6 +774,8 @@ function TaskRows({
           Boolean(task.due_date) &&
           !task.is_completed &&
           task.due_date! < todayKey
+        const bet = bets.get(task.id)
+        const betOpen = bet?.status === 'open'
 
         return (
           <li
@@ -719,6 +831,7 @@ function TaskRows({
                         : formatTaskDate(task.due_date)}
                     </span>
                   )}
+                  {bet && <BetBadge bet={bet} />}
                   {!task.is_completed && plannedTaskIds.includes(task.id) && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
                       <CalendarCheck className="size-3.5" aria-hidden="true" />
@@ -743,17 +856,36 @@ function TaskRows({
                   Reopen
                 </Button>
               ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onDefer(task)}
-                  disabled={mutating}
-                  className="min-h-10"
-                >
-                  <CalendarClock className="size-4" />
-                  Tomorrow
-                </Button>
+                <>
+                  {betsEnabled && canBetOn(task, todayKey, bet) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onBet(task)}
+                      disabled={mutating}
+                      className="min-h-10 text-amber-700 hover:text-amber-800 dark:text-amber-300"
+                      aria-label={`Bet coins on ${task.title}`}
+                    >
+                      <Coins className="size-4" />
+                      Bet
+                    </Button>
+                  )}
+                  {/* The due date is what an open bet is on, so it stays. */}
+                  {!betOpen && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onDefer(task)}
+                      disabled={mutating}
+                      className="min-h-10"
+                    >
+                      <CalendarClock className="size-4" />
+                      Tomorrow
+                    </Button>
+                  )}
+                </>
               )}
               <Button
                 type="button"
@@ -782,6 +914,66 @@ function TaskRows({
         )
       })}
     </ul>
+  )
+}
+
+/** A task's bet: what is at stake while it runs, and how it went. */
+function BetBadge({ bet }: { bet: TaskBet }) {
+  if (bet.status === 'open') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-sm font-medium text-amber-800 dark:text-amber-200">
+        <Coins className="size-3.5" aria-hidden="true" />
+        Bet {bet.stake} · win {bet.stake * 2}
+      </span>
+    )
+  }
+  return bet.status === 'won' ? (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-sm font-medium text-emerald-800 dark:text-emerald-200">
+      <Coins className="size-3.5" aria-hidden="true" />
+      Won {bet.payout}
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-sm font-medium text-muted-foreground">
+      <Coins className="size-3.5" aria-hidden="true" />
+      Lost {bet.stake}
+    </span>
+  )
+}
+
+/** How newly settled bets went, until dismissed. */
+function BetNotices({
+  notices,
+  onDismiss,
+}: {
+  notices: string[]
+  onDismiss: () => void
+}) {
+  if (notices.length === 0) return null
+  return (
+    <div
+      role="status"
+      className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm"
+    >
+      <Coins
+        className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300"
+        aria-hidden="true"
+      />
+      <ul className="min-w-0 flex-1 space-y-1">
+        {notices.map((notice, index) => (
+          <li key={index}>{notice}</li>
+        ))}
+      </ul>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="ghost"
+        onClick={onDismiss}
+        className="size-10 shrink-0"
+        aria-label="Dismiss bet results"
+      >
+        <X className="size-4" />
+      </Button>
+    </div>
   )
 }
 

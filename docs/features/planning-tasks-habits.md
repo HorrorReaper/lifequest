@@ -126,7 +126,8 @@ Users can search title and description and filter by priority. Priority order is
 - Create and edit title, description, priority, and due date. The dialog asks for the title first; the description sits under a collapsed "Details (optional)" that opens by itself when the task already has one. The due date is four buttons, "Today", "Tomorrow", "Choose date" and "No date" (`DueDateField` in `src/components/tasks/DueDateField.tsx`, computed from the profile day passed in as `today`), with a line under them saying what will be saved ("Due tomorrow. Planning it into a day is separate."). Only "Choose date" shows the calendar, and it stays selected once pressed, also on a task already due today or tomorrow.
 - `/tasks?new=1` opens the create dialog directly (the quick action sheet's "Task").
 - Complete and reopen.
-- Defer an incomplete task to tomorrow.
+- Defer an incomplete task to tomorrow (not while a bet runs on it).
+- Bet coins that a task gets done by its due date, see [Task bets](#task-bets).
 - Delete after confirmation.
 - Retry a failed mutation.
 
@@ -151,6 +152,19 @@ Task mutations use locks to prevent repeated submission, optimistic updates wher
 Completing an ordinary task awards 5 XP once, through `completeTaskWithReward` in `src/lib/tasks.ts` wherever a check-off is offered (task list, dashboard section, Next up). Reopening keeps the XP, and completing again does not pay twice. The client checks for an existing `xp_events` row with the task as its source before applying the reward. Create dialogs guard submit with a ref set before the first `await`, so a double tap creates one task. This check and the subsequent writes are not one atomic RPC, so the database remains the correct place for any future stronger idempotency guarantee.
 
 The public task manager deliberately exposes only durable basic fields. Project status, estimates, subtasks, and blocked states belong to the admin project workspace.
+
+### Task bets
+
+A user can stake coins that an open task gets done by the end of its due day, in the profile timezone. Done in time pays back twice the stake. Tables, functions and triggers are in `supabase/migrations/20261119120000_task_bets.sql`; the client side is `src/lib/task-bets.ts`, `TaskBetDialog.tsx` and `TaskManager.tsx` in `src/components/tasks/`.
+
+- **Where.** On the user's own task lists (`/tasks` and the dashboard's task list), where tasks earn rewards. Not in Work (`projectId` set or `awardCompletionXp` off).
+- **Which tasks.** Open, due today or later, and never bet on before (`canBetOn`). Such a task shows a "Bet" action (amber, coin icon) next to "Tomorrow".
+- **Placing.** "Bet" opens `TaskBetDialog`: "Bet on this task", the task and its deadline ("by the end of today" or of its date), a stake from 1 to 20 coins with − and + buttons and "5 coins", "10 coins", "20 coins", "If done in time +N coins", "Your coins" and a line on losing ("If it is not done by then, or the task is deleted, the stake is gone. The due date is locked while the bet runs."). The stake starts at 10, or at the balance when that is lower. More than the balance shows "Not enough coins for this bet." and disables "Bet N coins". `place_task_bet` checks everything again on the server and takes the stake from `city_states.coins`; a refusal shows its reason in the dialog (`PLACE_BET_MESSAGES`: stake, task gone, already done, no date or past, "This task already had its bet.", "That makes 3 bets today. Try again tomorrow.", not enough coins). The new balance goes to the top bar (`setCoins`).
+- **Running.** The row shows "Bet 20 · win 40" and no "Tomorrow". The editor disables the due date with "The due date is locked while a bet runs on this task.", and the database refuses any due date change for a task with an open bet (`bet:due_date_locked`, shown in those words).
+- **Won.** Completing the task on or before its due day settles the bet in the same database update (trigger `tasks_settle_bet_on_completion`) and pays twice the stake. Completing it later loses. The badge then reads "Won 40" or "Lost 20".
+- **Lost.** A bet whose due day has passed is lost the next time a task list loads (`settle_task_bets`). Deleting the task loses it too (`tasks_lose_bet_on_delete`); the bet keeps the task's title.
+- **Results.** `settle_task_bets` returns each settled bet once (`seen_at`). The task list calls it on load and right after a task with an open bet is completed, and shows "You won 40 coins on “…”." or "You lost 20 coins on “…”." in an amber notice until dismissed, with the balance updated.
+- **Against farming.** One bet per task, ever (a reopened task cannot be bet on again, and reopening keeps a win), and at most three new bets per local day. Completion is the user's own check-off, so a bet is a promise to oneself; the limits cap what a dishonest check-off can earn.
 
 ## Habit manager
 

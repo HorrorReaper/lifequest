@@ -6,7 +6,7 @@ LifeQuest turns meaningful actions into visible progression through:
 
 - XP and levels.
 - Current and best streaks.
-- Coins.
+- Coins, earned from habits, challenges, lessons and quests, spent on avatar gear, and staked on tasks ([Task bets](./planning-tasks-habits.md#task-bets): up to 20 coins that a task gets done by its due date, twice back if it does). Bets are the one place coins can be lost, and only on the user's own choice.
 - Quests and challenge programs.
 - Lessons.
 - A buildable virtual city.
