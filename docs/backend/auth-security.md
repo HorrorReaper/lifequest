@@ -191,6 +191,12 @@ Web push for the evening review reminder ([Push notifications](../features/push-
 - **Notification clicks** open only paths on the site, never another origin.
 - **Scheduled sending.** `/api/push/reminders` (and its old address `/api/push/evening-review`) accepts only `Authorization: Bearer <CRON_SECRET>` (constant-time comparison) and uses the Supabase secret key, because it reads every user's devices. `claim_daily_plan_reminders` and `claim_evening_review_reminders` are executable by `service_role` only, and `push_reminder_log` has no client privileges. The secret for `pg_cron` is kept in Supabase Vault, not in a migration.
 
+## Task bets
+
+- **Coins move only in the database.** `place_task_bet`, `settle_task_bets` and the task triggers are security definer functions; `task_bets` has a select policy for the owner and no client insert, update or delete privileges, so a browser can ask for a bet but never write a balance or a result.
+- **Ownership.** `place_task_bet` only finds tasks of `auth.uid()` (`bet:not_found` otherwise) and settles only that user's bets.
+- **Limits.** Stake 1-20, one bet per task ever, three new bets per local day, enforced in the function rather than the UI.
+
 ## Landing-page traffic
 
 The landing page counts visits without cookies, browser storage or a third party, so it needs no consent banner ([Landing-page traffic](../features/landing-traffic.md)). The boundaries:

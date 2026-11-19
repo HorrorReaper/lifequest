@@ -73,7 +73,7 @@ src/app/
 | `quests/` | Quest and challenge-program UI |
 | `routines/` | Focused routine runner |
 | `settings/` | Settings and routine management |
-| `tasks/` | Task manager, list, editor, delete dialog |
+| `tasks/` | Task manager, list, editor, delete dialog, bet dialog (`TaskBetDialog.tsx`, rules in `lib/task-bets.ts`) |
 | `template-builder/` | Journal template builder |
 | `ui/` | Reusable LifeQuest controls |
 | `waitlist/` | Waitlist modal/form |
