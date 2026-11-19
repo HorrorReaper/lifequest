@@ -298,7 +298,7 @@ export function OnboardingFlow({ userId, currentName, templates, reminderTimes }
 
   const content: Record<OnboardingStep, React.ReactNode> = {
     welcome: (
-      <StepTitle hint="Plan your day, look back on it, and watch your trail grow.">
+      <StepTitle hint="Let's start with a few simple questions to make your adventure more exciting!">
         Build your life like an adventure.
       </StepTitle>
     ),
@@ -536,7 +536,13 @@ export function OnboardingFlow({ userId, currentName, templates, reminderTimes }
           : 'Open the planner'
         : 'Continue'
   const scene = SCENE[step]
-  const showGreeting = step !== 'welcome' && step !== 'done' && firstName.length > 0
+  // The avatar says hello on the welcome screen, and by name once there is one.
+  const greeting =
+    step === 'welcome'
+      ? 'Hey, nice to meet you!'
+      : step !== 'done' && firstName.length > 0
+        ? `Hey ${firstName}!`
+        : null
 
   return (
     <div className="flex min-h-svh w-full max-w-md flex-col overflow-hidden bg-background sm:min-h-[min(860px,calc(100svh-4rem))] sm:rounded-[2rem] sm:border sm:shadow-xl">
@@ -544,7 +550,7 @@ export function OnboardingFlow({ userId, currentName, templates, reminderTimes }
         stage={sceneStageFor(step)}
         height={scene.height}
         avatarHeight={scene.avatar}
-        greeting={showGreeting ? `Hey ${firstName}!` : null}
+        greeting={greeting}
       >
         {questionIndex >= 0 && (
           <div className="absolute inset-x-4 top-4 z-30 flex items-center gap-2.5">

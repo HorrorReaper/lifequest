@@ -97,6 +97,13 @@ describe('OnboardingFlow', () => {
     render(<OnboardingFlow {...props} />)
     await settle()
     expect(heading()).toBe('Build your life like an adventure.')
+    expect(screen.getByText('Hey, nice to meet you!')).toBeTruthy()
+    // The smiling traveller, not the dashboard's avatar, walks the trail.
+    expect(document.querySelector('[data-slot="trail-walker"]')).toBeTruthy()
+    expect(screen.queryByRole('img', { name: 'Your avatar' })).toBeNull()
+    expect(
+      screen.getByText("Let's start with a few simple questions to make your adventure more exciting!")
+    ).toBeTruthy()
 
     fireEvent.click(primary())
     expect(heading()).toBe('What is your name?')
