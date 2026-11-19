@@ -87,6 +87,7 @@ export function isJournalFieldComplete(
   switch (field.field_type) {
     case 'text':
     case 'textarea':
+    case 'markdown':
     case 'select':
     case 'mood':
       return Boolean(value.value_text?.trim())

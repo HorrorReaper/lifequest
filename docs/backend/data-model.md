@@ -31,7 +31,7 @@ Application filters such as `.eq('user_id', user.id)` improve clarity and perfor
 | `profiles` | One row per Auth user; name, onboarding, timezone, XP, streak, AI consent |
 | `journal_templates` | System or user-owned reflection templates |
 | `template_fields` | Ordered field definitions belonging to a template |
-| `journal_entries` | User entry, template, entry date, completion and XP |
+| `journal_entries` | User entry, template, entry date, completion and XP; `is_diary` marks a diary entry (set by the `journal_entries_mark_diary` trigger for the Diary template), and `journal_entries_one_diary_per_day` allows one per user and day |
 | `journal_responses` | Typed values for an entry and template field |
 | `journal_prompts` | Prompt library used by `prompt` template fields, drawn at random |
 | `ritual_settings` | One row per dashboard ritual prompt (Daily Plan, Evening Review, Weekly Review, Weekly Plan): enabled, window, target template, copy, and `reminder_minutes` (when the push reminder goes out; only the Daily Plan reads it, 08:00 by default, null for no push). Read by all users, updated by trusted admins |

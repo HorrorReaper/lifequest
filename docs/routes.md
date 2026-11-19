@@ -56,6 +56,8 @@
 | `/journal/new/[templateId]` | Create a journal entry; mobile wizard below 768px |
 | `/journal/[entryId]` | View/edit an existing entry |
 | `/journal/entries` | Complete journal archive |
+| `/journal/diary` | Diary entries with a month overview (`?month=YYYY-MM`) |
+| `/journal/diary/[entryId]` | One diary entry, rendered from Markdown, with previous/next day |
 | `/journal/insights` | Marked insights and durable learning library |
 | `/journal/templates` | System and custom template list |
 | `/journal/templates/new` | Create a custom template |

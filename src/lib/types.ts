@@ -48,6 +48,7 @@ export interface TemplateField {
 export type FieldType =
   | 'text'
   | 'textarea'
+  | 'markdown'
   | 'number'
   | 'slider'
   | 'select'

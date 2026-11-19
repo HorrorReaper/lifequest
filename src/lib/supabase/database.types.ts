@@ -246,6 +246,7 @@ export interface Database {
           entry_date: string
           is_complete: boolean
           xp_earned: number
+          is_diary: boolean
           created_at: string
           updated_at: string
         }
@@ -256,6 +257,7 @@ export interface Database {
           entry_date?: string
           is_complete?: boolean
           xp_earned?: number
+          is_diary?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -266,6 +268,7 @@ export interface Database {
           entry_date?: string
           is_complete?: boolean
           xp_earned?: number
+          is_diary?: boolean
           created_at?: string
           updated_at?: string
         }

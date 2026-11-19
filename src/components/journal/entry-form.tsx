@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { dateInTimezone } from '@/lib/dates'
+import { DIARY_TEMPLATE_ID } from '@/lib/diary'
 import { resolveStreak, streakCelebration, streakMilestoneBonus } from '@/lib/streak'
 import { supabaseInsert, supabaseFrom, supabaseUpdateWhere } from '@/lib/supabase/helpers'
 import type { Database, Json } from '@/lib/supabase/database.types'
@@ -783,7 +784,12 @@ export function EntryForm({
       setSubmitted(true)
     } catch (err) {
       console.error('Submit error:', err)
-      setError('Something went wrong. Please try again.')
+      // The database allows one diary entry a day (journal_entries_one_diary_per_day).
+      setError(
+        (err as { code?: string } | null)?.code === '23505' && template.id === DIARY_TEMPLATE_ID
+          ? 'There is already a diary entry for today. Open it from your diary to keep writing.'
+          : 'Something went wrong. Please try again.'
+      )
     } finally {
       setSubmitting(false)
     }

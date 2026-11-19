@@ -11,6 +11,7 @@ import { StarRating } from '@/components/journal/star-rating'
 import { SliderInput } from '@/components/journal/slider-input'
 import { ChecklistInput } from '@/components/journal/checklist-input'
 import { PromptDisplay } from '@/components/journal/prompt-display'
+import { MarkdownField } from '@/components/journal/markdown-field'
 import { TemplateField, FieldValue, MoodOption, ChecklistItem, DayPlanBlock } from '@/lib/types'
 import { DraftTask, TasksInput } from './TasksInput'
 import { DayPlannerInput } from './DayPlannerInput'
@@ -128,6 +129,17 @@ export function FieldRenderer({
           rows={(config?.rows as number) ?? 7}
           maxLength={(config?.maxLength as number) ?? undefined}
           className="min-h-40 resize-none rounded-xl bg-background/80 leading-6"
+        />
+      )}
+
+      {/* Markdown */}
+      {field.field_type === 'markdown' && (
+        <MarkdownField
+          placeholder={field.placeholder ?? undefined}
+          value={value.value_text ?? ''}
+          onChange={updateTextValue}
+          disabled={disabled}
+          maxLength={(config?.maxLength as number) ?? 20000}
         />
       )}
 
@@ -267,7 +279,7 @@ export function FieldRenderer({
         />
       )}
 
-      {(field.field_type === 'text' || field.field_type === 'textarea') &&
+      {(field.field_type === 'text' || field.field_type === 'textarea' || field.field_type === 'markdown') &&
         Boolean(value.value_text?.trim()) && (
           <InsightMarker
             insightType={value.insight_type ?? null}

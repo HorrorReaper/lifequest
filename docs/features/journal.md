@@ -38,6 +38,7 @@ The field registry supports:
 | `divider` | Visual separation |
 | `text` | Short response |
 | `textarea` | Long response |
+| `markdown` | Long text with formatting and images from https links, written with a toolbar and Write / Preview (see [Diary](#diary)) |
 | `number` | Numeric value, decimals allowed ("72,5" or "72.5"); optional min/max |
 | `slider` | Bounded numeric reflection |
 | `select` | One option from a configured list |
@@ -220,6 +221,26 @@ The dashboard loads the scorecard and the single-metric chart through `loadDashb
 ### Scope
 
 Slider and rating fields are intentionally not metrics: their bounded scales don't need the free-range charting that `number` values get. Daily sums and logging for past dates are not supported (`docs/reference/known-limitations.md`). The dashboard scorecard and the single-metric chart section are described in `docs/features/core-app.md`.
+
+## Diary
+
+One diary entry a day, with a title and Markdown, read back on its own page.
+
+**Template.** The system template "Diary" (`DIARY_TEMPLATE_ID` and its field ids in `src/lib/diary.ts`, seeded by `supabase/migrations/20261119150000_diary.sql`): "Title" (short text, optional, "Give the day a name") and "What happened today?" (`markdown`, required, up to 20,000 characters). Entry type `diary`, 15 XP, sort order 103. It is an ordinary journal entry, so it earns XP, counts for the streak and appears in the archive and the onboarding's list of first steps.
+
+**One a day.** `journal_entries.is_diary` marks diary entries; the trigger `journal_entries_mark_diary` sets it for the Diary template, and the unique index `journal_entries_one_diary_per_day` allows one per user and day. Opening the Diary (`/journal/new/<diary>`) when today already has an entry redirects to that entry's edit page, so writing again continues it. If two tabs save at once, the second gets "There is already a diary entry for today. Open it from your diary to keep writing." The column is not tied to the template, so a later step can mark another entry (a Free Write) as the day's diary.
+
+**Markdown field.** `MarkdownField` (`src/components/journal/markdown-field.tsx`): a toolbar (Bold, Italic, Heading, List, Link, Image from a link) that inserts Markdown around the selection (`applyMarkdownAction` in `src/lib/markdown-text.ts`, selecting the `https://` to type over for links and images), Write / Preview tabs, and a line on what works. The template builder offers it under Text, with placeholder and max length.
+
+**Rendering.** `MarkdownView` (`src/components/ui/markdown-view.tsx`, `react-markdown` with GFM): headings, lists, quotes, code, tables, links and images. Raw HTML is never rendered (`skipHtml`). Images show only from `https` links, lazily and with `referrerPolicy="no-referrer"`; any other image shows "Image not shown: … (only https links)". Links open in a new tab and only for http, https and mailto. Images are plain `img` elements, so any host works; the host sees the reader's IP address when an image loads.
+
+**Pages.**
+
+- `/journal/diary` (`src/app/(app)/journal/diary/page.tsx`): "Diary", "One page for every day.", and "Write today" or "Continue today" (to the Diary template). `DiaryMonthCard` shows a month Monday first: written days filled and linking to their entry, today ringed, later days faded, "N of M days written" (days up to today), and previous/next month (`?month=YYYY-MM`, not past the current month). Under it the entries, newest first, grouped by month (`DiaryEntryCard`: weekday and day, the title or "Untitled", two lines of the text without Markdown (`markdownExcerpt`), and the first https image as a thumbnail (`firstMarkdownImage`)). Without entries: "No diary entries yet".
+- `/journal/diary/[entryId]`: the entry's date, title and `MarkdownView`, the previous and next diary day, and "Edit entry" (the journal's edit page, which leads back with "Open your diary").
+- The journal home has a "Diary" link next to Insights, Templates and Metrics.
+
+Diary entries are read with `fetchDiaryEntries` (title and body from `journal_responses`). Entries are always for today: past days cannot be written, only edited.
 
 ## Archive and editing
 

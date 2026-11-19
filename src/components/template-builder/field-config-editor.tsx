@@ -163,7 +163,7 @@ export function FieldConfigEditor({
           )}
 
           {/* Placeholder */}
-          {['text', 'textarea'].includes(editedField.field_type) && (
+          {['text', 'textarea', 'markdown'].includes(editedField.field_type) && (
             <div className="space-y-2">
               <Label>Placeholder</Label>
               <Input
@@ -214,13 +214,13 @@ export function FieldConfigEditor({
             </div>
           )}
 
-          {/* Max length for textarea */}
-          {editedField.field_type === 'textarea' && (
+          {/* Max length for long text */}
+          {(editedField.field_type === 'textarea' || editedField.field_type === 'markdown') && (
             <div className="space-y-2">
               <Label>Max Length</Label>
               <Input
                 type="number"
-                value={(config.maxLength as number) ?? 2000}
+                value={(config.maxLength as number) ?? (editedField.field_type === 'markdown' ? 20000 : 2000)}
                 onChange={(e) =>
                   updateConfig('maxLength', Number(e.target.value))
                 }

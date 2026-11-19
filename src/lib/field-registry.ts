@@ -49,6 +49,15 @@ export const FIELD_REGISTRY: FieldTypeDefinition[] = [ //welche verschiedenen Ar
     isDisplayOnly: false,
   },
   {
+    type: 'markdown',
+    label: 'Markdown',
+    icon: '🖋️',
+    description: 'Formatted writing: bold, lists and images from links',
+    hasConfig: true,
+    defaultConfig: { maxLength: 20000 },
+    isDisplayOnly: false,
+  },
+  {
     type: 'number',
     label: 'Number',
     icon: '🔢',

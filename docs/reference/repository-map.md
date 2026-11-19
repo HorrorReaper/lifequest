@@ -59,6 +59,7 @@ src/app/
 | `auth/` | Login/sign-up form |
 | `city/` | Grid, building picker/sprites, rewards, level progress |
 | `dashboard/` | Daily briefing and dashboard cards |
+| `diary/` | Diary list card and month card |
 | `dev/` | Private testing/development controls |
 | `habits/` | Habit manager, editor, analytics |
 | `journal/` | Field rendering, entry form, mobile wizard, archive, insights |
@@ -129,6 +130,7 @@ src/app/
 | Dashboard greeting and hero scene | `components/dashboard/DashboardGreeting.tsx`, `components/dashboard/DashboardHeroScene.tsx`, `lib/day-progress.ts` |
 | Dashboard next step and plan status | `components/dashboard/NextUpCard.tsx`, `lib/dashboard-plan.ts`, `components/ui/progress-ring.tsx` |
 | Onboarding | `components/onboarding/onboarding-flow.tsx`, `components/onboarding/OnboardingScene.tsx` (reuses `components/dashboard/DashboardHeroScene.tsx`), `components/onboarding/TrailWalker.tsx`, `lib/onboarding.ts` |
+| Diary | `app/(app)/journal/diary/`, `components/diary/`, `lib/diary.ts`; Markdown field `components/journal/markdown-field.tsx`, `components/ui/markdown-view.tsx`, `lib/markdown-text.ts` |
 | Push notifications | `public/sw.js`, `lib/push-*.ts`, `app/api/push/test/route.ts`, `app/api/push/reminders/route.ts` (also served at `app/api/push/evening-review/route.ts`), `components/settings/PushReminderCard.tsx`, `scripts/verify-push-reminders.mjs` |
 | Landing-page traffic | `app/api/landing-events/route.ts`, `lib/landing-*.ts`, `components/admin/LandingTraffic.tsx` |
 | Feedback and beta activation | `components/feedback/FeedbackDialog.tsx`, `lib/feedback.ts`, `components/admin/BetaActivation.tsx`, `lib/activation.ts` |

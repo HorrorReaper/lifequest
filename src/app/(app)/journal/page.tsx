@@ -5,7 +5,7 @@ import { TemplatePicker } from '@/components/journal/template-picker'
 import { EntryTimeline } from '@/components/journal/entry-timeline'
 import { JournalTemplate, JournalEntry } from '@/lib/types'
 import { dateInTimezone, formatDateOnly, hourInTimezone } from '@/lib/dates'
-import { ArrowRight, BookOpen, BookOpenCheck, LayoutList, LayoutTemplate, LineChart } from 'lucide-react'
+import { ArrowRight, BookHeart, BookOpen, BookOpenCheck, LayoutList, LayoutTemplate, LineChart } from 'lucide-react'
 
 type EntryTypeJoin = { entry_type: string } | { entry_type: string }[] | null
 
@@ -129,6 +129,13 @@ export default async function JournalPage() {
             <h1 className="mt-1 font-heading text-3xl font-semibold tracking-tight">Journal</h1>
           </div>
           <nav className="flex shrink-0 flex-wrap gap-2">
+            <Link
+              href="/journal/diary"
+              className="flex items-center gap-1.5 rounded-full border bg-background/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+            >
+              <BookHeart className="size-3.5" />
+              Diary
+            </Link>
             <Link
               href="/journal/insights"
               className="flex items-center gap-1.5 rounded-full border bg-background/70 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"

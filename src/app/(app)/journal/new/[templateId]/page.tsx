@@ -12,6 +12,7 @@ import { dateInTimezone } from '@/lib/dates'
 import { fetchJournalMetrics } from '@/lib/metrics'
 import { CHALLENGE_REFLECTION_TEMPLATE_ID } from '@/lib/challenge-rules'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { DIARY_PATH, DIARY_TEMPLATE_ID, findDiaryEntryForDay } from '@/lib/diary'
 
 interface PageProps {
   params: Promise<{ templateId: string }>
@@ -64,6 +65,13 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
   const templateFields = (fields as TemplateField[]) ?? []
   const today = dateInTimezone(new Date(), timezone)
 
+  // One diary entry a day: opening the Diary again continues today's.
+  const isDiary = templateId === DIARY_TEMPLATE_ID
+  if (isDiary) {
+    const existing = await findDiaryEntryForDay(supabase as unknown as SupabaseClient, user.id, today)
+    if (existing) redirect(`/journal/${existing}`)
+  }
+
   // The metrics this template asks for, with today's value in the user's time
   // zone. Journaling must work without them, so a failed read shows none.
   const linkedMetrics = await fetchJournalMetrics(
@@ -90,7 +98,13 @@ export default async function NewEntryPage({ params, searchParams }: PageProps) 
           linkedMetrics={linkedMetrics}
           firstEntry={firstEntry === '1'}
           prompt={challengePrompt ?? findReflectionPrompt(prompt)?.text ?? null}
-          returnTo={challenge ? { href: `/challenges/${challenge.templateId}`, label: 'Back to the challenge' } : null}
+          returnTo={
+            challenge
+              ? { href: `/challenges/${challenge.templateId}`, label: 'Back to the challenge' }
+              : isDiary
+                ? { href: DIARY_PATH, label: 'Open your diary' }
+                : null
+          }
         />
       </div>
     </div>

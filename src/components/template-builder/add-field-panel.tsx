@@ -17,7 +17,7 @@ interface AddFieldPanelProps {
  * drop it from the palette.
  */
 const FIELD_GROUPS: { label: string; types: FieldType[] }[] = [
-  { label: 'Text', types: ['text', 'textarea', 'prompt'] },
+  { label: 'Text', types: ['text', 'textarea', 'markdown', 'prompt'] },
   { label: 'Scales & choice', types: ['number', 'slider', 'rating', 'mood', 'select', 'checkbox'] },
   { label: 'Structure', types: ['heading', 'divider', 'checklist'] },
   { label: 'Integrations', types: ['tasks', 'day_planner', 'habit_tracker'] },

@@ -14,6 +14,7 @@ import {
   DAILY_REFLECTION_TEMPLATE_ID,
   reflectionPromptForDate,
 } from '@/lib/daily-reflection'
+import { DIARY_PATH, DIARY_TEMPLATE_ID } from '@/lib/diary'
 
 interface PageProps {
   params: Promise<{ entryId: string }>
@@ -107,13 +108,15 @@ export default async function ViewEntryPage({ params }: PageProps) {
       ? reflectionPromptForDate(entry.entry_date).text
       : null
 
+  const isDiary = entry.template_id === DIARY_TEMPLATE_ID
+
   return (
     <div className="min-h-svh bg-background px-4 pb-24 pt-5 max-md:p-0 sm:px-8 sm:pt-8">
       <div className="mx-auto max-w-3xl space-y-4">
         {/* Back + Date Header */}
         <div className="hidden items-center justify-between gap-3 md:flex">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/journal">← Back</Link>
+            <Link href={isDiary ? DIARY_PATH : '/journal'}>← Back</Link>
           </Button>
           <div className="text-right">
             <p className="text-sm text-muted-foreground">
@@ -144,6 +147,7 @@ export default async function ViewEntryPage({ params }: PageProps) {
           entryDate={entry.entry_date}
           today={dateInTimezone(new Date(), timezone)}
           linkedMetrics={linkedMetrics}
+          returnTo={isDiary ? { href: DIARY_PATH, label: 'Open your diary' } : null}
         />
       </div>
     </div>

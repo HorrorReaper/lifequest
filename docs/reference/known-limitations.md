@@ -81,6 +81,12 @@ See [Push notifications](../features/push-notifications.md).
 - Bets are not offered in Work, and there are no habit bets yet; the streak-goal bet for habits is the planned second step.
 - Reopening a task after its bet was won keeps the coins; the task cannot be bet on again.
 
+## Diary
+
+- Images are links, not uploads. An image whose host goes away or blocks hotlinking disappears from the entry, and the host sees the reader's IP address when it loads.
+- A diary entry is always for today; a missed day cannot be written afterwards.
+- Only the Diary template makes diary entries for now; marking a Free Write as the day's diary is planned.
+
 ## Password recovery
 
 The login UI does not currently provide a complete password-reset flow.
