@@ -38,6 +38,8 @@ interface TaskEditorDialogProps {
    * own day is the fallback.
    */
   today?: string;
+  /** A bet is open on the task, so its due date cannot change. */
+  dueDateLocked?: boolean;
   projectContext?: {
     projectId: string | null;
     projectName: string;
@@ -118,6 +120,7 @@ export function TaskEditorDialog({
   contactFields,
   contactDirty,
   today,
+  dueDateLocked = false,
 }: TaskEditorDialogProps) {
   const todayKey = today ?? localDateKey();
   const [draft, setDraft] = useState<TaskEditorDraft>(() => ({
@@ -258,8 +261,13 @@ export function TaskEditorDialog({
                     due_date: due_date ?? "",
                   }))
                 }
-                disabled={saving}
+                disabled={saving || dueDateLocked}
               />
+              {dueDateLocked && (
+                <p className="-mt-2 text-sm text-muted-foreground">
+                  The due date is locked while a bet runs on this task.
+                </p>
+              )}
 
               <fieldset className="space-y-3">
                 <legend className="flex items-center gap-2 text-sm font-medium">
